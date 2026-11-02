@@ -1,0 +1,325 @@
+# PKE EXPORT PLATFORM v4.2.2
+# INDEPENDENT TECHNICAL VALIDATION & BUSINESS ACCEPTANCE AUDIT
+
+The nine implementation phases have reportedly been completed.
+
+Your next assignment is NOT to immediately add new features.
+
+You must independently verify whether the implemented application actually satisfies the full PKE Export Platform v4.2.2 architecture and P01–P13 Implementation Plans.
+
+Do not assume that a feature is complete merely because its API route, database table, UI page, or test file exists.
+
+A feature is complete only when its business behavior works and its acceptance criteria are demonstrated with evidence.
+
+## 1. AUDIT RULES
+
+1. Read the architecture documents and all implementation plans again.
+2. Inspect the actual repository, not only the implementation status documents.
+3. Do not overwrite or delete working functionality.
+4. Do not modify production data.
+5. Do not expose secrets.
+6. Use an isolated development/staging database for integration tests.
+7. Do not claim tests passed unless they were actually executed.
+8. Classify every requirement as:
+   - PASS
+   - PARTIAL
+   - FAIL
+   - NOT IMPLEMENTED
+   - BLOCKED
+9. Attach evidence for every PASS result.
+10. Identify mismatches between documentation and actual code.
+
+## 2. FULL REQUIREMENT TRACEABILITY
+
+Review every requirement from P01 through P13.
+
+Create an updated requirement matrix containing:
+
+- Requirement ID.
+- Source document.
+- Business requirement.
+- Implemented files.
+- Database objects.
+- API endpoints.
+- UI route.
+- Automated test.
+- Manual test.
+- Result.
+- Evidence.
+- Remaining gap.
+
+No requirement may be marked PASS based only on file existence.
+
+## 3. CRITICAL DATABASE AND SECURITY AUDIT
+
+Inspect:
+
+- Neon database connection.
+- Connection pooling.
+- Migration history.
+- Foreign keys.
+- Unique constraints.
+- Transaction boundaries.
+- Indexes.
+- Database roles.
+- RLS policies.
+- Transaction-local security context.
+- Session security.
+- Admin principal enforcement.
+- Secret handling.
+
+Execute real database access tests through the application's normal connection path.
+
+Verify that:
+- Buyer cannot read internal costs.
+- Supplier A cannot read Supplier B data.
+- PM cannot read unrelated projects.
+- Checker cannot modify assignments outside scope.
+- Finance cannot change Admin settings.
+- Only Admin can approve Contract Program.
+- Gemini cannot execute payments.
+- Unauthorized requests are rejected at the backend and database layers.
+
+Test pooled connection context isolation to ensure user/project context does not leak between requests.
+
+## 4. FINANCIAL ACCOUNTING AUDIT
+
+This is a critical audit area.
+
+Verify whether the following actually exist and work:
+
+- RAB and versioning.
+- Budget allocation.
+- Purchase commitments.
+- Accrued expenses.
+- Accounts payable.
+- Accounts receivable.
+- Cash management.
+- Cash advances.
+- Settlement.
+- Payment request.
+- Payment instruction.
+- Payment evidence.
+- Payment verification.
+- Double-entry ledger.
+- Debit-credit balancing.
+- Inventory costing.
+- Overhead allocation.
+- Multi-currency transactions.
+- Contract FX baseline.
+- Actual FX rate.
+- FX revaluation.
+- Realized/unrealized FX gain/loss.
+- Project profitability.
+- Project settlement and closing.
+
+Create test scenarios using fictional values.
+
+Verify accounting entries mathematically and ensure all posted journal entries balance.
+
+Identify any CRUD-only implementation that does not yet constitute a complete accounting workflow.
+
+## 5. TRUCK TRACKING FIELD AUDIT
+
+Verify that the system supports:
+
+- Truck trip creation.
+- Unique trip IDs.
+- Departure photo from application camera.
+- Device GPS capture.
+- Latitude/longitude.
+- GPS accuracy.
+- Server timestamp.
+- Checker identity.
+- License plate.
+- Driver identity.
+- Cargo quantity.
+- PKS and lot references.
+- Intermediate checkpoint.
+- Destination arrival photo.
+- Destination GPS capture.
+- Geofence validation.
+- QR checkpoint.
+- Weighbridge evidence.
+- Weight discrepancy calculation.
+- Trip reconciliation.
+- Offline synchronization.
+- Buyer last-verified-location display.
+- Audit trail.
+
+Simulate at minimum:
+1. Valid departure and arrival.
+2. Missing GPS.
+3. GPS outside geofence.
+4. Poor GPS accuracy.
+5. Duplicate photo evidence.
+6. Wrong vehicle.
+7. Quantity discrepancy.
+8. Offline submission and later synchronization.
+
+Do not claim continuous vehicle GPS tracking.
+
+## 6. EXPORT COMPLIANCE AUDIT
+
+Verify:
+- Regulatory sources.
+- Country profiles for China and Pakistan.
+- Indonesia export rules.
+- Product and HS classification.
+- Document conditions.
+- Effective dates.
+- Superseded regulations.
+- Document registry.
+- Expiry alerts.
+- Compliance approval.
+
+Any compliance result without a verifiable legal source must be marked for human review.
+
+## 7. GEMINI AI AUDIT
+
+Verify:
+- API key backend-only storage.
+- Model registry.
+- Model routing.
+- Function calling.
+- Structured output validation.
+- RAG retrieval.
+- Source references.
+- Prompt versioning.
+- Token usage tracking.
+- Budget limits.
+- Rate limit handling.
+- Timeout and retry behavior.
+- Prompt injection resistance.
+- Tool authorization.
+- Sensitive data filtering.
+
+Test that AI cannot access data outside the requesting user's authorized project scope.
+
+## 8. STAKEHOLDER UI AUDIT
+
+Test actual user journeys for:
+
+- Admin.
+- Project Manager.
+- Finance.
+- Checker.
+- PKS.
+- Transporter.
+- Warehouse.
+- Buyer.
+- Supplier.
+- Funder.
+
+Inspect:
+- Navigation.
+- Role-based routing.
+- Project switching.
+- Responsive layout.
+- Form validation.
+- Loading state.
+- Error state.
+- Empty state.
+- Notifications.
+- Report exports.
+
+A visible button must execute a real function. Identify all mock and placeholder UI elements.
+
+## 9. API AND EXTERNAL INTEGRATION AUDIT
+
+Enumerate every endpoint.
+
+For each endpoint, document:
+- Method.
+- Route.
+- Authentication.
+- Permission.
+- Input schema.
+- Output schema.
+- Validation.
+- Error handling.
+- Rate limits.
+- Test evidence.
+
+Verify external integrations separately.
+
+Do not treat a placeholder adapter as a working provider integration.
+
+## 10. TEST EXECUTION
+
+Run actual commands available in the repository:
+
+- Type checking.
+- Lint.
+- Unit tests.
+- Integration tests.
+- API tests.
+- Database tests.
+- RLS tests.
+- Build.
+- End-to-end tests.
+
+Use staging credentials only.
+
+Record the exact commands and actual results.
+
+Do not fabricate test results.
+
+## 11. REQUIRED AUDIT DELIVERABLES
+
+Create:
+
+- `docs/VALIDATION_REPORT.md`
+- `docs/REQUIREMENT_GAP_MATRIX.md`
+- `docs/SECURITY_AUDIT_REPORT.md`
+- `docs/FINANCIAL_ACCOUNTING_AUDIT.md`
+- `docs/TRUCK_TRACKING_TEST_REPORT.md`
+- `docs/API_VALIDATION_REPORT.md`
+- `docs/AI_VALIDATION_REPORT.md`
+- `docs/STAKEHOLDER_UAT_REPORT.md`
+- `docs/PRODUCTION_READINESS_SCORECARD.md`
+- `docs/REMEDIATION_BACKLOG.md`
+
+## 12. REMEDIATION
+
+After the audit:
+
+1. Fix Critical and High severity defects.
+2. Add missing tests.
+3. Correct implementation/documentation mismatches.
+4. Do not silently remove requirements.
+5. Preserve working features.
+6. Update implementation traceability.
+7. Rerun affected tests.
+8. Rebuild the application.
+
+Separate:
+- Bugs.
+- Missing features.
+- Security risks.
+- Incorrect business logic.
+- External integration blockers.
+- Configuration requirements.
+
+Do not claim production-ready unless all mandatory release gates pass.
+
+## 13. FINAL REPORT
+
+At completion, report:
+
+1. Actual implementation status.
+2. Requirements passed.
+3. Partial requirements.
+4. Missing requirements.
+5. Security findings.
+6. Financial accounting findings.
+7. Truck tracking findings.
+8. AI findings.
+9. Test results.
+10. Remaining blockers.
+11. Recommended staging activities.
+12. Production readiness decision.
+
+The objective is to establish the true readiness of the application, not to produce an optimistic summary.
+
+START THE INDEPENDENT VALIDATION NOW.

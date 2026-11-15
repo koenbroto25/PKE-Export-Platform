@@ -1,0 +1,62 @@
+﻿# Secrets / local config (never commit)
+.env
+.env.*
+!.env.example
+!.env.test.example
+.neon
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/.env.local
+.env.test.local
+
+# Dependencies / build / local tooling
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.vercel/
+.vscode/
+.kilo/
+.next/
+coverage/
+
+# Logs, caches, temp, outputs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+pke-error.log
+docker_build.log
+tsc_*.txt
+*_out.txt
+*_output.txt
+*_err*.log
+*_build*.txt
+*_vitest*.txt
+final_*.txt
+vitest2_ascii.txt
+git_push_output.txt
+_tmp_*
+_dup_*
+
+# Sensitive artifacts / backups / dumps
+backups/
+_db_sync/
+_evidence/
+_recovery/
+*.dump
+*.backup
+*.sql.gz
+*.zip
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+
+# OS/editor
+.DS_Store
+Thumbs.db

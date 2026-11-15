@@ -1,0 +1,46 @@
+{
+  "package": "PKE Document Review Package Rev03",
+  "date": "2026-11-09",
+  "files": [
+    {
+      "file": "00_MASTER_IMPLEMENTATION_PLAN_v1.1.md",
+      "size_bytes": 13470,
+      "sha256": "10a4c9c0a6ebe6bedcc018cf3a321d9445edb6520065a5c84a34cd5af25b1256"
+    },
+    {
+      "file": "FINANCIAL_ACCOUNTING_AUDIT_2026-11-01_ORIGINAL_UNCHANGED.md",
+      "size_bytes": 8703,
+      "sha256": "50a81825794242b07e7d483edce50056d76d2897221559751145e1ca4e70b8cf"
+    },
+    {
+      "file": "FINANCIAL_ACCOUNTING_AUDIT_ADDENDUM_2026-11-09.md",
+      "size_bytes": 5658,
+      "sha256": "5be05ec1d7c04205641a3f91cddef03879ebcaf492c43ee9815385e18a0980c5"
+    },
+    {
+      "file": "P07_FINANCE_ACCOUNTING_PAYMENT_FX_v1.2.md",
+      "size_bytes": 24934,
+      "sha256": "561abbeeab1bfc8b7ed1f09a760fae946e2b74dc33c2fdb75a3a562c15a2c8bd"
+    },
+    {
+      "file": "P14_OPEN_SOURCE_FINANCE_BI_ADOPTION.md",
+      "size_bytes": 20386,
+      "sha256": "d4b9dde478a655b7399997f8a54fe55e6666d543b972a0f44cb5fa9aa3ffaceb"
+    },
+    {
+      "file": "PKE_Implementation_Plans_v4.2.3_Rev1.2.md",
+      "size_bytes": 154462,
+      "sha256": "e84db8d35224a68eed6da551d4ca4de08410bbc7ad0bfbbc42cc2e47972b0bbd"
+    },
+    {
+      "file": "PKE_Master_Architecture_v4.2.3_Review_Rev03.md",
+      "size_bytes": 189956,
+      "sha256": "dd0564f63927719dc2e08fff7c94e693d91d541a25ee652ee66c33abc12a5121"
+    },
+    {
+      "file": "README_REVIEW_PACKAGE.md",
+      "size_bytes": 2346,
+      "sha256": "488feefa13bef19d29b7c7b36b1b88ee78eb8ba5f905db525a13a8572d4bc686"
+    }
+  ]
+}

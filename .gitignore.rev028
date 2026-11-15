@@ -1,0 +1,5 @@
+# Revision 028 local secrets / recovery
+.env
+.env.*
+!.env.example
+backups/

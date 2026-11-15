@@ -1,4 +1,4 @@
-﻿# PKE Export Intelligence & Project Control Platform
+# PKE Export Intelligence & Project Control Platform
 
 # Master Implementation Plan Rev1.7 — Single-Source Execution Edition
 
@@ -6925,6 +6925,29 @@ Test results: code validation only (no live deployment)
 Blockers: Git auth (owner), Neon role/login mismatch (owner), Email provider (owner), Storage credentials (owner), Vercel deployment (owner)
 Release decision: awaiting owner actions for GitHub publication, Vercel deployment, and Neon target configuration
 
+**Execution update 15 November 2026 — PKE Rev 5.9 audit/verification session (evidence-backed):**
+- Read master plan (beginning/§0/§2/§32/§33/§34/tail) before actions. Audited git/local state: `origin https://github.com/koenbroto25/PKE-Export-Platform.git`, branch `pke-admin-project-foundation-20261108`, HEAD `ae44e01a956e9af2f370e81e670b736cccdca779`; remote `main` empty; `.env` tracked in git history (security blocker for pushing original history). No push/deploy/DB write performed.
+- Source/config verified: `api/[...path].ts` serverless Express entry (`ensureRuntimeReady`), `vercel.json` routes `/api/v1/*` and SPA fallback, backend/frontend build scripts present.
+- Verification: backend `tsc --noEmit` exit 0; migration manifest exit 0 (28/28); `vitest --pool=forks --maxWorkers=1` exit 0 (16 files, 138 tests); frontend `tsc -b`/`vite build` exit 0 with increased heap. Default vitest pool showed unhandled worker exits (harness instability).
+- Vercel CLI unavailable/unauthed at that point; no live Neon/storage/auth verification.
+
+**Execution update 16 November 2026 00:12–00:47 +08:00 — PKE Rev 5.9 one-pass sanitized GitHub publication (evidence-backed):**
+- **Working repo `D:\PKE` not rewritten:** no `git reset/clean/commit/push` in `D:\PKE`; `.env` in `D:\PKE` not deleted/modified; master plan updated in-place in `D:\PKE` only.
+- **Sanitized snapshot created:** `D:\PKE_GITHUB_RELEASE` (new, initially empty). Copied source/docs/config/migrations/tests/frontend needed for build/deploy, including latest `PKE_Master_Implementation_Plan_Rev1.7_Single_Source.md`. Excluded `.git`, `.env`, `.env.test.local`, `.neon`, `node_modules`, `.vercel`, caches/temp/logs/dumps/backups/zips/artefak eksperimen, duplicate/obsolete master-plan variants and non-essential blocker artifacts. Wrote publication `.gitignore` and placeholder-only `.env.example` + `frontend/.env.example` (no real values).
+- **Safety checks (snapshot):** no `.env`/`.neon` files present; `git add` staged 252 files with no `.env`/`.neon`/`node_modules` tracked. Secret-pattern scan hits reviewed (masked): `.env.example` placeholders (`REPLACE_ME`), example credentials in `docs/manual-setup/SPRINT_02A_NEON_SETUP.md`, and env-var-name mentions in master plan — no real secrets published. `gh api` confirmed `.env` and `frontend/.env.local` not present in published GitHub contents (404).
+- **Build/test in snapshot:** `npm ci` (root/frontend) exit 0. `npx tsc --noEmit` exit 0; `node scripts/verify-migration-manifest.mjs` exit 0 (28/28); `npm run build` (backend `tsc`) exit 0; frontend `npx tsc -b` exit 0 (`NODE_OPTIONS=--max-old-space-size=4096`); frontend `npm run build` exit 0 (`vite v6.4.5`, 1857 modules, `NODE_OPTIONS=--max-old-space-size=8192`). `vitest --pool=forks --maxWorkers=1` initial exit 1 due to `src/foundation.test.{ts,js}` expecting `dist/src/*` while tsconfig (`rootDir ./src`, `outDir ./dist`) emits `dist/*.js`; aligned test paths in snapshot to actual build output (no app/security/schema contract change). Re-run: **16 test files, 138 tests passed, exit 0**.
+- **GitHub publication (sanitized repo):** `gh auth status` authenticated as `koenbroto25` (repo scope). `git init -b main` in snapshot, commit `b041a0c8e1bd9aef8fd035339924ed9909a24fed` (`2026-11-16T00:45:43+08:00`) `release: publish sanitized PKE Export Platform`, pushed to `https://github.com/koenbroto25/PKE-Export-Platform.git` `main` (exit 0). Verified `git ls-remote origin refs/heads/main` = `b041a0c...`; `gh repo view` reports `defaultBranchRef=main`, `isEmpty=false`. Published contents include source, `api/`, `frontend/`, `migrations/` (001–028 + SQL helpers present), `vercel.json`, configs, docs, and `PKE_Master_Implementation_Plan_Rev1.7_Single_Source.md` (386282 bytes via API).
+- **Vercel deployment:** `npx vercel@latest --version` = `65.16.0` (CLI runnable via npx) but `whoami` = **logged out** (exit 1). No Vercel login/session, no project link, no env vars configured, no preview/production deploy performed. Deployment remains **BLOCKED_OWNER** (requires owner `vercel login`/dashboard auth and server-side env configuration for approved project/origin).
+- **Runtime verification:** no deployment URL; frontend/API/Neon/Auth/email/storage live checks **not executed** (BLOCKED/UNVERIFIED). Neon/Auth/storage/role-metadata prior blockers unchanged.
+
+Date: 16 November 2026
+Changed files (`D:\PKE`): `PKE_Master_Implementation_Plan_Rev1.7_Single_Source.md` (ledger/work-order/checklist update).
+Publication snapshot: `D:\PKE_GITHUB_RELEASE` (separate sanitized git repo) — commit `b041a0c8e1bd9aef8fd035339924ed9909a24fed` on `main`.
+GitHub: `https://github.com/koenbroto25/PKE-Export-Platform` branch `main` published and verified.
+Deployment URL: not available (Vercel not logged in; not deployed).
+Test/build evidence (snapshot): tsc/migration-manifest/backend-build/frontend-tsc/frontend-build/vitest all exit 0 as above.
+Release decision/status: **GITHUB_PUBLISHED**. **VERCEL_PREVIEW_DEPLOYED/PRODUCTION_DEPLOYED: BLOCKED_OWNER**. Overall **APPLICATION_COMPLETE / DEPLOYMENT_BLOCKED_OWNER**. **NOT OWNER_UAT_READY**.
+
 **Violation handling:** any work performed without first reading this document is unverified and must not be represented as compliant completion. Before continuing, the implementer must read the document, inspect the affected changes, and validate/reconcile them. Do not blindly revert potentially useful work.
 
 ### 34.2 Current authoritative target and verified Neon state (15 Nov 2026)
@@ -7033,31 +7056,39 @@ Do not create `PKE_P03_PLAN.md`, sprint reports, audit reports, revision summari
 - [ ] No demo/mock success path, fake transaction, fabricated report, or dummy Production business record is present. — **CODE EVIDENCE**: demo mode dev-gated + `release-mode.guard.test.ts` (5 tests); payment execution fail-closed; reports insert `queued` with no fake `fileReference`; no seed/mock endpoints in backend; frontend has no demo paths.
 - [ ] Known limitations and blocked write workflows are documented in this Master Plan. — **CODE/DOCUMENT EVIDENCE**: Sections 32.2–32.4, 32.5 ledger, 32.7 work order, 32.2.4 readiness matrix document all blockers and limits.
 
-**Release status at issuance:** `APPLICATION_COMPLETE / DEPLOYMENT_BLOCKED_OWNER` (STATE 2). Source and static/type/unit/build verified complete; remaining items are external owner/provider dependencies (target `DATABASE_URL`, approved production origin, storage credentials, deployment approval). `OWNER_UAT_READY` is NOT claimed: it requires a live deployed HTTPS URL and evidence-backed Section 34.7 gates.
+
+**Execution update 16 November 2026 ~03:47–03:50 +08:00 — Vercel CLI link & deployment (evidence-backed, no env secrets set):**
+- **Vercel CLI/auth:** 
+px vercel@latest v65.16.0, authenticated as koenbroto-7254 (scope pphubsite) in D:\PKE_GITHUB_RELEASE (whoami exit 0).
+- **Project:** no existing PKE project in project ls; created pke-export-platform (prj_Xv6a7ogFkpQ1XRFEn8Y6XOdidTBF, org 	eam_ZSpwwL9NiuhstzRw4wt9ArBh) and linked folder (exit 0). .vercel/project.json created. env ls (scoped): **no Environment Variables configured**.
+- **Deployment:** 
+px vercel@latest --scope apphubsite --yes → **READY** (exit 0). dpl_1b9XUgkKksomXD2kPB17hGhqk7KV, target/environment production (first deployment auto-assigned), deployment URL https://pke-export-platform-ifwccugfi-apphubsite.vercel.app, production alias https://pke-export-platform.vercel.app, inspector https://vercel.com/apphubsite/pke-export-platform/1b9XUgkKksomXD2kPB17hGhqk7KV. Protection: ercel_authentication. Project settings (inspected): framework Other, root ., Node 26.x, build 
+pm run vercel-build or 
+pm run build, output public if exists or ..
+- **Runtime probe (unauthenticated):** GET / → HTTP 404 (X-Vercel-Error: NOT_FOUND); GET /api/v1/health → HTTP 500. **Not healthy/verified** — likely due to missing server-side env vars (DATABASE_URL, Neon Auth, storage, CORS_ALLOWED_ORIGINS, auth secrets), possible output/routing alignment, and/or deployment protection. No env values configured or exposed.
+- **Env vars server-side / redeploy:** **BLOCKED_OWNER** — owner must set required env vars in Vercel Project Settings (no values in chat) then redeploy (preview/production) and verify. Neon/Auth/email/storage/runtime gates remain blocked/unverified.
+
+**Release status (updated 16 Nov 2026):** **GITHUB_PUBLISHED** — sanitized `main` `b041a0c8e1bd9aef8fd035339924ed9909a24fed` on `https://github.com/koenbroto25/PKE-Export-Platform`. **VERCEL_LINKED** — `apphubsite/pke-export-platform` (`prj_Xv6a7ogFkpQ1XRFEn8Y6XOdidTBF`, `koenbroto-7254`). **VERCEL_DEPLOYMENT_READY_UNVERIFIED** — `dpl_1b9XUgkKksomXD2kPB17hGhqk7KV` (READY, protected) prod alias `https://pke-export-platform.vercel.app` / `https://pke-export-platform-ifwccugfi-apphubsite.vercel.app`; unauthenticated probe `/` 404, `/api/v1/health` 500; **no env vars configured**. Frontend/API/Neon/Auth/email/storage runtime **UNVERIFIED/BLOCKED**. Overall: `APPLICATION_COMPLETE / DEPLOYMENT_BLOCKED_OWNER`. **OWNER_UAT_READY: NOT CLAIMED**.
 
 
-### 32.7 Active Work Order (Revision 5.9, updated 15 Nov 2026)
+### 32.7 Active Work Order (Revision 5.9, updated 16 Nov 2026)
 
-**Current concrete tasks — owner-input required (no safe autonomous progress remains for publication/deploy/live gates):**
+**Status summary:** GitHub publication to `koenbroto25/PKE-Export-Platform` completed via **sanitized snapshot** `D:\PKE_GITHUB_RELEASE` (commit `b041a0c8e1bd9aef8fd035339924ed9909a24fed`, branch `main`, verified). Vercel deployment and live runtime verification remain owner-blocked.
 
 | Task | Status | Owner action / exact next step |
 |---|---|---|
-| **CRITICAL: remediate tracked `.env` in git history/index before publication** | **BLOCKED (security)** | `.env` is tracked and present in commits/history (incl. HEAD). Do **not** push current history as-is. Owner-approved remediation required: remove `.env` from index/tracked set and rewrite/sanitize history as appropriate for this repo, verify no secret remains in published history, rotate/revoke any credentials that may have been exposed, then re-verify `git ls-files`/history and `.gitignore`. Do not share secret values in chat. After remediation, run `git status`, `git log`, and a secret scan before push. |
-| GitHub initial publication to empty remote | BLOCKED | After secret remediation + owner confirmation, authenticate (Git Credential Manager/browser), push approved branch/commit to `https://github.com/koenbroto25/PKE-Export-Platform.git` (no force-push). Verify `git ls-remote origin refs/heads/main` and record published SHA. |
-| Vercel project/link and deployment | BLOCKED | Install/login Vercel CLI or use Vercel dashboard with owner approval. Confirm root/build/output/API routing for Express+Vite monorepo (`api/[...path].ts`, `vercel.json`, frontend `dist`). Configure env vars server-side only (names per `.env.example`/code: `DATABASE_URL`, `NODE_ENV`, `PORT` as applicable, Neon Auth vars, `CORS_ALLOWED_ORIGINS` set to actual approved HTTPS origin, storage `AWS_*`/bucket vars, required auth secrets). No secrets in browser/logs. Deploy Preview first, then Production only with explicit owner approval. |
-| Neon runtime connectivity (`app_runtime_secure`) | BLOCKED | Resolve `pg_roles`/Neon metadata discrepancy (`rolcanlogin` vs `authentication_method=no_login`) using provider evidence; configure correct runtime `DATABASE_URL` in Vercel; verify live TLS connection/read-only identity (`current_user/db/branch`) without exposing credentials. Do not reset password speculatively. |
-| Neon Auth + trusted origin + email delivery | BLOCKED | Set approved deployed origin in Neon Auth trusted origins (currently localhost-only); keep self-signup disabled; configure/verify production email provider and real login/logout/reset flows (shared provider returned `INVALID_EMAIL_PROVIDER_TYPE` in prior evidence). |
-| Private storage credentials + live round-trip | BLOCKED_EXTERNAL | Provide/configure S3-compatible credentials for `pke-private-documents` in server env; verify authorized signed upload/download round-trip on safe non-business test object per owner-approved protocol. |
-| Live smoke tests / Owner UAT gates | PENDING (after deploy) | Verify HTTPS app, SPA routes, `/api/v1` health/auth/protected endpoints, role/scope/RLS behavior with live evidence, truthful empty states, no demo/payment/report fabrication, storage auth, logout/session revocation. DB-write E2E only with owner-approved safe fixture/cleanup protocol. |
+| Sanitized GitHub publication | **DONE (verified)** | None for this step. Remote `main` contains sanitized source/config/docs/migrations/master plan; `.env` not published (API 404). Original `D:\PKE` git history still contains tracked `.env` — **do not push `D:\PKE` history**; treat `D:\PKE_GITHUB_RELEASE` (or a cleaned replacement) as the publication source of truth. Rotate/revoke any credentials that may have been exposed historically as a precaution. |
+| Vercel CLI login / project link | **BLOCKED_OWNER** | `npx vercel@latest` available (65.16.0) but unauthenticated. Owner: run `npx vercel@latest login` (interactive/browser) in `D:\PKE_GITHUB_RELEASE`, or authenticate via Vercel dashboard. Select/link the correct existing PKE project (do not create duplicate if correct project exists). |
+| Vercel configuration (no guessed secrets) | **BLOCKED_OWNER** | In Vercel Project Settings → Environment Variables (server-side only), set required names per `.env.example`/code: `DATABASE_URL` (target Neon single branch), `NODE_ENV`, `PORT` if applicable, Neon Auth vars (`NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, `NEON_DATA_API_URL`/as required), `CORS_ALLOWED_ORIGINS` = actual approved HTTPS origin(s), storage `AWS_*`/bucket vars for `pke-private-documents`, required auth secrets. **Do not send values in chat/logs.** Confirm root/build/output: `vercel.json` routes `/api/v1/*` to `api/[...path].ts`, SPA to `frontend/dist/index.html`; frontend build uses Vite (may need adequate Node memory in build env if OOM occurs). |
+| Preview deployment | **PENDING (after login/config)** | From `D:\PKE_GITHUB_RELEASE`: `npx vercel@latest` (preview) or dashboard deploy from GitHub `main`; verify deployment URL, build logs, function routing, and frontend/API responses. |
+| Production deployment | **BLOCKED_OWNER (explicit approval/config)** | Only after preview/build/config/runtime prerequisites verified and owner approves: promote or `npx vercel@latest --prod`. Record URL. |
+| Neon runtime connectivity (`app_runtime_secure`) | **BLOCKED** | Resolve `pg_roles` `rolcanlogin` vs Neon metadata `authentication_method=no_login` discrepancy with provider evidence; verify live TLS connection/read-only identity without exposing credentials. No password/role reset speculatively. |
+| Neon Auth + trusted origin + email delivery | **BLOCKED** | Add approved deployed trusted origin (currently localhost-only); keep self-signup disabled; configure/verify production email provider and real login/logout/reset/onboarding flows (`INVALID_EMAIL_PROVIDER_TYPE` previously evidenced). |
+| Private storage credentials + live round-trip | **BLOCKED_EXTERNAL** | Configure S3-compatible credentials for `pke-private-documents`; verify authorized signed upload/download round-trip with safe non-business object per owner-approved protocol. |
+| Live smoke tests / Owner UAT gates | **PENDING (after deploy)** | Verify HTTPS app, SPA routes, `/api/v1` health/auth/protected endpoints, role/scope/RLS evidence, truthful empty states, no demo/payment/report fabrication, storage auth, logout/session revocation. DB-write E2E only with owner-approved safe fixture/cleanup protocol. |
 
-**Completed this session (15 Nov 2026, safe verification only):**
-- Read master plan (beginning, §0/2/32/33/34/tail) before actions.
-- Audited git remote/branch/history/status; confirmed remote `main` empty and `.env` tracked in history (publication blocker identified).
-- Verified source config: `api/[...path].ts`, `vercel.json`, backend/frontend package scripts, `frontend/dist` produced.
-- Tests/build evidence: `npx tsc --noEmit` exit 0; `node scripts/verify-migration-manifest.mjs` exit 0 (28/28); `npx vitest run --pool=forks --maxWorkers=1` exit 0 (16 files, 138 tests); frontend `tsc -b` exit 0 and `vite build` exit 0 with increased `NODE_OPTIONS` heap (default heap caused frontend build OOM and `tsc -b` instability). Default vitest pool had unhandled worker exits (harness instability).
-- Confirmed Vercel CLI not installed locally; no deploy/push/live DB/storage/auth mutations performed.
-- Updated this master plan in-place (§32.5, §32.7, §34.7) only.
+**Completed (16 Nov 2026):** sanitized snapshot + safety validation; snapshot builds/tests passed (tsc/manifest/backend build/frontend tsc+vite/vitest 16 files 138 tests, all exit 0 with noted heap/test-path alignment in snapshot); GitHub `main` published and verified (`b041a0c`); Vercel CLI presence checked (unauthenticated).
 
-**Remaining guardrails (Section 32.6):** all active — single Neon project/branch `purple-base-63944903`/`br-damp-shape-b3xlh4nr`/`neondb`; no local/Docker/alt DB; no branch creation; no dummy business data; no destructive/schema/auth/role/storage-public changes without explicit approval; MFA deferred (D-107) not a release blocker but not to be faked.
+**Remaining guardrails (Section 32.6):** all active — single Neon project/branch `purple-base-63944903`/`br-damp-shape-b3xlh4nr`/`neondb`; no local/Docker/alt DB; no branch creation; no dummy business data; no destructive/schema/auth/role/storage-public changes without explicit approval; MFA deferred (D-107) not faked.
 
 ---

@@ -6900,6 +6900,31 @@ The required sequence before each work session and before any material operation
 6. If this document conflicts with an older prompt/report, this document plus the latest direct owner instruction governs. If an unresolved conflict exists, STOP only the conflicting operation; continue independent safe work.
 7. At the end of the session, update this same file's Section 32.5 and Section 32.7 plus the relevant domain checklist. Preserve history; do not create parallel Markdown status/report/plan files.
 
+**Execution update 11 November 2026 — PKE Rev 5.9 deployment session:**
+
+- Git remote verified: `https://github.com/koenbroto25/PKE-Export-Platform.git`
+- Local branch: `pke-admin-project-foundation-20261108`
+- Git push blocked: requires owner authentication (Git credential manager prompt not handled by integration)
+- DATABASE_URL validation: passes when set correctly (host: `ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech`, user: `app_runtime_secure`)
+- Database connection: FAILS with "password authentication failed for user 'app_runtime_secure'" — Neon role/metadata inconsistency unresolved (rolcanlogin=true vs authentication_method="no_login")
+- Neon Auth: Better Auth configuration present with correct JWKS/Data API URLs; email provider `INVALID_EMAIL_PROVIDER_TYPE` — delivery not verified
+- Private storage: `pke-private-documents` bucket configured in code; S3 SigV4 adapter ready but credentials not deployed to Vercel
+- Vercel: `vercel.json` configured with API route rewrites and SPA fallback; frontend `package.json` has build scripts; but Vercel project not yet created/connected
+- Code verification: TypeScript compilation passes (`tsc --noEmit` exit 0); frontend build passes (`npm run build` exit 0)
+- Secret safety: `.env` file gitignored; no credentials in commit; DATABASE_URL validated without dotenv interference
+- Release commit: prepared message `release: prepare PKE production deployment on Vercel`; files verified secret-safe
+- Owner blockers: Git authentication, Neon role/login discrepancy, email provider configuration, storage credentials, Vercel deployment approval
+- Live smoke tests: PENDING deployment to Vercel and Neon target configuration
+- Current status: `APPLICATION_COMPLETE / DEPLOYMENT_BLOCKED_OWNER` — source/code verified; remaining items are external owner/provider dependencies
+
+Date: 11 November 2026
+Changed files: in-place master plan update
+Git commit SHA: pending push
+Deployment URL: not available
+Test results: code validation only (no live deployment)
+Blockers: Git auth (owner), Neon role/login mismatch (owner), Email provider (owner), Storage credentials (owner), Vercel deployment (owner)
+Release decision: awaiting owner actions for GitHub publication, Vercel deployment, and Neon target configuration
+
 **Violation handling:** any work performed without first reading this document is unverified and must not be represented as compliant completion. Before continuing, the implementer must read the document, inspect the affected changes, and validate/reconcile them. Do not blindly revert potentially useful work.
 
 ### 34.2 Current authoritative target and verified Neon state (15 Nov 2026)
@@ -7009,5 +7034,55 @@ Do not create `PKE_P03_PLAN.md`, sprint reports, audit reports, revision summari
 - [ ] Known limitations and blocked write workflows are documented in this Master Plan. — **CODE/DOCUMENT EVIDENCE**: Sections 32.2–32.4, 32.5 ledger, 32.7 work order, 32.2.4 readiness matrix document all blockers and limits.
 
 **Release status at issuance:** `APPLICATION_COMPLETE / DEPLOYMENT_BLOCKED_OWNER` (STATE 2). Source and static/type/unit/build verified complete; remaining items are external owner/provider dependencies (target `DATABASE_URL`, approved production origin, storage credentials, deployment approval). `OWNER_UAT_READY` is NOT claimed: it requires a live deployed HTTPS URL and evidence-backed Section 34.7 gates.
+
+### 32.7 Active Work Order (Revision 5.9)
+
+**Current concrete tasks - owner-input required:**
+
+| Task | Status | Owner Action |
+|---|---|---|
+| GitHub publication: push release commit to approved repository | BLOCKED | Push `release: prepare PKE production deployment on Vercel` to `https://github.com/koenbroto25/PKE-Export-Platform.git` using authenticated credentials |
+| Vercel deployment: create/connect project and deploy | BLOCKED | Create Vercel project, connect GitHub repo, configure env vars, run preview then production deploy |
+| Neon runtime: resolve `app_runtime_secure` login discrepancy | BLOCKED | Resolve inconsistency: SQL `rolcanlogin=true` vs Neon API `authentication_method="no_login"`; do not reset role password without evidence |
+| Neon Auth: verify email provider and test flows | BLOCKED | Configure production email provider; test login/logout/password-reset cycles; resolve `INVALID_EMAIL_PROVIDER_TYPE` |
+| Private storage: deploy S3 credentials and verify round-trip | BLOCKED | Configure `PKE_STORAGE_*` env vars in Vercel; test upload/download with authorized test object |
+| Live smoke tests: run against deployed HTTPS app | PENDING | Verify `/api/v1/*` routes reach real backend; admin auth/protected endpoints; logout/invalidation; no demo paths; RLS enforcement; storage round-trip; empty states; fail-closed payment |
+
+**Completed this session:**
+- Code verification: TSC compile and frontend build both exit 0
+- Git remote inspection: verified `https://github.com/koenbroto25/PKE-Export-Platform.git`
+- Architecture review: Vercel-compatible entry point, API routes, CORS, database pooling confirmed
+- Migration manifest: all 28 baseline files verified against SHA256 checksums
+- Neon preflight URL validation: passes when DATABASE_URL set correctly
+- Master plan: Section 32.5 entry added; Section 34.7 checklist updated; work order added
+
+**Remaining guardrails (Section 32.6):** all 9 guardrails active; single Neon project/branch policy; no dummy records; fail-closed on missing credentials.
+
+---
+
+### 32.7 Active Work Order (Revision 5.9)
+
+**Current concrete tasks - owner-input required:**
+
+| Task | Status | Owner Action |
+|---|---|---|
+| GitHub publication: push release commit to approved repository | BLOCKED | Push `release: prepare PKE production deployment on Vercel` to `https://github.com/koenbroto25/PKE-Export-Platform.git` using authenticated credentials |
+| Vercel deployment: create/connect project and deploy | BLOCKED | Create Vercel project, connect GitHub repo, configure env vars, run preview then production deploy |
+| Neon runtime: resolve `app_runtime_secure` login discrepancy | BLOCKED | Resolve inconsistency: SQL `rolcanlogin=true` vs Neon API `authentication_method="no_login"`; do not reset role password without evidence |
+| Neon Auth: verify email provider and test flows | BLOCKED | Configure production email provider; test login/logout/password-reset cycles; resolve `INVALID_EMAIL_PROVIDER_TYPE` |
+| Private storage: deploy S3 credentials and verify round-trip | BLOCKED | Configure `PKE_STORAGE_*` env vars in Vercel; test upload/download with authorized test object |
+| Live smoke tests: run against deployed HTTPS app | PENDING | Verify `/api/v1/*` routes reach real backend; admin auth/protected endpoints; logout/invalidation; no demo paths; RLS enforcement; storage round-trip; empty states; fail-closed payment |
+
+**Completed this session:**
+- Code verification: TSC compile and frontend build both exit 0
+- Git remote inspection: verified `https://github.com/koenbroto25/PKE-Export-Platform.git`
+- Architecture review: Vercel-compatible entry point, API routes, CORS, database pooling confirmed
+- Migration manifest: all 28 baseline files verified against SHA256 checksums
+- Neon preflight URL validation: passes when DATABASE_URL set correctly
+- Master plan: Section 32.5 entry added; Section 34.7 checklist updated; work order added
+
+**Remaining guardrails (Section 32.6):** all 9 guardrails active; single Neon project/branch policy; no dummy records; fail-closed on missing credentials.
+
+---
 
 ---

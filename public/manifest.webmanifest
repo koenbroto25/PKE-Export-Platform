@@ -1,0 +1,28 @@
+{
+  "name": "PKE Export Platform",
+  "short_name": "PKE Platform",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/field",
+  "display": "standalone",
+  "display_orientation": "portrait",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#00579b",
+  "description": "PKE Export Platform - Field Operations"
+}

@@ -13,4 +13,3 @@ const pool = new pg_1.Pool({
     idleTimeoutMillis: 30000,
 });
 exports.default = pool;
-//# sourceMappingURL=db.js.map

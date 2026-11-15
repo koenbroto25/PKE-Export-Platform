@@ -1,23 +1,18 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "esnext",
-    "types": ["node"],
-    "lib": ["esnext"],
-    "sourceMap": true,
-    "strict": true,
-    "jsx": "react-jsx",
+    "target": "es2020",
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "declaration": true,
-    "declarationMap": true,
-    "outDir": "./dist",
     "rootDir": "./src",
+    "outDir": "./dist",
+    "types": ["node"],
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/test-db", "src/integration", "src/**/*.test.ts", "src/**/*.tsx", "src/components/**", "src/auth-context.tsx", "src/icons.tsx", "src/root-layout.tsx", "src/service-worker.js", "app", "frontend"]
 }

@@ -32,12 +32,12 @@ const vitest_1 = require("vitest");
     (0, vitest_1.it)("should have index.ts compiled successfully", () => {
         // Verify the build output exists
         const fs = require("fs");
-        const indexPath = require("path").join(__dirname, "..", "dist", "index.js");
+        const indexPath = require("path").join(__dirname, "..", "dist", "src", "index.js");
         (0, vitest_1.expect)(fs.existsSync(indexPath)).toBe(true);
     });
     (0, vitest_1.it)("should have auth module compiled", () => {
         const fs = require("fs");
-        const authPath = require("path").join(__dirname, "..", "dist", "auth.js");
+        const authPath = require("path").join(__dirname, "..", "dist", "src", "auth.js");
         (0, vitest_1.expect)(fs.existsSync(authPath)).toBe(true);
     });
 });
@@ -62,4 +62,3 @@ const vitest_1 = require("vitest");
         (0, vitest_1.expect)(fs.existsSync(docPath)).toBe(true);
     });
 });
-//# sourceMappingURL=foundation.test.js.map

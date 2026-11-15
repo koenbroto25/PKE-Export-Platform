@@ -1,23 +1,17 @@
+import type { NextFunction, Request, Response } from "express";
 export interface UserSession {
     id: string;
     email: string;
-    name: string;
+    name: string | null;
     role: string;
     isAdmin: boolean;
+    isActive: boolean;
     mfaVerified: boolean;
 }
-export declare function generateSessionToken(): string;
-export declare function authenticateUser(userId: string, dbClient: any): Promise<UserSession | null>;
-export declare function hasPermission(userId: string, permissionCode: string, dbClient: any): Promise<boolean>;
-export declare function requireAuth(req: any, res: any, next: any): any;
-export declare function requireAdmin(req: any, res: any, next: any): any;
-export declare function checkAdminAvailability(req: any, res: any, next: any): any;
-export declare function getCurrentUser(req: any): UserSession | null;
-export declare function checkSingleAdminPrincipal(dbClient: any): Promise<{
-    count: number;
-    adminEmails: string[];
-    hasAvailableAdmin: boolean;
-}>;
-export declare function setRLSContext(userId: string, role: string, dbClient: any): Promise<void>;
-export declare function clearRLSContext(dbClient: any): Promise<void>;
-//# sourceMappingURL=auth.d.ts.map
+export declare function isTestMode(): boolean;
+export declare function createTestJwt(subject: string, role?: string, isAdmin?: boolean): Promise<string>;
+export declare function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function requireAdmin(req: Request, res: Response, next: NextFunction): void;
+export declare function requireAdminMfa(req: Request, res: Response, next: NextFunction): void;
+export declare function checkAdminAvailability(req: Request, res: Response, next: NextFunction): void;
+export declare function getCurrentUser(req: Request): UserSession | null;

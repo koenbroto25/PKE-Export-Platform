@@ -38,7 +38,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 -- Policy: Users can only view their own record
 -- current_setting(..., true) returns default value if not set (safe for RLS)
 CREATE POLICY "users_self_view" ON users
-  FOR SELECT USING (id = current_setting('app.current_user_id', true));
+  FOR SELECT USING (id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
 
 -- Policy: Admins can view all users
 CREATE POLICY "users_admin_view" ON users
@@ -73,7 +73,7 @@ ALTER TABLE role_permissions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "role_permissions_view" ON role_permissions
   FOR SELECT USING (
     role_id IN (
-      SELECT role_id FROM project_members WHERE user_id = current_setting('app.current_user_id', true)
+      SELECT role_id FROM project_members WHERE user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -84,7 +84,7 @@ ALTER TABLE project_members ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view their own project memberships
 CREATE POLICY "project_members_self_view" ON project_members
-  FOR SELECT USING (user_id = current_setting('app.current_user_id', true));
+  FOR SELECT USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
 
 -- Policy: Admin can view all project memberships
 CREATE POLICY "project_members_admin_view" ON project_members
@@ -102,7 +102,7 @@ CREATE POLICY "buyers_view" ON buyers
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM project_members pm
-      WHERE pm.user_id = current_setting('app.current_user_id', true)
+      WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -116,7 +116,7 @@ CREATE POLICY "pks_sites_view" ON pks_sites
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM project_members pm
-      WHERE pm.user_id = current_setting('app.current_user_id', true)
+      WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -130,7 +130,7 @@ CREATE POLICY "contracts_view" ON contracts
   FOR SELECT USING (
     buyer_id IN (
       SELECT buyer_id FROM project_members pm
-      WHERE pm.user_id = current_setting('app.current_user_id', true)
+      WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -144,7 +144,7 @@ CREATE POLICY "contract_programs_view" ON contract_programs
   FOR SELECT USING (
     buyer_id IN (
       SELECT buyer_id FROM project_members pm
-      WHERE pm.user_id = current_setting('app.current_user_id', true)
+      WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
     OR current_setting('app.current_role', true) = 'admin'
   );
@@ -166,7 +166,7 @@ CREATE POLICY "cycle_policies_view" ON cycle_policies
     contract_program_id IN (
       SELECT id FROM contract_programs WHERE buyer_id IN (
         SELECT buyer_id FROM project_members pm
-        WHERE pm.user_id = current_setting('app.current_user_id', true)
+        WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
       )
     )
     OR current_setting('app.current_role', true) = 'admin'
@@ -183,7 +183,7 @@ CREATE POLICY "projects_view" ON projects
     contract_program_id IN (
       SELECT id FROM contract_programs WHERE buyer_id IN (
         SELECT buyer_id FROM project_members pm
-        WHERE pm.user_id = current_setting('app.current_user_id', true)
+        WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
       )
     )
     OR current_setting('app.current_role', true) = 'admin'
@@ -207,7 +207,7 @@ CREATE POLICY "project_versions_view" ON project_versions
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )
@@ -226,7 +226,7 @@ CREATE POLICY "project_change_requests_view" ON project_change_requests
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )
@@ -249,7 +249,7 @@ CREATE POLICY "approval_events_view" ON approval_events
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM users u
-      WHERE u.id = current_setting('app.current_user_id', true)
+      WHERE u.id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -269,7 +269,7 @@ CREATE POLICY "warehouses_view" ON warehouses
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM project_members pm
-      WHERE pm.user_id = current_setting('app.current_user_id', true)
+      WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -283,7 +283,7 @@ CREATE POLICY "ports_view" ON ports
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM project_members pm
-      WHERE pm.user_id = current_setting('app.current_user_id', true)
+      WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -297,7 +297,7 @@ CREATE POLICY "vessels_view" ON vessels
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM project_members pm
-      WHERE pm.user_id = current_setting('app.current_user_id', true)
+      WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
     )
   );
 
@@ -313,7 +313,7 @@ CREATE POLICY "truck_trips_view" ON truck_trips
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )
@@ -333,7 +333,7 @@ CREATE POLICY "tracking_events_view" ON tracking_events
         SELECT id FROM projects WHERE contract_program_id IN (
           SELECT id FROM contract_programs WHERE buyer_id IN (
             SELECT buyer_id FROM project_members pm
-            WHERE pm.user_id = current_setting('app.current_user_id', true)
+            WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
           )
         )
       )
@@ -353,7 +353,7 @@ CREATE POLICY "inventory_lots_view" ON inventory_lots
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )
@@ -372,7 +372,7 @@ CREATE POLICY "packing_batches_view" ON packing_batches
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )
@@ -391,7 +391,7 @@ CREATE POLICY "loading_operations_view" ON loading_operations
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )
@@ -410,7 +410,7 @@ CREATE POLICY "voyages_view" ON voyages
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )
@@ -429,7 +429,7 @@ CREATE POLICY "shipments_view" ON shipments
       SELECT id FROM projects WHERE contract_program_id IN (
         SELECT id FROM contract_programs WHERE buyer_id IN (
           SELECT buyer_id FROM project_members pm
-          WHERE pm.user_id = current_setting('app.current_user_id', true)
+          WHERE pm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         )
       )
     )

@@ -1,0 +1,258 @@
+﻿// ============================================
+// FX Rates (P07 Finance) — Production schema
+// ============================================
+app.get("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id, from_currency_id, to_currency_id, rate, rate_type, rate_source, rate_date, is_active, created_at, updated_at
+       FROM fx_rates WHERE is_active = true ORDER BY rate_date DESC, created_at DESC LIMIT 200`
+    );
+    res.json({ fxRates: rows.map((r: any) => ({
+      id: r.id,
+      fromCurrencyId: r.from_currency_id,
+      toCurrencyId: r.to_currency_id,
+      rate: Number(r.rate),
+      rateType: r.rate_type,
+      rateSource: r.rate_source,
+      rateDate: r.rate_date,
+      isActive: r.is_active,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })) });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load FX rates" });
+  }
+});
+
+app.post("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { fromCurrencyId, toCurrencyId, rate, rateType, rateSource, rateDate } = req.body ?? {};
+  if (!fromCurrencyId || !toCurrencyId || rate === undefined || !rateDate) {
+    return res.status(400).json({ error: "Required fields: fromCurrencyId, toCurrencyId, rate, rateDate" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO fx_rates (from_currency_id, to_currency_id, rate, rate_type, rate_source, rate_date, is_active, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::timestamptz, true, now(), now()) RETURNING *`,
+      [fromCurrencyId, toCurrencyId, rate, rateType || "reference", rateSource || null, rateDate],
+    );
+    res.status(201).json({ fxRate: rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create FX rate" });
+  }
+});
+
+// ============================================
+// FX Exposure (P07 Finance)
+// ============================================
+app.get("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id, project_id, exposure_type, original_currency_id, original_amount,
+              functional_amount, fx_rate, fx_date, created_at, updated_at
+       FROM fx_exposures ORDER BY created_at DESC LIMIT 200`
+    );
+    res.json({ fxExposure: rows.map((r: any) => ({
+      id: r.id,
+      projectId: r.project_id,
+      exposureType: r.exposure_type,
+      originalCurrencyId: r.original_currency_id,
+      originalAmount: Number(r.original_amount),
+      functionalAmount: Number(r.functional_amount),
+      fxRate: Number(r.fx_rate),
+      fxDate: r.fx_date,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })) });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load FX exposure" });
+  }
+});
+
+app.post("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, exposureType, originalCurrencyId, originalAmount, functionalAmount, fxRate, fxDate } = req.body ?? {};
+  if (!projectId || !exposureType || originalAmount === undefined || functionalAmount === undefined || fxRate === undefined || !fxDate) {
+    return res.status(400).json({ error: "Required fields: projectId, exposureType, originalAmount, functionalAmount, fxRate, fxDate" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO fx_exposures (project_id, exposure_type, original_currency_id, original_amount, functional_amount, fx_rate, fx_date, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6, $7::timestamptz, now(), now()) RETURNING *`,
+      [projectId, exposureType, originalCurrencyId, originalAmount, functionalAmount, fxRate, fxDate],
+    );
+    res.status(201).json({ fxExposure: rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create FX exposure" });
+  }
+});
+
+// ============================================
+// Journal Entries (P07 Finance)
+// ============================================
+app.get("/api/v1/journal-entries", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.query;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT je.id, je.project_id, je.entry_type, je.reference_id, je.reference_type, je.description,
+              je.entry_date, je.posted_at, je.status, je.posted_by, je.created_at, je.updated_at
+       FROM journal_entries je
+       WHERE ($1::uuid IS NULL OR je.project_id = $1::uuid)
+       ORDER BY je.created_at DESC LIMIT 200`,
+      [projectId || null],
+    );
+    res.json({ journalEntries: rows.map((r: any) => ({
+      id: r.id,
+      projectId: r.project_id,
+      entryType: r.entry_type,
+      referenceId: r.reference_id,
+      referenceType: r.reference_type,
+      description: r.description,
+      entryDate: r.entry_date,
+      postedAt: r.posted_at,
+      status: r.status,
+      postedBy: r.posted_by,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })) });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load journal entries" });
+  }
+});
+
+app.post("/api/v1/journal-entries", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, entryType, referenceId, referenceType, description, entryDate } = req.body ?? {};
+  if (!projectId || !entryType || !description) {
+    return res.status(400).json({ error: "Required fields: projectId, entryType, description" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO journal_entries (project_id, entry_type, reference_id, reference_type, description, entry_date, status, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::timestamptz, 'draft', now(), now()) RETURNING *`,
+      [projectId, entryType, referenceId || null, referenceType || null, description, entryDate || new Date().toISOString()],
+    );
+    res.status(201).json({ journalEntry: rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create journal entry" });
+  }
+});
+
+app.post("/api/v1/journal-entries/:id/post", requireAuth, async (req: express.Request, res: express.Response) => {
+  const journalEntryId = req.params.id;
+  try {
+    const { rows: entryRows } = await req.db.query("SELECT id, status FROM journal_entries WHERE id = $1::uuid", [journalEntryId]);
+    if (entryRows.length === 0) return res.status(404).json({ error: "Journal entry not found" });
+    if (entryRows[0].status !== 'draft') return res.status(400).json({ error: "Only draft journal entries can be posted" });
+    const { rows: lines } = await req.db.query(
+      `SELECT id, account_id, debit, credit FROM journal_lines WHERE journal_entry_id = $1::uuid ORDER BY line_order`,
+      [journalEntryId],
+    );
+    if (lines.length === 0) return res.status(400).json({ error: "Cannot post a journal entry with no lines" });
+    const totalDebit = lines.reduce((sum: number, l: any) => sum + Number(l.debit || 0), 0);
+    const totalCredit = lines.reduce((sum: number, l: any) => sum + Number(l.credit || 0), 0);
+    if (Math.abs(totalDebit - totalCredit) > 0.005) return res.status(400).json({ error: "Journal entry is not balanced", totalDebit, totalCredit });
+    const { rows } = await req.db.query(
+      `UPDATE journal_entries SET status = 'posted', posted_at = now(), posted_by = $2::uuid, updated_at = now()
+       WHERE id = $1::uuid AND status = 'draft' RETURNING *`,
+      [journalEntryId, req.user?.id || null],
+    );
+    if (rows.length === 0) return res.status(409).json({ error: "Journal entry was modified by another operation" });
+    res.json({ journalEntry: rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to post journal entry" });
+  }
+});
+
+app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { journalEntryId, accountId, debit, credit, description, lineOrder } = req.body ?? {};
+  if (!journalEntryId || !accountId || debit === undefined || credit === undefined) {
+    return res.status(400).json({ error: "journalEntryId, accountId, debit, credit required" });
+  }
+  try {
+    const { rows: entryRows } = await req.db.query("SELECT id, status FROM journal_entries WHERE id = $1::uuid", [journalEntryId]);
+    if (entryRows.length === 0) return res.status(404).json({ error: "Journal entry not found" });
+    if (entryRows[0].status !== 'draft') return res.status(400).json({ error: "Cannot add lines to a posted journal entry" });
+    const { rows: accountRows } = await req.db.query("SELECT id, is_active FROM chart_of_accounts WHERE id = $1::uuid", [accountId]);
+    if (accountRows.length === 0) return res.status(400).json({ error: "Invalid account: account not found in chart of accounts" });
+    if (!accountRows[0].is_active) return res.status(400).json({ error: "Invalid account: account is not active" });
+    const { rows } = await req.db.query(
+      `INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_order, created_at)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, now()) RETURNING *`,
+      [journalEntryId, accountId, debit || 0, credit || 0, description || null, lineOrder !== undefined ? lineOrder : 1],
+    );
+    res.status(201).json({ journalLine: rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create journal line" });
+  }
+});
+
+// ============================================
+// RAB (P07 Finance)
+// ============================================
+app.get("/api/v1/rab", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.query;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id, project_id, description, category, amount, version, is_active, created_at, updated_at
+       FROM rab WHERE ($1::uuid IS NULL OR project_id = $1::uuid) AND is_active = true ORDER BY created_at DESC LIMIT 200`,
+      [projectId || null],
+    );
+    res.json({ rab: rows.map((r: any) => ({
+      id: r.id,
+      projectId: r.project_id,
+      description: r.description,
+      category: r.category,
+      amount: Number(r.amount),
+      version: r.version,
+      isActive: r.is_active,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })) });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load RAB" });
+  }
+});
+
+app.post("/api/v1/rab", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, description, category, amount, version } = req.body ?? {};
+  if (!projectId || !description || !category || amount === undefined) {
+    return res.status(400).json({ error: "Required fields: projectId, description, category, amount" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO rab (project_id, description, category, amount, version, is_active, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3, $4, $5, true, now(), now()) RETURNING *`,
+      [projectId, description, category, Number(amount), version || 1],
+    );
+    res.status(201).json({ rabItem: rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create RAB" });
+  }
+});
+
+// ============================================
+// Chart of Accounts (P07 GL)
+// ============================================
+app.get("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { rows } = await req.db.query(
+      "SELECT id, code, name, description, parent_id, account_type, is_active, created_at, updated_at FROM chart_of_accounts WHERE is_active = true ORDER BY code"
+    );
+    res.json({ accounts: rows });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load chart of accounts" });
+  }
+});
+
+app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { code, name, description, parentId, accountType } = req.body ?? {};
+  if (!code || !name || !accountType) return res.status(400).json({ error: "Required fields: code, name, accountType" });
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO chart_of_accounts (code, name, description, parent_id, account_type, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4::uuid, $5, true, now(), now()) RETURNING *`,
+      [code, name, description || null, parentId || null, accountType],
+    );
+    res.status(201).json({ account: rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create chart of accounts account" });
+  }
+});

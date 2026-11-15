@@ -3,9 +3,12 @@ declare global {
     namespace Express {
         interface Request {
             db: any;
+            drizzleDb: any;
             logger: winston.Logger;
             user: any;
         }
     }
 }
-//# sourceMappingURL=index.d.ts.map
+export declare const app: import("express-serve-static-core").Express;
+export declare function ensureRuntimeReady(): Promise<void>;
+export default app;

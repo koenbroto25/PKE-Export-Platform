@@ -35,13 +35,13 @@ describe("Server Entry Point", () => {
   it("should have index.ts compiled successfully", () => {
     // Verify the build output exists
     const fs = require("fs");
-    const indexPath = require("path").join(__dirname, "..", "dist", "index.js");
+    const indexPath = require("path").join(__dirname, "..", "dist", "src", "index.js");
     expect(fs.existsSync(indexPath)).toBe(true);
   });
 
   it("should have auth module compiled", () => {
     const fs = require("fs");
-    const authPath = require("path").join(__dirname, "..", "dist", "auth.js");
+    const authPath = require("path").join(__dirname, "..", "dist", "src", "auth.js");
     expect(fs.existsSync(authPath)).toBe(true);
   });
 });

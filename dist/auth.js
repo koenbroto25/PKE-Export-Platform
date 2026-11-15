@@ -1,150 +1,228 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSessionToken = generateSessionToken;
-exports.authenticateUser = authenticateUser;
-exports.hasPermission = hasPermission;
+exports.isTestMode = isTestMode;
+exports.createTestJwt = createTestJwt;
 exports.requireAuth = requireAuth;
 exports.requireAdmin = requireAdmin;
+exports.requireAdminMfa = requireAdminMfa;
 exports.checkAdminAvailability = checkAdminAvailability;
 exports.getCurrentUser = getCurrentUser;
-exports.checkSingleAdminPrincipal = checkSingleAdminPrincipal;
-exports.setRLSContext = setRLSContext;
-exports.clearRLSContext = clearRLSContext;
-// In-memory session store (replace with Redis or Neon session table in production)
-const sessions = new Map;
-// Generate a simple session token
-function generateSessionToken() {
-    return Buffer.from(String(Date.now()) + Math.random()).toString("base64");
-}
-// Authenticate user by ID (typically from JWT or session cookie)
-async function authenticateUser(userId, dbClient) {
+const jose_1 = require("jose");
+const node_crypto_1 = __importDefault(require("node:crypto"));
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+let cachedJwksUrl = null;
+let cachedJwks = null;
+// Test-only JWT signing key (ephemeral per process, never used in production)
+let testSigningKey = null;
+let testVerifyKey = null;
+function isLocalTestDatabaseUrl(url) {
+    if (!url)
+        return false;
     try {
-        const { rows } = await dbClient.query(`SELECT u.id, u.email, u.name, u.role, u.mfa_enabled, u.is_active,
-        CASE WHEN u.role = 'admin' THEN 1 ELSE 0 END as is_admin
-       FROM users u WHERE u.id = $1::uuid AND u.is_active = true`, [BigInt(Number(userId))]);
-        if (rows.length === 0) {
-            return null;
-        }
-        const user = rows[0];
-        const session = {
-            id: user.id.toString(),
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            isAdmin: user.is_admin === 1,
-            mfaVerified: user.mfa_enabled,
-        };
-        // Store session in memory
-        sessions.set(session.id, session);
-        return session;
+        const parsed = new URL(url);
+        return parsed.hostname === "127.0.0.1";
     }
-    catch (error) {
-        console.error("Authentication error:", error);
-        return null;
-    }
-}
-// Verify that a user has a specific permission
-async function hasPermission(userId, permissionCode, dbClient) {
-    try {
-        const user = await authenticateUser(userId, dbClient);
-        if (!user)
-            return false;
-        // Admin has all permissions
-        if (user.isAdmin)
-            return true;
-        // Check specific permission for the user's role
-        const { rows } = await dbClient.query(`SELECT p.code FROM permissions p
-       JOIN role_permissions rp ON p.id = rp.permission_id
-       WHERE rp.role_id = (SELECT role_id FROM users WHERE id = $1::uuid)
-       AND p.code = $2`, [BigInt(Number(userId)), permissionCode]);
-        return rows.length > 0;
-    }
-    catch (error) {
-        console.error("Permission check error:", error);
+    catch {
         return false;
     }
 }
-// Middleware: Require authentication
-function requireAuth(req, res, next) {
-    const userId = req.headers["x-user-id"];
-    if (!userId) {
-        return res.status(401).json({ error: "Unauthorized - no user context" });
+function getTestSigningKeyPair() {
+    if (!testSigningKey || !testVerifyKey) {
+        const { privateKey, publicKey } = node_crypto_1.default.generateKeyPairSync("ed25519");
+        testSigningKey = privateKey;
+        testVerifyKey = publicKey;
     }
-    // In a real implementation, verify the session token here
-    // For now, we just check if the user exists
-    // Note: dbClient needs to be injected or available in scope
-    // This is a simplified version - full integration requires db context
-    if (!req.db) {
-        return res.status(500).json({ error: "Database context not available" });
-    }
-    authenticateUser(userId, req.db).then((session) => {
-        if (!session) {
-            return res.status(401).json({ error: "Unauthorized - invalid user session" });
-        }
-        req.user = session;
-        next();
-    }).catch((err) => {
-        res.status(500).json({ error: "Authentication error" });
-    });
+    return { signKey: testSigningKey, verifyKey: testVerifyKey };
 }
-// Middleware: Require Admin principal
-function requireAdmin(req, res, next) {
-    if (!req.user || !req.user.isAdmin) {
-        return res.status(403).json({ error: "Forbidden - Admin principal required" });
-    }
-    next();
+function isTestMode() {
+    return process.env.NODE_ENV === "test" && isLocalTestDatabaseUrl(process.env.LOCAL_TEST_DATABASE_URL);
 }
-// Middleware: Check if Admin is available (not suspended/awaiting recovery)
-function checkAdminAvailability(req, res, next) {
-    if (req.user && req.user.isAdmin && !req.user.isActive) {
-        return res.status(409).json({
-            error: "Admin account is suspended. Action pending admin recovery."
+function getNeonJwks() {
+    // In test mode with a local test database, use a local JWT issuer
+    if (isTestMode()) {
+        return {
+            jwks: null,
+            issuer: "http://127.0.0.1:54331/test-issuer",
+            isTest: true,
+        };
+    }
+    const rawJwksUrl = process.env.NEON_AUTH_JWKS_URL;
+    const rawBaseUrl = process.env.NEON_AUTH_BASE_URL;
+    if (!rawJwksUrl || !rawBaseUrl) {
+        throw new Error("Neon Auth verification configuration is missing.");
+    }
+    const jwksUrl = new URL(rawJwksUrl);
+    const baseUrl = new URL(rawBaseUrl);
+    if (jwksUrl.protocol !== "https:" || baseUrl.protocol !== "https:") {
+        throw new Error("Neon Auth endpoints must use HTTPS.");
+    }
+    if (jwksUrl.origin !== baseUrl.origin) {
+        throw new Error("Neon Auth JWKS and base URL must use the same trusted origin.");
+    }
+    if (!cachedJwks || cachedJwksUrl !== jwksUrl.toString()) {
+        cachedJwks = (0, jose_1.createRemoteJWKSet)(jwksUrl);
+        cachedJwksUrl = jwksUrl.toString();
+    }
+    return {
+        jwks: cachedJwks,
+        // Neon Managed Auth issuer is the origin of the branch Auth URL.
+        issuer: baseUrl.origin,
+        isTest: false,
+    };
+}
+async function createTestJwt(subject, role, isAdmin) {
+    if (!isTestMode()) {
+        throw new Error("createTestJwt can only be used in test mode with a local test database.");
+    }
+    const { signKey } = getTestSigningKeyPair();
+    const claims = { sub: subject };
+    if (role !== undefined)
+        claims.role = role;
+    if (isAdmin !== undefined)
+        claims.isAdmin = isAdmin;
+    const token = await new jose_1.SignJWT(claims)
+        .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
+        .setIssuer("http://127.0.0.1:54331/test-issuer")
+        .setIssuedAt(Math.floor(Date.now() / 1000) - 60)
+        .setExpirationTime(Math.floor(Date.now() / 1000) + 3600)
+        .sign(signKey);
+    return typeof token === "string" ? token : Buffer.from(token).toString("base64");
+}
+async function verifyTestJwt(token) {
+    if (!isTestMode())
+        return null;
+    try {
+        const { verifyKey } = getTestSigningKeyPair();
+        const { payload } = await (0, jose_1.jwtVerify)(token, verifyKey, {
+            issuer: "http://127.0.0.1:54331/test-issuer",
+            algorithms: ["EdDSA"],
+            clockTolerance: 5,
         });
+        if (typeof payload.sub !== "string")
+            return null;
+        return { sub: payload.sub };
+    }
+    catch {
+        return null;
+    }
+}
+function readBearerToken(req) {
+    const value = req.header("authorization");
+    if (!value)
+        return null;
+    const match = /^Bearer\s+([A-Za-z0-9._~-]+)$/i.exec(value.trim());
+    return match?.[1] ?? null;
+}
+async function resolvePkeUser(req, neonAuthUserId) {
+    if (!req.db)
+        throw new Error("Database request context is unavailable.");
+    const { rows } = await req.db.query(`SELECT id, email, name, role, is_active
+       FROM public.resolve_pke_user_by_neon_auth_user_id($1::uuid)`, [neonAuthUserId]);
+    if (rows.length !== 1)
+        return null;
+    const user = rows[0];
+    const role = String(user.role);
+    return {
+        id: String(user.id),
+        email: String(user.email),
+        name: user.name === null ? null : String(user.name),
+        role,
+        isAdmin: role === "admin",
+        isActive: user.is_active === true,
+        mfaVerified: false,
+    };
+}
+async function requireAuth(req, res, next) {
+    const authReq = req;
+    // The /api/v1 global middleware authenticates first; route-level guards are idempotent.
+    if (authReq.user) {
+        next();
+        return;
+    }
+    const token = readBearerToken(req);
+    if (!token) {
+        res.status(401).json({ error: "Unauthorized", code: "AUTHENTICATION_REQUIRED" });
+        return;
+    }
+    let subject;
+    try {
+        const { jwks, issuer, isTest } = getNeonJwks();
+        if (isTest) {
+            const verified = await verifyTestJwt(token);
+            if (!verified) {
+                res.status(401).json({ error: "Unauthorized", code: "INVALID_OR_EXPIRED_TOKEN" });
+                return;
+            }
+            subject = verified.sub;
+        }
+        else {
+            const verified = await (0, jose_1.jwtVerify)(token, jwks, {
+                issuer,
+                algorithms: ["EdDSA"],
+                clockTolerance: 5,
+            });
+            if (typeof verified.payload.exp !== "number" || verified.payload.exp <= Math.floor(Date.now() / 1000)) {
+                throw new Error("A finite, unexpired JWT expiration claim is required.");
+            }
+            subject = verified.payload.sub;
+        }
+    }
+    catch {
+        res.status(401).json({ error: "Unauthorized", code: "INVALID_OR_EXPIRED_TOKEN" });
+        return;
+    }
+    if (typeof subject !== "string" || !UUID_PATTERN.test(subject)) {
+        res.status(401).json({ error: "Unauthorized", code: "INVALID_AUTH_SUBJECT" });
+        return;
+    }
+    try {
+        const user = await resolvePkeUser(authReq, subject);
+        if (!user) {
+            res.status(403).json({
+                error: "Authenticated identity is not linked to an active PKE user.",
+                code: "PKE_IDENTITY_NOT_LINKED",
+            });
+            return;
+        }
+        authReq.user = user;
+        next();
+    }
+    catch {
+        res.status(503).json({ error: "Authentication service temporarily unavailable." });
+    }
+}
+function requireAdmin(req, res, next) {
+    const user = req.user;
+    if (!user?.isAdmin || !user.isActive) {
+        res.status(403).json({ error: "Forbidden - Admin principal required" });
+        return;
     }
     next();
 }
-// Get current user session
+// Use for critical Admin operations after an independently verified MFA flow exists.
+function requireAdminMfa(req, res, next) {
+    const user = req.user;
+    if (!user?.isAdmin || !user.isActive) {
+        res.status(403).json({ error: "Forbidden - Admin principal required" });
+        return;
+    }
+    if (user.mfaVerified !== true) {
+        res.status(403).json({ error: "A verified MFA challenge is required.", code: "MFA_REQUIRED" });
+        return;
+    }
+    next();
+}
+function checkAdminAvailability(req, res, next) {
+    const user = req.user;
+    if (user?.isAdmin && !user.isActive) {
+        res.status(409).json({ error: "Admin account is suspended." });
+        return;
+    }
+    next();
+}
 function getCurrentUser(req) {
-    return req.user || null;
+    return req.user ?? null;
 }
-// Check if exactly one active Admin principal exists
-async function checkSingleAdminPrincipal(dbClient) {
-    try {
-        const { rows } = await dbClient.query("SELECT id, email, name, is_active, mfa_enabled FROM users WHERE role = 'admin' AND is_active = true");
-        const adminCount = rows.length;
-        const adminEmails = rows.map((r) => r.email);
-        const hasAvailableAdmin = adminCount > 0;
-        return { count: adminCount, adminEmails, hasAvailableAdmin };
-    }
-    catch (error) {
-        console.error("Error checking admin principal count:", error);
-        return { count: 0, adminEmails: [], hasAvailableAdmin: false };
-    }
-}
-// Set Row-Level Security context for the authenticated user
-// This must be called at the start of each transaction/request
-// Uses transaction-local settings to prevent context leakage in pooled connections
-async function setRLSContext(userId, role, dbClient) {
-    try {
-        await dbClient.query("SELECT set_config('app.current_user_id', $1::text, true)", [userId]);
-        await dbClient.query("SELECT set_config('app.current_role', $2::text, true)", [role]);
-        await dbClient.query("SELECT set_config('app.current_project_id', '00000000-0000-0000-0000-000000000000'::text, true)");
-    }
-    catch (error) {
-        console.error("Error setting RLS context:", error);
-        throw error;
-    }
-}
-// Clear Row-Level Security context (automatically transaction-local)
-async function clearRLSContext(dbClient) {
-    try {
-        await dbClient.query("SELECT reset_config('app.current_user_id')");
-        await dbClient.query("SELECT reset_config('app.current_role')");
-        await dbClient.query("SELECT reset_config('app.current_project_id')");
-    }
-    catch (error) {
-        console.error("Error clearing RLS context:", error);
-        throw error;
-    }
-}
-//# sourceMappingURL=auth.js.map

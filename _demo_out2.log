@@ -1,0 +1,11 @@
+[PKE][DEMO] Manual Trial Mode enabled (in-memory). Production/Neon DB, Auth, storage, and external providers are NOT initialized.
+2026-11-14T15:13:37.907Z [info] Manual Trial Mode: skipping required Neon env validation, DB preflight, auth endpoint validation, and Pool creation.
+2026-11-14T15:13:37.929Z [info] PKE Manual Trial Mode API running on http://127.0.0.1:3199
+2026-11-14T15:13:37.931Z [info] Mode: manual-trial (in-memory demo, no Neon/PostgreSQL/Auth/storage/external providers)
+2026-11-14T15:13:37.933Z [info] Timestamp: 2026-11-14T15:13:37.933Z
+2026-11-14T15:13:38.725Z [info] GET /api/v1/health - IP: 127.0.0.1
+2026-11-14T15:13:39.007Z [info] GET /api/v1/demo/status - IP: 127.0.0.1
+2026-11-14T15:13:39.051Z [info] POST /api/v1/demo/login - IP: 127.0.0.1
+2026-11-14T15:13:39.060Z [info] GET /api/v1/me - IP: 127.0.0.1
+2026-11-14T15:13:39.074Z [info] GET /api/v1/projects - IP: 127.0.0.1
+2026-11-14T15:13:39.080Z [info] POST /api/v1/demo/reset - IP: 127.0.0.1

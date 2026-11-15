@@ -1,0 +1,73 @@
+npx : 
+At line:1 char:14
++ ... d 'D:\PKE'; npx vitest run --reporter=basic > vitest2.txt 2>&1; 
+echo  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteExcepti 
+   on
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[31m???????[39m[1m[41m Startup Error [49m[22m[31m????????[39m
+Error: Failed to load custom Reporter from basic
+    at loadCustomReporterModule (file:///D:/PKE/node_modules/vitest/dist
+/chunks/cli-api.B0Pz1_R7.js:11429:9)
+    at async file:///D:/PKE/node_modules/vitest/dist/chunks/cli-api.B0Pz
+1_R7.js:11445:23
+    ... 3 lines matching cause stack trace ...
+    at async _createServer 
+(file:///D:/PKE/node_modules/vite/dist/node/chunks/node.js:25064:84)
+    at async createViteServer (file:///D:/PKE/node_modules/vitest/dist/c
+hunks/cli-api.B0Pz1_R7.js:8902:17)
+    at async createVitest (file:///D:/PKE/node_modules/vitest/dist/chunk
+s/cli-api.B0Pz1_R7.js:14288:18)
+    at async prepareVitest (file:///D:/PKE/node_modules/vitest/dist/chun
+ks/cli-api.B0Pz1_R7.js:14655:14)
+    at async startVitest (file:///D:/PKE/node_modules/vitest/dist/chunks
+/cli-api.B0Pz1_R7.js:14598:14) {
+  [cause]: Error: Failed to load url basic (resolved id: basic). Does 
+the file exist?
+      at reviveInvokeError 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:556:14)
+      at Object.invoke 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:572:33)
+      at async ServerModuleRunner.getModuleInformation 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:1221:7)
+      at async ServerModuleRunner.import 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:1142:23)
+      at async loadCustomReporterModule (file:///D:/PKE/node_modules/vit
+est/dist/chunks/cli-api.B0Pz1_R7.js:11427:26)
+      at async file:///D:/PKE/node_modules/vitest/dist/chunks/cli-api.B0
+Pz1_R7.js:11445:23
+      at async Promise.all (index 0)
+      at async Vitest._setServer (file:///D:/PKE/node_modules/vitest/dis
+t/chunks/cli-api.B0Pz1_R7.js:13244:138)
+      at async BasicMinimalPluginContext.handler (file:///D:/PKE/node_mo
+dules/vitest/dist/chunks/cli-api.B0Pz1_R7.js:14258:5)
+      at async _createServer 
+(file:///D:/PKE/node_modules/vite/dist/node/chunks/node.js:25064:84) {
+    code: 'ERR_LOAD_URL',
+    runnerError: Error: RunnerError
+        at reviveInvokeError 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:557:64)
+        at Object.invoke 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:572:33)
+        at async ServerModuleRunner.getModuleInformation 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:1221:7)
+        at async ServerModuleRunner.import 
+(file:///D:/PKE/node_modules/vite/dist/node/module-runner.js:1142:23)
+        at async loadCustomReporterModule (file:///D:/PKE/node_modules/v
+itest/dist/chunks/cli-api.B0Pz1_R7.js:11427:26)
+        at async file:///D:/PKE/node_modules/vitest/dist/chunks/cli-api.
+B0Pz1_R7.js:11445:23
+        at async Promise.all (index 0)
+        at async Vitest._setServer (file:///D:/PKE/node_modules/vitest/d
+ist/chunks/cli-api.B0Pz1_R7.js:13244:138)
+        at async BasicMinimalPluginContext.handler (file:///D:/PKE/node_
+modules/vitest/dist/chunks/cli-api.B0Pz1_R7.js:14258:5)
+        at async _createServer 
+(file:///D:/PKE/node_modules/vite/dist/node/chunks/node.js:25064:84)
+  }
+}
+
+
+

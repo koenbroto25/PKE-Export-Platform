@@ -1,0 +1,21 @@
+◇ injected env (12) from .env
+D:\PKE\node_modules\path-to-regexp\src\index.ts:245
+        throw new PathError(`Unexpected ${value} at index ${index - 1}`, str);
+              ^
+
+
+PathError [TypeError]: Unexpected ( at index 45: /api/v1/storage/presigned-download/:objectKey(*); visit https://git.new/pathToRegexpError for info
+    at consumeUntil (D:\PKE\node_modules\path-to-regexp\src\index.ts:245:15)
+    at parse (D:\PKE\node_modules\path-to-regexp\src\index.ts:262:24)
+    at process (D:\PKE\node_modules\path-to-regexp\src\index.ts:466:52)
+    at pathToRegexp (D:\PKE\node_modules\path-to-regexp\src\index.ts:478:3)
+    at Object.match (D:\PKE\node_modules\path-to-regexp\src\index.ts:416:28)
+    at matcher (D:\PKE\node_modules\router\lib\layer.js:86:23)
+    at new Layer (D:\PKE\node_modules\router\lib\layer.js:93:62)
+    at Function.route (D:\PKE\node_modules\router\index.js:428:17)
+    at Function.route (D:\PKE\node_modules\express\lib\application.js:257:22)
+    at app.<computed> [as get] (D:\PKE\node_modules\express\lib\application.js:478:22) {
+  originalPath: '/api/v1/storage/presigned-download/:objectKey(*)'
+}
+
+Node.js v20.20.0

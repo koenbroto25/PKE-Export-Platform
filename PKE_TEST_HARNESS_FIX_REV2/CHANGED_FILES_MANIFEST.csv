@@ -1,0 +1,9 @@
+repository_path,status,notes
+"scripts/test-db/run-integration.mjs","REPLACE","import-safe runner; isolated integration config; shared preflight"
+"scripts/test-db/preflight.mjs","REPLACE","strict single loopback Docker binding; malformed username encoding handled; DB error URL redaction"
+"src/test-db/run-integration.guard.test.ts","REPLACE","case-insensitive username assertions; placeholder/query/fragment cases"
+"vitest.config.js","REPLACE","default tests exclude integration; preserve standard excludes"
+"vitest.config.ts","REPLACE","same as JS config to prevent config drift"
+"vitest.config.integration.js","REPLACE","isolated integration suite config"
+"vitest.config.integration.ts","REPLACE","isolated integration suite config used by runner"
+"src/test-db/preflight.test.js","DELETE","legacy contradictory localhost/IPv6 acceptance tests"

@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  pke-sprint01-1-test-db:
+    image: postgres:18-alpine
+    container_name: pke-sprint01-1-test-db
+    environment:
+      POSTGRES_DB: pke_test
+      POSTGRES_USER: pke_test_runtime
+      POSTGRES_PASSWORD: ${PKE_TEST_DB_PASSWORD:-changeme-in-env-file}
+    ports:
+      - "127.0.0.1:54331:5432"
+    volumes:
+      - pke-sprint01-1-test-data:/var/lib/postgresql
+    networks:
+      - pke-sprint01-1-test-net
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pke_test_runtime -d pke_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  pke-sprint01-1-test-net:
+    driver: bridge
+
+volumes:
+  pke-sprint01-1-test-data:
+    driver: local

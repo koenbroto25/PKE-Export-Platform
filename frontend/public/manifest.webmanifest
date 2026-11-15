@@ -1,0 +1,10 @@
+{
+  "name": "PKE Export Platform",
+  "short_name": "PKE CTRL",
+  "description": "PKE Export Intelligence & Project Control Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f6f8",
+  "theme_color": "#102b43",
+  "icons": []
+}

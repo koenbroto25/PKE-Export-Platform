@@ -155,7 +155,7 @@ DO $$ BEGIN CREATE TABLE IF NOT EXISTS "project_template_versions" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "project_template_id" uuid NOT NULL REFERENCES "project_templates" ("id") ON DELETE CASCADE,
   "version_number" integer NOT NULL,
-  "status" text NOT NULL DEFAULT "draft",
+  "status" text NOT NULL DEFAULT 'draft',
   "config_snapshot" jsonb,
   "effective_date" timestamp WITH TIME ZONE,
   "created_at" timestamp WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -171,7 +171,7 @@ DO $$ BEGIN CREATE TABLE IF NOT EXISTS "approval_events" (
   "entity_id" uuid NOT NULL,
   "action" text NOT NULL,
   "approved_by" uuid REFERENCES "users" ("id"),
-  "status" text NOT NULL DEFAULT "pending",
+  "status" text NOT NULL DEFAULT 'pending',
   "created_at" timestamp WITH TIME ZONE NOT NULL DEFAULT now(),
   "updated_at" timestamp WITH TIME ZONE NOT NULL DEFAULT now(),
   CONSTRAINT "approval_events_pkey" PRIMARY KEY ("id")
@@ -194,7 +194,7 @@ DO $$ BEGIN CREATE TABLE IF NOT EXISTS "admin_action_queue" (
 -- Company Settings table
 DO $$ BEGIN CREATE TABLE IF NOT EXISTS "company_settings" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "functional_currency" text NOT NULL DEFAULT "IDR",
+  "functional_currency" text NOT NULL DEFAULT 'IDR',
   "created_at" timestamp WITH TIME ZONE NOT NULL DEFAULT now(),
   "updated_at" timestamp WITH TIME ZONE NOT NULL DEFAULT now(),
   CONSTRAINT "company_settings_pkey" PRIMARY KEY ("id")
@@ -241,5 +241,4 @@ DO $$ BEGIN
   ('View Published Documents', 'view_published_docs', 'View published documents', true),
   -- Supplier permissions
   ('View Own Contracts', 'view_own_contracts', 'View own contracts', true);
-END $$;
 END $$;

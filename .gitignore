@@ -1,0 +1,41 @@
+# Secrets / local config (never commit)
+.neon
+.env
+.env.*
+!.env.example
+.env.test.local
+frontend/.env.local
+
+# Sensitive artifacts / backups / dumps / logs
+backups/
+_db_sync/
+_evidence/
+_recovery/
+*.dump
+*.backup
+*.sql.gz
+*.zip
+*.pem
+*.key
+*.p12
+pke-error.log
+
+# Dependencies / build / local tooling
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.vercel/
+.vscode/
+.kilo/
+
+# Local/temp outputs
+_tmp_*
+tsc_backend_out.txt
+tsc_frontend_out.txt
+frontend/tsc_out.txt
+output.txt
+err.txt
+test_output.txt
+docker_build.log
+

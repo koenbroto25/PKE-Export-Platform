@@ -5,7 +5,7 @@
 DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS "pgcrypto"; END $$;
 
 -- Create enum types
-DO $$ BEGIN CREATE TYPE public."user_role" AS ENUM ('admin', 'pm', 'field_manager', 'procurement', 'checker', 'warehouse_manager', 'packing_supervisor', 'loading_manager', 'document_officer', 'finance', 'cashier', 'accounting', 'funder', 'buyer', 'supplier', 'transporter', 'external_provider'); END $$;
+DO $$ BEGIN CREATE TYPE public."user_role" AS ENUM ('admin', 'pm', 'field_manager', 'procurement', 'checker', 'warehouse_manager', 'packing_supervisor', 'loading_manager', 'document_officer', 'finance', 'cashier', 'accounting', 'funder', 'buyer', 'supplier', 'transporter', 'external_provider', 'viewer'); END $$;
 DO $$ BEGIN CREATE TYPE public."project_status" AS ENUM ('draft', 'active', 'partial', 'settled', 'closed'); END $$;
 DO $$ BEGIN CREATE TYPE public."tracking_event_type" AS ENUM ('departure', 'checkpoint', 'arrival', 'weighbridge', 'receipt', 'exception'); END $$;
 DO $$ BEGIN CREATE TYPE public."rab_category" AS ENUM ('fixed', 'variable', 'contingency', 'tax', 'overhead'); END $$;
@@ -65,8 +65,8 @@ CREATE TABLE IF NOT EXISTS "role_permissions" (
 -- Table: project_members
 CREATE TABLE IF NOT EXISTS "project_members" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "project_id" uuid NOT NULL REFERENCES "projects" ("id") ON DELETE CASCADE,
-  "user_id" uuid NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "project_id" uuid NOT NULL,
+  "user_id" uuid NOT NULL,
   "role_id" uuid REFERENCES "role_catalog" ("id"),
   "joined_at" timestamp WITH TIME ZONE NOT NULL DEFAULT now(),
   "is_active" boolean NOT NULL DEFAULT true,
@@ -150,7 +150,6 @@ CREATE TABLE IF NOT EXISTS "projects" (
   "quantity_tranche" numeric(15, 2),
   "settlement_unit" text NOT NULL,
   "target_quantity" numeric(15, 2) NOT NULL,
-  "status" "project_status" NOT NULL DEFAULT 'draft',
   "started_at" timestamp WITH TIME ZONE,
   "closed_at" timestamp WITH TIME ZONE,
   "is_active" boolean NOT NULL DEFAULT true,

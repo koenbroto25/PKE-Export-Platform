@@ -1,0 +1,2 @@
+[PKE][DEMO] Manual Trial Mode enabled (in-memory). Production/Neon DB, Auth, storage, and external providers are NOT initialized.
+2026-11-14T15:12:11.328Z [info] Manual Trial Mode: skipping required Neon env validation, DB preflight, auth endpoint validation, and Pool creation.

@@ -1,3 +1,4 @@
+
 // Integration tests — Revision 5.6 (single project/branch, fail-closed, READ-ONLY)
 //
 // Policy: run ONLY against mandated Neon target
@@ -10,8 +11,17 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
-// @ts-expect-error - preflight is a Node ESM .mjs module without TS declarations
-import { validateSingleBranchDatabaseUrl, verifyDatabaseIdentityAndPrivileges, EXPECTED_HOST, EXPECTED_PORT, EXPECTED_DATABASE, EXPECTED_RUNTIME_USER, EXPECTED_PROJECT_ID, EXPECTED_BRANCH_ID, EXPECTED_BRANCH_NAME } from "../../scripts/test-db/preflight.mjs";
+import {
+  validateSingleBranchDatabaseUrl,
+  verifyDatabaseIdentityAndPrivileges,
+  EXPECTED_HOST,
+  EXPECTED_PORT,
+  EXPECTED_DATABASE,
+  EXPECTED_RUNTIME_USER,
+  EXPECTED_PROJECT_ID,
+  EXPECTED_BRANCH_ID,
+  EXPECTED_BRANCH_NAME
+} from "../../scripts/test-db/preflight.mjs";
 import { REQUIRED_RUNTIME_ROLE, validateRuntimeRoleState } from "../runtime-security";
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
@@ -23,7 +33,11 @@ let dbProof: any = null;
 describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
   beforeAll(async () => {
     if (!preflight.ok) return; // individual tests will report BLOCKED
-    client = new pg.Client({ connectionString: DATABASE_URL, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
+    client = new pg.Client({
+      connectionString: DATABASE_URL,
+      connectionTimeoutMillis: 15000,
+      ssl: { rejectUnauthorized: true }
+    });
     await client.connect();
     dbProof = await verifyDatabaseIdentityAndPrivileges(DATABASE_URL, 15000);
   });
@@ -37,8 +51,12 @@ describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
 
   it("requires mandated single-branch DATABASE_URL (no local/legacy/fallback)", () => {
     if (!preflight.ok) {
-      const reasons = (preflight.problems || preflight.reasons || []).map((p: any) => `[${p.code}] ${p.message || p}`).join(" ");
-      throw new Error(`BLOCKED: mandated single-branch target not configured/valid. ${reasons}`);
+      const reasons = (preflight.problems || preflight.reasons || [])
+        .map((p: any) => `[${p.code}] ${p.message || p}`)
+        .join(" ");
+      throw new Error(
+        `BLOCKED: mandated single-branch target not configured/valid. ${reasons}`
+      );
     }
     expect(preflight.mode).toBe("single-production");
     expect(preflight.config?.host).toBe(EXPECTED_HOST);
@@ -51,7 +69,9 @@ describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
   });
 
   it("proves mandated DB identity and runtime role privileges (read-only)", async () => {
-    if (!preflight.ok) throw new Error("BLOCKED_OWNER: mandated DATABASE_URL not available for DB identity proof.");
+    if (!preflight.ok) {
+      throw new Error("BLOCKED_OWNER: mandated DATABASE_URL not available for DB identity proof.");
+    }
     expect(dbProof?.ok).toBe(true);
     const facts = dbProof?.facts;
     expect(facts?.current_database).toBe(EXPECTED_DATABASE);
@@ -77,18 +97,24 @@ describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
   });
 
   it("inspects migration history / schema_migrations presence (read-only, no apply)", async () => {
-    if (!preflight.ok) throw new Error("BLOCKED_OWNER: mandated DATABASE_URL not available for migration history inspection.");
+    if (!preflight.ok) {
+      throw new Error("BLOCKED_OWNER: mandated DATABASE_URL not available for migration history inspection.");
+    }
     const { rows } = await client!.query(
-      `SELECT to_regclass('public.schema_migrations') AS schema_migrations, to_regclass('public.projects') AS projects, to_regclass('public.users') AS users`,
+      `SELECT
+         to_regclass('public.schema_migrations') AS schema_migrations,
+         to_regclass('public.projects') AS projects,
+         to_regclass('public.users') AS users`
     );
-    // Tables may or may not exist depending on target parity state; report facts, do not mutate.
     expect(rows[0]).toHaveProperty("schema_migrations");
     expect(rows[0]).toHaveProperty("projects");
     expect(rows[0]).toHaveProperty("users");
+
     if (rows[0].schema_migrations) {
-      const hist = await client!.query(`SELECT filename, checksum FROM schema_migrations ORDER BY filename`);
+      const hist = await client!.query(
+        `SELECT filename, checksum FROM schema_migrations ORDER BY filename`
+      );
       expect(Array.isArray(hist.rows)).toBe(true);
-      // If records exist, checksums should be non-empty strings.
       for (const r of hist.rows) {
         expect(typeof r.filename).toBe("string");
         expect(r.filename.length).toBeGreaterThan(0);
@@ -97,7 +123,9 @@ describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
   });
 
   it("checks selected schema objects, RLS enablement, and identity resolver availability (read-only)", async () => {
-    if (!preflight.ok) throw new Error("BLOCKED_OWNER: mandated DATABASE_URL not available for schema/RLS inspection.");
+    if (!preflight.ok) {
+      throw new Error("BLOCKED_OWNER: mandated DATABASE_URL not available for schema/RLS inspection.");
+    }
     const { rows } = await client!.query(`
       SELECT
         to_regclass('public.projects') AS projects,
@@ -105,10 +133,8 @@ describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
         to_regclass('public.report_runs') AS report_runs,
         to_regprocedure('public.resolve_pke_user_by_neon_auth_user_id(uuid)') AS identity_resolver
     `);
-    // Function grant check is read-only; resolver may be absent on unprovisioned target.
     expect(rows[0]).toHaveProperty("identity_resolver");
 
-    // RLS flags for known tables when they exist (no writes)
     const rls = await client!.query(`
       SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
       FROM pg_class c
@@ -116,6 +142,7 @@ describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
       WHERE n.nspname = 'public' AND c.relname = ANY($1::text[])
       ORDER BY c.relname
     `, [["projects", "users", "project_members", "report_runs"]]);
+
     for (const r of rls.rows) {
       expect(typeof r.relname).toBe("string");
       expect(typeof r.relrowsecurity).toBe("boolean");
@@ -126,7 +153,7 @@ describe("integration (Rev5.6 single-branch read-only, fail-closed)", () => {
     throw new Error(
       "BLOCKED_OWNER: write-path integration/E2E fixtures not executed. Requires owner-provisioned mandated target credentials, " +
       "verified backup/restore/parity, and approved same-branch tx/rollback + unique QA-namespace execution with cleanup proof. " +
-      "No local DB, no other branch, no dummy production data, no DDL/DML performed.",
+      "No local DB, no other branch, no dummy production data, no DDL/DML performed."
     );
   });
 });

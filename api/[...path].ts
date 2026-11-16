@@ -1,7 +1,7 @@
 // Vercel serverless function entrypoint for PKE API (Express app export)
 // Routes /api/v1/* to the Express app without app.listen in serverless runtime.
 import type { IncomingMessage, ServerResponse } from "http";
-import app, { ensureRuntimeReady } from "../src/index";
+import app, { ensureRuntimeReady } from "../src/index.js";
 
 let ready: Promise<void> | null = null;
 function ensureReady() {

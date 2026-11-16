@@ -4,13 +4,13 @@ import winston from "winston";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
-import * as schema from "./schema";
-import { requireAuth, requireAdmin } from "./auth.ts";
-import { roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security";
-import { privateStorage } from "./storage";
+import * as schema from "./schema.js";
+import { requireAuth, requireAdmin } from "./auth.js";
+import { roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
+import { privateStorage } from "./storage.js";
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
-import { detectManualTrialMode } from "./demo/mode.ts";
-import { registerDemoApiRoutes } from "./demo/routes.ts";
+import { detectManualTrialMode } from "./demo/mode.js";
+import { registerDemoApiRoutes } from "./demo/routes.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {

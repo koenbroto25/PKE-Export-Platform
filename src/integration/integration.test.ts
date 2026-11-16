@@ -10,7 +10,6 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
-// @ts-expect-error - preflight is a Node ESM .mjs module without TS declarations
 import { validateSingleBranchDatabaseUrl, verifyDatabaseIdentityAndPrivileges, EXPECTED_HOST, EXPECTED_PORT, EXPECTED_DATABASE, EXPECTED_RUNTIME_USER, EXPECTED_PROJECT_ID, EXPECTED_BRANCH_ID, EXPECTED_BRANCH_NAME } from "../../scripts/test-db/preflight.mjs";
 import { REQUIRED_RUNTIME_ROLE, validateRuntimeRoleState } from "../runtime-security";
 

@@ -8,7 +8,6 @@ import * as schema from "./schema";
 import { requireAuth, requireAdmin } from "./auth.ts";
 import { roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security";
 import { privateStorage } from "./storage";
-// @ts-expect-error - preflight is a Node ESM .mjs module without TS declarations
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
 import { detectManualTrialMode } from "./demo/mode.ts";
 import { registerDemoApiRoutes } from "./demo/routes.ts";

@@ -11,7 +11,8 @@
       "sha256": "d7b9376495a36e5bf5e90539403b674eb39f1df01308744a262eb6519f4ea5d1",
       "status": "applied",
       "source_recovered": false,
-      "reconstruction": "review-only candidate"
+      "reconstruction": "review-only candidate",
+      "applied_at": "2026-11-11T14:01:06.807Z"
     },
     {
       "id": 30,
@@ -19,7 +20,8 @@
       "sha256": "2bb2f8fcc9f947669b1712214d425679e9b6385269d4e471f77f09a028b6b499",
       "status": "applied",
       "source_recovered": false,
-      "reconstruction": "five VALIDATE CONSTRAINT statements verified by parent/child catalogs"
+      "reconstruction": "five VALIDATE CONSTRAINT statements verified by parent/child catalogs",
+      "applied_at": "2026-11-11T14:01:35.415Z"
     },
     {
       "id": 31,
@@ -27,7 +29,8 @@
       "sha256": "90a07b35c9b40758ad33c4e6c28407c341dcdd67310c8ead76fe5fe965bde788",
       "status": "applied",
       "source_recovered": false,
-      "reconstruction": "review-only function-definition candidate"
+      "reconstruction": "review-only function-definition candidate",
+      "applied_at": "2026-11-11T14:03:16.993Z"
     },
     {
       "id": 32,
@@ -35,7 +38,8 @@
       "sha256": "1944c163d1185e8bf606b411b305f36a0c732d76118934db0a9c57dbb5328f48",
       "status": "applied",
       "source_recovered": false,
-      "reconstruction": "review-only seed candidate; resulting values and columns verified"
+      "reconstruction": "review-only seed candidate; resulting values and columns verified",
+      "applied_at": "2026-11-11T14:03:32.720Z"
     },
     {
       "id": 33,
@@ -43,7 +47,8 @@
       "sha256": "bc759884315ecf3b0716f04581b7677e3ca4ec1dec2c683fab777ca848523029",
       "status": "applied",
       "source_recovered": false,
-      "reconstruction": "cumulative catalog snapshot only; BLOCKED for execution"
+      "reconstruction": "cumulative catalog snapshot only; BLOCKED for execution",
+      "applied_at": "2026-11-12T21:12:21.138Z"
     },
     {
       "id": 34,
@@ -51,7 +56,8 @@
       "sha256": "c0265dfe554e55bebe5061ea90a41e74c10e1ff353616174cbfd0f590d46596a",
       "status": "applied",
       "source_recovered": false,
-      "reconstruction": "review-only ACL candidate; child ACL state verified"
+      "reconstruction": "review-only ACL candidate; child ACL state verified",
+      "applied_at": "2026-11-13T20:41:12.732Z"
     },
     {
       "id": 35,
@@ -59,7 +65,8 @@
       "sha256": "6f4425f297202a5618e4914705ea610d2058ef0fe01ebab5468af5824a84fa45",
       "status": "applied",
       "source_recovered": false,
-      "reconstruction": "BLOCKED; prior inference withdrawn"
+      "reconstruction": "BLOCKED; prior inference withdrawn",
+      "applied_at": "2026-11-14T01:35:58.421Z"
     }
   ],
   "safety": "Do not replay 029-035 on Production. Do not put reconstruction artifacts into migrations/ until provenance and isolated rehearsal pass."

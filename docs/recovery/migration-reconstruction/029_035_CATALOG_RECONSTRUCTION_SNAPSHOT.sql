@@ -2,115 +2,115 @@
 -- Source: legacy child br-calm-glade-b3nrleet; baseline: parent br-gentle-thunder-b3z7y3bk
 -- CUMULATIVE parent-to-child delta, NOT byte-identical original migration files.
 -- REVIEW/EVIDENCE ONLY. NOT SAFE FOR DIRECT EXECUTION OR PRODUCTION REPLAY.
--- Generated 2026-11-17 from pg_catalog and information_schema.
+-- Generated from pg_catalog and information_schema on 2026-11-17.
 
 -- TABLE public.project_module_configuration_versions
 CREATE TABLE public.project_module_configuration_versions (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "schema_version" integer(32,0) NOT NULL DEFAULT 1,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "configuration_version" integer(32,0) NOT NULL DEFAULT 1,
-  "project_id" uuid NOT NULL,
+  "configuration_version" integer NOT NULL DEFAULT 1,
+  "schema_version" integer NOT NULL DEFAULT 1,
   "configuration" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "activated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "project_id" uuid NOT NULL,
   "change_reason" text,
-  "activated_by" uuid,
-  "activated_at" timestamp with time zone NOT NULL DEFAULT now()
+  "activated_by" uuid
 );
 -- TABLE public.fiscal_periods
 CREATE TABLE public.fiscal_periods (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'open'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "created_by" uuid,
   "closed_at" timestamp with time zone,
   "closed_by" uuid,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "period_end" date NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "period_start" date NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "code" text NOT NULL,
-  "status" text NOT NULL DEFAULT 'open'::text
+  "code" text NOT NULL
 );
 -- TABLE public.outbox_events
 CREATE TABLE public.outbox_events (
-  "attempt_count" integer(32,0) NOT NULL DEFAULT 0,
-  "payload" jsonb NOT NULL,
-  "status" text NOT NULL DEFAULT 'pending'::text,
-  "locked_at" timestamp with time zone,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "aggregate_id" uuid NOT NULL,
+  "status" text NOT NULL DEFAULT 'pending'::text,
+  "attempt_count" integer NOT NULL DEFAULT 0,
   "available_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "payload" jsonb NOT NULL,
+  "locked_at" timestamp with time zone,
+  "aggregate_id" uuid NOT NULL,
   "aggregate_type" text NOT NULL,
   "project_id" uuid,
   "last_error" text,
   "processed_at" timestamp with time zone,
-  "event_type" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "event_type" text NOT NULL
 );
 -- TABLE public.idempotency_keys
 CREATE TABLE public.idempotency_keys (
-  "request_hash" text NOT NULL,
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "state" text NOT NULL DEFAULT 'processing'::text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "actor_user_id" uuid NOT NULL,
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "request_hash" text NOT NULL,
+  "actor_user_id" uuid NOT NULL,
   "scope" text NOT NULL,
   "expires_at" timestamp with time zone NOT NULL,
   "idempotency_key" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "completed_at" timestamp with time zone,
   "response_body" jsonb,
-  "response_status" integer(32,0),
-  "state" text NOT NULL DEFAULT 'processing'::text
+  "response_status" integer
 );
 -- TABLE public.partner_organizations
 CREATE TABLE public.partner_organizations (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "verification_status" text NOT NULL DEFAULT 'unverified'::text,
+  "source_type" text NOT NULL DEFAULT 'manual'::text,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "registered_address" jsonb,
   "trading_name" text,
   "verified_by" uuid,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "source_type" text NOT NULL DEFAULT 'manual'::text,
   "organization_type" text NOT NULL,
   "created_by" uuid,
-  "verification_status" text NOT NULL DEFAULT 'unverified'::text,
   "country_code" character(2) NOT NULL,
-  "is_active" boolean NOT NULL DEFAULT true,
   "phone" text,
   "legal_name" text NOT NULL,
   "email" text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "registration_number" text,
   "registration_type" text,
   "tax_id_ciphertext" text,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "verified_at" timestamp with time zone,
   "website" text,
   "source_reference" text
 );
 -- TABLE public.facility_contacts
 CREATE TABLE public.facility_contacts (
-  "email" text,
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "is_primary" boolean NOT NULL DEFAULT false,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "email" text,
   "facility_id" uuid NOT NULL,
   "name" text NOT NULL,
   "created_by" uuid,
   "role" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "is_primary" boolean NOT NULL DEFAULT false,
-  "phone" text,
-  "is_active" boolean NOT NULL DEFAULT true
+  "phone" text
 );
 -- TABLE public.facility_capacity_records
 CREATE TABLE public.facility_capacity_records (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "verified_by" uuid,
   "verified_at" timestamp with time zone,
   "facility_id" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "capacity_value" numeric(20,6) NOT NULL,
   "process_type" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "effective_to" date,
   "capacity_kind" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "source_reference" text,
   "unit_code" text NOT NULL,
   "effective_from" date NOT NULL,
@@ -118,56 +118,57 @@ CREATE TABLE public.facility_capacity_records (
 );
 -- TABLE public.facility_products
 CREATE TABLE public.facility_products (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "capability_status" text NOT NULL DEFAULT 'unverified'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "capacity_record_id" uuid,
   "evidence_object_key" text,
-  "capability_status" text NOT NULL DEFAULT 'unverified'::text,
   "verified_at" timestamp with time zone,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "product_variant_id" uuid,
   "verified_by" uuid,
   "product_id" uuid NOT NULL,
   "process_type" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "facility_id" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "facility_id" uuid NOT NULL
 );
 -- TABLE public.facility_operating_periods
 CREATE TABLE public.facility_operating_periods (
-  "shutdown_reason" text,
-  "weekday" smallint(16,0),
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "timezone" text NOT NULL DEFAULT 'Asia/Makassar'::text,
+  "is_operational" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "shutdown_reason" text,
+  "weekday" smallint,
   "opens_at" time without time zone,
   "facility_id" uuid NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "closes_at" time without time zone,
-  "timezone" text NOT NULL DEFAULT 'Asia/Makassar'::text,
   "effective_to" date,
-  "effective_from" date,
-  "is_operational" boolean NOT NULL DEFAULT true
+  "effective_from" date
 );
 -- TABLE public.product_attributes
 CREATE TABLE public.product_attributes (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "comparison_basis" text,
   "dimension" text,
-  "is_active" boolean NOT NULL DEFAULT true,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "name" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "data_type" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "unit_code" text,
   "attribute_code" text NOT NULL
 );
 -- TABLE public.shipment_events
 CREATE TABLE public.shipment_events (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "recorded_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "source" text NOT NULL DEFAULT 'manual'::text,
+  "metadata" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "quantity_delta" numeric(20,6),
   "event_timestamp" timestamp with time zone NOT NULL,
-  "metadata" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "actor_id" uuid,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "event_type" text NOT NULL,
   "unit_code" text,
   "shipment_id" uuid NOT NULL,
@@ -175,12 +176,14 @@ CREATE TABLE public.shipment_events (
   "idempotency_key" text,
   "status" text NOT NULL,
   "evidence_object_key" text,
-  "project_id" uuid NOT NULL,
-  "source" text NOT NULL DEFAULT 'manual'::text
+  "project_id" uuid NOT NULL
 );
 -- TABLE public.product_hs_classifications
 CREATE TABLE public.product_hs_classifications (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "review_status" text NOT NULL DEFAULT 'pending'::text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "valid_to" date,
   "goods_description" text NOT NULL,
   "classification_rationale" text,
@@ -189,9 +192,6 @@ CREATE TABLE public.product_hs_classifications (
   "hs_code" text NOT NULL,
   "source_reference" text,
   "product_id" uuid NOT NULL,
-  "review_status" text NOT NULL DEFAULT 'pending'::text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "country_code" character(2) NOT NULL,
   "valid_from" date NOT NULL,
   "product_variant_id" uuid,
@@ -199,30 +199,33 @@ CREATE TABLE public.product_hs_classifications (
 );
 -- TABLE public.buyer_facilities
 CREATE TABLE public.buyer_facilities (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "facility_type" text NOT NULL DEFAULT 'receiving_plant'::text,
   "verification_status" text NOT NULL DEFAULT 'unverified'::text,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "verified_by" uuid,
   "buyer_id" uuid NOT NULL,
   "verified_at" timestamp with time zone,
-  "facility_type" text NOT NULL DEFAULT 'receiving_plant'::text,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "name" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "organization_id" uuid,
-  "is_active" boolean NOT NULL DEFAULT true,
   "longitude" numeric(10,6),
   "destination_port_id" uuid,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "latitude" numeric(9,6),
   "address" jsonb,
   "country_code" character(2)
 );
 -- TABLE public.buyer_product_requirements
 CREATE TABLE public.buyer_product_requirements (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "version_no" integer NOT NULL DEFAULT 1,
+  "status" text NOT NULL DEFAULT 'draft'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "effective_from" date,
   "buyer_facility_id" uuid,
   "required_quantity" numeric(20,6),
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "delivery_window_start" date,
   "product_id" uuid NOT NULL,
   "reviewed_by" uuid,
@@ -233,23 +236,20 @@ CREATE TABLE public.buyer_product_requirements (
   "buyer_id" uuid NOT NULL,
   "mandatory_origin_country" character(2),
   "reviewed_at" timestamp with time zone,
-  "version_no" integer(32,0) NOT NULL DEFAULT 1,
   "product_specification_id" uuid,
-  "status" text NOT NULL DEFAULT 'draft'::text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "quantity_unit" text,
   "effective_to" date,
   "delivery_window_end" date
 );
 -- TABLE public.buyer_requirement_attributes
 CREATE TABLE public.buyer_requirement_attributes (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "is_mandatory" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "target_values" jsonb,
   "attribute_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "operator" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "target_numeric" numeric(20,8),
-  "is_mandatory" boolean NOT NULL DEFAULT true,
   "requirement_id" uuid NOT NULL,
   "measurement_basis" text,
   "max_numeric" numeric(20,8),
@@ -260,67 +260,67 @@ CREATE TABLE public.buyer_requirement_attributes (
 -- TABLE public.buyer_demand_forecasts
 CREATE TABLE public.buyer_demand_forecasts (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "source_type" text NOT NULL DEFAULT 'manual'::text,
+  "is_committed_order" boolean NOT NULL DEFAULT false,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "product_id" uuid NOT NULL,
   "confidence" numeric(5,4),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "buyer_facility_id" uuid,
   "forecast_period" date NOT NULL,
   "created_by" uuid,
   "buyer_id" uuid NOT NULL,
-  "is_committed_order" boolean NOT NULL DEFAULT false,
   "source_reference" text,
   "unit_code" text NOT NULL,
   "currency_id" uuid,
-  "quantity" numeric(20,6) NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "source_type" text NOT NULL DEFAULT 'manual'::text
+  "quantity" numeric(20,6) NOT NULL
 );
 -- TABLE public.production_batches
 CREATE TABLE public.production_batches (
-  "created_by" uuid,
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "quality_status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_by" uuid,
   "unit_code" text NOT NULL,
   "production_started_at" timestamp with time zone,
   "batch_code" text NOT NULL,
   "production_ended_at" timestamp with time zone,
   "product_variant_id" uuid,
-  "quality_status" text NOT NULL DEFAULT 'pending'::text,
   "process_line" text,
   "facility_id" uuid NOT NULL,
   "shift_code" text,
   "source_reference" text,
   "project_id" uuid,
   "quantity" numeric(20,6) NOT NULL,
-  "product_id" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "id" uuid NOT NULL DEFAULT gen_random_uuid()
+  "product_id" uuid NOT NULL
 );
 -- TABLE public.regulatory_rules
 CREATE TABLE public.regulatory_rules (
-  "jurisdiction" text NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "scope" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "status" text NOT NULL DEFAULT 'draft'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "jurisdiction" text NOT NULL,
   "title" text NOT NULL,
   "created_by" uuid,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "subject_type" text NOT NULL,
   "reviewed_at" timestamp with time zone,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "rule_code" text NOT NULL,
-  "status" text NOT NULL DEFAULT 'draft'::text,
   "active_version_id" uuid,
-  "scope" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "reviewed_by" uuid
 );
 -- TABLE public.loading_tickets
 CREATE TABLE public.loading_tickets (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "unit_code" text NOT NULL,
   "ticket_type" text NOT NULL,
   "quantity" numeric(20,6) NOT NULL,
   "equipment_id" uuid,
-  "status" text NOT NULL DEFAULT 'pending'::text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "lot_id" uuid,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "measured_at" timestamp with time zone NOT NULL,
   "verified_at" timestamp with time zone,
   "loading_operation_id" uuid NOT NULL,
@@ -332,15 +332,16 @@ CREATE TABLE public.loading_tickets (
 );
 -- TABLE public.regulatory_rule_versions
 CREATE TABLE public.regulatory_rule_versions (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "condition_schema" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "status" text NOT NULL DEFAULT 'draft'::text,
-  "version_number" integer(32,0) NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "version_number" integer NOT NULL,
   "regulatory_source_id" uuid NOT NULL,
   "approved_at" timestamp with time zone,
   "rule_id" uuid NOT NULL,
   "effective_from" date NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "risk_category" text,
   "source_locator" text,
   "effective_to" date,
@@ -348,179 +349,178 @@ CREATE TABLE public.regulatory_rule_versions (
   "rule_summary" text NOT NULL,
   "source_checksum" text,
   "outcome" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "approved_by" uuid
 );
 -- TABLE public.loading_segments
 CREATE TABLE public.loading_segments (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "quantity" numeric(20,6) NOT NULL DEFAULT 0,
+  "status" text NOT NULL DEFAULT 'planned'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "ended_at" timestamp with time zone,
   "loading_method" text NOT NULL,
   "equipment_id" uuid,
   "container_number" text,
   "hold_number" text,
-  "status" text NOT NULL DEFAULT 'planned'::text,
   "project_id" uuid NOT NULL,
   "unit_code" text NOT NULL,
-  "quantity" numeric(20,6) NOT NULL DEFAULT 0,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "segment_code" text NOT NULL,
   "started_at" timestamp with time zone,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "loading_operation_id" uuid NOT NULL
 );
 -- TABLE public.shipment_document_links
 CREATE TABLE public.shipment_document_links (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "visibility_status" text NOT NULL DEFAULT 'internal'::text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "created_by" uuid,
-  "visibility_status" text NOT NULL DEFAULT 'internal'::text,
   "project_id" uuid NOT NULL,
   "document_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "shipment_id" uuid NOT NULL
 );
 -- TABLE public.inventory_reservations
 CREATE TABLE public.inventory_reservations (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "buyer_id" uuid,
-  "idempotency_key" text NOT NULL,
+  "status" text NOT NULL DEFAULT 'active'::text,
   "reserved_at" timestamp with time zone NOT NULL DEFAULT now(),
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "fulfilled_quantity" numeric NOT NULL DEFAULT 0,
+  "buyer_id" uuid,
+  "idempotency_key" text NOT NULL,
   "lot_id" uuid NOT NULL,
   "project_id" uuid NOT NULL,
   "released_by" uuid,
   "released_at" timestamp with time zone,
   "shipment_id" uuid,
   "created_by" uuid NOT NULL,
-  "status" text NOT NULL DEFAULT 'active'::text,
   "reserved_quantity" numeric(20,6) NOT NULL,
   "unit_code" text NOT NULL,
-  "expires_at" timestamp with time zone,
-  "fulfilled_quantity" numeric NOT NULL DEFAULT 0,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now()
+  "expires_at" timestamp with time zone
 );
 -- TABLE public.inventory_holds
 CREATE TABLE public.inventory_holds (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'active'::text,
+  "placed_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "quantity" numeric(20,6) NOT NULL,
   "release_reason" text,
   "project_id" uuid NOT NULL,
   "released_at" timestamp with time zone,
   "released_by" uuid,
   "placed_by" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "lot_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "hold_type" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "placed_at" timestamp with time zone NOT NULL DEFAULT now(),
   "reason" text NOT NULL,
-  "unit_code" text NOT NULL,
-  "status" text NOT NULL DEFAULT 'active'::text
+  "unit_code" text NOT NULL
 );
 -- TABLE public.inventory_reconciliations
 CREATE TABLE public.inventory_reconciliations (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "variance_quantity" numeric(20,6) GENERATED ALWAYS AS ((counted_quantity - book_quantity)) STORED,
+  "status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "reviewed_at" timestamp with time zone,
   "project_id" uuid NOT NULL,
   "reviewed_by" uuid,
-  "status" text NOT NULL DEFAULT 'pending'::text,
   "book_quantity" numeric(20,6) NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "warehouse_id" uuid,
   "counted_at" timestamp with time zone NOT NULL,
   "lot_id" uuid NOT NULL,
   "reason" text,
   "counted_by" uuid NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "evidence_object_key" text,
   "unit_code" text NOT NULL,
-  "counted_quantity" numeric(20,6) NOT NULL,
-  "variance_quantity" numeric(20,6) GENERATED ALWAYS AS ((counted_quantity - book_quantity)) STORED
+  "counted_quantity" numeric(20,6) NOT NULL
 );
 -- TABLE public.matching_candidates
 CREATE TABLE public.matching_candidates (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "hard_filter_failures" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "score_explanation" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "data_freshness" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "source_evidence" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "review_status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "fit_score" numeric(7,4),
   "lot_id" uuid,
   "logistics_score" numeric(7,4),
-  "source_evidence" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "supplier_reliability_score" numeric(7,4),
   "matching_run_id" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "facility_id" uuid,
   "estimated_fulfillable_quantity" numeric(20,6),
   "quality_score" numeric(7,4),
-  "score_explanation" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "product_variant_id" uuid,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "unit_code" text,
-  "data_freshness" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "availability_score" numeric(7,4),
-  "hard_filter_failures" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "hard_filter_pass" boolean NOT NULL,
   "similarity_score" numeric(7,4)
 );
 -- TABLE public.payment_instructions
 CREATE TABLE public.payment_instructions (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "instruction_status" text NOT NULL DEFAULT 'draft'::text,
+  "requested_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "payment_method_id" uuid,
   "project_id" uuid NOT NULL,
   "approved_at" timestamp with time zone,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "returned_by" uuid,
   "acknowledged_at" timestamp with time zone,
   "payment_obligation_id" uuid,
   "notes" text,
   "approved_by" uuid,
   "cash_advance_id" uuid,
-  "requested_at" timestamp with time zone NOT NULL DEFAULT now(),
   "external_reference" text,
   "instruction_number" text NOT NULL,
   "requested_by" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "amount" numeric(20,4) NOT NULL,
   "returned_at" timestamp with time zone,
   "payee_name" text NOT NULL,
   "currency_id" uuid NOT NULL,
   "return_reason" text,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "acknowledged_by" uuid,
-  "instruction_status" text NOT NULL DEFAULT 'draft'::text,
   "external_execution_date" timestamp with time zone
 );
 -- TABLE public.matching_runs
 CREATE TABLE public.matching_runs (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'queued'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "generated_by" uuid,
   "buyer_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "project_id" uuid,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "requirement_id" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "algorithm_version" text NOT NULL,
   "input_snapshot" jsonb NOT NULL,
   "generated_at" timestamp with time zone,
-  "status" text NOT NULL DEFAULT 'queued'::text,
   "error_message" text
 );
 -- TABLE public.payment_instruction_approvals
 CREATE TABLE public.payment_instruction_approvals (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "decided_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "payment_instruction_id" uuid NOT NULL,
   "reason" text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "approver_id" uuid NOT NULL,
-  "decision" text NOT NULL,
-  "decided_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "decision" text NOT NULL
 );
 -- TABLE public.payment_verifications
 CREATE TABLE public.payment_verifications (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "verified_at" timestamp with time zone NOT NULL DEFAULT now(),
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "payment_instruction_id" uuid NOT NULL,
   "verified_amount" numeric(20,4),
   "verification_status" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "evidence_id" uuid NOT NULL,
-  "verified_at" timestamp with time zone NOT NULL DEFAULT now(),
   "notes" text,
   "verified_by" uuid NOT NULL,
   "verified_currency_id" uuid,
@@ -528,112 +528,116 @@ CREATE TABLE public.payment_verifications (
 );
 -- TABLE public.payment_reconciliations
 CREATE TABLE public.payment_reconciliations (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "reconciliation_status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "currency_id" uuid NOT NULL,
   "reconciled_amount" numeric(20,4) NOT NULL,
-  "reconciliation_status" text NOT NULL DEFAULT 'pending'::text,
   "reconciled_at" timestamp with time zone,
   "reconciled_by" uuid,
   "payment_instruction_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "verification_id" uuid NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "journal_entry_id" uuid,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "project_id" uuid NOT NULL,
   "exception_reason" text
 );
 -- TABLE public.payment_evidence
 CREATE TABLE public.payment_evidence (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "object_bucket" text NOT NULL DEFAULT 'pke-private-documents'::text,
   "uploaded_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "status" text NOT NULL DEFAULT 'submitted'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "rejection_reason" text,
   "mime_type" text NOT NULL,
   "sha256_checksum" text NOT NULL,
-  "file_size_bytes" bigint(64,0) NOT NULL,
+  "file_size_bytes" bigint NOT NULL,
   "payment_instruction_id" uuid NOT NULL,
   "supersedes_evidence_id" uuid,
-  "status" text NOT NULL DEFAULT 'submitted'::text,
   "original_filename" text NOT NULL,
   "reviewed_by" uuid,
   "uploaded_by" uuid NOT NULL,
   "reviewed_at" timestamp with time zone,
-  "object_bucket" text NOT NULL DEFAULT 'pke-private-documents'::text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "object_key" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "object_key" text NOT NULL
 );
 -- TABLE public.port_terminals
 CREATE TABLE public.port_terminals (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "cargo_types" text[] NOT NULL DEFAULT '{}'::text[],
+  "status" text NOT NULL DEFAULT 'unverified'::text,
+  "operating_restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "terminal_code" text NOT NULL,
   "source_reference" text,
   "name" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "port_id" uuid NOT NULL,
   "operator_organization_id" uuid,
-  "cargo_types" ARRAY NOT NULL DEFAULT '{}'::text[],
-  "operating_restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "status" text NOT NULL DEFAULT 'unverified'::text,
   "verified_at" timestamp with time zone
 );
 -- TABLE public.port_berths
 CREATE TABLE public.port_berths (
-  "max_loa_m" numeric(12,3),
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'unverified'::text,
+  "restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "max_loa_m" numeric(12,3),
   "max_beam_m" numeric(12,3),
   "depth_datum" text,
   "declared_depth_m" numeric(12,3),
-  "status" text NOT NULL DEFAULT 'unverified'::text,
   "terminal_id" uuid NOT NULL,
-  "restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "length_m" numeric(12,3),
   "source_reference" text,
   "verified_at" timestamp with time zone,
   "berth_code" text NOT NULL,
   "max_operational_draft_m" numeric(12,3),
-  "name" text,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "id" uuid NOT NULL DEFAULT gen_random_uuid()
+  "name" text
 );
 -- TABLE public.port_channels
 CREATE TABLE public.port_channels (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "status" text NOT NULL DEFAULT 'unverified'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "source_reference" text,
   "depth_datum" text NOT NULL,
   "declared_depth_m" numeric(12,3),
   "traffic_direction" text,
-  "status" text NOT NULL DEFAULT 'unverified'::text,
   "width_m" numeric(12,3),
   "survey_date" date,
   "verified_at" timestamp with time zone,
   "port_id" uuid NOT NULL,
   "channel_name" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "length_m" numeric(14,3),
-  "id" uuid NOT NULL DEFAULT gen_random_uuid()
+  "length_m" numeric(14,3)
 );
 -- TABLE public.port_anchorages
 CREATE TABLE public.port_anchorages (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "status" text NOT NULL DEFAULT 'unverified'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "verified_at" timestamp with time zone,
   "latitude" numeric(9,6),
   "survey_date" date,
   "port_id" uuid NOT NULL,
   "source_reference" text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "name" text,
-  "capacity_vessels" integer(32,0),
+  "capacity_vessels" integer,
   "anchorage_code" text NOT NULL,
-  "status" text NOT NULL DEFAULT 'unverified'::text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "restrictions" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "declared_depth_m" numeric(12,3),
   "depth_datum" text,
   "longitude" numeric(10,6)
 );
 -- TABLE public.port_depth_observations
 CREATE TABLE public.port_depth_observations (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "depth_unit" text NOT NULL DEFAULT 'm'::text,
+  "quality_status" text NOT NULL DEFAULT 'unverified'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "channel_id" uuid,
   "source_authority" text NOT NULL,
   "evidence_object_key" text,
@@ -644,12 +648,8 @@ CREATE TABLE public.port_depth_observations (
   "survey_date" date NOT NULL,
   "berth_id" uuid,
   "valid_to" date,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "survey_method" text,
   "terminal_id" uuid,
-  "depth_unit" text NOT NULL DEFAULT 'm'::text,
-  "quality_status" text NOT NULL DEFAULT 'unverified'::text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "reviewer_id" uuid,
   "depth_datum" text NOT NULL,
   "depth_feature_type" text NOT NULL,
@@ -658,50 +658,50 @@ CREATE TABLE public.port_depth_observations (
 );
 -- TABLE public.port_loading_services
 CREATE TABLE public.port_loading_services (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'unverified'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "handling_mode" text NOT NULL,
   "rate_value" numeric(18,4),
   "cargo_type" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "operating_window" jsonb,
   "berth_id" uuid,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "terminal_id" uuid,
   "rate_unit" text,
   "service_type" text NOT NULL,
   "verified_at" timestamp with time zone,
-  "status" text NOT NULL DEFAULT 'unverified'::text,
   "port_id" uuid NOT NULL,
   "source_reference" text
 );
 -- TABLE public.port_equipment
 CREATE TABLE public.port_equipment (
-  "equipment_type" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "port_id" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "source_reference" text,
-  "availability" jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "terminal_id" uuid,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "condition_status" text NOT NULL DEFAULT 'unverified'::text,
+  "availability" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "equipment_type" text NOT NULL,
+  "port_id" uuid NOT NULL,
+  "source_reference" text,
+  "terminal_id" uuid,
   "berth_id" uuid,
   "last_verified_at" timestamp with time zone,
   "capacity_unit" text,
-  "rated_capacity" numeric(20,4),
-  "condition_status" text NOT NULL DEFAULT 'unverified'::text
+  "rated_capacity" numeric(20,4)
 );
 -- TABLE public.port_operating_limits
 CREATE TABLE public.port_operating_limits (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "weather_limits" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "approval_status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "cargo_type" text,
   "effective_to" date,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "port_id" uuid NOT NULL,
   "verified_at" timestamp with time zone,
   "effective_from" date NOT NULL,
-  "weather_limits" jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "berth_id" uuid,
-  "approval_status" text NOT NULL DEFAULT 'pending'::text,
   "max_beam_m" numeric(12,3),
   "authority_name" text NOT NULL,
   "terminal_id" uuid,
@@ -714,39 +714,39 @@ CREATE TABLE public.port_operating_limits (
 );
 -- TABLE public.warehouse_zones
 CREATE TABLE public.warehouse_zones (
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "unit_code" text,
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "status" text NOT NULL DEFAULT 'active'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "unit_code" text,
   "warehouse_id" uuid NOT NULL,
   "capacity" numeric(20,4),
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "zone_type" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "zone_code" text NOT NULL
 );
 -- TABLE public.warehouse_bins
 CREATE TABLE public.warehouse_bins (
-  "unit_code" text,
-  "zone_id" uuid NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "capacity" numeric(20,4),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "bin_code" text NOT NULL,
+  "allowed_product_ids" uuid[] NOT NULL DEFAULT '{}'::uuid[],
   "status" text NOT NULL DEFAULT 'active'::text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "allowed_product_ids" ARRAY NOT NULL DEFAULT '{}'::uuid[]
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "unit_code" text,
+  "zone_id" uuid NOT NULL,
+  "capacity" numeric(20,4),
+  "bin_code" text NOT NULL
 );
 -- TABLE public.warehouse_reservations
 CREATE TABLE public.warehouse_reservations (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'active'::text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "project_id" uuid NOT NULL,
   "created_by" uuid NOT NULL,
   "warehouse_id" uuid NOT NULL,
-  "status" text NOT NULL DEFAULT 'active'::text,
   "window_start" timestamp with time zone NOT NULL,
   "zone_id" uuid,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "bin_id" uuid,
   "window_end" timestamp with time zone NOT NULL,
   "reserved_quantity" numeric(20,6) NOT NULL,
@@ -755,41 +755,41 @@ CREATE TABLE public.warehouse_reservations (
 );
 -- TABLE public.warehouse_equipment
 CREATE TABLE public.warehouse_equipment (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "condition_status" text NOT NULL DEFAULT 'unverified'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "equipment_type" text NOT NULL,
   "source_reference" text,
   "asset_code" text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "warehouse_id" uuid NOT NULL,
   "rated_capacity" numeric(20,4),
   "capacity_unit" text,
-  "verified_at" timestamp with time zone,
-  "condition_status" text NOT NULL DEFAULT 'unverified'::text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "verified_at" timestamp with time zone
 );
 -- TABLE public.vessel_identifiers
 CREATE TABLE public.vessel_identifiers (
-  "identifier_value" text NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "identifier_type" text NOT NULL,
+  "verification_status" text NOT NULL DEFAULT 'unverified'::text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "identifier_value" text NOT NULL,
+  "identifier_type" text NOT NULL,
   "valid_from" date,
   "vessel_id" uuid NOT NULL,
   "source_reference" text,
-  "verification_status" text NOT NULL DEFAULT 'unverified'::text,
   "valid_to" date
 );
 -- TABLE public.vessel_certificates
 CREATE TABLE public.vessel_certificates (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "verification_status" text NOT NULL DEFAULT 'unverified'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "issuer" text NOT NULL,
   "verified_at" timestamp with time zone,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "vessel_id" uuid NOT NULL,
   "certificate_number" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "certificate_type" text NOT NULL,
-  "verification_status" text NOT NULL DEFAULT 'unverified'::text,
   "verified_by" uuid,
   "expires_at" date,
   "document_object_key" text,
@@ -797,194 +797,194 @@ CREATE TABLE public.vessel_certificates (
 );
 -- TABLE public.vessel_name_history
 CREATE TABLE public.vessel_name_history (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "verified_by" uuid,
   "source_reference" text,
   "verified_at" timestamp with time zone,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "vessel_name" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "valid_from" date NOT NULL,
   "valid_to" date,
   "vessel_id" uuid NOT NULL
 );
 -- TABLE public.vessel_nominations
 CREATE TABLE public.vessel_nominations (
-  "voyage_id" uuid,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "nomination_status" text NOT NULL DEFAULT 'draft'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "voyage_id" uuid,
   "shipment_id" uuid NOT NULL,
   "reviewed_at" timestamp with time zone,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "vessel_id" uuid NOT NULL,
   "reason" text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "project_id" uuid NOT NULL,
   "nominated_by" uuid NOT NULL,
   "reviewed_by" uuid,
-  "nomination_status" text NOT NULL DEFAULT 'draft'::text,
   "evidence_object_key" text
 );
 -- TABLE public.vessel_port_assessments
 CREATE TABLE public.vessel_port_assessments (
-  "port_id" uuid NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "source_freshness" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "limitations" text[] NOT NULL DEFAULT '{}'::text[],
+  "assessed_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "port_id" uuid NOT NULL,
   "vessel_id" uuid NOT NULL,
   "reviewed_at" timestamp with time zone,
   "result" text NOT NULL,
   "assessed_by" uuid,
-  "assessed_at" timestamp with time zone NOT NULL DEFAULT now(),
   "project_id" uuid NOT NULL,
   "reviewed_by" uuid,
   "terminal_id" uuid,
-  "source_freshness" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "berth_id" uuid,
-  "assessment_inputs" jsonb NOT NULL,
-  "limitations" ARRAY NOT NULL DEFAULT '{}'::text[],
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "assessment_inputs" jsonb NOT NULL
 );
 -- TABLE public.vessel_tracking_positions
 CREATE TABLE public.vessel_tracking_positions (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "received_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "source_quality" text NOT NULL DEFAULT 'unknown'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "eta_provider" timestamp with time zone,
   "cog_degrees" numeric(7,3),
   "raw_payload_hash" text,
   "position_timestamp" timestamp with time zone NOT NULL,
   "longitude" numeric(10,6) NOT NULL,
-  "received_at" timestamp with time zone NOT NULL DEFAULT now(),
   "reported_draught_m" numeric(8,3),
   "latitude" numeric(9,6) NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "navigation_status" text,
   "vessel_id" uuid NOT NULL,
   "heading_degrees" numeric(7,3),
   "sog_knots" numeric(8,3),
   "provider_code" text NOT NULL,
   "destination_text" text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "source_quality" text NOT NULL DEFAULT 'unknown'::text,
   "provider_reference" text
 );
 -- TABLE public.vessel_port_calls
 CREATE TABLE public.vessel_port_calls (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "received_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "status" text NOT NULL DEFAULT 'planned'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "actual_at" timestamp with time zone,
   "event_type" text NOT NULL,
   "predicted_at" timestamp with time zone,
   "source_reference" text,
   "port_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "voyage_id" uuid,
   "provider_code" text,
-  "received_at" timestamp with time zone NOT NULL DEFAULT now(),
   "vessel_id" uuid NOT NULL,
-  "status" text NOT NULL DEFAULT 'planned'::text,
-  "terminal_id" uuid,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "terminal_id" uuid
 );
 -- TABLE public.regulatory_rule_documents
 CREATE TABLE public.regulatory_rule_documents (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "condition_schema" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "rule_version_id" uuid NOT NULL,
   "issuing_authority" text,
-  "condition_schema" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "document_type_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "requirement_kind" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "holder_party" text,
-  "validity_days" integer(32,0),
+  "validity_days" integer,
   "presentation_point" text
 );
 -- TABLE public.regulatory_assessment_results
 CREATE TABLE public.regulatory_assessment_results (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "required_documents" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "missing_documents" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "evidence" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "evaluated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "reason" text,
   "assessment_id" uuid NOT NULL,
   "reviewed_at" timestamp with time zone,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "result_status" text NOT NULL,
-  "evaluated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "rule_version_id" uuid NOT NULL,
-  "reviewer_id" uuid,
-  "missing_documents" jsonb NOT NULL DEFAULT '[]'::jsonb,
-  "evidence" jsonb NOT NULL DEFAULT '[]'::jsonb,
-  "required_documents" jsonb NOT NULL DEFAULT '[]'::jsonb
+  "reviewer_id" uuid
 );
 -- TABLE public.regulatory_rule_exceptions
 CREATE TABLE public.regulatory_rule_exceptions (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "evidence_object_key" text NOT NULL,
   "authority_reference" text NOT NULL,
   "reason" text NOT NULL,
   "valid_to" date,
   "decision_reason" text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "shipment_id" uuid,
   "valid_from" date NOT NULL,
   "project_id" uuid,
   "approved_at" timestamp with time zone,
   "requested_by" uuid NOT NULL,
   "rule_version_id" uuid NOT NULL,
-  "status" text NOT NULL DEFAULT 'pending'::text,
   "approved_by" uuid,
   "authority_name" text NOT NULL
 );
 -- TABLE public.regulatory_assessments
 CREATE TABLE public.regulatory_assessments (
-  "reviewed_by" uuid,
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "failed_count" integer NOT NULL DEFAULT 0,
+  "pending_count" integer NOT NULL DEFAULT 0,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "reviewed_by" uuid,
   "ruleset_version_snapshot" jsonb NOT NULL,
   "destination_country" character(2),
   "assessment_date" date NOT NULL,
   "origin_country" character(2),
-  "pending_count" integer(32,0) NOT NULL DEFAULT 0,
   "product_hs_classification_id" uuid,
   "overall_status" text NOT NULL,
-  "failed_count" integer(32,0) NOT NULL DEFAULT 0,
   "project_id" uuid,
   "reviewed_at" timestamp with time zone,
   "product_id" uuid,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "shipment_id" uuid,
   "assessed_by" uuid,
   "input_snapshot" jsonb NOT NULL
 );
 -- TABLE public.regulatory_rule_conditions
 CREATE TABLE public.regulatory_rule_conditions (
-  "condition_group" integer(32,0) NOT NULL DEFAULT 1,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "is_mandatory" boolean NOT NULL DEFAULT true,
-  "operator" text NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "is_mandatory" boolean NOT NULL DEFAULT true,
+  "condition_group" integer NOT NULL DEFAULT 1,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "operator" text NOT NULL,
   "field_path" text NOT NULL,
   "comparison_value" jsonb NOT NULL,
   "rule_version_id" uuid NOT NULL
 );
 -- TABLE public.knowledge_documents
 CREATE TABLE public.knowledge_documents (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "access_rights" text NOT NULL DEFAULT 'unknown'::text,
+  "status" text NOT NULL DEFAULT 'registered'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "current_version_id" uuid,
   "canonical_url" text,
   "owner_user_id" uuid,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "jurisdiction" text,
-  "status" text NOT NULL DEFAULT 'registered'::text,
   "document_type" text NOT NULL,
   "source_id" uuid,
-  "title" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "title" text NOT NULL
 );
 -- TABLE public.knowledge_document_versions
 CREATE TABLE public.knowledge_document_versions (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "retrieved_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "extraction_status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "parser_version" text,
   "document_id" uuid NOT NULL,
-  "extraction_status" text NOT NULL DEFAULT 'pending'::text,
   "source_url" text,
   "version_label" text NOT NULL,
   "reviewed_by" uuid,
   "effective_from" date,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "object_key" text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "effective_to" date,
   "reviewed_at" timestamp with time zone,
   "source_checksum" text NOT NULL,
@@ -993,60 +993,60 @@ CREATE TABLE public.knowledge_document_versions (
 );
 -- TABLE public.knowledge_chunks
 CREATE TABLE public.knowledge_chunks (
-  "document_version_id" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "source_locator" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "content" text NOT NULL,
+  "source_locator" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "search_vector" tsvector GENERATED ALWAYS AS (to_tsvector('simple'::regconfig, COALESCE(content, ''::text))) STORED,
-  "chunk_index" integer(32,0) NOT NULL,
   "metadata" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "document_version_id" uuid NOT NULL,
+  "content" text NOT NULL,
+  "chunk_index" integer NOT NULL,
   "content_hash" text NOT NULL,
-  "page_number" integer(32,0),
+  "page_number" integer,
   "section_heading" text
 );
 -- TABLE public.knowledge_ingestion_runs
 CREATE TABLE public.knowledge_ingestion_runs (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'queued'::text,
+  "chunk_count" integer NOT NULL DEFAULT 0,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "completed_at" timestamp with time zone,
   "error_message" text,
   "started_at" timestamp with time zone,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "parser_version" text,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "status" text NOT NULL DEFAULT 'queued'::text,
   "requested_by" uuid,
-  "chunk_count" integer(32,0) NOT NULL DEFAULT 0,
   "document_version_id" uuid NOT NULL
 );
 -- TABLE public.buyer_visibility_grants
 CREATE TABLE public.buyer_visibility_grants (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "granted_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "status" text NOT NULL DEFAULT 'active'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "revoked_at" timestamp with time zone,
   "project_id" uuid NOT NULL,
   "reason" text,
   "facility_id" uuid,
-  "status" text NOT NULL DEFAULT 'active'::text,
   "shipment_id" uuid,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "buyer_id" uuid NOT NULL,
   "expires_at" timestamp with time zone,
   "revoked_by" uuid,
-  "granted_at" timestamp with time zone NOT NULL DEFAULT now(),
   "scope" text NOT NULL,
   "granted_by" uuid NOT NULL
 );
 -- TABLE public.facility_certifications
 CREATE TABLE public.facility_certifications (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "certification_type" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "certificate_number" text NOT NULL,
   "facility_id" uuid NOT NULL,
   "verified_at" timestamp with time zone,
   "verified_by" uuid,
   "issuer" text NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "scope" text NOT NULL,
   "valid_to" date,
   "valid_from" date,
@@ -1054,79 +1054,80 @@ CREATE TABLE public.facility_certifications (
 );
 -- TABLE public.product_variants
 CREATE TABLE public.product_variants (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "variant_code" text NOT NULL,
   "created_by" uuid,
   "variant_name" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "product_id" uuid NOT NULL,
   "process_route" text,
   "physical_form" text,
-  "is_active" boolean NOT NULL DEFAULT true,
-  "description" text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "description" text
 );
 -- TABLE public.product_quality_results
 CREATE TABLE public.product_quality_results (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "review_status" text NOT NULL DEFAULT 'unreviewed'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "method_code" text NOT NULL,
   "reviewed_at" timestamp with time zone,
   "attribute_id" uuid NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "result_numeric" numeric(20,8),
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "sample_id" uuid NOT NULL,
-  "review_status" text NOT NULL DEFAULT 'unreviewed'::text,
   "uncertainty" numeric(20,8),
   "result_text" text,
   "reviewed_by" uuid,
   "result_boolean" boolean,
   "measurement_basis" text,
   "unit_code" text,
-  "detection_limit" numeric(20,8),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "detection_limit" numeric(20,8)
 );
 -- TABLE public.ai_action_requests
 CREATE TABLE public.ai_action_requests (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'pending'::text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "reviewed_by" uuid,
   "proposed_change" jsonb NOT NULL,
-  "status" text NOT NULL DEFAULT 'pending'::text,
   "target_id" uuid,
   "target_type" text NOT NULL,
   "application_reference" jsonb,
   "project_id" uuid,
   "applied_at" timestamp with time zone,
   "reviewed_at" timestamp with time zone,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "action_type" text NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
   "requested_by" uuid NOT NULL,
   "reason" text,
   "ai_run_id" uuid
 );
 -- TABLE public.port_tide_observations
 CREATE TABLE public.port_tide_observations (
-  "vertical_datum" text NOT NULL,
-  "provider_code" text,
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "is_forecast" boolean NOT NULL DEFAULT false,
   "quality_status" text NOT NULL DEFAULT 'unverified'::text,
+  "received_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "vertical_datum" text NOT NULL,
+  "provider_code" text,
   "berth_id" uuid,
   "source_reference" text,
   "observed_at" timestamp with time zone NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "received_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "port_id" uuid NOT NULL,
   "tide_height_m" numeric(10,4) NOT NULL
 );
 -- TABLE public.product_quality_samples
 CREATE TABLE public.product_quality_samples (
-  "project_id" uuid,
-  "status" text NOT NULL DEFAULT 'pending'::text,
-  "sample_location" text,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "sample_number" text NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "status" text NOT NULL DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "project_id" uuid,
+  "sample_location" text,
+  "sample_number" text NOT NULL,
   "lab_report_object_key" text,
   "sample_type" text NOT NULL,
   "sample_condition" text,
@@ -1135,37 +1136,41 @@ CREATE TABLE public.product_quality_samples (
   "sampled_at" timestamp with time zone NOT NULL,
   "sampling_method" text NOT NULL,
   "sampled_by" uuid NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "seal_number" text
 );
 -- TABLE public.ai_source_citations
 CREATE TABLE public.ai_source_citations (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "regulatory_rule_version_id" uuid,
+  "citation_locator" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "regulatory_rule_version_id" uuid,
   "regulatory_source_id" uuid,
   "ai_run_id" uuid NOT NULL,
   "knowledge_chunk_id" uuid,
   "relevance_score" numeric(7,4),
-  "citation_locator" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "excerpt" text
 );
 -- TABLE public.payment_invoice_allocations
 CREATE TABLE public.payment_invoice_allocations (
-  "ar_invoice_id" uuid,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "ap_invoice_id" uuid,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "allocation_status" text NOT NULL DEFAULT 'reserved'::text,
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "ar_invoice_id" uuid,
+  "ap_invoice_id" uuid,
   "payment_instruction_id" uuid NOT NULL,
   "allocated_amount" numeric(20,4) NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "currency_id" uuid NOT NULL,
-  "created_by" uuid NOT NULL,
-  "updated_at" timestamp with time zone NOT NULL DEFAULT now()
+  "created_by" uuid NOT NULL
 );
 -- TABLE public.audit_events
 CREATE TABLE public.audit_events (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "actor_type" text NOT NULL DEFAULT 'user'::text,
+  "metadata" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "outcome" text NOT NULL DEFAULT 'success'::text,
+  "occurred_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "project_id" uuid,
   "after_snapshot" jsonb,
   "permission_code" text,
@@ -1174,28 +1179,26 @@ CREATE TABLE public.audit_events (
   "request_id" text,
   "actor_user_id" uuid,
   "source" text,
-  "occurred_at" timestamp with time zone NOT NULL DEFAULT now(),
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "organization_id" uuid,
   "reason" text,
   "before_snapshot" jsonb,
-  "actor_type" text NOT NULL DEFAULT 'user'::text,
   "target_id" uuid,
-  "actor_role" text,
-  "metadata" jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid()
+  "actor_role" text
 );
 -- TABLE public.ai_runs
 CREATE TABLE public.ai_runs (
-  "approved_by" uuid,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "input_scope" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "status" text NOT NULL DEFAULT 'queued'::text,
+  "review_status" text NOT NULL DEFAULT 'not_required'::text,
   "token_usage" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "approved_by" uuid,
   "input_hash" text,
   "prompt_version" text NOT NULL,
   "model_version" text,
   "use_case" text NOT NULL,
   "started_at" timestamp with time zone,
-  "status" text NOT NULL DEFAULT 'queued'::text,
   "model_name" text NOT NULL,
   "output_text" text,
   "output_hash" text,
@@ -1203,25 +1206,22 @@ CREATE TABLE public.ai_runs (
   "project_id" uuid,
   "completed_at" timestamp with time zone,
   "user_id" uuid NOT NULL,
-  "review_status" text NOT NULL DEFAULT 'not_required'::text,
-  "input_scope" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "approved_at" timestamp with time zone,
-  "provider_code" text NOT NULL,
-  "id" uuid NOT NULL DEFAULT gen_random_uuid()
+  "provider_code" text NOT NULL
 );
 -- TABLE public.ai_feedback
 CREATE TABLE public.ai_feedback (
-  "user_id" uuid NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "rating" smallint(16,0),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "user_id" uuid NOT NULL,
+  "rating" smallint,
   "ai_run_id" uuid NOT NULL,
   "feedback_type" text,
   "comment" text,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "corrected_output" text
 );
 
--- CONSTRAINTS ADDED (NOT NULL encoded in CREATE TABLE is excluded)
+-- CONSTRAINTS ADDED (NOT NULL is represented in column definitions)
 ALTER TABLE journal_entries ADD CONSTRAINT "journal_entries_reversal_of_journal_entry_id_fkey" FOREIGN KEY (reversal_of_journal_entry_id) REFERENCES journal_entries(id);
 ALTER TABLE inventory_movements ADD CONSTRAINT "inventory_movements_reversal_of_movement_id_fkey" FOREIGN KEY (reversal_of_movement_id) REFERENCES inventory_movements(id);
 ALTER TABLE shipment_allocations ADD CONSTRAINT "shipment_allocations_project_id_fkey" FOREIGN KEY (project_id) REFERENCES projects(id);
@@ -1847,7 +1847,7 @@ ALTER TABLE ai_action_requests ADD CONSTRAINT "ai_action_requests_ai_run_id_fkey
 ALTER TABLE ai_action_requests ADD CONSTRAINT "ai_action_requests_requested_by_fkey" FOREIGN KEY (requested_by) REFERENCES users(id);
 ALTER TABLE ai_action_requests ADD CONSTRAINT "ai_action_requests_reviewed_by_fkey" FOREIGN KEY (reviewed_by) REFERENCES users(id);
 
--- FUNCTIONS ADDED OR REPLACED (must precede policies/triggers)
+-- NEW/CHANGED FUNCTIONS (must precede policies and triggers)
 CREATE OR REPLACE FUNCTION public.pke_has_facility_permission(p_facility_id uuid, p_permission_code text)
  RETURNS boolean
  LANGUAGE sql
@@ -5540,7 +5540,7 @@ END;
 $function$
 ;
 
--- REPLACEMENT set_rls_context(uuid)
+-- REPLACE set_rls_context(uuid)
 CREATE OR REPLACE FUNCTION public.set_rls_context(user_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -5709,7 +5709,7 @@ ALTER TABLE public.audit_events FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_runs FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_feedback FORCE ROW LEVEL SECURITY;
 
--- POLICIES ADDED
+-- NEW POLICIES
 CREATE POLICY "pke_module_config_versions_select" ON public.project_module_configuration_versions AS PERMISSIVE SELECT TO "app_runtime_secure" USING ((pke_has_project_permission(project_id, 'operations.view'::text) OR pke_has_project_permission(project_id, 'project.configuration.manage'::text)));
 CREATE POLICY "pke_module_config_versions_insert" ON public.project_module_configuration_versions AS PERMISSIVE INSERT TO "app_runtime_secure" WITH CHECK (pke_has_project_permission(project_id, 'project.configuration.manage'::text));
 CREATE POLICY "pke_admin_all" ON public.buyer_visibility_grants AS PERMISSIVE ALL TO "app_runtime_secure" USING (pke_is_platform_admin()) WITH CHECK (pke_is_platform_admin());
@@ -5979,10 +5979,10 @@ CREATE POLICY "pke_scope_select" ON public.regulatory_rule_documents AS PERMISSI
    FROM regulatory_rule_versions v
   WHERE ((v.id = regulatory_rule_documents.rule_version_id) AND (v.status = ANY (ARRAY['approved'::text, 'effective'::text]))))) AND (pke_has_any_project_permission('regulatory.rule.view'::text) OR pke_has_any_project_permission('compliance.view'::text))));
 
--- POLICIES CHANGED (review semantics before applying)
+-- CHANGED POLICIES
 ALTER POLICY "pke_regulatory_sources_read" ON public.regulatory_sources TO "app_runtime_secure" USING (((verification_status = ANY (ARRAY['verified'::text, 'approved'::text])) AND (pke_has_any_project_permission('regulatory.source.view'::text) OR pke_has_any_project_permission('regulatory.rule.view'::text) OR pke_has_any_project_permission('compliance.view'::text))));
 
--- NON-CONSTRAINT INDEXES ADDED
+-- NEW NON-CONSTRAINT INDEXES
 CREATE INDEX idx_quality_samples_lot ON public.product_quality_samples USING btree (lot_id, sampled_at DESC);
 CREATE INDEX idx_fk_d8a6f5e253795d55 ON public.matching_runs USING btree (generated_by);
 CREATE UNIQUE INDEX idx_inventory_reservations_idempotency ON public.inventory_reservations USING btree (project_id, idempotency_key) WHERE (idempotency_key IS NOT NULL);
@@ -6376,7 +6376,7 @@ CREATE INDEX idx_fk_b2dff1ae99799e6f ON public.project_supplier_participation US
 CREATE INDEX idx_fk_8c2beec35c1ba9f8 ON public.inventory_reconciliations USING btree (reviewed_by);
 CREATE INDEX idx_fk_b38d3981aee577c4 ON public.regulatory_rule_documents USING btree (document_type_id);
 
--- TABLE PRIVILEGES ADDED FOR app_runtime_secure
+-- TABLE GRANTS ADDED FOR app_runtime_secure
 GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.project_module_readiness TO app_runtime_secure;
 GRANT INSERT, SELECT ON TABLE public.project_module_configuration_versions TO app_runtime_secure;
 GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.fiscal_periods TO app_runtime_secure;
@@ -6451,7 +6451,7 @@ GRANT INSERT, SELECT ON TABLE public.audit_events TO app_runtime_secure;
 GRANT INSERT, SELECT, UPDATE ON TABLE public.ai_runs TO app_runtime_secure;
 GRANT INSERT, SELECT ON TABLE public.ai_feedback TO app_runtime_secure;
 
--- TRIGGERS ADDED (functions above)
+-- NEW TRIGGERS (functions above)
 CREATE TRIGGER trg_journal_entry_guard BEFORE DELETE OR UPDATE ON journal_entries FOR EACH ROW EXECUTE FUNCTION pke_guard_journal_entry();
 CREATE TRIGGER trg_journal_line_parent_lock BEFORE INSERT OR DELETE OR UPDATE ON journal_lines FOR EACH ROW EXECUTE FUNCTION pke_lock_journal_line_parent();
 CREATE TRIGGER trg_audit_events_immutable BEFORE DELETE OR UPDATE ON audit_events FOR EACH ROW EXECUTE FUNCTION pke_audit_events_immutable();
@@ -6533,64 +6533,78 @@ CREATE TRIGGER trg_zzzz_pke_block_direct_ledger_mutation BEFORE UPDATE ON invent
 CREATE TRIGGER trg_zzzz_pke_block_direct_ledger_mutation BEFORE UPDATE ON inventory_reservations FOR EACH ROW EXECUTE FUNCTION pke_block_direct_ledger_mutation();
 CREATE TRIGGER trg_zzzz_pke_block_direct_ledger_mutation BEFORE UPDATE ON regulatory_assessments FOR EACH ROW EXECUTE FUNCTION pke_block_direct_ledger_mutation();
 
--- UNRESOLVED / NON-AUTOMATIC DELTAS
--- Changed columns: 3; removed columns: 0.
--- Changed constraints: 7; removed constraints: 0.
--- Removed policies: 0; removed indexes: 0.
--- Changed/removed triggers: 0/0.
--- Removed functions: 0; removed grants: 3.
--- IMPORTANT: cumulative interval includes effects from all migrations after the baseline; do not label this file as migration 033 alone.
-
-
--- ===== EXISTING-TABLE COLUMN ADDITIONS (137) =====
+-- EXISTING-TABLE COLUMN ADDITIONS
+ALTER TABLE public.project_operating_profiles ADD COLUMN "configuration_version" integer DEFAULT 1 NOT NULL;
+ALTER TABLE public.pks_sites ADD COLUMN "facility_type" text DEFAULT 'other'::text NOT NULL;
+ALTER TABLE public.pks_sites ADD COLUMN "operating_status" text DEFAULT 'planned'::text NOT NULL;
+ALTER TABLE public.pks_sites ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
+ALTER TABLE public.pks_sites ADD COLUMN "access_constraints" jsonb DEFAULT '{}'::jsonb NOT NULL;
+ALTER TABLE public.pks_sites ADD COLUMN "source_type" text DEFAULT 'manual'::text NOT NULL;
+ALTER TABLE public.product_catalog ADD COLUMN "synonyms" text[] DEFAULT '{}'::text[] NOT NULL;
+ALTER TABLE public.product_catalog ADD COLUMN "classification_status" text DEFAULT 'unverified'::text NOT NULL;
+ALTER TABLE public.inventory_lots ADD COLUMN "quality_status" text DEFAULT 'pending'::text NOT NULL;
+ALTER TABLE public.inventory_lots ADD COLUMN "held_quantity" numeric(20,6) DEFAULT 0 NOT NULL;
+ALTER TABLE public.inventory_lots ADD COLUMN "reserved_quantity" numeric(20,6) DEFAULT 0 NOT NULL;
+ALTER TABLE public.payment_obligations ADD COLUMN "amount_paid" numeric(20,4) DEFAULT 0 NOT NULL;
+ALTER TABLE public.payment_obligations ADD COLUMN "payment_instruction_required" boolean DEFAULT true NOT NULL;
+ALTER TABLE public.ar_invoices ADD COLUMN "paid_amount" numeric(20,4) DEFAULT 0 NOT NULL;
+ALTER TABLE public.ar_invoices ADD COLUMN "payment_status" text DEFAULT 'open'::text NOT NULL;
+ALTER TABLE public.project_export_documents ADD COLUMN "storage_bucket" text DEFAULT 'pke-private-documents'::text NOT NULL;
+ALTER TABLE public.project_export_documents ADD COLUMN "legal_hold" boolean DEFAULT false NOT NULL;
+ALTER TABLE public.fx_exposures ADD COLUMN "exposure_direction" text DEFAULT 'unknown'::text NOT NULL;
+ALTER TABLE public.fx_exposures ADD COLUMN "valuation_type" text DEFAULT 'baseline'::text NOT NULL;
+ALTER TABLE public.ports ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
+ALTER TABLE public.warehouses ADD COLUMN "storage_mode" text DEFAULT 'mixed'::text NOT NULL;
+ALTER TABLE public.warehouses ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
+ALTER TABLE public.vessels ADD COLUMN "cargo_capabilities" jsonb DEFAULT '{}'::jsonb NOT NULL;
+ALTER TABLE public.vessels ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
+ALTER TABLE public.regulatory_sources ADD COLUMN "access_rights" text DEFAULT 'unknown'::text NOT NULL;
+ALTER TABLE public.regulatory_sources ADD COLUMN "source_type" text DEFAULT 'regulation'::text NOT NULL;
+ALTER TABLE public.country_export_document_requirements ADD COLUMN "condition_schema" jsonb DEFAULT '{}'::jsonb NOT NULL;
+ALTER TABLE public.country_export_document_requirements ADD COLUMN "verification_status" text DEFAULT 'pending'::text NOT NULL;
+ALTER TABLE public.country_export_document_requirements ADD COLUMN "version_no" integer DEFAULT 1 NOT NULL;
+ALTER TABLE public.regulatory_sources ADD COLUMN "search_vector" tsvector DEFAULT to_tsvector('simple'::regconfig, ((((((COALESCE(title, ''::text) || ' '::text) || COALESCE(issuing_authority, ''::text)) || ' '::text) || COALESCE(regulation_number, ''::text)) || ' '::text) || COALESCE(article_annex_section, ''::text)));
 ALTER TABLE public.shipment_allocations ADD COLUMN "status" text DEFAULT 'draft'::text NOT NULL;
+ALTER TABLE public.shipment_allocations ADD COLUMN "loaded_quantity" numeric(20,6) DEFAULT 0 NOT NULL;
+ALTER TABLE public.shipment_allocations ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
+ALTER TABLE public.tracking_evidence ADD COLUMN "uploaded_by" uuid DEFAULT pke_current_user_id() NOT NULL;
+ALTER TABLE public.tracking_evidence ADD COLUMN "uploaded_at" timestamp with time zone DEFAULT now() NOT NULL;
+ALTER TABLE public.tracking_evidence ADD COLUMN "storage_bucket" text DEFAULT 'pke-private-documents'::text NOT NULL;
 ALTER TABLE public.ports ADD COLUMN "operator_name" text;
 ALTER TABLE public.project_export_documents ADD COLUMN "upload_verified_at" timestamp with time zone;
 ALTER TABLE public.shipments ADD COLUMN "shipment_code" text;
 ALTER TABLE public.warehouses ADD COLUMN "storage_capacity_mt" numeric(20,4);
-ALTER TABLE public.ar_invoices ADD COLUMN "paid_amount" numeric(20,4) DEFAULT 0 NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "manager_organization_id" uuid;
 ALTER TABLE public.voyages ADD COLUMN "origin_port_id" uuid;
 ALTER TABLE public.voyages ADD COLUMN "actual_arrival_at" timestamp with time zone;
-ALTER TABLE public.project_operating_profiles ADD COLUMN "configuration_version" integer(32,0) DEFAULT 1 NOT NULL;
 ALTER TABLE public.warehouses ADD COLUMN "terminal_id" uuid;
 ALTER TABLE public.product_specifications ADD COLUMN "approved_at" timestamp with time zone;
 ALTER TABLE public.shipments ADD COLUMN "contract_reference" text;
-ALTER TABLE public.regulatory_sources ADD COLUMN "access_rights" text DEFAULT 'unknown'::text NOT NULL;
 ALTER TABLE public.shipment_allocations ADD COLUMN "reversal_reason" text;
 ALTER TABLE public.warehouses ADD COLUMN "usable_volume_m3" numeric(16,3);
-ALTER TABLE public.pks_sites ADD COLUMN "access_constraints" jsonb DEFAULT '{}'::jsonb NOT NULL;
-ALTER TABLE public.ar_invoices ADD COLUMN "payment_status" text DEFAULT 'open'::text NOT NULL;
 ALTER TABLE public.buyers ADD COLUMN "organization_id" uuid;
 ALTER TABLE public.vessels ADD COLUMN "air_draft_m" numeric(12,3);
-ALTER TABLE public.project_export_documents ADD COLUMN "storage_bucket" text DEFAULT 'pke-private-documents'::text NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "source_reference" text;
-ALTER TABLE public.pks_sites ADD COLUMN "source_type" text DEFAULT 'manual'::text NOT NULL;
 ALTER TABLE public.fx_exposures ADD COLUMN "counterparty_id" uuid;
 ALTER TABLE public.ar_invoices ADD COLUMN "outstanding_amount" numeric(20,4) NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "summer_draft_m" numeric(12,3);
 ALTER TABLE public.tracking_events ADD COLUMN "idempotency_key" text NOT NULL;
 ALTER TABLE public.regulatory_sources ADD COLUMN "publication_reference" text;
-ALTER TABLE public.project_export_documents ADD COLUMN "file_size_bytes" bigint(64,0);
+ALTER TABLE public.project_export_documents ADD COLUMN "file_size_bytes" bigint;
 ALTER TABLE public.fx_exposures ADD COLUMN "source_record_id" uuid;
 ALTER TABLE public.ports ADD COLUMN "national_code" text;
 ALTER TABLE public.vessels ADD COLUMN "depth_m" numeric(12,3);
 ALTER TABLE public.vessels ADD COLUMN "operator_organization_id" uuid;
 ALTER TABLE public.product_catalog ADD COLUMN "physical_form" text;
-ALTER TABLE public.regulatory_sources ADD COLUMN "search_vector" tsvector;
 ALTER TABLE public.vessels ADD COLUMN "owner_organization_id" uuid;
 ALTER TABLE public.journal_entries ADD COLUMN "reversal_reason" text;
 ALTER TABLE public.pks_sites ADD COLUMN "location_accuracy_m" numeric(12,3);
 ALTER TABLE public.inventory_lots ADD COLUMN "product_id" uuid;
-ALTER TABLE public.pks_sites ADD COLUMN "operating_status" text DEFAULT 'planned'::text NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "dwt_mt" numeric(20,3);
-ALTER TABLE public.inventory_lots ADD COLUMN "reserved_quantity" numeric(20,6) DEFAULT 0 NOT NULL;
 ALTER TABLE public.inventory_movements ADD COLUMN "evidence_object_key" text;
 ALTER TABLE public.vessels ADD COLUMN "loa_m" numeric(12,3);
 ALTER TABLE public.pks_sites ADD COLUMN "verified_by" uuid;
 ALTER TABLE public.pks_sites ADD COLUMN "organization_id" uuid;
-ALTER TABLE public.shipment_allocations ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
-ALTER TABLE public.country_export_document_requirements ADD COLUMN "condition_schema" jsonb DEFAULT '{}'::jsonb NOT NULL;
 ALTER TABLE public.regulatory_sources ADD COLUMN "language" text;
 ALTER TABLE public.product_catalog ADD COLUMN "canonical_name" text;
 ALTER TABLE public.shipments ADD COLUMN "planned_arrival_at" timestamp with time zone;
@@ -6599,11 +6613,7 @@ ALTER TABLE public.vessels ADD COLUMN "flag_code" character(2);
 ALTER TABLE public.fx_exposures ADD COLUMN "functional_currency_id" uuid;
 ALTER TABLE public.voyages ADD COLUMN "planned_arrival_at" timestamp with time zone;
 ALTER TABLE public.vessels ADD COLUMN "classification_society" text;
-ALTER TABLE public.product_catalog ADD COLUMN "synonyms" ARRAY DEFAULT '{}'::text[] NOT NULL;
-ALTER TABLE public.warehouses ADD COLUMN "storage_mode" text DEFAULT 'mixed'::text NOT NULL;
 ALTER TABLE public.fx_exposures ADD COLUMN "maturity_date" date;
-ALTER TABLE public.fx_exposures ADD COLUMN "valuation_type" text DEFAULT 'baseline'::text NOT NULL;
-ALTER TABLE public.regulatory_sources ADD COLUMN "source_type" text DEFAULT 'regulation'::text NOT NULL;
 ALTER TABLE public.shipments ADD COLUMN "planned_departure_at" timestamp with time zone;
 ALTER TABLE public.warehouses ADD COLUMN "latitude" numeric(9,6);
 ALTER TABLE public.regulatory_sources ADD COLUMN "version_label" text;
@@ -6618,33 +6628,24 @@ ALTER TABLE public.voyages ADD COLUMN "planned_departure_at" timestamp with time
 ALTER TABLE public.fx_exposures ADD COLUMN "exposure_source_type" text;
 ALTER TABLE public.project_export_documents ADD COLUMN "document_type_code" text;
 ALTER TABLE public.product_specifications ADD COLUMN "measurement_basis" text;
-ALTER TABLE public.inventory_lots ADD COLUMN "quality_status" text DEFAULT 'pending'::text NOT NULL;
 ALTER TABLE public.inventory_movements ADD COLUMN "movement_group_id" uuid;
-ALTER TABLE public.payment_obligations ADD COLUMN "amount_paid" numeric(20,4) DEFAULT 0 NOT NULL;
-ALTER TABLE public.pks_sites ADD COLUMN "facility_type" text DEFAULT 'other'::text NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "max_draft_m" numeric(12,3);
 ALTER TABLE public.shipment_allocations ADD COLUMN "project_id" uuid;
-ALTER TABLE public.vessels ADD COLUMN "year_built" integer(32,0);
+ALTER TABLE public.vessels ADD COLUMN "year_built" integer;
 ALTER TABLE public.pks_sites ADD COLUMN "source_reference" text;
 ALTER TABLE public.ports ADD COLUMN "source_reference" text;
-ALTER TABLE public.ports ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "net_tonnage" numeric(20,3);
 ALTER TABLE public.tracking_evidence ADD COLUMN "upload_verified_at" timestamp with time zone NOT NULL;
 ALTER TABLE public.ports ADD COLUMN "verified_at" timestamp with time zone;
-ALTER TABLE public.vessels ADD COLUMN "cargo_capabilities" jsonb DEFAULT '{}'::jsonb NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "hold_capacity_m3" numeric(20,3);
 ALTER TABLE public.inventory_lots ADD COLUMN "packaging_mode" text;
 ALTER TABLE public.project_export_documents ADD COLUMN "uploaded_content_type" text;
 ALTER TABLE public.vendors ADD COLUMN "organization_id" uuid;
-ALTER TABLE public.pks_sites ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
 ALTER TABLE public.warehouses ADD COLUMN "port_id" uuid;
 ALTER TABLE public.vessels ADD COLUMN "vessel_type" text;
 ALTER TABLE public.vessels ADD COLUMN "beam_m" numeric(12,3);
 ALTER TABLE public.shipment_allocations ADD COLUMN "reservation_id" uuid;
-ALTER TABLE public.inventory_lots ADD COLUMN "held_quantity" numeric(20,6) DEFAULT 0 NOT NULL;
 ALTER TABLE public.voyages ADD COLUMN "voyage_code" text;
-ALTER TABLE public.project_export_documents ADD COLUMN "legal_hold" boolean DEFAULT false NOT NULL;
-ALTER TABLE public.tracking_evidence ADD COLUMN "storage_bucket" text DEFAULT 'pke-private-documents'::text NOT NULL;
 ALTER TABLE public.service_vendors ADD COLUMN "organization_id" uuid;
 ALTER TABLE public.pks_sites ADD COLUMN "verified_at" timestamp with time zone;
 ALTER TABLE public.inventory_lots ADD COLUMN "production_batch_id" uuid;
@@ -6652,36 +6653,26 @@ ALTER TABLE public.vessels ADD COLUMN "gross_tonnage" numeric(20,3);
 ALTER TABLE public.warehouse_receipts ADD COLUMN "reviewed_by" uuid;
 ALTER TABLE public.inventory_lots ADD COLUMN "product_variant_id" uuid;
 ALTER TABLE public.product_specifications ADD COLUMN "approved_by" uuid;
-ALTER TABLE public.fx_exposures ADD COLUMN "exposure_direction" text DEFAULT 'unknown'::text NOT NULL;
 ALTER TABLE public.warehouses ADD COLUMN "floor_area_m2" numeric(16,3);
 ALTER TABLE public.voyages ADD COLUMN "shipping_agent_organization_id" uuid;
 ALTER TABLE public.inventory_movements ADD COLUMN "reversal_of_movement_id" uuid;
 ALTER TABLE public.product_catalog ADD COLUMN "product_family" text;
-ALTER TABLE public.country_export_document_requirements ADD COLUMN "verification_status" text DEFAULT 'pending'::text NOT NULL;
-ALTER TABLE public.payment_obligations ADD COLUMN "payment_instruction_required" boolean DEFAULT true NOT NULL;
 ALTER TABLE public.shipments ADD COLUMN "unit_code" text;
 ALTER TABLE public.ports ADD COLUMN "unlocode" text;
 ALTER TABLE public.fx_exposures ADD COLUMN "counterparty_type" text;
-ALTER TABLE public.shipment_allocations ADD COLUMN "loaded_quantity" numeric(20,6) DEFAULT 0 NOT NULL;
 ALTER TABLE public.project_export_documents ADD COLUMN "retention_until" date;
 ALTER TABLE public.voyages ADD COLUMN "destination_port_id" uuid;
-ALTER TABLE public.warehouses ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
 ALTER TABLE public.regulatory_sources ADD COLUMN "source_checksum_sha256" text;
-ALTER TABLE public.product_catalog ADD COLUMN "classification_status" text DEFAULT 'unverified'::text NOT NULL;
 ALTER TABLE public.warehouses ADD COLUMN "operator_organization_id" uuid;
-ALTER TABLE public.vessels ADD COLUMN "verification_status" text DEFAULT 'unverified'::text NOT NULL;
 ALTER TABLE public.journal_entries ADD COLUMN "reversal_of_journal_entry_id" uuid;
 ALTER TABLE public.vessels ADD COLUMN "mmsi" text;
-ALTER TABLE public.tracking_evidence ADD COLUMN "uploaded_at" timestamp with time zone DEFAULT now() NOT NULL;
-ALTER TABLE public.country_export_document_requirements ADD COLUMN "version_no" integer(32,0) DEFAULT 1 NOT NULL;
 ALTER TABLE public.vessels ADD COLUMN "verified_at" timestamp with time zone;
 ALTER TABLE public.inventory_lots ADD COLUMN "owner_organization_id" uuid;
 ALTER TABLE public.ports ADD COLUMN "authority_name" text;
 ALTER TABLE public.warehouse_receipts ADD COLUMN "reviewed_at" timestamp with time zone;
-ALTER TABLE public.tracking_evidence ADD COLUMN "uploaded_by" uuid DEFAULT pke_current_user_id() NOT NULL;
 ALTER TABLE public.product_specifications ADD COLUMN "supersedes_specification_id" uuid;
 
--- ===== CHANGED CONSTRAINTS =====
+-- CHANGED CONSTRAINTS
 ALTER TABLE buyers VALIDATE CONSTRAINT "buyers_country_code_fkey";
 ALTER TABLE pks_sites VALIDATE CONSTRAINT "pks_sites_country_code_fkey";
 ALTER TABLE ports VALIDATE CONSTRAINT "ports_country_code_fkey";
@@ -6692,10 +6683,14 @@ ALTER TABLE tracking_events ADD CONSTRAINT "tracking_events_event_type_check" CH
 ALTER TABLE warehouse_receipts DROP CONSTRAINT "warehouse_receipts_status_check";
 ALTER TABLE warehouse_receipts ADD CONSTRAINT "warehouse_receipts_status_check" CHECK ((status = ANY (ARRAY['pending'::text, 'verified'::text, 'partial'::text, 'rejected'::text])));
 
--- ===== CHANGED POLICY =====
-ALTER POLICY "pke_regulatory_sources_read" ON public.regulatory_sources TO "app_runtime_secure" USING (((verification_status = ANY (ARRAY['verified'::text, 'approved'::text])) AND (pke_has_any_project_permission('regulatory.source.view'::text) OR pke_has_any_project_permission('regulatory.rule.view'::text) OR pke_has_any_project_permission('compliance.view'::text))));
-
--- ===== REVOKED RUNTIME TABLE PRIVILEGES =====
+-- RUNTIME TABLE PRIVILEGES REVOKED
 REVOKE INSERT ON TABLE public.migration_history FROM app_runtime_secure;
 REVOKE UPDATE ON TABLE public.migration_history FROM app_runtime_secure;
 REVOKE DELETE ON TABLE public.migration_history FROM app_runtime_secure;
+
+-- REVIEW NOTES
+-- Changed columns: 3; removed columns: 0.
+-- Removed policies: 0; removed indexes: 0.
+-- Changed/removed triggers: 0/0.
+-- Routine grants added/removed: 8/0.
+-- This interval includes effects from 029-035 and cannot safely be split into authentic individual migration files without further evidence.

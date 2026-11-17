@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import dotenv from "dotenv";
 import winston from "winston";
 import { Pool } from "pg";
@@ -118,7 +118,20 @@ if (!manualTrialMode.enabled) {
   if (process.env.NODE_ENV !== "test") {
     const dbPreflight = validateSingleBranchDatabaseUrl(process.env.DATABASE_URL || "", process.env);
     if (!dbPreflight.ok) {
-      logger.error("DATABASE_URL failed mandated single-branch preflight (legacy/fallback/local/invalid target refused). API startup cancelled.");
+      // Log validator codes only. Never log DATABASE_URL, credentials, or raw validator messages.
+      const problemCodes = Array.isArray(dbPreflight.problems)
+        ? [...new Set(dbPreflight.problems.map((problem: { code?: unknown }) =>
+            typeof problem?.code === "string" ? problem.code : "UNKNOWN"
+          ))]
+        : ["UNKNOWN"];
+
+      for (const code of problemCodes) {
+        logger.error(`DATABASE_URL preflight failed: code=${code}`);
+      }
+
+      logger.error(
+        `DATABASE_URL failed mandated single-branch preflight (${problemCodes.length} diagnostic code(s)). API startup cancelled.`
+      );
       process.exit(1);
     }
     if (configuredDatabaseRole !== "app_runtime_secure") {

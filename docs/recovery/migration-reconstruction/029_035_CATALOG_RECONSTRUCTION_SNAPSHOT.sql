@@ -6704,3 +6704,32 @@ GRANT EXECUTE ON FUNCTION public.pke_has_partner_organization_permission(uuid,te
 GRANT EXECUTE ON FUNCTION public.pke_has_payment_instruction_permission(uuid,text) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_has_port_permission(uuid,text) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_has_warehouse_permission(uuid,text) TO app_runtime_secure;
+
+
+-- NEW VIEW(S) SINCE BASELINE
+CREATE OR REPLACE VIEW public.project_module_readiness AS
+ WITH module_rows AS (
+  SELECT p.id AS project_id, kv.module_name, kv.enabled_text = 'true'::text AS enabled
+  FROM public.projects p
+  LEFT JOIN LATERAL jsonb_each_text(COALESCE((SELECT pop.configuration FROM public.project_operating_profiles pop WHERE pop.project_id=p.id),'{}'::jsonb)) kv(module_name,enabled_text) ON true
+  WHERE kv.module_name IS NOT NULL
+ ), enabled_modules AS (
+  SELECT project_id,module_name FROM module_rows WHERE enabled=true
+  UNION
+  SELECT pop.project_id,'logistics_mode'::text FROM public.project_operating_profiles pop WHERE pop.logistics_mode <> 'unspecified'::text
+ ), dependencies AS (
+  SELECT d.module_name,d.depends_on FROM (VALUES
+   ('procurement'::text,'pks'::text),('inventory'::text,'pks'::text),('trucking'::text,'logistics_mode'::text),
+   ('warehouse'::text,'inventory'::text),('port_operations'::text,'logistics_mode'::text),('loading'::text,'warehouse'::text),
+   ('vessel'::text,'port_operations'::text),('voyage'::text,'vessel'::text),('shipment'::text,'loading'::text),
+   ('tracking'::text,'shipment'::text),('finance'::text,'procurement'::text),('accounting'::text,'finance'::text),
+   ('fx'::text,'finance'::text),('financing'::text,'finance'::text),('reporting'::text,'documents'::text),
+   ('visual_reporting'::text,'reporting'::text),('workflow'::text,'documents'::text),('approvals'::text,'workflow'::text)
+  ) d(module_name,depends_on)
+ )
+ SELECT m.project_id,m.module_name,m.enabled,
+  CASE WHEN NOT m.enabled THEN 'disabled'::text WHEN d.depends_on IS NULL THEN 'ready'::text
+       WHEN EXISTS (SELECT 1 FROM enabled_modules em WHERE em.project_id=m.project_id AND em.module_name=d.depends_on) THEN 'ready'::text
+       ELSE 'blocked'::text END AS readiness,
+  d.depends_on
+ FROM module_rows m LEFT JOIN dependencies d ON d.module_name=m.module_name;

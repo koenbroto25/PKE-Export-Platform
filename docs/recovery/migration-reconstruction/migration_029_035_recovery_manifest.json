@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "purpose": "Recovery ledger only. Historical hashes are from migration_history; reconstructed candidate files are not asserted to match them.",
+  "source_project": "lucky-glitter-99553107",
+  "source_parent_branch": "br-gentle-thunder-b3z7y3bk",
+  "source_child_branch": "br-calm-glade-b3nrleet",
+  "migrations": [
+    {
+      "id": 29,
+      "file": "029_restrict_set_rls_context_public_execute.sql",
+      "sha256": "d7b9376495a36e5bf5e90539403b674eb39f1df01308744a262eb6519f4ea5d1",
+      "status": "applied",
+      "source_recovered": false,
+      "reconstruction": "review-only candidate"
+    },
+    {
+      "id": 30,
+      "file": "030_validate_production_foreign_keys.sql",
+      "sha256": "2bb2f8fcc9f947669b1712214d425679e9b6385269d4e471f77f09a028b6b499",
+      "status": "applied",
+      "source_recovered": false,
+      "reconstruction": "five VALIDATE CONSTRAINT statements verified by parent/child catalogs"
+    },
+    {
+      "id": 31,
+      "file": "031_harden_rls_context_function.sql",
+      "sha256": "90a07b35c9b40758ad33c4e6c28407c341dcdd67310c8ead76fe5fe965bde788",
+      "status": "applied",
+      "source_recovered": false,
+      "reconstruction": "review-only function-definition candidate"
+    },
+    {
+      "id": 32,
+      "file": "032_seed_core_currency_reference_data.sql",
+      "sha256": "1944c163d1185e8bf606b411b305f36a0c732d76118934db0a9c57dbb5328f48",
+      "status": "applied",
+      "source_recovered": false,
+      "reconstruction": "review-only seed candidate; resulting values and columns verified"
+    },
+    {
+      "id": 33,
+      "file": "033_candidate_tenant_scoped_relations_rls_gps_reports.sql",
+      "sha256": "bc759884315ecf3b0716f04581b7677e3ca4ec1dec2c683fab777ca848523029",
+      "status": "applied",
+      "source_recovered": false,
+      "reconstruction": "cumulative catalog snapshot only; BLOCKED for execution"
+    },
+    {
+      "id": 34,
+      "file": "034_harden_trigger_function_execute_privileges.sql",
+      "sha256": "c0265dfe554e55bebe5061ea90a41e74c10e1ff353616174cbfd0f590d46596a",
+      "status": "applied",
+      "source_recovered": false,
+      "reconstruction": "review-only ACL candidate; child ACL state verified"
+    },
+    {
+      "id": 35,
+      "file": "035_remove_redundant_ai_rls_policies.sql",
+      "sha256": "6f4425f297202a5618e4914705ea610d2058ef0fe01ebab5468af5824a84fa45",
+      "status": "applied",
+      "source_recovered": false,
+      "reconstruction": "BLOCKED; prior inference withdrawn"
+    }
+  ],
+  "safety": "Do not replay 029-035 on Production. Do not put reconstruction artifacts into migrations/ until provenance and isolated rehearsal pass."
+}

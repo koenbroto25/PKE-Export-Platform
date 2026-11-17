@@ -6694,3 +6694,13 @@ REVOKE DELETE ON TABLE public.migration_history FROM app_runtime_secure;
 -- Changed/removed triggers: 0/0.
 -- Routine grants added/removed: 8/0.
 -- This interval includes effects from 029-035 and cannot safely be split into authentic individual migration files without further evidence.
+
+
+-- RUNTIME FUNCTION EXECUTE GRANTS ADDED
+GRANT EXECUTE ON FUNCTION public.pke_has_ai_run_permission(uuid,text) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_has_any_project_permission(text) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_has_facility_permission(uuid,text) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_has_partner_organization_permission(uuid,text) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_has_payment_instruction_permission(uuid,text) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_has_port_permission(uuid,text) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_has_warehouse_permission(uuid,text) TO app_runtime_secure;

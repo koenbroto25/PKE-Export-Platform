@@ -2,16 +2,24 @@
 
 Status: **REVIEW-ONLY / NOT A DEPLOYABLE MIGRATION RELEASE**.
 
-Historical migrations 029–035 are already recorded as `applied` on the active application Production database and on the legacy production child. They must not be replayed. This package exists to recover source provenance, reconcile repository history, and prepare verified forward-only fixes if a real drift is found.
+Historical migrations 029–035 are already recorded as applied on the active application Production database and on the legacy production child. They must not be replayed. This package exists to recover source provenance, reconcile repository history, and prepare verified forward-only fixes if a real drift is found.
 
-All artifacts remain under `docs/recovery/migration-reconstruction/`, outside `migrations/`, so automatic migration discovery cannot execute them.
+All artifacts remain under docs/recovery/migration-reconstruction/, outside migrations/, so automatic migration discovery cannot execute them.
+
+## Final migration decision (2026-11-17)
+
+See [MIGRATION_DECISION_AND_RELEASE_GATE_20261117.md](./MIGRATION_DECISION_AND_RELEASE_GATE_20261117.md).
+
+**Decision:** historical migrations 001–035 remain immutable. Migrations 033 and 035 remain blocked for source reconstruction. Migration 036 is reserved but must not be created, registered or applied until a specific forward-only change is justified by measured catalog drift and separately approved. The clean-install path is a separately versioned schema-only baseline/bootstrap artifact, not migration 036.
+
+Production mutation, migration execution, merge to main and Vercel deployment remain unauthorized.
 
 ## Verified evidence
 
-- Legacy source project: `lucky-glitter-99553107`.
-- Pre-migration parent: `br-gentle-thunder-b3z7y3bk`, migration_history max id 27.
-- Legacy production child: `br-calm-glade-b3nrleet`, migration_history 029–035 all applied.
-- Parent endpoint was temporarily enabled for read-only catalog extraction and then suspended. No database writes or DDL were performed.
+- Legacy source project: lucky-glitter-99553107.
+- Pre-migration parent: br-gentle-thunder-b3z7y3bk, migration_history max id 27.
+- Legacy production child: br-calm-glade-b3nrleet, migrations 029–035 all applied.
+- Six legacy endpoints were temporarily enabled for SELECT-only inspection and then returned to disabled/suspended state. No database writes or DDL were performed.
 - Parent→child catalog delta: tables 80→152; RLS enabled 80→152; FORCE RLS 0→71; constraints 875→2,134; FKs 151→423; unvalidated FKs 5→0; policies 282→507; indexes 196→693; public functions 57→120; trigger definitions 0→80.
 - The interval is cumulative across the period after migration 027. It cannot be safely attributed entirely to migration 033.
 
@@ -29,19 +37,21 @@ All artifacts remain under `docs/recovery/migration-reconstruction/`, outside `m
 
 ## Important artifacts
 
-- `029_035_CATALOG_RECONSTRUCTION_SNAPSHOT.sql`: cumulative parent→child schema delta (72 tables, 1,137 columns, constraints, policies, indexes, functions, triggers and grants). Evidence only; do not execute directly.
-- `VERIFIED_CATALOG_RECOVERY_20261117.md`: catalog comparison and exact FK identities.
-- `033_BLOCKED_NO_SAFE_RECONSTRUCTION.md`: 033 scope and remaining limitations.
-- `035_remove_redundant_ai_rls_policies.sql`: intentionally fail-closed; previous unsupported AI-policy inference withdrawn.
-- `029_035_READ_ONLY_VERIFICATION.sql`: SELECT-only post-state checks.
-- `migration_029_035_recovery_manifest.json`: historical hashes/statuses without pretending reconstructed files match those hashes.
-- `029_035_READ_ONLY_VERIFICATION.sql`: SELECT-only post-state checks.
+- 029_035_CATALOG_RECONSTRUCTION_SNAPSHOT.sql: cumulative parent→child schema delta; evidence only, do not execute directly.
+- VERIFIED_CATALOG_RECOVERY_20261117.md: catalog comparison and exact FK identities.
+- 033_BLOCKED_NO_SAFE_RECONSTRUCTION.md: 033 scope and remaining limitations.
+- 035_remove_redundant_ai_rls_policies.sql: comments only, BLOCKED.
+- 029_035_READ_ONLY_VERIFICATION.sql: SELECT-only post-state checks.
+- migration_029_035_recovery_manifest.json: historical hashes/statuses without pretending reconstructed files match those hashes.
+- PKE_Neon_Legacy_Branch_Forensics_20261117.md: read-only inspection of six legacy branches and endpoint cleanup evidence.
+- MIGRATION_DECISION_AND_RELEASE_GATE_20261117.md: authoritative migration numbering decision and release gates.
 
 ## Execution rules
 
 1. Never reapply 029–035 to active Production; they are already recorded as applied.
-2. Never place reconstructed SQL into `migrations/` until provenance and tests are complete.
+2. Never place reconstructed SQL into migrations/ until provenance and tests are complete.
 3. Never change historical SHA-256 values to match reconstructed candidate files.
-4. Never create migration 036 to bypass unresolved 033/035 history.
-5. A residual Production mismatch must be addressed by a separate forward-only migration, rehearsed on an isolated branch and approved before Production application.
-6. Preserve the single application Production database/runtime and `app_runtime_secure` least-privilege role.
+4. Migration 036 is RESERVED / NOT CREATED. Do not use it to bypass unresolved 033/035 history.
+5. The clean-install baseline is a separate bootstrap artifact and must pass restore/catalog equivalence checks before being canonical.
+6. A residual Production mismatch must be addressed by a separate forward-only migration, rehearsed locally and approved before Production application.
+7. Preserve the single application Production database/runtime and app_runtime_secure least-privilege role.

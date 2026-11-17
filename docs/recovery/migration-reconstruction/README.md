@@ -55,3 +55,12 @@ Production mutation, migration execution, merge to main and Vercel deployment re
 5. The clean-install baseline is a separate bootstrap artifact and must pass restore/catalog equivalence checks before being canonical.
 6. A residual Production mismatch must be addressed by a separate forward-only migration, rehearsed locally and approved before Production application.
 7. Preserve the single application Production database/runtime and app_runtime_secure least-privilege role.
+
+
+## Addendum — 2026-11-18: Migration 036 executed after owner approval
+
+This addendum supersedes the earlier 2026-11-17 statement that migration 036 was reserved/not created. The owner subsequently approved the exact SQL for `036_validate_production_schema_invariants.sql` with SHA-256 `4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52`. It was applied successfully to the active Neon Production branch `br-damp-shape-b3xlh4nr` / database `neondb` on 2026-11-17T21:31:15.111Z, and migration_history now records ID 36 with status `applied`.
+
+The migration performs catalog/invariant validation only; it does not alter schema or business rows. The migration runner exception is pinned to this exact filename and SHA-256 and exists on this recovery branch only. It has not been merged to `main` or deployed through Vercel.
+
+**Unchanged blockers:** original byte-identical source SQL for historical migrations 029–035 remains unrecovered. Reconstructed candidates under this directory remain review-only and must not be replayed or promoted into executable migrations. F0.06–F0.08 therefore remain open. No further Production migration is authorized by this addendum.

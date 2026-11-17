@@ -160,6 +160,56 @@ async function main() {
   if (mode === "baseline" || mode === "apply") {
     if (mode === "apply" && process.env.MIGRATE_CONFIRM !== "1") fail("Apply requires MIGRATE_CONFIRM=1.");
     validateTargetUrl(databaseUrl, "MIGRATION_DATABASE_URL", { requireMaintenanceRole: true });
+
+    // Explicit owner-approved one-shot exception: migration 036 only.
+    // SHA-256 is pinned to the reviewed SQL; 001-035 remain immutable.
+    if (mode === "apply") {
+      const approved036 = "036_validate_production_schema_invariants.sql";
+      const approved036Sha = "4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52";
+      const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
+      if (newFiles.length !== 1 || newFiles[0] !== approved036) {
+        fail("Approved apply is restricted to exactly 036_validate_production_schema_invariants.sql.");
+      }
+      const approvedPath = path.join(migrationsDir, approved036);
+      const actual036Sha = sha256File(approvedPath);
+      if (actual036Sha !== approved036Sha) fail("036 checksum mismatch; refusing to apply.");
+      const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
+      await client.connect();
+      let lockHeld = false;
+      try {
+        const identity = await client.query("SELECT current_database() AS db, current_user AS usr, inet_server_port() AS port");
+        const ident = identity.rows[0] || {};
+        if (ident.db !== EXPECTED_DB || ident.usr === "app_runtime_secure" || ident.usr === "app_runtime" || Number(ident.port) !== EXPECTED_PORT) {
+          fail("036 target identity verification failed.");
+        }
+        await client.query("SELECT pg_advisory_lock(424242)");
+        lockHeld = true;
+        const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+        if (history.rows.length !== 35 || history.rows.some((r, i) => Number(r.id) !== i + 1)) {
+          fail("036 requires an exact, contiguous migration_history 001-035; refusing.");
+        }
+        if (history.rows.some((r) => r.filename === approved036)) fail("036 already exists in migration_history; refusing re-apply.");
+        const sql = fs.readFileSync(approvedPath, "utf8");
+        await client.query("BEGIN");
+        try {
+          await client.query(sql);
+          await client.query(
+            "INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, 'applied')",
+            [approved036, approved036Sha]
+          );
+          await client.query("COMMIT");
+          console.log("Applied approved migration 036; SQL and history row committed atomically.");
+        } catch (error) {
+          await client.query("ROLLBACK");
+          fail(`036 apply failed and transaction rolled back: ${error?.message || "unknown error"}`);
+        }
+      } finally {
+        if (lockHeld) await client.query("SELECT pg_advisory_unlock(424242)").catch(() => {});
+        await client.end();
+      }
+      return;
+    }
+
     if (has036Plus) fail("Migration file(s) >= 036 detected. Refusing baseline/apply until 036+ has owner-approved exact SQL and SHA-256 review.");
     // Refuse if any numbered file lacks manifest approval (prevents applying untracked SQL files)
     const unapproved = files.filter((f) => !manifestMap.has(f));

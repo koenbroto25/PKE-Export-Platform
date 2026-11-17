@@ -29,12 +29,13 @@ All artifacts remain under `docs/recovery/migration-reconstruction/`, outside `m
 
 ## Important artifacts
 
-- `029_035_CATALOG_RECONSTRUCTION_SNAPSHOT.sql`: cumulative parent→child schema delta. Evidence only; do not execute directly.
+- `029_035_CATALOG_RECONSTRUCTION_SNAPSHOT.sql`: cumulative parent→child schema delta (72 tables, 1,137 columns, constraints, policies, indexes, functions, triggers and grants). Evidence only; do not execute directly.
 - `VERIFIED_CATALOG_RECOVERY_20261117.md`: catalog comparison and exact FK identities.
 - `033_BLOCKED_NO_SAFE_RECONSTRUCTION.md`: 033 scope and remaining limitations.
-- `035_remove_redundant_ai_rls_policies.sql`: intentionally fail-closed; no executable SQL.
+- `035_remove_redundant_ai_rls_policies.sql`: intentionally fail-closed; previous unsupported AI-policy inference withdrawn.
 - `029_035_READ_ONLY_VERIFICATION.sql`: SELECT-only post-state checks.
-- `migration_manifest_001_035_recovery.json`: historical hashes/statuses without pretending reconstructed files match those hashes.
+- `migration_029_035_recovery_manifest.json`: historical hashes/statuses without pretending reconstructed files match those hashes.
+- `029_035_READ_ONLY_VERIFICATION.sql`: SELECT-only post-state checks.
 
 ## Execution rules
 

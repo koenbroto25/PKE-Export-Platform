@@ -149,3 +149,12 @@ The inspected recovery branch does not contain a root PKE_P03_PLAN.md. The Windo
 **Migration strategy is now set.** Keep applied historical chain 001–035 immutable. Do not create or execute 036 yet. Build and validate a separate canonical schema bootstrap from a complete Production schema-only export. Only after baseline equivalence and a concrete forward change are proven may 036 be authored and submitted for approval.
 
 This is a technical decision on the recovery branch, not authorization to mutate Production.
+
+
+## Addendum — 2026-11-18: Migration 036 executed after owner approval
+
+This addendum supersedes the earlier 2026-11-17 statement that migration 036 was reserved/not created. The owner subsequently approved the exact SQL for `036_validate_production_schema_invariants.sql` with SHA-256 `4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52`. It was applied successfully to the active Neon Production branch `br-damp-shape-b3xlh4nr` / database `neondb` on 2026-11-17T21:31:15.111Z, and migration_history now records ID 36 with status `applied`.
+
+The migration performs catalog/invariant validation only; it does not alter schema or business rows. The migration runner exception is pinned to this exact filename and SHA-256 and exists on this recovery branch only. It has not been merged to `main` or deployed through Vercel.
+
+**Unchanged blockers:** original byte-identical source SQL for historical migrations 029–035 remains unrecovered. Reconstructed candidates under this directory remain review-only and must not be replayed or promoted into executable migrations. F0.06–F0.08 therefore remain open. No further Production migration is authorized by this addendum.

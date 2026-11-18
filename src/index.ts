@@ -652,7 +652,7 @@ app.patch("/api/v1/contracts/:id", requireAuth, async (req: express.Request, res
   const { id } = req.params;
   const { rows: current } = await req.db.query("SELECT project_id FROM contracts WHERE id = $1::uuid", [id]);
   if (!current.length || !current[0].project_id) return res.status(404).json({ error: "Contract not found in an accessible Project." });
-  if (!(await requireProjectPermission(req, res, current[0].project_id, "project.configuration.manage"))) return;
+  if (!(await requireProjectPermission(req, res, current[0].project_id, "manage_contract_programs"))) return;
   const { code, name, startDate, endDate, isActive } = req.body ?? {};
   try {
     const { rows } = await req.db.query(
@@ -672,7 +672,7 @@ app.patch("/api/v1/contracts/:id", requireAuth, async (req: express.Request, res
 app.post("/api/v1/contracts", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, buyerId, code, name, startDate, endDate } = req.body;
   if (!projectId || !buyerId || !code || !name || !startDate) return res.status(400).json({ error: "projectId, buyerId, code, name, startDate required" });
-  if (!(await requireProjectPermission(req, res, projectId, "project.configuration.manage"))) return;
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
   try {
     const { rows } = await req.db.query(
       "INSERT INTO contracts (project_id, buyer_id, code, name, start_date, end_date, is_active, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz, true, now(), now()) RETURNING *",
@@ -704,7 +704,7 @@ app.post("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res
     return res.status(400).json({ error: "Required fields: contractProgramId, cadence, generationMode" });
   }
 
-  if (!(await requireProjectPermission(req, res, projectId, "project.configuration.manage"))) return;
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
   try {
     const { rows: programRows } = await req.db.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true LIMIT 1", [contractProgramId, projectId]);
     if (programRows.length === 0) return res.status(404).json({ error: "Active Contract Program not found in this Project." });
@@ -722,7 +722,7 @@ app.patch("/api/v1/cycle-policies/:id", requireAuth, async (req: express.Request
   const { id } = req.params;
   const { rows: current } = await req.db.query("SELECT project_id FROM cycle_policies WHERE id = $1::uuid", [id]);
   if (!current.length || !current[0].project_id) return res.status(404).json({ error: "Cycle Policy not found in an accessible Project." });
-  if (!(await requireProjectPermission(req, res, current[0].project_id, "project.configuration.manage"))) return;
+  if (!(await requireProjectPermission(req, res, current[0].project_id, "manage_contract_programs"))) return;
   const { cadence, targetQuantity, generationMode, isActive } = req.body ?? {};
   if (targetQuantity !== undefined && targetQuantity !== null && !isPositiveQuantity(targetQuantity)) {
     return res.status(400).json({ error: "targetQuantity must be finite and positive." });
@@ -970,7 +970,7 @@ app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, 
   if (!projectId || typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() || typeof cadence !== "string" || !cadence.trim() || !isPositiveQuantity(targetQuantity)) {
     return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity, cadence" });
   }
-  if (!(await requireProjectPermission(req, res, projectId, "project.configuration.manage"))) return;
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
   if (contractId) {
     const { rows: contractRows } = await req.db.query("SELECT id FROM contracts WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true", [contractId, projectId]);
     if (!contractRows.length) return res.status(400).json({ error: "Contract must belong to this Project." });
@@ -1002,7 +1002,7 @@ app.post("/api/v1/projects/:projectId/contract-programs", requireAuth, async (re
       typeof cadence !== "string" || !cadence.trim() || !isPositiveQuantity(targetQuantity)) {
     return res.status(400).json({ error: "Required fields: name, settlementUnit, positive targetQuantity, cadence" });
   }
-  if (!(await requireProjectPermission(req, res, projectId, "project.configuration.manage"))) return;
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
   try {
     const { rows: projectRows } = await req.db.query(
       "SELECT id, contract_program_id FROM projects WHERE id = $1::uuid AND is_active = true FOR UPDATE",
@@ -1037,7 +1037,7 @@ app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Requ
   const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description, isActive } = req.body;
   const { rows: currentProgram } = await req.db.query("SELECT project_id FROM contract_programs WHERE id = $1::uuid", [id]);
   if (!currentProgram.length) return res.status(404).json({ error: "Contract program not found in an accessible Project." });
-  if (!(await requireProjectPermission(req, res, currentProgram[0].project_id, "project.configuration.manage"))) return;
+  if (!(await requireProjectPermission(req, res, currentProgram[0].project_id, "manage_contract_programs"))) return;
   if (targetQuantity !== undefined && !isPositiveQuantity(targetQuantity)) return res.status(400).json({ error: "targetQuantity must be a finite positive number." });
   try {
     const { rows } = await req.db.query(

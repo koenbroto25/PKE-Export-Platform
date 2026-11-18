@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema.js";
 import { requireAuth, requireAdmin } from "./auth.js";
+import { verifyNeonAuthWebhook } from "./neon-auth-webhook.js";
 import { internalServerErrorPayload, requestRejectedPayload } from "./http-errors.js";
 import { normalizePostgresSslMode, roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
 import { privateStorage } from "./storage.js";
@@ -21,6 +22,7 @@ declare global {
       drizzleDb: any;
       logger: winston.Logger;
       user: any;
+      rawBody?: string;
     }
   }
 }
@@ -48,7 +50,14 @@ if (process.env.NODE_ENV === "test") {
 }
 
 export const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({
+  limit: "2mb",
+  verify: (req, _res, buffer) => {
+    if ((req as express.Request).originalUrl === "/webhooks/neon-auth") {
+      (req as express.Request).rawBody = buffer.toString("utf8");
+    }
+  },
+}));
 const PORT = process.env.PORT || 3000;
 
 if (manualTrialMode.enabled) {
@@ -190,6 +199,52 @@ app.get("/api/v1/health", async (req: express.Request, res: express.Response) =>
       message: "Database health check failed.",
     });
   }
+});
+
+// Neon Managed Better Auth webhook. This endpoint accepts only signed provider events;
+// it never trusts a browser-supplied Auth user ID and never reads neon_auth tables.
+app.post("/webhooks/neon-auth", async (req: express.Request, res: express.Response) => {
+  if (process.env.NEON_AUTH_WEBHOOK_ENABLED !== "true") {
+    return res.status(503).json({ error: "Auth identity synchronization is not enabled." });
+  }
+
+  let verified;
+  try {
+    verified = await verifyNeonAuthWebhook(
+      req.rawBody || "",
+      req.headers as any,
+      { jwksUrl: process.env.NEON_AUTH_JWKS_URL || "" },
+    );
+  } catch {
+    logger.warn("Rejected Neon Auth webhook: signature, timestamp, or payload verification failed.");
+    return res.status(401).json({ error: "Invalid Neon Auth webhook." });
+  }
+
+  if (verified.eventType !== "user.created") {
+    return res.status(202).json({ ok: true, ignored: true });
+  }
+
+  const authUser = verified.payload.user as Record<string, unknown> | undefined;
+  if (!authUser || typeof authUser.id !== "string" || typeof authUser.email !== "string") {
+    return res.status(400).json({ error: "Neon Auth user-created payload is incomplete." });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM public.pke_link_neon_auth_identity_from_webhook($1::uuid, $2::text, $3::text, $4::uuid)",
+      [authUser.id, authUser.email, typeof authUser.name === "string" ? authUser.name : null, verified.eventId],
+    );
+    return res.status(200).json({ ok: true, linkState: rows[0]?.link_state || "processed" });
+  } catch (error) {
+    logger.error("Neon Auth webhook identity synchronization failed:", error);
+    return res.status(503).json({ error: "PKE identity synchronization is temporarily unavailable." });
+  }
+});
+
+app.get("/api/v1/admin/provisioning/status", requireAuth, requireAdmin, (_req: express.Request, res: express.Response) => {
+  const ready = process.env.NEON_AUTH_ADMIN_PROVISIONING_READY === "true"
+    && process.env.NEON_AUTH_WEBHOOK_ENABLED === "true";
+  res.json({ ready, reason: ready ? null : "Auth Admin provisioning and signed webhook synchronization have not both been enabled for this environment." });
 });
 
 // ============================================
@@ -3450,11 +3505,62 @@ app.patch("/api/v1/contracts/:id", requireAuth, requireAdmin, async (req: expres
 app.get("/api/v1/users", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query(
-      "SELECT id, email, name, role, is_active, neon_auth_user_id, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT 100"
+      "SELECT user_id AS id, email, name, role, is_active, neon_auth_user_id, created_at, updated_at FROM public.pke_admin_list_users($1::integer, $2::integer)",
+      [100, 0],
     );
     res.json({ users: rows });
   } catch (error) {
     res.status(500).json({ error: "Failed to load users" });
+  }
+});
+
+// Admin provisioning creates a PKE pending account first. The browser then uses the Neon SDK Admin
+// createUser operation; only the signed user.created webhook may link the provider identity.
+app.post("/api/v1/admin/users/provision", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  if (process.env.NEON_AUTH_ADMIN_PROVISIONING_READY !== "true" || process.env.NEON_AUTH_WEBHOOK_ENABLED !== "true") {
+    return res.status(503).json({ error: "Admin provisioning is not enabled for this environment.", code: "PROVISIONING_NOT_READY" });
+  }
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (!email || !name || reason.length < 5) {
+    return res.status(400).json({ error: "Email, name, and an audit reason of at least five characters are required.", code: "INVALID_PROVISION_INPUT" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "SELECT * FROM public.pke_admin_provision_user($1::text, $2::text, $3::text)",
+      [email, name, reason],
+    );
+    return res.status(201).json({ user: rows[0] });
+  } catch (error: any) {
+    const code = typeof error?.code === "string" ? error.code : "";
+    if (code === "23505") return res.status(409).json({ error: "Email already belongs to an existing or linked PKE account.", code: "USER_ALREADY_EXISTS" });
+    if (code === "22023") return res.status(400).json({ error: "Provisioning input is invalid.", code: "INVALID_PROVISION_INPUT" });
+    if (code === "42501") return res.status(403).json({ error: "Platform Admin authorization is required.", code: "ADMIN_REQUIRED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/admin/users/:id/status", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const userId = req.params.id as string;
+  const isActive = req.body?.isActive;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId) || typeof isActive !== "boolean" || reason.length < 5) {
+    return res.status(400).json({ error: "Valid user id, isActive, and an audit reason are required.", code: "INVALID_USER_STATUS_INPUT" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "SELECT * FROM public.pke_admin_set_user_active($1::uuid, $2::boolean, $3::text)",
+      [userId, isActive, reason],
+    );
+    if (!rows.length) return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
+    return res.json({ user: rows[0] });
+  } catch (error: any) {
+    const code = typeof error?.code === "string" ? error.code : "";
+    if (code === "P0002") return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
+    if (code === "23514" || code === "22023") return res.status(409).json({ error: "User is not eligible for this status change.", code: "USER_STATUS_CONFLICT" });
+    if (code === "42501") return res.status(403).json({ error: "Platform Admin authorization is required.", code: "ADMIN_REQUIRED" });
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { PrivateStorageAdapter } from "./storage";
 
 // Pure validation tests — no network, no Production access required.
@@ -193,9 +193,57 @@ describe("PrivateStorageAdapter validation (offline)", () => {
       .rejects.toThrow(/not allowed/);
   });
 
-  it("objectMetadata and deleteObject remain fail-closed (no network round-trip in adapter)", async () => {
-    await expect(adapterWithCreds.objectMetadata("projects/test/documents/invoice.pdf"))
-      .rejects.toThrow(/round-trip|fail-closed/i);
+  it("retrieves object metadata through a signed, read-only HEAD request", async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Response(null, {
+        status: 200,
+        headers: {
+          "content-length": "1024",
+          etag: '"test-etag"',
+          "last-modified": "Wed, 18 Nov 2026 03:00:00 GMT",
+          "x-amz-version-id": "test-version",
+        },
+      }),
+    );
+    const adapter = new PrivateStorageAdapter({
+      bucket: "pke-private-documents",
+      region: "ap-southeast-1",
+      endpoint: "https://storage.ap-southeast-1.neonpublic.com",
+      accessKeyId: "test-access-key",
+      secretAccessKey: "test-secret-key",
+      fetchImpl,
+    });
+
+    const metadata = await adapter.objectMetadata("projects/test/documents/invoice.pdf");
+    expect(metadata).toEqual({
+      objectKey: "projects/test/documents/invoice.pdf",
+      size: 1024,
+      etag: '"test-etag"',
+      lastModified: "Wed, 18 Nov 2026 03:00:00 GMT",
+      versionId: "test-version",
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchImpl.mock.calls[0];
+    expect(String(url)).toContain("X-Amz-Signature=");
+    expect(options?.method).toBe("HEAD");
+    expect(options?.redirect).toBe("error");
+  });
+
+  it("does not expose a presigned URL when the metadata provider request fails", async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 403 }));
+    const adapter = new PrivateStorageAdapter({
+      bucket: "pke-private-documents",
+      region: "ap-southeast-1",
+      endpoint: "https://storage.ap-southeast-1.neonpublic.com",
+      accessKeyId: "test-access-key",
+      secretAccessKey: "test-secret-key",
+      fetchImpl,
+    });
+    await expect(adapter.objectMetadata("projects/test/documents/invoice.pdf"))
+      .rejects.toThrow("Storage metadata request failed (HTTP 403).");
+  });
+
+  it("keeps object deletion fail-closed until an approved deletion workflow exists", async () => {
     await expect(adapterWithCreds.deleteObject("projects/test/documents/invoice.pdf"))
       .rejects.toThrow(/round-trip|fail-closed/i);
   });

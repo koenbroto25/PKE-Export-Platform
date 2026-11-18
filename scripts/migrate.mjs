@@ -10,7 +10,7 @@ dotenv.config({ path: ".env.migrate", override: false });
 const mode = process.argv[2] || "dry-run";
 const migrationsDir = path.resolve("migrations");
 const manifestPath = path.resolve("migration_manifest_001_027.json");
-const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_037.json");
+const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_038.json");
 
 // REVISION 5.6 safety policy:
 // - Migrations 001-035 are immutable; no apply/baseline may rerun or mutate them.
@@ -272,18 +272,18 @@ async function main() {
         if (
           !releaseManifest ||
           releaseManifest.purpose !== "verified_production_history_only_not_sql_source" ||
-          releaseManifest.applied_count !== 37 ||
+          releaseManifest.applied_count !== 38 ||
           !Array.isArray(releaseManifest.entries) ||
-          releaseManifest.entries.length !== 37 ||
+          releaseManifest.entries.length !== 38 ||
           !Array.isArray(releaseManifest.pending_migrations) ||
-          !releaseManifest.pending_migrations.some((m) => m.file === approved038 && m.sha256 === approved038Sha)
+          releaseManifest.entries[37]?.filename !== approved038 || releaseManifest.entries[37]?.sha256 !== approved038Sha || releaseManifest.entries[37]?.status !== "applied"
         ) {
-          fail("Verified Production history manifest 001-037 is missing, malformed, or does not pin pending migration 038.");
+          fail("Verified Production history manifest 001-038 is missing, malformed, or does not record applied migration 038.");
         }
 
         const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
-        if (history.rows.length !== 37) {
-          fail("Migration 038 requires exactly 37 verified Production history rows; refusing.");
+        if (history.rows.length !== 38) {
+          fail("Migration 038 replay requires 37 history rows; Production already has 38, so refusing re-apply.");
         }
         for (let i = 0; i < releaseManifest.entries.length; i++) {
           const expected = releaseManifest.entries[i];
@@ -295,7 +295,7 @@ async function main() {
             actual.sha256 !== expected.sha256 ||
             actual.status !== expected.status
           ) {
-            fail("Production migration_history differs from the verified 001-037 release manifest at sequence " + (i + 1) + "; refusing.");
+            fail("Production migration_history differs from the verified 001-038 release manifest at sequence " + (i + 1) + "; refusing.");
           }
         }
         if (history.rows.some((r) => r.filename === approved038)) {

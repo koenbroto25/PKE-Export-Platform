@@ -950,7 +950,7 @@ function defaultPermissionsForRole(roleCode: string): string[] {
       "project.view", "documents.view", "workflow.view", "notifications.view", "reports.view"
     ],
     finance: [
-      "project.view", "documents.view", "reports.view", "finance.view"
+      "project.view", "documents.view", "reports.view", "reports.create", "finance.view"
     ],
     buyer: [
       "project.view", "documents.view", "reports.view", "shipment.view"
@@ -1554,6 +1554,7 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
 const reportTemplatesStore: any[] = [
   { id: "tpl-daily-ops", name: "Daily Operations Report", category: "Operational", version: 1, active: true, audience: "internal", frequency: "daily" },
   { id: "tpl-weekly-rab", name: "Weekly RAB vs Actual", category: "Financial", version: 1, active: true, audience: "finance", frequency: "weekly" },
+  { id: "tpl-financial-report", name: "Project Financial Report", category: "Financial", version: 1, active: true, audience: "project_management", frequency: "on_demand" },
   { id: "tpl-buyer-progress", name: "Buyer Progress Summary", category: "Shipment", version: 1, active: true, audience: "buyer", frequency: "daily" },
 ];
 
@@ -3272,36 +3273,111 @@ app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, 
 });
 
 // ============================================
-// Payment instruction routes (P07 Finance) — unavailable/fail-closed
+// Finance reporting-only workflow (F1)
+// Finance records reports; the application does not execute payments.
 // ============================================
-// Payment execution schema requires owner approval. These routes return an
-// explicit unavailable state instead of simulating payment settlement.
-app.get("/api/v1/payment-instructions", requireAuth, async (_req: express.Request, res: express.Response) => {
-  res.status(503).json({
-    error: "Payment workflow unavailable",
-    code: "PAYMENT_WORKFLOW_NOT_IMPLEMENTED",
-    reason: "Production payment tables and database safeguards exist, but the authenticated request, approval, execution, evidence, verification, and reconciliation API workflow is not implemented and validated.",
-    available: false,
-  });
+app.get("/api/v1/finance/reports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required" });
+  if (!(await requireProjectPermission(req, res, projectId, "reports.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id, project_id, template_id, template_version, period_start, period_end,
+              report_payload, requested_by, submitted_at, generated_at, data_freshness, status
+         FROM report_runs
+        WHERE project_id = $1::uuid AND template_id = 'tpl-financial-report'
+        ORDER BY submitted_at DESC NULLS LAST, generated_at DESC
+        LIMIT 200`,
+      [projectId],
+    );
+    return res.json({ reports: rows });
+  } catch (error) {
+    return res.status(500).json(internalServerErrorPayload());
+  }
 });
 
-app.post("/api/v1/payment-instructions", requireAuth, async (_req: express.Request, res: express.Response) => {
-  res.status(503).json({
-    error: "Payment workflow unavailable",
-    code: "PAYMENT_WORKFLOW_NOT_IMPLEMENTED",
-    reason: "Payment instruction creation remains fail-closed until the permissioned maker-checker and evidence-to-reconciliation lifecycle is implemented and tested end to end.",
-    available: false,
-  });
+app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, periodStart, periodEnd, report, summary } = req.body ?? {};
+  if (typeof projectId !== "string" || !projectId ||
+      typeof periodStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(periodStart) ||
+      typeof periodEnd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) ||
+      periodStart > periodEnd || !report || typeof report !== "object" || Array.isArray(report)) {
+    return res.status(400).json({ error: "Required: projectId, valid periodStart/periodEnd, and report object." });
+  }
+  const payload = JSON.stringify({ summary: typeof summary === "string" ? summary.slice(0, 4000) : "", report });
+  if (payload.length > 200_000) return res.status(413).json({ error: "Financial report payload exceeds 200 KB." });
+  if (!(await requireProjectPermission(req, res, projectId, "reports.create"))) return;
+  const requesterId = req.user?.id;
+  if (!requesterId) return res.status(401).json({ error: "Authenticated principal required" });
+  try {
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, name FROM projects WHERE id = $1::uuid AND is_active = true LIMIT 1",
+      [projectId],
+    );
+    if (!projectRows.length) return res.status(404).json({ error: "Active Project not found." });
+    const { rows: reportRows } = await req.db.query(
+      `INSERT INTO report_runs
+        (id, schedule_id, template_id, template_version, cutoff_at, generated_at,
+         requested_by, audience, project_id, status, idempotency_key, data_freshness,
+         report_payload, period_start, period_end, submitted_at)
+       VALUES (gen_random_uuid(), NULL, 'tpl-financial-report', 1, $1::date::timestamptz,
+         now(), $2::uuid, 'project_management', $3::uuid, 'submitted',
+         NULL, now(), $4::jsonb, $5::date, $6::date, now())
+       RETURNING id, project_id, template_id, template_version, period_start, period_end,
+                 report_payload, requested_by, submitted_at, generated_at, data_freshness, status`,
+      [periodEnd, requesterId, projectId, payload, periodStart, periodEnd],
+    );
+    const reportRun = reportRows[0];
+    const { rows: recipients } = await req.db.query(
+      `SELECT DISTINCT recipient_id FROM (
+         SELECT pm.user_id AS recipient_id
+           FROM project_members pm
+           JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+           JOIN users u ON u.id = pm.user_id
+          WHERE pm.project_id = $1::uuid AND pm.is_active = true
+            AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at > now())
+            AND pr.is_active = true AND pr.role_code = 'pm' AND u.is_active = true
+         UNION
+         SELECT id AS recipient_id FROM users WHERE is_active = true AND role::text = 'admin'
+       ) recipients`,
+      [projectId],
+    );
+    const notificationRows = [];
+    for (const recipient of recipients) {
+      const { rows: inserted } = await req.db.query(
+        `INSERT INTO user_notifications
+          (id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, created_at)
+         VALUES (gen_random_uuid(), gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid,
+           $4, $5, 'normal', 'finance_report', now())
+         RETURNING id, event_id, recipient_user_id`,
+        [projectId, recipient.recipient_id, requesterId,
+         `Laporan keuangan baru — ${projectRows[0].name}`,
+         `Finance mengirim laporan periode ${periodStart} sampai ${periodEnd}. Laporan siap ditinjau.`],
+      );
+      notificationRows.push(inserted[0]);
+    }
+    return res.status(201).json({
+      financialReport: reportRun,
+      notificationsCreated: notificationRows.length,
+      notifiedRoles: ["pm", "admin"],
+      paymentExecution: false,
+    });
+  } catch (error) {
+    return res.status(500).json(internalServerErrorPayload());
+  }
 });
 
-app.patch("/api/v1/payment-instructions/:id", requireAuth, async (_req: express.Request, res: express.Response) => {
-  res.status(503).json({
-    error: "Payment workflow unavailable",
-    code: "PAYMENT_WORKFLOW_NOT_IMPLEMENTED",
-    reason: "Payment instruction transitions remain fail-closed until each guarded state change is exposed through authorized, audited API operations and tested end to end.",
+// Payment execution endpoints are intentionally out of scope. Finance is reporting-only.
+const paymentExecutionOutOfScope = (_req: express.Request, res: express.Response) =>
+  res.status(410).json({
+    error: "Payment execution is outside this application's Finance scope.",
+    code: "PAYMENT_EXECUTION_OUT_OF_SCOPE",
     available: false,
+    financeScope: "reporting_only",
   });
-});
+app.get("/api/v1/payment-instructions", requireAuth, paymentExecutionOutOfScope);
+app.post("/api/v1/payment-instructions", requireAuth, paymentExecutionOutOfScope);
+app.patch("/api/v1/payment-instructions/:id", requireAuth, paymentExecutionOutOfScope);
 
 // ============================================
 // Export compliance document routes (P08)

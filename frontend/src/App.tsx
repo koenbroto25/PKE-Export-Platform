@@ -1078,7 +1078,18 @@ function NotificationsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' 
 function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const roles = useLoad<{ roles?: AnyRecord[]; permissions?: AnyRecord[] }>(() => get('/roles'), []);
   const users = useLoad<{ users?: AnyRecord[] }>(() => get('/users'), []);
+  const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const projectDetail = useLoad<{ members?: AnyRecord[]; roles?: AnyRecord[]; project?: AnyRecord }>(
+    () => selectedProjectId ? get(`/projects/${selectedProjectId}/detail`) : Promise.resolve({ members: [], roles: [] }),
+    [selectedProjectId],
+  );
   const [resettingId, setResettingId] = useState('');
+  const [membershipBusyId, setMembershipBusyId] = useState('');
+  useEffect(() => {
+    if (!selectedProjectId && projects.data?.projects?.[0]?.id) setSelectedProjectId(String(projects.data.projects[0].id));
+  }, [projects.data, selectedProjectId]);
+
   const requestReset = async (user: AnyRecord) => {
     const id = String(user.id || '');
     if (!id) return;
@@ -1094,14 +1105,54 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       setResettingId('');
     }
   };
+
+  const updateMembership = async (member: AnyRecord, changes: AnyRecord) => {
+    if (!selectedProjectId || !member.id) return;
+    const action = changes.isActive === false ? 'menonaktifkan keanggotaan' :
+      changes.isActive === true ? 'mengaktifkan kembali keanggotaan' : 'mengubah role proyek';
+    const reason = window.prompt(`Alasan ${action} untuk ${member.email || member.user_id}:`);
+    if (!reason || reason.trim().length < 3) {
+      onNotice('info', 'Perubahan dibatalkan. Alasan minimal 3 karakter wajib dicatat.');
+      return;
+    }
+    setMembershipBusyId(String(member.id));
+    try {
+      await patch(`/projects/${selectedProjectId}/members/${member.id}`, { ...changes, reason: reason.trim() });
+      onNotice('success', 'Keanggotaan proyek berhasil diperbarui.');
+      projectDetail.refresh();
+    } catch (e) {
+      onNotice('error', e instanceof Error ? e.message : 'Keanggotaan proyek tidak dapat diperbarui.');
+    } finally {
+      setMembershipBusyId('');
+    }
+  };
+
   return <>
-    <PageTitle eyebrow="IDENTITY & GOVERNANCE" title="Role & permission" subtitle="Katalog role/permission dan aksi admin reset password berbasis permintaan Neon Auth." actions={<ActionButton variant="secondary" onClick={() => { roles.refresh(); users.refresh(); }}><RefreshCw size={16} /> Segarkan</ActionButton>} />
-    <Card><PanelHeading title="Manajemen pengguna (admin)" description="Reset password dilakukan lewat endpoint backend admin yang memanggil Neon Auth request-password-reset untuk email pengguna target. Token/password tidak ditampilkan." />{users.loading ? <Loading /> : users.error ? <ErrorState message={users.error} retry={users.refresh} /> : <DataTable rows={users.data?.users || []} columns={[{ key: 'email', label: 'Email', render: r => <strong>{String(r.email || '—')}</strong> }, { key: 'name', label: 'Nama', render: r => r.name || '—' }, { key: 'neon_auth_user_id', label: 'Neon Auth', render: r => <span className="mono">{shortId(r.neon_auth_user_id)}</span> }, { key: 'action', label: 'Aksi', render: r => <ActionButton variant="secondary" disabled={!!resettingId || !r.neon_auth_user_id} onClick={() => requestReset(r)}>{resettingId === String(r.id) ? 'Memproses…' : 'Kirim reset password'}</ActionButton> }]} emptyTitle="Tidak ada pengguna" emptyText="Data pengguna belum tersedia untuk akun ini." />}</Card>
-    <Card><PanelHeading title="Role katalog" description="Role global tidak sama dengan project role yang ditetapkan per membership." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.roles || []} columns={[{ key: 'name', label: 'Role', render: r => <strong>{r.name}</strong> }, { key: 'description', label: 'Deskripsi' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} />}</Card>
+    <PageTitle eyebrow="IDENTITY & GOVERNANCE" title="Role & permission" subtitle="Status akun bersifat global; role dan status keanggotaan ditetapkan terpisah untuk setiap proyek." actions={<ActionButton variant="secondary" onClick={() => { roles.refresh(); users.refresh(); projects.refresh(); projectDetail.refresh(); }}><RefreshCw size={16} /> Segarkan</ActionButton>} />
+    <Card><PanelHeading title="Akun pengguna" description="Akun autentikasi global. Menonaktifkan membership proyek tidak menonaktifkan akun ini atau membership proyek lainnya." />{users.loading ? <Loading /> : users.error ? <ErrorState message={users.error} retry={users.refresh} /> : <DataTable rows={users.data?.users || []} columns={[
+      { key: 'email', label: 'Email', render: r => <strong>{String(r.email || '—')}</strong> },
+      { key: 'name', label: 'Nama', render: r => r.name || '—' },
+      { key: 'role', label: 'Role global', render: r => <StatusPill value={r.role || 'viewer'} /> },
+      { key: 'is_active', label: 'Akun', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> },
+      { key: 'neon_auth_user_id', label: 'Neon Auth', render: r => <span className="mono">{shortId(r.neon_auth_user_id)}</span> },
+      { key: 'action', label: 'Pemulihan', render: r => <ActionButton variant="secondary" disabled={!!resettingId || !r.neon_auth_user_id} onClick={() => requestReset(r)}>{resettingId === String(r.id) ? 'Memproses…' : 'Kirim reset password'}</ActionButton> }
+    ]} />}</Card>
+    <Card>
+      <PanelHeading title="Role & status per proyek" description="Satu pengguna dapat mempunyai role berbeda dan status aktif/nonaktif yang independen pada setiap proyek." />
+      {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : !projects.data?.projects?.length ? <EmptyState title="Belum ada proyek" desc="Keanggotaan proyek dapat dikelola setelah proyek tersedia." /> : <>
+        <FormField label="Pilih proyek"><select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+        {projectDetail.loading ? <Loading /> : projectDetail.error ? <ErrorState message={projectDetail.error} retry={projectDetail.refresh} /> : <DataTable rows={projectDetail.data?.members || []} columns={[
+          { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
+          { key: 'role', label: 'Role proyek', render: r => <select aria-label={`Role proyek untuk ${r.email || r.user_id}`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },
+          { key: 'is_active', label: 'Status proyek', render: r => <StatusPill value={r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'active' : 'inactive'} /> },
+          { key: 'action', label: 'Aksi', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => updateMembership(r, { isActive: !(r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now())) })}>{membershipBusyId === String(r.id) ? 'Memproses…' : r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'Nonaktifkan proyek ini' : 'Aktifkan proyek ini'}</ActionButton> }
+        ]} emptyTitle="Belum ada anggota" emptyText="Belum ada keanggotaan untuk proyek ini." />}
+      </>}
+    </Card>
+    <Card><PanelHeading title="Role katalog" description="Role katalog global bukan pengganti project role yang melekat pada membership." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.roles || []} columns={[{ key: 'name', label: 'Role', render: r => <strong>{r.name}</strong> }, { key: 'description', label: 'Deskripsi' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} />}</Card>
     <Card><PanelHeading title="Permission katalog" description="Kunci permission yang dapat dipakai oleh role dan policy." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.permissions || []} columns={[{ key: 'code', label: 'Code', render: r => <span className="mono">{String(r.code || '')}</span> }, { key: 'name', label: 'Permission' }, { key: 'description', label: 'Keterangan' }]} />}</Card>
   </>;
 }
-
 function ForgotPasswordPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');

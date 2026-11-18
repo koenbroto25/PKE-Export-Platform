@@ -939,6 +939,44 @@ app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, 
   }
 });
 
+// PM attaches the Project's first Contract Program after Admin creates the Project shell.
+app.post("/api/v1/projects/:projectId/contract-programs", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description } = req.body ?? {};
+  if (typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() ||
+      typeof cadence !== "string" || !cadence.trim() || !isPositiveQuantity(targetQuantity)) {
+    return res.status(400).json({ error: "Required fields: name, settlementUnit, positive targetQuantity, cadence" });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "project.configuration.manage"))) return;
+  try {
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, contract_program_id FROM projects WHERE id = $1::uuid AND is_active = true FOR UPDATE",
+      [projectId],
+    );
+    if (!projectRows.length) return res.status(404).json({ error: "Project not found." });
+    if (projectRows[0].contract_program_id) return res.status(409).json({ error: "This Project already has a Contract Program." });
+    if (contractId) {
+      const { rows: contractRows } = await req.db.query(
+        "SELECT id FROM contracts WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true",
+        [contractId, projectId],
+      );
+      if (!contractRows.length) return res.status(400).json({ error: "Contract must belong to this Project." });
+    }
+    const { rows } = await req.db.query(
+      `INSERT INTO contract_programs
+        (project_id, name, buyer_id, contract_id, settlement_unit, target_quantity, cadence, generation_mode, description, is_active, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5, $6::numeric, $7, $8, $9, true, now(), now())
+       RETURNING *`,
+      [projectId, name.trim(), buyerId || null, contractId || null, settlementUnit.trim(), targetQuantity, cadence.trim(), generationMode || "shipment_triggered", description || null],
+    );
+    await req.db.query("UPDATE projects SET contract_program_id = $1::uuid, updated_at = now() WHERE id = $2::uuid AND contract_program_id IS NULL", [rows[0].id, projectId]);
+    return res.status(201).json({ contractProgram: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "A Contract Program already exists for this Project." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description, isActive } = req.body;

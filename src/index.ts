@@ -13,6 +13,7 @@ import { privateStorage } from "./storage.js";
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
 import { detectManualTrialMode } from "./demo/mode.js";
 import { registerDemoApiRoutes } from "./demo/routes.js";
+import { isPositiveQuantity } from "./f1-contract-rules.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -669,7 +670,7 @@ app.get("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res:
 app.post("/api/v1/cycle-policies", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { contractProgramId, cadence, targetQuantity, generationMode } = req.body;
 
-  if (!contractProgramId || !cadence || !generationMode) {
+  if (!contractProgramId || typeof cadence !== "string" || !cadence.trim() || typeof generationMode !== "string" || !generationMode.trim() || (targetQuantity !== undefined && targetQuantity !== null && !isPositiveQuantity(targetQuantity))) {
     return res.status(400).json({ error: "Required fields: contractProgramId, cadence, generationMode" });
   }
 
@@ -872,7 +873,7 @@ function defaultPermissionsForRole(roleCode: string): string[] {
 // ============================================
 app.post("/api/v1/contract-programs", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description } = req.body;
-  if (!name || !settlementUnit || !targetQuantity || !cadence) {
+  if (typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() || typeof cadence !== "string" || !cadence.trim() || !isPositiveQuantity(targetQuantity)) {
     return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity, cadence" });
   }
   try {
@@ -919,12 +920,12 @@ app.patch("/api/v1/contract-programs/:id", requireAuth, requireAdmin, async (req
 // ============================================
 // Project create (transaction: project + contract program + roles + module config)
 // ============================================
-app.post("/api/v1/projects", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const {
     contractProgramId, name, description, status, settlementUnit, targetQuantity,
     exportCountryCode, createContractProgram
   } = req.body ?? {};
-  if (!name || !settlementUnit || targetQuantity === undefined || targetQuantity === null || targetQuantity === "") {
+  if (typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() || !isPositiveQuantity(targetQuantity)) {
     return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity" });
   }
   const userId = req.user?.id;

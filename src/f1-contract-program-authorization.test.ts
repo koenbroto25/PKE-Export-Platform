@@ -18,7 +18,7 @@ describe("F1 Admin ownership of contract programs and project instances", () => 
       const start = INDEX.indexOf(marker);
       expect(start, marker + " should exist").toBeGreaterThanOrEqual(0);
       const signature = INDEX.slice(start, start + 200);
-      expect(signature).toMatch(/requireAuth\\s*,\\s*requireAdmin\\s*,\\s*async/);
+      expect(signature).toMatch(/requireAuth\s*,\s*requireAdmin\s*,\s*async/);
     });
   }
 

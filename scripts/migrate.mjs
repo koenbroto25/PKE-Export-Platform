@@ -205,6 +205,8 @@ async function main() {
       const approved037Sha = "c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85";
       const approved038 = "038_admin_managed_neon_auth_user_lifecycle.sql";
       const approved038Sha = "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5";
+      const approved039 = "039_project_scoped_contract_cob_cycles.sql";
+      const approved039Sha = "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -250,6 +252,36 @@ async function main() {
           !newFiles.includes(approved038)
         ) {
           fail("Apply is restricted to the exact approved 036-only historical path or the explicit 038 release path (036, 037, 038 files present).");
+        }
+
+        if (newFiles.length === 4 && newFiles.includes(approved039) &&
+            newFiles.includes(approved036) && newFiles.includes(approved037) && newFiles.includes(approved038)) {
+          if (sha256File(path.join(migrationsDir, approved039)) !== approved039Sha) fail("039 checksum mismatch; refusing.");
+          const verifiedManifest = productionHistoryManifest;
+          if (!verifiedManifest || verifiedManifest.applied_count !== 39 ||
+              verifiedManifest.entries?.length !== 39 ||
+              verifiedManifest.entries[37]?.filename !== approved038 ||
+              verifiedManifest.entries[37]?.sha256 !== approved038Sha ||
+              verifiedManifest.entries[38]?.filename !== approved039 ||
+              verifiedManifest.entries[38]?.sha256 !== approved039Sha) {
+            fail("Verified Production migration manifest 001-039 missing or inconsistent.");
+          }
+          const history039 = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          if (history039.rows.length !== 39) fail("Production migration history is not exactly 39 rows.");
+          for (let i = 0; i < verifiedManifest.entries.length; i++) {
+            const expected = verifiedManifest.entries[i], actual = history039.rows[i];
+            if (Number(actual.id) !== i + 1 || actual.filename !== expected.filename ||
+                actual.sha256 !== expected.sha256 || actual.status !== expected.status) {
+              fail("Production migration_history mismatch at sequence " + (i + 1) + ".");
+            }
+          }
+          if (history039.rows[38].filename !== approved039 ||
+              history039.rows[38].sha256 !== approved039Sha ||
+              sha256File(path.join(migrationsDir, approved039)) !== approved039Sha) {
+            fail("Production Migration 039 is not byte-for-byte verified; refusing.");
+          }
+          console.log("Production Migration 039 is already applied and ledger-verified; no SQL re-execution performed.");
+          return;
         }
 
         if (process.env.MIGRATE_038_CONFIRM !== "1") {

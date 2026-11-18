@@ -498,7 +498,6 @@ Temuan berikut berasal dari pemeriksaan read-only Neon Production dan pemeriksaa
 
 Batas bukti pada update tersebut: laporan menyebut GET/POST `/fx-exposure` tetap ada tetapi tidak menyatakan secara eksplisit apakah query sudah dipindahkan ke `fx_exposures` plural; mapping exposure tetap OPEN sampai diperiksa. Koreksi `journal_entries`/`journal_lines` membuktikan penyesuaian nama kolom menurut laporan, bukan otomatis membuktikan validasi balance, akun, periode, approval, atau posting. Penghapusan route dokumen lama bukan bukti bahwa P08 sudah tersambung ke `project_export_documents` dan private storage.
 
-
 Urutan kerja:
 
 1. Route registry + API SQL/DTO/query terhadap Production schema; hapus route ganda dan cocokkan middleware/permissions.
@@ -997,7 +996,6 @@ Status tabel: **EXISTING** berarti ditemukan di Production snapshot; **PROPOSED*
 
 | Partner Organization | `organizations` (PROPOSED) / reconcile `buyers`, `vendors`, `service_vendors` | `id` | UUID | Yes | Primary key |
 | | | `legal_name` | text | Yes | Nama legal sesuai dokumen |
-
 | | | `trading_name` | text | No | Nama dagang |
 
 | | | `organization_type` | enum/text | Yes | buyer, supplier, processor, transporter, warehouse_operator, port_operator, shipping_agent, surveyor, other; multi-role via relationship |
@@ -1498,7 +1496,6 @@ Every depth value must carry:
 
 
 - `depth_value` and `depth_unit` (store canonical SI metres; preserve original unit/source if supplied in feet/fathoms).
-
 - `depth_feature_type` (channel, berth, jetty, anchorage, fairway, river segment).
 
 - `vertical_datum` (for example chart datum/lowest astronomical tide/other documented reference; do not assume).
@@ -1995,7 +1992,6 @@ PKE must reconcile quantities across each handoff:
 
 
 Every variance has a unit, calculation basis, threshold, evidence, reason code, responsible reviewer and disposition. Thresholds are Admin-configurable by contract/product/handling mode; never silently auto-write off differences. Corrections use a reversal/adjustment event, not deletion.
-
 
 
 ## 7.7 Buyer Export Visibility Portal
@@ -2498,7 +2494,6 @@ Prompt injection in PDF/web pages must be treated as untrusted source text. RAG 
 - Project close tidak otomatis saat `loaded_on_board`; perlu quantity acceptance, documents, AR/AP, advances, funding, claims, FX dan GL checklist.
 
 
-
 **Acceptance:** Admin membuat program berulang dan menghasilkan Project Instance; settlement unit konsisten; snapshot immutable; amendment/versioning/audit lulus; project tidak dapat ditutup bila checklist wajib belum selesai atau exception belum disetujui.
 
 
@@ -2999,7 +2994,6 @@ erDiagram
 ## 10.2 State machine invariants
 
 
-
 - State transition must validate current state and actor permission.
 
 - Terminal states (cancelled/rejected/closed) require reason and cannot be silently reopened.
@@ -3498,7 +3492,6 @@ External systems must be behind domain adapter interfaces with:
 - Normalized error taxonomy.
 
 - Health/availability/freshness metadata.
-
 - `provider_code`, `provider_version`, `source_timestamp`, `received_at`.
 
 - Secrets from runtime secret manager only.
@@ -3997,7 +3990,6 @@ Exception handling: duplicate, inconsistent coordinates, company does not own/op
 9. Buyer creates product requirement for destination facility/contract with hard limits and preferred ranges.
 
 10. Buyer and PKE reviewers confirm that requirement is meaningful and uses compatible basis/method.
-
 
 
 **Acceptance:** no comparison across incompatible basis; no approved spec without source/reviewer; buyer requirement snapshot is immutable for contract version.
@@ -4500,7 +4492,6 @@ All metrics must have written formula, data lineage, unit, time period, data fre
 # 17. Sumber data resmi, data eksternal dan kebijakan ingestion
 
 
-
 **Access/research date:** 9 November 2026. Links are initial source registry candidates. Cline must recheck status, terms, current version, API, data fields and reuse rights immediately before ingestion. A public web page does not automatically grant bulk scraping, storage or commercial redistribution rights.
 
 
@@ -4999,7 +4990,6 @@ Metrics:
 Logs must not contain credentials, raw JWT, full bank account, personal tax ID, complete file contents, or unredacted provider payloads if restricted.
 
 
-
 ---
 
 
@@ -5495,7 +5485,6 @@ Prioritas berikut mengesampingkan urutan sprint historis jika terjadi konflik, t
 8. Tidak menggunakan database lokal/branch lain dan tidak memasukkan dummy rows Production. Gunakan hanya tes yang diizinkan Section 21.
 
 9. Cline harus update dokumen ini saja di akhir sesi. Investigasi tidak boleh melahirkan dokumen tambahan; perubahan source/test/config adalah artefak engineering yang sah.
-
 
 
 
@@ -5998,7 +5987,6 @@ Cline must track this checklist in this Master Implementation Plan only. Check o
 - [ ] Admin login/session verified without MFA; `requireAuth`, Admin role/permission, scope, session expiry/revocation and audit checks pass. MFA intentionally deferred per D-107.
 
 - [ ] All internal and partner user roles map to explicit permissions.
-
 - [ ] Cross-project/buyer/facility/warehouse/port isolation test suite passes.
 
 - [ ] Audit log exists for all critical actions.
@@ -6497,8 +6485,7 @@ Project `lucky-glitter-99553107` (`PKE-export-platform-legacy-migration-source` 
 
 | Required variable | Exists | Syntactically valid | Points to mandated target | Connection/provider tested | Blocked |
 |---|---|---|---|---|---|
-| `DATABASE_URL` | No (`.env` absent from working tree; pre-existing deletion preserved) | n/a | n/a — not configured | No; `scripts/test-db/preflight.mjs` exit 1 at `url_validation` | **BLOCKED_OWNER** — owner must configure target `purple-base-63944903/br-damp-shape-b3xlh4nr/neondb/app_runtime_secure` locally (never via chat) |
-| `NEON_AUTH_BASE_URL` | Not configured (placeholder in `.env.example`) | n/a | n/a | No | **BLOCKED_EXTERNAL** — Neon Auth on mandated project must be provisioned by owner |
+| `DATABASE_URL` | No (`.env` absent from working tree; pre-existing deletion preserved) | n/a | n/a — not configured | No; `scripts/test-db/preflight.mjs` exit 1 at `url_validation` | **BLOCKED_OWNER** — owner must configure target `purple-base-63944903/br-damp-shape-b3xlh4nr/neondb/app_runtime_secure` locally (never via chat) || `NEON_AUTH_BASE_URL` | Not configured (placeholder in `.env.example`) | n/a | n/a | No | **BLOCKED_EXTERNAL** — Neon Auth on mandated project must be provisioned by owner |
 | `NEON_AUTH_JWKS_URL` | Not configured (placeholder in `.env.example`) | n/a | n/a | No | **BLOCKED_EXTERNAL** — paired with `NEON_AUTH_BASE_URL` |
 | `NEON_DATA_API_URL` | Not configured (placeholder) | n/a | n/a | No | Not required for runtime API path (app uses `pg` Pool directly) |
 | `CORS_ALLOWED_ORIGINS` | Default in code: `http://localhost:3001,http://127.0.0.1:3001` | Valid (default) | No — localhost only | No | **BLOCKED_OWNER** — production trusted origin required before release |
@@ -6997,8 +6984,7 @@ The owner must be able to open the deployed PKE application, sign in as the prov
 - For every user-facing workflow, trace UI -> API -> auth/permission -> service -> SQL/schema/RLS -> response -> UI state. Fix missing/incorrect mappings in the same work session where safe.
 - Preserve existing schema; map to actual tables/columns/constraints. Do not introduce duplicate tables, parallel API routes, dummy success, or hidden fallback data.
 - Complete page states: loading, empty, error, validation, permission denied, success, pagination/filter/search where relevant. Ensure buttons actually work or are disabled with reason.
-- Keep high-risk financial/legal actions draft/approval-only where real provider, accounting/legal approval, or required evidence is absent. Never claim a payment was made or a report generated unless the external/internal action actually completed.
-- Reconcile all active navigation against user roles. Admin can provision/deactivate users and initiate reset; non-admin users must not access Admin-only controls or cross-project/partner records.
+- Keep high-risk financial/legal actions draft/approval-only where real provider, accounting/legal approval, or required evidence is absent. Never claim a payment was made or a report generated unless the external/internal action actually completed.- Reconcile all active navigation against user roles. Admin can provision/deactivate users and initiate reset; non-admin users must not access Admin-only controls or cross-project/partner records.
 - Do not expand scope or redesign architecture unless required to complete an agreed feature safely.
 
 ### Stage C — deployment and direct Owner UAT
@@ -7162,3 +7148,66 @@ pm run build, output public if exists or ..
 - Vercel: read-only inspection only; no environment, domain, deployment or protection changes.
 - Tests: no build/test suite or live HTTP smoke test was run in this session. Do not reuse earlier test exit codes as current-session evidence.
 - Final status: F0 remains IN PROGRESS / NOT CLOSED. Application and Business Production Readiness are not certified by this session.
+
+---
+
+# 48. F0 continuation — policy semantic review and current deployment revalidation (18 November 2026)
+
+## 48.1 Scope and safety
+Read-only continuation through GitHub, Neon Production and Vercel. The only write in this session is this dated update to the existing Master Plan on the existing GitHub recovery branch. No application source, migration SQL, database object, business row, Auth setting, storage object, Vercel environment, production alias or deployment was changed. No credentials or secret values were read or disclosed. No Neon branch/project/database was created.
+
+## 48.2 GitHub and Vercel revalidation
+- Repository remains `koenbroto25/PKE-Export-Platform`; current recovery branch remains `phase0/reconcile-source-20261117`.
+- Master Plan source was fetched in 15 sequential chunks; all chunks returned the same blob SHA before this update.
+- Latest recovery-branch commit observed before this update: `8f340298826b22ad4d5589c1a8858bf7a93a9245`.
+- Vercel Preview deployment `dpl_CE2QKGR9ptqMuMD6BCetvfH9kbBE` is now `READY`, commit `8f340298826b22ad4d5589c1a8858bf7a93a9245`, branch `phase0/reconcile-source-20261117`. It remains Preview (`target=null)); it is not Production and was not promoted.
+- A protected fetch attempt against the Production domain's `/api/v1/health` could not retrieve deployment content: Vercel returned `401 deployment_authentication_required` at share-link authentication. No endpoint HTTP result is therefore established. Do not treat this as an application 401 or health failure; it is a tooling/deployment-access limitation.
+- GitHub `main` remains the production-linked source of truth until a separately approved merge/release decision. No merge was made.
+
+## 48.3 Read-only Production policy review
+Neon target was explicitly set to project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`. Only catalog SELECT statements were run.
+
+- `pg_policies` returned 507 policies across all 152 public tables. All 507 are `PERMISSIVE` and target `app_runtime_secure`; no INSERT policy in the inspected set had a NULL `WITH CHECK`.
+- There are 150 `ALL` policies. Many tables have both a broad `pke_admin_all` policy and narrower action-specific policies. PostgreSQL combines permissive policies with OR semantics; this is not automatically a defect because platform-admin access is intentional, but the intended Admin global scope and all table-specific policy overlaps need an explicit semantic review.
+- Catalog inspection found 80 public `SECURITY DEFINER` functions. All 80 have a function-level fixed `search_path`; all are owned by `neondb_owner`; all 80 are executable by `app_runtime_secure`. The query also found PUBLIC EXECUTE ACLs on 80/80 under the inspected ACL expansion.
+- Among non-trigger SECURITY DEFINER functions, the publicly executable set includes identity resolver `resolve_pke_user_by_neon_auth_user_id(uuid)`, invitation acceptance `accept_pke_project_invitation(text)`, platform-admin and project/buyer/contract/AI/truck-trip permission helpers. Trigger-returning SECURITY DEFINER functions were excluded from that callable-function subset; their trigger execution context is a separate review.
+- The identity resolver definition accepts an arbitrary Neon Auth UUID and returns the matching active PKE user's ID, email, name, role and active state. The invitation-acceptance function reads the transaction-local `app.current_user_id`, validates invitation token hash and email, then creates/reactivates membership and accepts the invitation. These definitions and broad PUBLIC EXECUTE grants warrant a focused least-privilege review. The inspection does not demonstrate that an unauthenticated HTTP user can call these functions directly, nor does it establish exploitability from the deployed app.
+- The permission helpers depend on transaction-local custom GUC identity context (`app.current_user_id`) and role/project membership checks. The API source sets these values inside a request transaction after authentication. However, a caller that obtains direct SQL execution as the runtime role can set custom GUCs; therefore RLS policy presence and function search_path alone do not prove a trustworthy end-user identity boundary. Validate that runtime SQL is reachable only through the authenticated API and that no untrusted SQL execution/injection path exists.
+- No policy/function/grant was altered. Do not issue REVOKE/GRANT or replace function definitions autonomously. If a least-privilege correction is approved, it must be a narrow forward-only migration with exact SQL, SHA-256, impact review, rollback/recovery plan and explicit owner approval; migration 036 remains CLOSED & FINAL.
+
+## 48.4 Source review and route inventory
+- GitHub `main` `src/index.ts` was fetched at blob SHA `4b3b4244d8352e92479d867c4fabc99f7258610a` (175,973 characters).
+- Static route extraction found 125 direct `app.METHOD` declarations. 124 have route-level auth middleware in the matched declaration; `GET /api/v1/health` is public and is registered before the global `/api/v1` authentication mount. This is consistent with a deliberately public health probe, but its response must not expose sensitive details.
+- The remaining 124 API routes are behind the global `/api/v1` `requireAuth` middleware and request-scoped transaction middleware in source. Static extraction is not a complete proof of permission/scope correctness, route behavior, or HTTP status.
+- `src/storage.ts` still generates presigned PUT/GET URLs; content-length is client-declared pre-sign validation only. `objectMetadata()` and `deleteObject()` deliberately throw fail-closed “not implemented” errors pending real provider round-trips. No object was uploaded or deleted.
+- The read-only integration suite explicitly fails closed for unapproved write-path E2E fixtures. No tests/builds were run in this session; prior test exit codes are historical evidence only.
+
+## 48.5 F0 checklist update
+| Item | Status | Update |
+|---|---|---|
+| F0.05 | PARTIAL | Policy inventory and selected function definitions now inspected (507 policies, 152 tables, 80 public SECURITY DEFINER functions). Behavioral cross-project tests and complete policy overlap/intent review remain outstanding. |
+| F0.11 | NOT VERIFIED | No public-signup-negative or Admin invitation positive lifecycle test. |
+| F0.12 | PARTIAL | Config evidence retained; invitation acceptance function source inspected, but real identity/invitation/email/session workflow not tested. |
+| F0.13 | BLOCKED | Storage round-trip still not tested; metadata/delete intentionally fail closed. |
+| F0.14 | NOT VERIFIED | Protected Vercel fetch returned tooling-level 401 before application content; no endpoint status evidence. |
+| F0.15 | NOT VERIFIED | No response-status/runtime correlation. |
+| F0.16 | BLOCKED | Backup schedule/restore evidence remains as recorded in Section 47. |
+
+**F0 remains NOT CLOSED.** Migration 036 remains CLOSED & FINAL; this audit does not change that status.
+
+## 48.6 Next actions
+1. Obtain authentic historical SQL 029–035 and verify byte-for-byte SHA-256 against Production history; do not reconstruct or replay.
+2. Ask owner to authorize a focused SQL least-privilege review/remediation proposal for PUBLIC EXECUTE on non-trigger SECURITY DEFINER functions, especially the identity resolver and invitation acceptance routine. No database grant/function change until exact SQL is approved.
+3. Complete a table-by-table policy intent/overlap review, emphasizing platform-admin global scope, tenant-scoped predicates, parent-child references, and functions that use custom GUC identity.
+4. Obtain a supported authenticated method for read-only HTTP smoke tests and capture actual status/body for health, me, projects, truck trips, tracking and report portfolio.
+5. Complete provider-approved storage round-trip, Auth lifecycle, and backup/restore acceptance without creating another Neon branch/database or introducing business/test data into Production.
+6. Keep Production on `main`; Preview is not approval to promote.
+
+## 48.7 Session completion record
+- Files changed: this Master Plan only.
+- GitHub: update is on `phase0/reconcile-source-20261117`; no merge to `main`.
+- Neon Production: SELECT-only catalog review; no DDL/DML, migration, grant, role, Auth, branch, snapshot or storage mutation.
+- Vercel: deployment metadata read; no deployment, alias, environment or protection mutation.
+- HTTP smoke: BLOCKED by Vercel deployment authentication at fetch/share-link layer; no application response inferred.
+- Build/tests: not run.
+- Overall: F0 IN PROGRESS / NOT CLOSED; application and business production readiness remain uncertified.

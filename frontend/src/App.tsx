@@ -1288,7 +1288,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       { key: 'neon_auth_user_id', label: 'Neon Auth', render: r => <span className="mono">{shortId(r.neon_auth_user_id)}</span> },
       { key: 'global_action', label: 'Akun global', render: r => <ActionButton variant="secondary" disabled={!!globalBusyId || !r.neon_auth_user_id} onClick={() => updateGlobalStatus(r)}>{globalBusyId === String(r.id) ? 'Memproses…' : r.is_active ? 'Nonaktifkan global' : 'Aktifkan global'}</ActionButton> },
       { key: 'action', label: 'Pemulihan', render: r => <ActionButton variant="secondary" disabled={!!resettingId || !r.neon_auth_user_id} onClick={() => requestReset(r)}>{resettingId === String(r.id) ? 'Memproses…' : 'Kirim reset password'}</ActionButton> }
-    ]} /></Card>
+    ]} />}</Card>
     <Card>
       <PanelHeading title="Role & status per proyek" description="Satu pengguna dapat mempunyai role berbeda dan status aktif/nonaktif yang independen pada setiap proyek." />
       {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : !projects.data?.projects?.length ? <EmptyState title="Belum ada proyek" desc="Keanggotaan proyek dapat dikelola setelah proyek tersedia." /> : <>

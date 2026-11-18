@@ -368,16 +368,25 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
            JOIN project_members pm ON pm.project_role_id IS NOT NULL
                                  AND pm.project_id = prp.project_id
                                  AND pm.project_role_id = prp.project_role_id
-          WHERE pm.user_id = $1::uuid AND pm.is_active = true AND perm.is_active = true
+          WHERE pm.user_id = $1::uuid
+             AND pm.is_active = true
+             AND pm.deactivated_at IS NULL
+             AND (pm.expires_at IS NULL OR pm.expires_at > now())
+             AND EXISTS (SELECT 1 FROM projects p WHERE p.id = pm.project_id AND p.is_active = true)
+             AND perm.is_active = true
           ORDER BY perm.code`,
         [userId],
       );
       permissions = rows.map((r: any) => r.code);
     }
 
+    const activeMemberships = memberships.filter((m: any) =>
+      m.is_active === true &&
+      (!m.expires_at || new Date(m.expires_at).getTime() > Date.now())
+    );
     const portalAccess = req.user.isAdmin
       ? ["admin", "workspace", "field", "buyer", "partner", "reports"]
-      : memberships.length > 0
+      : activeMemberships.length > 0
         ? ["workspace", "field"]
         : ["workspace"];
 
@@ -603,8 +612,11 @@ app.get("/api/v1/projects", requireAuth, async (req: express.Request, res: expre
       ({ rows } = await req.db.query(
         `SELECT DISTINCT p.*
            FROM projects p
-           JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1::uuid AND pm.is_active = true
+           JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1::uuid
           WHERE p.is_active = true
+            AND pm.is_active = true
+            AND pm.deactivated_at IS NULL
+            AND (pm.expires_at IS NULL OR pm.expires_at > now())
           ORDER BY p.created_at DESC`,
         [userId],
       ));
@@ -2145,20 +2157,85 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
   const { id, memberId } = req.params;
   const allowed = await requireProjectPermission(req, res, id, 'project.members.manage');
   if (!allowed) return;
-  const { projectRoleId, isActive, expiresAt } = req.body;
+
+  const body = req.body ?? {};
+  const { projectRoleId, isActive, expiresAt } = body;
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (isActive !== undefined && typeof isActive !== "boolean") {
+    return res.status(400).json({ error: "isActive must be a boolean.", code: "INVALID_MEMBERSHIP_STATUS" });
+  }
+  if (projectRoleId !== undefined && (typeof projectRoleId !== "string" || !projectRoleId.trim())) {
+    return res.status(400).json({ error: "projectRoleId must be a non-empty project role ID.", code: "INVALID_PROJECT_ROLE" });
+  }
+  if (expiresAt !== undefined && expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)))) {
+    return res.status(400).json({ error: "expiresAt must be a valid timestamp or null.", code: "INVALID_MEMBERSHIP_EXPIRY" });
+  }
+  const sensitiveChange = isActive !== undefined || projectRoleId !== undefined;
+  if (sensitiveChange && reason.length < 3) {
+    return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status or role changes.", code: "AUDIT_REASON_REQUIRED" });
+  }
+
   try {
+    const { rows: beforeRows } = await req.db.query(
+      `SELECT pm.*, pr.role_code, pr.name AS role_name
+         FROM project_members pm
+         LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+        WHERE pm.id = $2::uuid AND pm.project_id = $1::uuid
+        FOR UPDATE OF pm`,
+      [id, memberId],
+    );
+    if (beforeRows.length === 0) return res.status(404).json({ error: "Member not found.", code: "MEMBER_NOT_FOUND" });
+    const before = beforeRows[0];
+
+    if (projectRoleId !== undefined) {
+      const { rows: roleRows } = await req.db.query(
+        "SELECT id FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true LIMIT 1",
+        [id, projectRoleId],
+      );
+      if (roleRows.length === 0) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+    }
+
+    const nextActive = isActive === undefined ? before.is_active === true : isActive;
+    const nextExpiresAt = expiresAt === undefined ? before.expires_at : expiresAt;
     const { rows } = await req.db.query(
       `UPDATE project_members
-        SET project_role_id = COALESCE($3::uuid, project_role_id),
-            is_active = COALESCE($4::boolean, is_active),
-            expires_at = COALESCE($5::timestamptz, expires_at),
-            updated_at = now()
-       WHERE id = $2::uuid AND project_id = $1::uuid
-       RETURNING *`,
-      [id, memberId, projectRoleId || null, isActive !== undefined ? isActive : null, expiresAt || null]
+          SET project_role_id = COALESCE($3::uuid, project_role_id),
+              is_active = $4::boolean,
+              expires_at = $5::timestamptz,
+              deactivated_at = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_at, now()) END,
+              deactivated_by = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_by, $6::uuid) END,
+              updated_at = now()
+        WHERE id = $2::uuid AND project_id = $1::uuid
+        RETURNING *`,
+      [id, memberId, projectRoleId ?? null, nextActive, nextExpiresAt ?? null, req.user?.id ?? null],
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Member not found" });
-    res.json({ member: rows[0] });
+    const after = rows[0];
+    const action = isActive === false
+      ? "project_member.deactivated"
+      : isActive === true && before.is_active !== true
+        ? "project_member.reactivated"
+        : projectRoleId !== undefined
+          ? "project_member.role_changed"
+          : "project_member.updated";
+    await req.db.query(
+      `INSERT INTO audit_events
+        (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+         reason, before_snapshot, after_snapshot, metadata, outcome)
+       VALUES ($1::uuid, 'user', $2::text, $3::text, 'project_member', $4::uuid, $5::uuid,
+               $6::text, $7::jsonb, $8::jsonb, $9::jsonb, 'success')`,
+      [
+        req.user?.id ?? null,
+        req.user?.role ?? null,
+        action,
+        after.id,
+        id,
+        reason || null,
+        JSON.stringify({ user_id: before.user_id, project_role_id: before.project_role_id, is_active: before.is_active, expires_at: before.expires_at, deactivated_at: before.deactivated_at }),
+        JSON.stringify({ user_id: after.user_id, project_role_id: after.project_role_id, is_active: after.is_active, expires_at: after.expires_at, deactivated_at: after.deactivated_at }),
+        JSON.stringify({ changed_fields: Object.keys(body).filter((key) => ["projectRoleId", "isActive", "expiresAt"].includes(key)) }),
+      ],
+    );
+    res.json({ member: after });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
   }
@@ -2168,12 +2245,39 @@ app.post("/api/v1/projects/:id/members/:memberId/revoke", requireAuth, async (re
   const { id, memberId } = req.params;
   const allowed = await requireProjectPermission(req, res, id, 'project.members.manage');
   if (!allowed) return;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 3) return res.status(400).json({ error: "A deactivation reason of at least 3 characters is required.", code: "AUDIT_REASON_REQUIRED" });
   try {
-    await req.db.query(
-      "UPDATE project_members SET is_active = false, deactivated_at = now(), updated_at = now() WHERE id = $2::uuid AND project_id = $1::uuid",
-      [id, memberId]
+    const { rows: beforeRows } = await req.db.query(
+      "SELECT * FROM project_members WHERE id = $2::uuid AND project_id = $1::uuid FOR UPDATE",
+      [id, memberId],
     );
-    res.json({ ok: true });
+    if (beforeRows.length === 0) return res.status(404).json({ error: "Member not found.", code: "MEMBER_NOT_FOUND" });
+    const before = beforeRows[0];
+    const { rows } = await req.db.query(
+      `UPDATE project_members
+          SET is_active = false,
+              deactivated_at = COALESCE(deactivated_at, now()),
+              deactivated_by = COALESCE(deactivated_by, $3::uuid),
+              updated_at = now()
+        WHERE id = $2::uuid AND project_id = $1::uuid
+        RETURNING *`,
+      [id, memberId, req.user?.id ?? null],
+    );
+    const after = rows[0];
+    await req.db.query(
+      `INSERT INTO audit_events
+        (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+         reason, before_snapshot, after_snapshot, outcome)
+       VALUES ($1::uuid, 'user', $2::text, 'project_member.deactivated', 'project_member', $3::uuid,
+               $4::uuid, $5::text, $6::jsonb, $7::jsonb, 'success')`,
+      [
+        req.user?.id ?? null, req.user?.role ?? null, after.id, id, reason,
+        JSON.stringify({ user_id: before.user_id, project_role_id: before.project_role_id, is_active: before.is_active }),
+        JSON.stringify({ user_id: after.user_id, project_role_id: after.project_role_id, is_active: after.is_active, deactivated_at: after.deactivated_at, deactivated_by: after.deactivated_by }),
+      ],
+    );
+    res.json({ ok: true, member: after });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
   }

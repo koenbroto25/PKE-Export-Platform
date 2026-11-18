@@ -3768,30 +3768,8 @@ app.get("/api/v1/permissions", requireAuth, async (req: express.Request, res: ex
   }
 });
 
-// ============================================
-// Session revocation (P03 Identity/RBAC)
-// ============================================
-app.post("/api/v1/auth/revoke-session", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { userId } = req.body ?? {};
-  const actorId = req.user?.id;
-  if (!actorId) return res.status(401).json({ error: "Authenticated principal required" });
-  try {
-    // Admin can revoke any user session; non-admin can only revoke their own
-    const targetId = typeof userId === "string" && userId ? userId : actorId;
-    if (!req.user?.isAdmin && targetId !== actorId) {
-      return res.status(403).json({ error: "Forbidden: cannot revoke another user's session" });
-    }
-    // Use request-scoped RLS transaction client (never global pool) so context/audit/RLS remain consistent.
-    const { rows } = await req.db.query(
-      `UPDATE users SET is_active = false, updated_at = now() WHERE id = $1::uuid RETURNING id, email, is_active`,
-      [targetId],
-    );
-    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
-    res.json({ revoked: rows[0], revokedBy: actorId });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to revoke session" });
-  }
-});
+// Session revocation is performed by the Neon Auth Admin provider SDK in the Admin UI.
+// Do not expose a database-only endpoint that would incorrectly deactivate the global PKE account.
 
 // ============================================
 // Privileged action audit (P03 Identity/RBAC)

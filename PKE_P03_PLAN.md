@@ -286,3 +286,15 @@
 - Vercel Preview cannot be produced for the current branch head: deployment API returned HTTP 402 `api-deployments-free-per-day` with a 24-hour retry window (>100 deployments/day). No Production deployment was attempted or promoted.
 - PR #2 remains OPEN / Draft / mergeable; no review submissions or inline review threads were recorded. It is intentionally not marked Ready or merged while the authenticated payment execution/reconciliation API remains unavailable and a fresh Preview deployment is blocked by Vercel quota.
 - F1 status: **CORE CONTRACT / PROJECT RLS / CoB OBLIGATION IMPLEMENTATION COMPLETE; FULL WORKFLOW NOT FINAL**. Remaining blockers are the guarded Finance payment lifecycle API and Vercel Preview quota. Do not mark F1 COMPLETE until both are addressed and the payment lifecycle is backtested end-to-end.
+
+ 
+### Finance scope decision and F1 implementation — 2026-11-19
+Owner clarified Finance is reporting-only: no bank transfer, payment instruction, payment approval, payment execution, evidence verification or payment reconciliation occurs in this application. Finance prepares/submits financial reports; the Project Manager for that Project and platform Admin receive in-app notifications.
+- Replaced the misleading payment execution blocker with explicit out-of-scope behavior: legacy `/api/v1/payment-instructions` endpoints return HTTP 410 `PAYMENT_EXECUTION_OUT_OF_SCOPE`.
+- Added `tpl-financial-report` and `POST /api/v1/finance/reports`, which accepts a Project-scoped report payload and period, stores it in `report_runs`, and restricts submitter to an active Finance Project member with `reports.create`.
+- Added `GET /api/v1/finance/reports?projectId=...` for Project-scoped report retrieval by `reports.view`.
+- Added in-app notifications to all active PM members of that Project and active platform Admin users. Existing user notification read/list endpoints remain in use. Notification writes are separately constrained by the Migration 040 policy to report creators and only PM/Admin recipients.
+- Added `reports.create` to default Finance role permissions. No payment execution permissions were added to any role.
+- Migration 040 adds report payload and period metadata to `report_runs`, period-order check/index, and the scoped Finance-report notification insert RLS policy.
+- Migration 040 exact SHA-256: `3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f`. Source file is on the F1 branch. It has NOT been applied to Production; isolated preparation and DML backtest are pending. Do not apply without owner approval of this exact SHA-256.
+- Regression test added for Finance-only submitter, PM/Admin notifications, and payment execution out-of-scope behavior. CI results are pending on the new source head.

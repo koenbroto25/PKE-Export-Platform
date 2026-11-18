@@ -139,6 +139,7 @@ export const pks_sites = pgTable("pks_sites", {
 
 export const contracts = pgTable("contracts", {
   id: uuid("id").defaultRandom().primaryKey(),
+  project_id: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
   buyer_id: uuid("buyer_id").notNull().references(() => buyers.id, { onDelete: "cascade" }),
   code: text("code").notNull(),
   name: text("name").notNull(),
@@ -151,6 +152,7 @@ export const contracts = pgTable("contracts", {
 
 export const contract_programs = pgTable("contract_programs", {
   id: uuid("id").defaultRandom().primaryKey(),
+  project_id: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   buyer_id: uuid("buyer_id").references(() => buyers.id, { onDelete: "set null" }),
@@ -166,6 +168,7 @@ export const contract_programs = pgTable("contract_programs", {
 
 export const cycle_policies = pgTable("cycle_policies", {
   id: uuid("id").defaultRandom().primaryKey(),
+  project_id: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
   contract_program_id: uuid("contract_program_id").notNull().references(() => contract_programs.id, { onDelete: "cascade" }),
   cadence: text("cadence").notNull(),
   target_quantity: numeric("target_quantity", { precision: 15, scale: 2 }),

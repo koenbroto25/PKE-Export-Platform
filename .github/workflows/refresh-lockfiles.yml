@@ -1,0 +1,45 @@
+name: Refresh Dependency Lockfiles
+
+on:
+  push:
+    branches:
+      - phase0/reconcile-source-20261117
+    paths:
+      - package.json
+      - frontend/package.json
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-lockfiles:
+    if: contains(github.event.head_commit.message, '[refresh-locks]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 15
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase0/reconcile-source-20261117
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Regenerate root lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit
+      - name: Regenerate frontend lockfile
+        run: npm --prefix frontend install --package-lock-only --ignore-scripts --no-audit
+      - name: Commit lockfile updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json frontend/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "security: refresh dependency lockfiles [lockfiles-updated]"
+            git push origin HEAD:phase0/reconcile-source-20261117
+          else
+            echo "Lockfiles already match package manifests."
+          fi

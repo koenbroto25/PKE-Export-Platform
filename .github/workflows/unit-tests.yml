@@ -29,5 +29,7 @@ jobs:
         run: npm test
       - name: Verify Production migration ledger and release gates
         run: npm run verify:release-migrations
+      - name: Run migration runner dry-run (no database connection)
+        run: npm run migrate:dry-run
       - name: Typecheck backend API
         run: npx tsc -p api/tsconfig.json --noEmit

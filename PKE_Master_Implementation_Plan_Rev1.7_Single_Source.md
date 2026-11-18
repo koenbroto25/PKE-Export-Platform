@@ -7635,12 +7635,12 @@ Exact current candidate:
 - Production remains on `main` SHA `625109a...`; no merge, promotion, alias change or Production redeploy occurred.
 - Recovery Preview builds execute the aligned chain: dependency audit reporter, unit tests, API TypeScript check and frontend TypeScript/Vite build. The dependency audit currently reports 6 high findings in root and 5 high findings in frontend; these are not 11 independent advisories. The common underlying finding is Picomatch `GHSA-fc5q-39xc-vjpf`, with no patched release identified in the reviewed registry/advisory data. Vite 6.4.6 and Vitest 4.1.12 are retained; do not downgrade or run forced major upgrades. This remains an open dependency risk/owner risk-acceptance gate.
 - Production runtime error aggregation for the inspected 24-hour window contained one SSL compatibility warning group (24 occurrences, last observed 18 Nov 2026 03:57 UTC) associated with the current Production deployment. The 24-hour individual runtime-log request failed because the Vercel Hobby plan retains only one hour of runtime logs. This is not evidence of zero 5xx. The recovery branch already normalizes legacy SSL aliases; Production has not consumed that code.
-- Vercel environment metadata was inspected with decryption disabled. Eight keys carry the `readable-secret` security issue: `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, and `NEON_DATA_API_URL`. No values were decrypted, copied, displayed or replaced. Current available Vercel edit action does not expose the required secret-visibility control; leave this as a blocker until a supported control is available.
+- Vercel environment metadata was inspected with decryption disabled. Eight keys carry the `readable-secret` security issue: `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, and `NEON_DATA_API_URL`. No values were decrypted, copied, displayed or replaced. A metadata-only edit attempt to mark the first flagged variable as `type=sensitive` was rejected by Vercel with HTTP 400 because Vercel additionally requires `visibility=secret`; the available `edit_project_env` connector schema does not expose that field. No environment variable was changed. This remains blocked pending a supported Vercel control.
 - `NODE_ENV=production` is configured for Preview and Production, but the existing Production deployment predates that variable update and has not consumed it. A separate approved Production deployment is required to activate it.
 - Neon Auth: public sign-up disabled; email/password enabled; email verification/OTP and reset-session revocation settings are configured. Invitation, email delivery, OTP, reset and session lifecycle have not been exercised.
-- Storage bucket `pke-private-documents` remains private and empty. Source includes signed upload/download URL generation and a read-only signed HEAD metadata request. No live upload/download/HEAD round-trip or cross-project denial test was run. Deletion remains fail-closed. Declared upload size is validated before signing but has not been proven as a provider-enforced content-length ceiling.
-- Snapshot inventory remains one manual snapshot `PKE-target-pre-migration-20261115`; automatic snapshot schedule is empty and no restore drill exists. No schedule, snapshot or restore mutation was performed.
-- Public/protected HTTP smoke evidence remains unavailable: external fetch attempts could not access the Vercel app through the current protection layer. No application HTTP status is inferred. Production credentials were not copied into Preview.
+- Storage bucket `pke-private-documents` remains private and empty (confirmed by a fresh object listing). Source includes signed upload/download URL generation and a read-only signed HEAD metadata request. No live upload/download/HEAD round-trip or cross-project denial test was run. Deletion remains fail-closed. Declared upload size is validated before signing but has not been proven as a provider-enforced content-length ceiling.
+- Snapshot inventory remains one manual snapshot `PKE-target-pre-migration-20261115`; automatic snapshot schedule is empty (reconfirmed) and no restore drill exists. No schedule, snapshot or restore mutation was performed.
+- The recovery Preview deployment for commit `45756b5f659b92641213189335c9afce97524917` is now **READY**: deployment `dpl_8A3mRhdRiAVjWnj6EFZMVjLMuNtz`, URL `pke-export-platform-31ndwt4zn-apphubsite.vercel.app`. This is a Preview deployment only, not Production. Public/protected HTTP smoke evidence remains unavailable: direct health endpoint fetch attempts could not access the Vercel app through the current protection layer. No application HTTP status is inferred. Production credentials were not copied into Preview.
 
 ## 55.6 Consolidated F0 acceptance state
 | F0 item | Final audit status | Evidence / reason |
@@ -7660,6 +7660,21 @@ Exact current candidate:
 
 **F0 remains IN PROGRESS / NOT CLOSED.** Recovery-branch code revisions and offline tests do not replace Production SQL approval, Auth lifecycle, real storage round-trip, protected HTTP evidence, backup/restore proof, secret-visibility correction, or an approved Production deployment. Application Complete and Business Production Ready are not certified.
 
+## 55.8 Post-Migration 037 and targeted F0 continuation — 18 November 2026
+This is a narrow execution update to the single comprehensive audit record, not a second comprehensive audit.
+
+- Migration 037 is applied and recorded as Production migration-history row 37. Its exact approved SHA-256 and the seven zero-count read-only postconditions are recorded in Section 55.4.
+- Recovery Preview deployment dpl_8A3mRhdRiAVjWnj6EFZMVjLMuNtz reached READY for recovery commit 45756b5f659b92641213189335c9afce97524917. This does not change Production source or deployment.
+- Neon Auth settings were re-read: public sign-up disabled; email/password enabled; OTP verification on sign-up/sign-in; email verification required; password-reset session revocation enabled; localhost disallowed; only the Production app origin is trusted. This confirms configuration, not successful email delivery, OTP, reset, invitation or session-revocation behavior.
+- The single mandated Neon Production branch remains the only branch. The private storage bucket remains empty. No Auth user, synthetic business record, storage object, extra branch, snapshot, schedule, or database data was created.
+- Automatic snapshot schedule remains empty. Restore testing remains outstanding.
+- The environment-variable visibility edit was attempted without reading or replacing any value. Vercel rejected type=sensitive because it also requires visibility=secret; the available connector edit schema does not expose visibility. No variable was changed; all eight readable-secret findings remain open.
+- The Picomatch advisory GHSA-fc5q-39xc-vjpf remains without a published patched version in the current advisory record; do not force an unverified override or downgrade. The advisory describes ReDoS in versions through 4.0.7 and lists patched versions as unknown.
+- The remaining F0 gates require controlled, real tests and/or owner action: two-principal RLS behavior with valid identities and scoped fixtures; Auth delivery/OTP/reset/session lifecycle; real private-storage PUT/GET/HEAD plus cross-project denial; protected HTTP smoke; automatic backup schedule and restore drill; secret visibility correction; dependency-risk disposition; and an explicitly approved Production deployment that consumes the recovery code and runtime configuration.
+- No merge to main, Production redeploy/promotion, Auth mutation, storage mutation, backup schedule mutation, branch creation, or business/test data insertion was performed.
+
+**Updated F0 status: IN PROGRESS / NOT CLOSED.** The recovery Preview build and Migration 037 are now complete, but the remaining acceptance gates are not evidenced as PASS.
+
 ## 55.7 Change and safety record
 Recovery-branch files changed in this finalization pass:
 - `src/http-errors.ts` (new)
@@ -7667,7 +7682,7 @@ Recovery-branch files changed in this finalization pass:
 - `src/index.ts` (safe errors, sanitized logs, production CORS default)
 - `package.json` (include new test)
 - `scripts/verify-runtime-security.mjs` (authenticated relation/sequence grant checks)
-- `migrations/037_restrict_security_definer_execute.sql` (candidate only; no apply)
+- `migrations/037_restrict_security_definer_execute.sql` (owner-approved and applied to Neon Production; SHA-256 recorded in Section 55.4)
 - This Master Plan.
 
 No changes to `main`; no Production deployment or promotion. Neon Production was changed only by the exact owner-approved Migration 037 body and its migration_history row 37. No Auth setting, storage object, snapshot schedule, branch or database mutation beyond Migration 037; no business/test data; no secret decryption or exposure. Migration 036 and historical migrations 001–036 remain untouched.

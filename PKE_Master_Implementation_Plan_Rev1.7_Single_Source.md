@@ -1,6 +1,6 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.15 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.16 — Single-Source Execution Edition
 
 
 
@@ -7408,3 +7408,61 @@ Corrected the non-secret Vercel environment variable:
 - No Neon SQL/DDL/DML, Auth, storage, database branch, business data, or Production deployment mutation was performed in this section.
 
 F0 remains IN PROGRESS / NOT CLOSED. Do not promote Preview or redeploy Production until database privilege remediation decision, Auth/storage acceptance, dependency review, protected endpoint evidence and backup/recovery acceptance are complete.
+
+
+---
+
+# 52. RLS privilege backtest and dependency audit instrumentation (18 November 2026)
+
+## 52.1 RLS policy expression backtest
+Read-only catalog query against the mandated Neon Production target confirmed:
+- 507 policies across 152 public tables.
+- 507 PERMISSIVE policies; zero RESTRICTIVE policies.
+- Zero unconditional `USING (true)` / `WITH CHECK (true)` expressions.
+- Zero missing row-visibility predicates for SELECT/UPDATE/DELETE/ALL.
+- Zero missing write checks for INSERT/UPDATE/ALL.
+- Zero policies target `authenticated` or `anon`; all 507 target `app_runtime_secure`.
+- All 152 public tables have RLS enabled. Earlier query-plan check under `app_runtime_secure` confirmed the project permission helper appears in the projects SELECT plan.
+- No cross-project positive/negative test with two real principals was run; policy expression inventory is not a substitute for behavior tests.
+
+## 52.2 Authenticated role grants — least-privilege observation
+Catalog inspection found `authenticated` has SELECT/INSERT/UPDATE/DELETE grants on 153 public relation objects (612 relation privilege grants), plus USAGE on the public schema and USAGE on the single public sequence `migration_history_id_seq`. The `neondb_owner` default ACL also grants those four table privileges to `authenticated` for future public tables.
+
+This is an over-broad grant surface relative to the deployed architecture:
+- All 152 public tables currently have RLS.
+- None of the 507 policies target `authenticated` or `anon`.
+- The only public view with authenticated privileges, `project_module_readiness`, has `security_invoker=true`, so underlying-table RLS remains in force.
+- No direct client-side Neon Data API/table/RPC use was found in the inspected frontend auth/API modules; application data is routed through the authenticated backend API.
+
+This catalog evidence does **not** establish a current data leak: the authenticated role has no applicable row policies, and no BYPASSRLS grant was found in the prior role audit. It does establish unnecessary grants/default privileges that should be removed after a final Neon Auth dependency check. No GRANT/REVOKE was executed. Do not add a table-privilege migration to Production without exact SQL review and owner approval. Candidate Migration 037 currently addresses SECURITY DEFINER function grants/defaults only; it does not revoke table privileges.
+
+## 52.3 Dependency advisory identification
+Vercel's successful Preview build reported 14 npm vulnerabilities (1 low, 12 high, 1 critical), but the standard install summary did not identify the packages/advisories. Added:
+- `scripts/audit-dependencies.mjs` to run `npm audit --json` separately against root and frontend lockfiles and print a concise package/advisory summary without exposing environment variables.
+- Vercel build command now runs the audit reporter before unit tests, backend typecheck and frontend build. Audit-report failure is warned rather than masking the build/typecheck result; vulnerability remediation remains a separate release gate.
+- Commit containing the audit instrumentation: `66f5a412af81ae03bbadfa2ab65b98d02f8908c9`.
+- The new audit output has not yet been observed; do not claim any advisory has been fixed.
+
+## 52.4 Latest verified state
+- Preview commit `42f534e2585a82603256a6a4bd0809529ac3341a`: READY; 60/60 tests passed; frontend TypeScript/Vite build completed.
+- `NODE_ENV=production` was set as a non-secret Vercel variable for Preview and Production; Development remains separately scoped. No Production deployment was triggered.
+- Production health endpoint last returned HTTP 200 and `database=connected`; it still reports the old deployment's `environment=development` until a separately approved Production deployment consumes the updated variable.
+- Preview static homepage returned HTTP 200. Preview API remains unavailable without its own approved database/Auth configuration; Production credentials were not copied into Preview.
+- Protected Production API route attempts remain blocked at Vercel share-link authentication; no application status is inferred from those failures.
+
+## 52.5 F0 status
+| Area | Status | Reason |
+|---|---|---|
+| Migration 029–035 recovery | CLOSED BY OWNER DIRECTION | Explicitly waived as an F0 gate; Migration 036 remains final. |
+| RLS policy expression inventory | PASS (catalogue only) | No unconditional or missing predicates found; cross-project behavior still untested. |
+| Authenticated table grants | PARTIAL / HARDENING REQUIRED | Broad grants/defaults exist but no applicable policies; no exposure proven. |
+| SECURITY DEFINER ACLs | BLOCKED_PENDING_APPROVAL | Migration 037 candidate prepared; not applied. |
+| Preview build toolchain | PASS | 60 unit tests and chained build completed. |
+| Dependency vulnerabilities | OPEN | Exact package/advisory report pending. |
+| Auth lifecycle | PARTIAL | Configuration verified; lifecycle not exercised. |
+| Storage | PARTIAL | Signed HEAD implementation; no provider round-trip or approved object fixture. |
+| Protected API smoke | NOT VERIFIED | Vercel share-link auth prevents application response retrieval. |
+| Backup/restore | BLOCKED | Automatic snapshot schedule and restore proof absent. |
+| Secret visibility | BLOCKED | Current Vercel action lacks the required visibility field. |
+
+F0 remains IN PROGRESS / NOT CLOSED. No Production database, Auth, storage, or deployment mutation occurred in this section.

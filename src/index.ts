@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema.js";
 import { requireAuth, requireAdmin } from "./auth.js";
-import { roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
+import { normalizePostgresSslMode, roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
 import { privateStorage } from "./storage.js";
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
 import { detectManualTrialMode } from "./demo/mode.js";
@@ -155,7 +155,7 @@ if (!manualTrialMode.enabled) {
   // ============================================
   try {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: normalizePostgresSslMode(process.env.DATABASE_URL || ""),
       max: 20,
       idleTimeoutMillis: 30000,
     });

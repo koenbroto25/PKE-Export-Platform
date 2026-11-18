@@ -97,4 +97,10 @@ describe("Admin-managed global user lifecycle contract", () => {
     expect(block).toContain("/request-password-reset");
     expect(block).not.toMatch(/newPassword|password_hash/i);
   });
+  it("does not expose the legacy database-only revoke-session route", () => {
+    expect(INDEX).not.toContain('app.post("/api/v1/auth/revoke-session"');
+    expect(INDEX).not.toContain("UPDATE users SET is_active = false");
+    expect(APP).toContain("authClient.admin.revokeUserSessions");
+  });
+
 });

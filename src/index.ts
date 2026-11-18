@@ -1045,12 +1045,6 @@ app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Requ
       );
       const project = projectRows[0];
       const projectId = project.id;
-      if (programId) {
-        await dbClient.query("UPDATE contract_programs SET project_id = $1::uuid, updated_at = now() WHERE id = $2::uuid AND project_id IS NULL", [projectId, programId]);
-        const { rows: ownedProgram } = await dbClient.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND project_id = $2::uuid", [programId, projectId]);
-        if (!ownedProgram.length) throw Object.assign(new Error("Contract Program already belongs to another Project."), { status: 409 });
-      }
-
       const defaultConfiguration = {
         schema_version: 1,
         modules: {

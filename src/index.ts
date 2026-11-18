@@ -3575,7 +3575,7 @@ app.post("/api/v1/admin/users/:id/password-reset", requireAuth, requireAdmin, as
   let auditStatus: "succeeded" | "failed" = "failed";
   try {
     const { rows } = await req.db.query(
-      "SELECT id, email, neon_auth_user_id, is_active FROM users WHERE id = $1::uuid LIMIT 1",
+      "SELECT user_id AS id, email, neon_auth_user_id, is_active FROM public.pke_admin_get_user($1::uuid)",
       [targetId]
     );
     if (rows.length !== 1) {

@@ -67,7 +67,7 @@ export const role_permissions = pgTable("role_permissions", {
 
 export const projects = pgTable("projects", {
   id: uuid("id").defaultRandom().primaryKey(),
-  contract_program_id: uuid("contract_program_id").notNull().references(() => contract_programs.id, { onDelete: "cascade" }),
+  contract_program_id: uuid("contract_program_id").references(() => contract_programs.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").notNull().default("draft"),

@@ -1,6 +1,6 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.14 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.15 — Single-Source Execution Edition
 
 
 
@@ -7367,3 +7367,44 @@ The configuration correction is committed but a successful Preview build for com
 Only `vercel.json` was changed in this correction commit. No Neon query/write, SQL migration, grant, role, Auth, storage, environment secret, or Production deployment action was performed. The earlier Development-only `NODE_ENV` scope correction remains as recorded in Section 49.
 
 F0 remains IN PROGRESS / NOT CLOSED pending actual successful build evidence and remaining security, Auth, storage, HTTP and recovery acceptance.
+
+
+---
+
+# 51. Preview build proof and runtime environment correction (18 November 2026)
+
+## 51.1 Successful Preview build
+Vercel deployment `dpl_JHUbuf6tVHRzDHcvcnbKdnQ7rvte` for commit `324263cdc60244f8d29abd47a16f2ae2017a1c8a` reached `READY` (Preview; target remains null).
+Build event evidence:
+- Install command used `npm ci --include=dev && npm --prefix frontend ci --include=dev`.
+- Root `npm test` passed: 2 test files, 60 tests.
+- Frontend build command ran `tsc -b && vite build`.
+- Vercel event: `Build Completed in /vercel/output [37s]`.
+- The chained build command was `npm test && tsc -p api/tsconfig.json && npm run frontend:build`; successful Build Completed establishes that all chained commands exited successfully.
+- Build reported 14 dependency vulnerabilities (1 low, 12 high, 1 critical), plus deprecated packages and peer dependency warnings. No automatic/forced dependency upgrade was run. Exact advisories still require a lockfile-aware audit.
+
+## 51.2 Read-only HTTP evidence
+- Preview static homepage returned HTTP 200 and served the built React app.
+- Preview `GET /api/v1/health` returned Vercel HTTP 500 `FUNCTION_INVOCATION_FAILED`. Preview intentionally has no Production `DATABASE_URL` or Neon Auth secrets; no Production credentials were copied into Preview. This is a fail-closed Preview runtime limitation, not evidence that the Production database is down. Do not mark Preview API smoke as PASS.
+- Production `GET /api/v1/health` returned HTTP 200 with `database=connected`, but its current deployed response still reported `environment=development`. This is the existing Production deployment's environment snapshot, not a redeployment after the latest configuration change.
+
+## 51.3 NODE_ENV correction
+Source inspection confirmed API startup requires `DATABASE_URL`, `NODE_ENV`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL`, and checks `NODE_ENV` to establish runtime mode. The Vercel project previously had `NODE_ENV=development` scoped only to Development after the earlier correction, which would leave future Preview/Production deployment snapshots without the required value.
+
+Corrected the non-secret Vercel environment variable:
+- `NODE_ENV=production`
+- Targets: `preview`, `production`
+- Development target remains separate and is not overwritten.
+- Environment variable ID: `zdFXIVDSQ2HprDZB`.
+- No secret value was read, changed, or re-entered.
+- No deployment was triggered manually and no Production redeploy/alias promotion was performed. New deployments will consume the updated scope; the existing Production deployment remains unchanged until an approved deployment.
+
+## 51.4 Current gate
+- Build tooling failure from email: resolved in Preview build commit `324263c`.
+- Static Preview: PASS (HTTP 200).
+- Preview API: NOT VERIFIED / FAIL-CLOSED due to absent approved Preview DB/Auth configuration.
+- Production health: PASS for HTTP and DB connectivity; runtime environment label is stale until a future approved deployment consumes the corrected NODE_ENV scope.
+- Dependency vulnerability remediation: OPEN; collect exact advisory/package paths before selecting compatible updates.
+- No Neon SQL/DDL/DML, Auth, storage, database branch, business data, or Production deployment mutation was performed in this section.
+
+F0 remains IN PROGRESS / NOT CLOSED. Do not promote Preview or redeploy Production until database privilege remediation decision, Auth/storage acceptance, dependency review, protected endpoint evidence and backup/recovery acceptance are complete.

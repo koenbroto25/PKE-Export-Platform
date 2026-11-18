@@ -47,5 +47,7 @@ describe("F1 Admin ownership of contract programs and project instances", () => 
   it("keeps project-scoped reads authenticated", () => {
     expect(INDEX).toContain('app.get("/api/v1/projects", requireAuth');
     expect(INDEX).toContain('app.get("/api/v1/contract-programs", requireAuth');
+    expect(INDEX).toContain('SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1');
+    expect(INDEX).toContain('targetQuantity !== undefined && !isPositiveQuantity(targetQuantity)');
   });
 });

@@ -268,3 +268,6 @@
 
  
 - Vercel test run exposed one additional packaging-related assertion that still read `MIGRATION` when SQL source was omitted: the calendar-period cycle-identity test. Added the same source-availability conditional skip to that assertion. Repository CI continues to execute it with the SQL file present.
+
+ 
+- Final Drizzle/schema parity review: restored the six single-column references that remain present in Production alongside Migration 039's composite constraints. Delete actions now mirror Production: Project Program pointer cascade, contracts.project cascade, contract_programs project cascade / contract set-null, cycle_policy project/program cascade. This is a source metadata correction only; no SQL or Production changes. Composite same-Project constraints remain in Migration 039.

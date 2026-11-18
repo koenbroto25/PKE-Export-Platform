@@ -7880,3 +7880,70 @@ The intended fail-closed provisioning flow is:
 - No Neon Auth webhook configured; no Auth user created; no SMTP send; no Vercel Production deployment/promotion; no Neon Production write.
 - Project-scoped role/membership behavior remains as recorded in Section 55.12: **BACKTEST PASS**.
 - **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.14 Admin account lifecycle, project assignment, and Migration 038 validation — 18 November 2026
+
+### Implemented source on recovery branch
+
+The Admin-controlled user lifecycle and per-project membership workflow were implemented in source:
+- Admin user directory now calls narrowly scoped database functions rather than directly selecting the protected users table.
+- Admin pre-provision endpoint creates an inactive PKE pending account and audit record. Neon Auth identity linking is accepted only through the verified provider webhook; browser-supplied Auth IDs are never trusted.
+- Neon Auth webhook endpoint supports signed user.before_create (blocking allow/deny gate) and user.created (non-blocking confirmation). The blocking gate rejects any Auth account that has not first been provisioned by PKE Admin.
+- Admin global activate/deactivate endpoint records the PKE global account state. Dashboard activation calls Neon Auth unban before enabling PKE; deactivation disables PKE first, then bans the Auth user and revokes sessions. Any Auth-side failure leaves PKE access disabled.
+- Admin can assign an already-linked, globally active PKE account to a project-specific role. The endpoint verifies the user and project role, serializes assignment by project/user, reactivates only the selected project's membership, clears stale deactivation/expiry state, and writes an audit event. Other project memberships are untouched.
+- Dashboard now separates global account status from per-project role/status, supports account provisioning (feature-gated), global activation/deactivation, and adding an existing active account to the selected project's role.
+- Neon Auth Admin SDK wrappers include createUser, banUser, unbanUser, and revokeUserSessions. A random temporary password is generated client-side and shown once; it is not stored in PKE. Admin must transfer it through a separate secure channel.
+- New Admin provisioning UI remains deliberately disabled until environment flags and the Auth webhook configuration are explicitly enabled. This prevents accidental account creation while the provider/database integration is incomplete.
+
+Relevant source commits:
+- Backend webhook and Admin lifecycle API: 408bc1952ca6b1d37e0c7c3ccd780cc34475b0d4; later hardening/gating: 9ad8bf1283b9243e7c8d28ac963c14b79efdabb5.
+- Neon SDK Admin client wrapper: b559fdb75eee53cb2ace19c17cc95bc86e9920bb; adapter resolution correction: a1a74673c5241155f5b047c4873f1164c79c152b.
+- Project assignment API: 90147dfac8fe4aa9a6aa6491aab035dfc61a8c0c.
+- Admin Dashboard: 98184c470863cab7641fa108ffc6116d9b8fd26e; project assignment UI: 2a85bc39370f51da8996072a76264d07b4fff0f0; final JSX fix: 17de57b43c49959a44a7b3905754bac4b3e6b934.
+- CI now includes backend API TypeScript check: 4679dc6de27b1550e0800c4a70518fcf04f259e6.
+
+### Migration 038 — validation branch only
+
+Draft file: migrations/038_admin_managed_neon_auth_user_lifecycle.sql
+- SHA-256: 8f238d74901488909fa9044fd339ecad7493d10403dccb7ffcffa3abe8770d90
+- GitHub content SHA: 1fdfcce05a11dfbcf1fb2c1db72eaf48f15dfeec
+- Commit containing the final draft: 9df3f0b010b6595f8a57c00c3094c65d5cb107a1
+- Functions: pke_admin_list_users, pke_admin_get_user, pke_admin_provision_user, pke_link_neon_auth_identity_from_webhook, pke_admin_set_user_active.
+- Functions are SECURITY DEFINER with pinned search_path; PUBLIC EXECUTE is revoked; EXECUTE is granted only to app_runtime_secure. No direct grants to neon_auth tables are introduced.
+- Migration 038 was executed only on existing temporary F0 validation branch br-soft-fog-b3zi4c2x for validation. It was NOT applied to Neon Production. The Migration 037 Production state is unchanged.
+
+### Database backtest evidence — temporary validation branch
+
+All tests below used synthetic test identities and were cleaned up. No business data remains:
+1. Pending PKE account created with global is_active=false, password_hash NULL, and role viewer.
+2. Activation before Auth identity link was rejected.
+3. Signed-webhook database-link function linked the synthetic Auth UUID to the exact pending email; duplicate delivery returned already_linked.
+4. Global account activation, deactivation, and reactivation all passed; conflicting Auth UUID for the same PKE user was rejected.
+5. Five audit events were recorded for the tested lifecycle; test user and audit rows were deleted.
+6. Runtime-role test ran as app_runtime_secure: list, provision, link, activate, deactivate, and reactivate functions all succeeded. The role has no direct SELECT or UPDATE privilege on public.users.
+7. Permission catalog check: PUBLIC EXECUTE=false and app_runtime_secure EXECUTE=true for all five functions.
+8. Non-admin context was denied by pke_admin_list_users.
+9. Project assignment backtest created three temporary projects: same account had role f0_test_operator in A (active), f0_test_finance in B (active), and f0_test_viewer in C (inactive). Results matched the requested independent-per-project model. All test memberships, audit events, roles, projects, contract programs, and the test account were removed; post-cleanup counts were zero.
+
+These are database-function and SQL backtests, not a live Neon Auth account-creation test. No real Auth user was created.
+
+### Build and CI evidence
+
+- GitHub Actions run 44292978562 on commit 17de57b43c49959a44a7b3905754bac4b3e6b934: SUCCESS. Unit test step and backend API TypeScript check both completed successfully. The unit suite includes 67 tests (53 storage/GL, 7 runtime security, 2 HTTP errors, 5 Neon webhook signature tests).
+- Vercel Preview deployment dpl_3UQZYFfqk6Tem1Cs7scY6JWoJAAJ for the same commit: READY. Frontend TypeScript and Vite production build completed.
+- Earlier failed Preview builds caused by JSX escaping and conditional closure were corrected; the final 17de build is READY.
+- Preview deployment URL: https://pke-export-platform-13su0c15n-apphubsite.vercel.app
+- Vercel Preview still has no Preview-target DATABASE_URL or VITE_NEON_AUTH_URL. Production-only environment variables were not copied to Preview because that would connect Preview to Production Auth/database. Therefore live API/Auth end-to-end tests remain blocked.
+
+### Remaining blockers and safety boundary
+
+- Migration 038 requires explicit owner approval of the exact SHA-256 above before Production application. Do not apply it to Production autonomously.
+- Neon Auth Production and validation branch currently have public sign-up disabled and email verification required. Admin-created accounts must be proven able to sign in without shared SMTP before setting NEON_AUTH_ADMIN_PROVISIONING_READY=true. If Admin createUser does not mark the email verified, the proposed configuration is to set require_email_verification=false while retaining disable_sign_up=true; this Production Auth setting change requires explicit owner approval.
+- No Preview environment variables were copied from Production; no secrets were read.
+- No Neon Auth webhook was configured on either Production or validation branch. NEON_AUTH_WEBHOOK_ENABLED and NEON_AUTH_ADMIN_PROVISIONING_READY remain unset/false.
+- No actual Auth user creation, webhook delivery, ban/unban, or session-revocation test has yet been performed. The UI is intentionally feature-gated until a safe isolated Preview environment is configured and verified.
+- Existing dependency advisory GHSA-fc5q-39xc-vjpf remains open; no forced Vitest/Vite/picomatch upgrade was performed.
+- No Production database migration, Auth config change, Vercel Production deployment, alias promotion, or branch merge occurred.
+
+**Status:** Project-scoped role and membership model: **BACKTEST PASS**. Migration 038 functions: **VALIDATED ON TEMPORARY VALIDATION BRANCH ONLY**. Source/CI/Preview build: **PASS**. Live Neon Auth provisioning and production activation workflow: **NOT VERIFIED**. **F0 remains IN PROGRESS / NOT CLOSED.**

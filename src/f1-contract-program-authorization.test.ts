@@ -65,6 +65,14 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
     expect(MIGRATION).toContain("DROP POLICY IF EXISTS pke_admin_all ON public.payment_obligations");
   });
 
+  it("prevents the generic platform Admin permission shortcut from bypassing Project business RLS", () => {
+    expect(MIGRATION.match(/NOT public\\.pke_is_platform_admin\\(\\) AND public\\.pke_has_project_permission/g)?.length).toBeGreaterThanOrEqual(10);
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_select");
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_insert");
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_update");
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_delete");
+  });
+
   it("does not use a calendar period as the shipment cycle identity", () => {
     expect(INDEX).toContain('"/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle"');
     expect(MIGRATION).toContain("UNIQUE INDEX IF NOT EXISTS payment_obligations_project_shipment_unique");

@@ -925,6 +925,10 @@ app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, 
     return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity, cadence" });
   }
   if (!(await requireProjectPermission(req, res, projectId, "project.configuration.manage"))) return;
+  if (contractId) {
+    const { rows: contractRows } = await req.db.query("SELECT id FROM contracts WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true", [contractId, projectId]);
+    if (!contractRows.length) return res.status(400).json({ error: "Contract must belong to this Project." });
+  }
   try {
     const { rows } = await req.db.query(
       `INSERT INTO contract_programs

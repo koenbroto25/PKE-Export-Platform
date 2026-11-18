@@ -3541,6 +3541,82 @@ app.post("/api/v1/admin/users/provision", requireAuth, requireAdmin, async (req:
   }
 });
 
+app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
+  const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || !uuidPattern.test(projectRoleId) || reason.length < 5) {
+    return res.status(400).json({ error: "Project, user, project role, and an audit reason are required.", code: "INVALID_PROJECT_MEMBER_INPUT" });
+  }
+
+  try {
+    const { rows: userRows } = await req.db.query(
+      "SELECT user_id, email, is_active, neon_auth_user_id FROM public.pke_admin_get_user($1::uuid)",
+      [userId],
+    );
+    if (userRows.length !== 1) return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
+    if (userRows[0].is_active !== true || !userRows[0].neon_auth_user_id) {
+      return res.status(409).json({ error: "User must have an active PKE account and a linked Neon Auth identity before project assignment.", code: "USER_NOT_READY" });
+    }
+
+    const { rows: roleRows } = await req.db.query(
+      "SELECT id, role_code, name FROM public.project_roles WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true LIMIT 1",
+      [projectRoleId, projectId],
+    );
+    if (roleRows.length !== 1) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+
+    // Serialize Admin assignments for this project/user pair because this schema has no unique pair constraint.
+    await req.db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))", [projectId, userId]);
+    const { rows: existingRows } = await req.db.query(
+      "SELECT id, user_id, project_role_id, is_active, deactivated_at, expires_at FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid ORDER BY joined_at DESC FOR UPDATE",
+      [projectId, userId],
+    );
+    if (existingRows.length > 1) {
+      return res.status(409).json({ error: "Multiple memberships already exist for this user/project pair; reconcile duplicates before changing access.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
+    }
+
+    const before = existingRows[0] || null;
+    let member;
+    if (before) {
+      const { rows } = await req.db.query(
+        "UPDATE public.project_members SET project_role_id = $3::uuid, is_active = true, expires_at = NULL, deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *",
+        [before.id, projectId, projectRoleId],
+      );
+      member = rows[0];
+    } else {
+      const { rows } = await req.db.query(
+        "INSERT INTO public.project_members (project_id, user_id, project_role_id, is_active, joined_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, true, now(), now()) RETURNING *",
+        [projectId, userId, projectRoleId],
+      );
+      member = rows[0];
+    }
+
+    const action = !before ? "project_member.created" :
+      before.is_active !== true || before.deactivated_at !== null ? "project_member.reactivated" :
+        before.project_role_id !== projectRoleId ? "project_member.role_changed" : "project_member.reconfirmed";
+    await req.db.query(
+      "INSERT INTO public.audit_events (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id, reason, before_snapshot, after_snapshot, metadata, outcome) VALUES ($1::uuid, 'user', $2::text, $3::text, 'project_member', $4::uuid, $5::uuid, $6::text, $7::jsonb, $8::jsonb, $9::jsonb, 'success')",
+      [
+        req.user?.id ?? null,
+        req.user?.role ?? null,
+        action,
+        member.id,
+        projectId,
+        reason,
+        before ? JSON.stringify(before) : null,
+        JSON.stringify({ user_id: member.user_id, project_role_id: member.project_role_id, is_active: member.is_active, expires_at: member.expires_at, deactivated_at: member.deactivated_at }),
+        JSON.stringify({ email: userRows[0].email, role_code: roleRows[0].role_code }),
+      ],
+    );
+    return res.status(before ? 200 : 201).json({ member });
+  } catch (error) {
+    logger.error("Admin project membership assignment failed:", error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.patch("/api/v1/admin/users/:id/status", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const userId = req.params.id as string;
   const isActive = req.body?.isActive;

@@ -50,6 +50,8 @@ for (const required of ["MIGRATE_038_CONFIRM", "MIGRATION_038_APPROVED_SHA256", 
 }
 if (!runner.includes("releaseManifest.entries.length !== 37")) fail("Migration runner does not require exact Production history length.");
 if (!runner.includes("Production migration_history differs from the verified 001-037 release manifest")) fail("Migration runner is missing exact history reconciliation.");
+if (!runner.includes("Production history ledger:")) fail("Migration status mode does not compare the verified Production ledger.");
+if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log("PASS: baseline 001-028, verified Production history 001-037, exact source 036-037, and pending Migration 038 approval gate.");

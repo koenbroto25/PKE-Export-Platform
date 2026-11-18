@@ -642,7 +642,7 @@ app.get("/api/v1/contracts", requireAuth, async (req: express.Request, res: expr
   }
 });
 
-app.post("/api/v1/contracts", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/contracts", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { buyerId, code, name, startDate, endDate } = req.body;
   if (!buyerId || !code || !name || !startDate) return res.status(400).json({ error: "buyerId, code, name, startDate required" });
   try {
@@ -666,7 +666,7 @@ app.get("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res:
   }
 });
 
-app.post("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/cycle-policies", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { contractProgramId, cadence, targetQuantity, generationMode } = req.body;
 
   if (!contractProgramId || !cadence || !generationMode) {
@@ -870,7 +870,7 @@ function defaultPermissionsForRole(roleCode: string): string[] {
 // ============================================
 // Contract Program CRUD
 // ============================================
-app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/contract-programs", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description } = req.body;
   if (!name || !settlementUnit || !targetQuantity || !cadence) {
     return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity, cadence" });
@@ -889,7 +889,7 @@ app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, 
   }
 });
 
-app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+app.patch("/api/v1/contract-programs/:id", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description, isActive } = req.body;
   try {

@@ -1,6 +1,6 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.12 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.13 — Single-Source Execution Edition
 
 
 
@@ -7226,3 +7226,105 @@ Neon target was explicitly set to project `purple-base-63944903`, branch `br-dam
 - HTTP smoke: BLOCKED by Vercel deployment authentication at fetch/share-link layer; no application response inferred.
 - Build/tests: not run.
 - Overall: F0 IN PROGRESS / NOT CLOSED; application and business production readiness remain uncertified.
+
+
+---
+
+# 49. F0 continuation — owner migration closure, SQL/RLS backtest, and platform hardening (18 November 2026)
+
+## 49.1 Owner direction — migration scope is closed
+The owner explicitly directed that recovery of original migration SQL 029–035 is no longer an F0 gate. Migration 036 and the historical migration work are considered CLOSED & FINAL. Do not reopen source recovery, reconstruct missing historical files, rewrite historical checksums, or use this as a reason to block F0.
+
+For the former checklist entries:
+- F0.06, F0.07 and F0.08 are **CLOSED BY OWNER DIRECTION / WAIVED AS F0 EXIT GATES**.
+- They are not being relabelled PASS; exact historical source parity is not being claimed.
+- No further work to recover 029–035 is authorized or required for this F0 execution.
+- Migration 036 remains CLOSED & FINAL. Any new SQL correction must be a separate forward-only change and must not alter migrations 001–036.
+
+## 49.2 Production SQL and RLS backtest — read-only evidence
+Target: Neon project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`. Queries were catalog SELECTs and EXPLAIN without ANALYZE; no business rows were inserted, updated, deleted or exported.
+
+**Schema and constraint integrity**
+- Public base/partitioned tables: 152; RLS enabled on 152/152; FORCE RLS enabled on 71/152.
+- Constraints: 423 foreign keys, zero unvalidated; 278 CHECK constraints, zero unvalidated; 152 primary keys; 65 unique constraints.
+- Public indexes: 693 total; zero invalid and zero not-ready.
+- The runtime role remains `app_runtime_secure`: login enabled; SUPERUSER=false; BYPASSRLS=false; CREATEDB=false; CREATEROLE=false.
+- Runtime negative-context backtest passed: with an empty transaction-local `app.current_user_id`, current PKE identity is NULL; platform-admin, project-access and permission helpers return false; the nil UUID identity resolver returns zero rows.
+- EXPLAIN under `app_runtime_secure` for `SELECT id FROM public.projects WHERE id=<nil UUID>` showed the RLS filter `pke_has_project_permission(projects.id,'project.view') OR pke_is_platform_admin()`. This confirms policy injection in the plan, not cross-project behavioral isolation with real principals.
+
+**Policy inventory**
+- 507 policies across all 152 public tables; all are PERMISSIVE and target `app_runtime_secure`.
+- 150 policies use command `ALL`; many tables have the broad Admin policy alongside narrower action-specific policies. PostgreSQL OR-combines permissive policies. This is compatible with intentional global Admin access but requires policy-by-policy scope validation.
+- No INSERT policy in the inspected catalog had a NULL `WITH CHECK`.
+- Cross-project/buyer/facility/warehouse/port behavioral isolation remains unproven because the Production database has no approved test principals/business fixtures. Do not create synthetic business data to force a test.
+
+## 49.3 Concrete SQL privilege defect and forward-only candidate
+The live catalog exposes 80 public `SECURITY DEFINER` functions with EXECUTE granted to both PUBLIC and `authenticated`. All 80 are owned by `neondb_owner` and have a function-level fixed `search_path`. The 24 non-trigger helper functions also have explicit `app_runtime_secure` EXECUTE grants; the runtime can continue calling these helpers without relying on PUBLIC.
+
+The default ACL inspection found:
+- PostgreSQL's global default PUBLIC EXECUTE on functions is still effective.
+- A schema-level default EXECUTE grant to `authenticated` exists for functions in `public`.
+- The source of migration 020 uses `ALTER DEFAULT PRIVILEGES ... IN SCHEMA public REVOKE EXECUTE ... FROM PUBLIC`. A per-schema REVOKE does not cancel PostgreSQL's global default PUBLIC grant. This explains why future functions can regain PUBLIC EXECUTE despite that line.
+
+A forward-only candidate has been added on the recovery branch:
+- File: `migrations/037_restrict_security_definer_execute.sql`
+- SHA-256: `8e0e450d3558d7e9d5d847396e311f9be4e659c0a3a6e3571dea39f1c964d1c9`
+- Scope: revoke PUBLIC and `authenticated` EXECUTE on current public SECURITY DEFINER functions; retain/grant explicit EXECUTE for callable non-trigger helpers to `app_runtime_secure`; correct global PUBLIC and schema-level `authenticated` default function privileges; fail atomically if postconditions are not met.
+- This migration is **CANDIDATE / NOT APPLIED**. No SQL DDL, GRANT, REVOKE, function replacement or migration-history mutation was performed. It requires explicit owner approval of this exact SQL and SHA-256 before Production execution.
+- The frontend uses Neon Auth for identity and the PKE backend API for application data; no direct Neon Data API table/RPC usage was found in the inspected frontend auth/API modules. This supports keeping internal SECURITY DEFINER functions private to the backend runtime.
+
+## 49.4 Storage adapter hardening
+- `src/storage.ts` now performs object metadata lookup through a signed, read-only S3-compatible HEAD request and returns provider content length, ETag, last-modified and version ID.
+- Request redirects are rejected, the request has a 10-second timeout, and errors do not include the presigned URL.
+- `deleteObject()` remains fail-closed; no deletion workflow or retention approval was introduced.
+- Offline tests were added for HEAD success and provider failure. The root `npm test` script now includes runtime-security and storage tests, and a GitHub Actions workflow was added for the recovery branch.
+- No provider round-trip was executed; the private bucket remains empty. Actual upload/download/HEAD behavior and cross-project object denial remain unverified.
+
+## 49.5 Vercel and runtime revalidation
+- Production `GET /api/v1/health` returned HTTP 200 with database connected. Its response reported `environment=development` on the existing Production deployment.
+- The custom `NODE_ENV` variable was scoped to the Development environment only, so future Preview/Production deployments use Vercel's environment default. The existing Production deployment was not redeployed; its runtime response remains unchanged until a separately approved deployment.
+- `DATABASE_URL` remains Production-only. Preview does not receive Production database credentials or Neon Auth secrets. Preview function calls without required database/auth configuration fail closed; do not copy Production credentials into Preview to make smoke tests pass.
+- A temporary attempt to set `NODE_ENV=production` for Preview/Production caused a Preview build to fail with `tsc: command not found` because build-time development dependencies were omitted. The override was immediately restricted to Development only; a fresh Preview deployment for commit `6fa886d40eda3053e2c051b043c2a561a190f360` reached READY. No Production deployment was affected.
+- Source now normalizes legacy PostgreSQL SSL aliases (`prefer`, `require`, `verify-ca`) to explicit `verify-full`, preserving the current strict TLS behavior and avoiding the pg-connection-string forward-compatibility warning. This is on the recovery branch; Production has not yet received it.
+- Recent runtime-error aggregation contained one PostgreSQL SSL-mode compatibility warning group and no other error group in the inspected window. Runtime logs are not a substitute for endpoint-by-endpoint HTTP tests.
+- The Production health endpoint was accessible, but protected API endpoint checks were blocked by Vercel share-link authentication at the fetch layer. No application response status is claimed for `/me`, `/projects`, `/truck-trips`, `/tracking` or report portfolio.
+- Build logs reported npm dependency vulnerabilities (latest observed install summary: 1 low, 4 high, 1 critical) and deprecated packages. No blind `npm audit fix --force` was run. Exact advisory/package remediation remains to be investigated.
+
+## 49.6 Secrets, Auth and recovery posture
+- Vercel environment metadata flags several Production variables as `readable-secret`, including `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. No values were read or decrypted. The supported environment-edit action rejected `type=sensitive` because Vercel requires `visibility=secret`, a field not exposed by the current action. No values were replaced or re-entered; this needs a supported Vercel UI/API operation.
+- Neon Auth configuration remains as previously verified: public sign-up disabled; email/password enabled; email verification required; reset revokes sessions. Invitation, email delivery, OTP, reset and session lifecycle were not exercised.
+- Snapshot schedule remains empty. Only the manual snapshot `PKE-target-pre-migration-20261115` is present; no restore drill has been run. No branch, database, snapshot or restore was created during this audit.
+
+## 49.7 F0 status after owner direction
+| Area | Status | Reason |
+|---|---|---|
+| Migration 029–035 recovery/parity (former F0.06–08) | CLOSED BY OWNER DIRECTION | Not an F0 exit gate; migration 036 remains final. |
+| Runtime DB identity/role | PASS | Runtime role and no-identity negative helper checks passed. |
+| RLS catalogue and query-plan injection | PARTIAL | 152/152 tables RLS; policy overlaps and cross-project behavior still require approved behavioral evidence. |
+| SECURITY DEFINER least privilege | BLOCKED_PENDING_APPROVAL | Candidate migration 037 prepared; current PUBLIC/authenticated grants remain until exact SQL is approved/applied. |
+| Storage | PARTIAL | Signed HEAD implemented in source; no live provider round-trip; delete remains fail-closed. |
+| Auth lifecycle | PARTIAL | Config verified; real invitation/OTP/reset/session flow not exercised. |
+| HTTP smoke tests | PARTIAL | Production health 200; protected endpoints blocked by deployment-share-link tooling. |
+| Vercel runtime/build | PARTIAL | Preview build correction in progress; latest code commit build must finish; Production not redeployed. |
+| Secret visibility | BLOCKED | Current API cannot set Vercel `visibility=secret`; no secret value exposed. |
+| Backup/restore | BLOCKED | No automatic snapshot schedule or restore proof. |
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Migration-source recovery is no longer a blocker. F0 cannot be declared final while the concrete function ACL defect, storage/Auth acceptance, protected HTTP evidence, secret visibility and backup/recovery evidence remain unresolved.
+
+## 49.8 Next actions
+1. Obtain explicit owner approval for Migration 037 with SHA-256 `8e0e450d3558d7e9d5d847396e311f9be4e659c0a3a6e3571dea39f1c964d1c9`; apply only that exact forward-only SQL, then re-run ACL/default-ACL and runtime helper checks.
+2. Complete policy-by-policy scope review and approved cross-project behavioral test design without inserting Production business data.
+3. Finish the current recovery-branch Preview build and offline test workflow; do not merge/promote to Production until exit criteria and deployment approval are satisfied.
+4. Obtain a supported method to run authenticated Production smoke tests without exposing credentials or bypassing Vercel deployment protection.
+5. Complete private storage round-trip only under an owner-approved disposable-object procedure; retain fail-closed deletion until an approved deletion lifecycle exists.
+6. Complete Auth invitation/OTP/reset/session tests using an approved controlled account and no real third-party invitee.
+7. Obtain owner decision for a daily automatic snapshot schedule and a compliant recovery/restore validation method that does not create another Neon branch/database or restore over Production.
+8. Resolve Vercel secret visibility using a supported `visibility=secret` control without reading/re-entering the secret values in chat; investigate the dependency audit findings without forced major upgrades.
+9. Keep Production on `main`; do not promote the recovery Preview without explicit deployment approval.
+
+## 49.9 Session completion record
+- Files changed on recovery branch: Master Plan, candidate migration 037, runtime-security verifier, storage adapter, storage/runtime-security tests, package test script and offline GitHub Actions workflow.
+- Vercel: Development-only `NODE_ENV` scope correction; Preview deployments only; no Production deployment or alias promotion.
+- Neon Production: read-only SQL backtest only; no DDL/DML, GRANT/REVOKE, migration, Auth, storage, snapshot schedule or restore mutation.
+- Secrets: no value read, decrypted, displayed or re-entered.
+- Overall: F0 remains IN PROGRESS / NOT CLOSED; Migration 036 remains CLOSED & FINAL.

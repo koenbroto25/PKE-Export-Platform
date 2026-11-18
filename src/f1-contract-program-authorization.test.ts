@@ -1,53 +1,70 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { canAccessProjectMembership, canManageContractProgram, isPositiveQuantity } from "./f1-contract-rules.js";
+import { canAccessProjectMembership, canManageProjectBusiness, isCobCyclePaid, isPositiveQuantity } from "./f1-contract-rules.js";
 
 const INDEX = readFileSync(fileURLToPath(new URL("./index.ts", import.meta.url)), "utf8");
+const MIGRATION = readFileSync(fileURLToPath(new URL("../migrations/039_project_scoped_contract_cob_cycles.sql", import.meta.url)), "utf8");
 
-describe("F1 Admin ownership of contract programs and project instances", () => {
-  for (const [method, route] of [
-    ["post", "/api/v1/contracts"],
-    ["post", "/api/v1/contract-programs"],
-    ["patch", "/api/v1/contract-programs/:id"],
-    ["post", "/api/v1/cycle-policies"],
-    ["post", "/api/v1/projects"],
-  ] as const) {
-    it(`requires authenticated Admin for ${method.toUpperCase()} ${route}`, () => {
-      const marker = `app.${method}("${route}",`;
-      const start = INDEX.indexOf(marker);
-      expect(start, marker + " should exist").toBeGreaterThanOrEqual(0);
-      const signature = INDEX.slice(start, start + 200);
-      expect(signature).toMatch(/requireAuth\s*,\s*requireAdmin\s*,\s*async/);
-    });
-  }
-
-  it("allows only active platform Admin to manage the program", () => {
-    expect(canManageContractProgram({ isAdmin: true, isActive: true })).toBe(true);
-    expect(canManageContractProgram({ isAdmin: true, isActive: false })).toBe(false);
-    expect(canManageContractProgram({ isAdmin: false, isActive: true })).toBe(false);
-    expect(canManageContractProgram(null)).toBe(false);
+describe("F1 Project Manager ownership and shipment Cash on Board", () => {
+  it("requires PM project permission for contract, cycle, and CoB business writes", () => {
+    for (const route of [
+      'app.post("/api/v1/contracts", requireAuth',
+      'app.post("/api/v1/contract-programs", requireAuth',
+      'app.post("/api/v1/projects/:projectId/contract-programs", requireAuth',
+      'app.post("/api/v1/cycle-policies", requireAuth',
+      'app.post("/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle", requireAuth',
+    ]) {
+      const start = INDEX.indexOf(route);
+      expect(start, route + " should exist").toBeGreaterThanOrEqual(0);
+      const signature = INDEX.slice(start, start + 3000);
+      expect(signature).toContain("requireProjectPermission");
+      expect(signature).not.toMatch(/requireAuth\s*,\s*requireAdmin/);
+    }
   });
 
-  it("accepts only finite positive settlement quantities", () => {
+  it("keeps platform Admin limited to initial Project setup", () => {
+    expect(INDEX).toMatch(/app\.post\("\/api\/v1\/projects",\s*requireAuth,\s*requireAdmin/);
+    expect(INDEX).toContain("Contract Programs are created by the Project Manager after Project setup.");
+    expect(INDEX).toContain('project.configuration.manage",\n      "contract.view"');
+  });
+
+  it("isolates Project Manager access to an active Project membership", () => {
+    const now = new Date("2026-11-19T00:00:00.000Z");
+    const common = { accountActive: true, projectActive: true, membershipActive: true, projectRoleCode: "pm", now };
+    expect(canManageProjectBusiness(common)).toBe(true);
+    expect(canManageProjectBusiness({ ...common, projectRoleCode: "finance" })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, projectRoleCode: "admin" })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, membershipActive: false })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, accountActive: false })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, projectActive: false })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, expiresAt: "2026-11-18T23:59:59.000Z" })).toBe(false);
+  });
+
+  it("accepts only finite positive contract and shipment amounts", () => {
     for (const value of [1, 2500, "125.50"]) expect(isPositiveQuantity(value)).toBe(true);
     for (const value of [0, -1, "-0.01", "", "abc", null, undefined, Infinity, NaN]) expect(isPositiveQuantity(value)).toBe(false);
   });
 
-  it("keeps per-project membership independent while honoring global account status", () => {
-    const now = new Date("2026-11-19T00:00:00.000Z");
-    const common = { accountActive: true, projectActive: true, membershipActive: true, now };
-    expect(canAccessProjectMembership(common)).toBe(true); // Project A
-    expect(canAccessProjectMembership({ ...common, membershipActive: false })).toBe(false); // Project B revoked
-    expect(canAccessProjectMembership({ ...common, expiresAt: "2026-11-18T23:59:59.000Z" })).toBe(false);
-    expect(canAccessProjectMembership({ ...common, accountActive: false })).toBe(false); // global suspension
-    expect(canAccessProjectMembership({ ...common, projectActive: false })).toBe(false);
+  it("requires full settlement before a CoB cycle is paid", () => {
+    expect(isCobCyclePaid("100.00", "100.00")).toBe(true);
+    expect(isCobCyclePaid(100, 99.99)).toBe(false);
+    expect(isCobCyclePaid(100, 0)).toBe(false);
+    expect(isCobCyclePaid(0, 0)).toBe(false);
+    expect(INDEX).toContain("payment_trigger_event");
+    expect(INDEX).toContain("'cash_on_board'");
   });
 
-  it("keeps project-scoped reads authenticated", () => {
-    expect(INDEX).toContain('app.get("/api/v1/projects", requireAuth');
-    expect(INDEX).toContain('app.get("/api/v1/contract-programs", requireAuth');
-    expect(INDEX).toContain('SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1');
-    expect(INDEX).toContain('targetQuantity !== undefined && !isPositiveQuantity(targetQuantity)');
+  it("enforces one CoB obligation per shipment and Project in the database", () => {
+    expect(MIGRATION).toContain("payment_obligations_project_shipment_unique");
+    expect(MIGRATION).toContain("FOREIGN KEY (project_id, shipment_id)");
+    expect(MIGRATION).toContain("payment_obligations_cob_paid_full_check");
+    expect(MIGRATION).toContain("DROP POLICY IF EXISTS pke_admin_all ON public.contracts");
+    expect(MIGRATION).toContain("DROP POLICY IF EXISTS pke_admin_all ON public.payment_obligations");
+  });
+
+  it("does not use a calendar period as the shipment cycle identity", () => {
+    expect(INDEX).toContain('"/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle"');
+    expect(MIGRATION).toContain("UNIQUE INDEX IF NOT EXISTS payment_obligations_project_shipment_unique");
   });
 });

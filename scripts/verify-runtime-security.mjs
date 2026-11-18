@@ -64,6 +64,37 @@ try {
            (SELECT count(*) FROM function_acl f
             WHERE f.prorettype <> 'trigger'::regtype
               AND NOT has_function_privilege(current_user, f.oid, 'EXECUTE')) AS missing_runtime_callable_execute_count,
+           (SELECT count(*)
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public'
+               AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+               AND (
+                 has_table_privilege('authenticated', c.oid, 'SELECT')
+                 OR has_table_privilege('authenticated', c.oid, 'INSERT')
+                 OR has_table_privilege('authenticated', c.oid, 'UPDATE')
+                 OR has_table_privilege('authenticated', c.oid, 'DELETE')
+                 OR has_table_privilege('authenticated', c.oid, 'TRUNCATE')
+                 OR has_table_privilege('authenticated', c.oid, 'REFERENCES')
+                 OR has_table_privilege('authenticated', c.oid, 'TRIGGER')
+               )) AS authenticated_public_relation_privilege_count,
+           (SELECT count(*)
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public'
+               AND c.relkind = 'S'
+               AND (
+                 has_sequence_privilege('authenticated', c.oid, 'USAGE')
+                 OR has_sequence_privilege('authenticated', c.oid, 'SELECT')
+                 OR has_sequence_privilege('authenticated', c.oid, 'UPDATE')
+               )) AS authenticated_public_sequence_privilege_count,
+           (SELECT count(*)
+              FROM pg_default_acl d
+              CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+             WHERE d.defaclrole = (SELECT oid FROM owner_role)
+               AND d.defaclnamespace = 'public'::regnamespace
+               AND d.defaclobjtype IN ('r', 'S')
+               AND a.grantee = (SELECT oid FROM auth_role)) AS unsafe_authenticated_relation_default_count,
            EXISTS (
              SELECT 1
                FROM aclexplode(COALESCE(
@@ -97,12 +128,15 @@ try {
   if (Number(row?.missing_runtime_callable_execute_count) > 0) failures.push("runtime EXECUTE missing on callable SECURITY DEFINER helpers");
   if (row?.unsafe_global_public_function_default) failures.push("global default PUBLIC EXECUTE remains enabled");
   if (row?.unsafe_public_schema_authenticated_function_default) failures.push("public-schema default EXECUTE to authenticated remains enabled");
+  if (Number(row?.authenticated_public_relation_privilege_count) > 0) failures.push("authenticated retains direct privileges on public relations");
+  if (Number(row?.authenticated_public_sequence_privilege_count) > 0) failures.push("authenticated retains direct privileges on public sequences");
+  if (Number(row?.unsafe_authenticated_relation_default_count) > 0) failures.push("authenticated public table/sequence default privileges remain");
 
   if (failures.length) {
     console.error(`FAIL: runtime/database security checks: ${failures.join(", ")}`);
     process.exitCode = 1;
   } else {
-    console.log("PASS: app_runtime_secure is least-privileged; internal SECURITY DEFINER functions are not exposed to PUBLIC/authenticated; callable helpers are explicitly executable by the runtime; unsafe function defaults are disabled.");
+    console.log("PASS: app_runtime_secure is least-privileged; authenticated has no direct public relation/sequence grants; internal SECURITY DEFINER functions are private; callable helpers are explicitly executable by the runtime; unsafe defaults are disabled.");
   }
 } catch {
   console.error("FAIL: unable to connect or inspect runtime database security.");

@@ -20,6 +20,9 @@ DECLARE
   v_owner oid;
   v_authenticated oid;
 BEGIN
+  -- Keep catalog resolution and dynamic REVOKE/GRANT statements schema-qualified.
+  PERFORM set_config('search_path', 'pg_catalog', true);
+
   IF current_user <> 'neondb_owner' THEN
     RAISE EXCEPTION 'Migration 037 must run as neondb_owner; current role is %', current_user;
   END IF;
@@ -42,6 +45,17 @@ BEGIN
 
   SELECT oid INTO v_owner FROM pg_roles WHERE rolname = 'neondb_owner';
   SELECT oid INTO v_authenticated FROM pg_roles WHERE rolname = 'authenticated';
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.prosecdef = true
+       AND p.proowner <> v_owner
+  ) THEN
+    RAISE EXCEPTION 'Migration 037 found SECURITY DEFINER functions not owned by neondb_owner';
+  END IF;
 
   -- Existing functions: SECURITY DEFINER routines are private backend internals.
   -- Keep explicit app_runtime_secure execution for callable non-trigger helpers.

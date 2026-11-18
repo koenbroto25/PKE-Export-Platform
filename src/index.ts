@@ -53,7 +53,7 @@ export const app = express();
 app.use(express.json({
   limit: "2mb",
   verify: (req, _res, buffer) => {
-    if ((req as express.Request).originalUrl === "/webhooks/neon-auth") {
+    if ((req as express.Request).originalUrl === "/api/v1/webhooks/neon-auth") {
       (req as express.Request).rawBody = buffer.toString("utf8");
     }
   },
@@ -203,7 +203,7 @@ app.get("/api/v1/health", async (req: express.Request, res: express.Response) =>
 
 // Neon Managed Better Auth webhook. This endpoint accepts only signed provider events;
 // it never trusts a browser-supplied Auth user ID and never reads neon_auth tables.
-app.post("/webhooks/neon-auth", async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/webhooks/neon-auth", async (req: express.Request, res: express.Response) => {
   if (process.env.NEON_AUTH_WEBHOOK_ENABLED !== "true") {
     return res.status(503).json({ error: "Auth identity synchronization is not enabled." });
   }

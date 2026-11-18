@@ -1,5 +1,5 @@
 # PKE P03 / Phase 0 Execution Plan
-**Updated:** 2026-11-18 22:15 WIB  
+**Updated:** 2026-11-18 (Admin identity reconciliation)  
 **Execution target:** close all internally controllable F0 gates by 2026-11-19 12:00 WIB. Any external-owner dependency remains explicitly BLOCKED; no false COMPLETE status.
 
 ## Current release baseline
@@ -20,13 +20,15 @@
 - [x] Verified all six lifecycle functions exist, are SECURITY DEFINER, executable by `app_runtime_secure`, and not executable by PUBLIC.
 - [x] Temporary-branch preflight confirmed the same six-function privilege contract before Production apply.
 - [x] No account, role, session, or Auth identity was created, deactivated, deleted, or otherwise changed by Migration 038.
+- [x] Owner-approved duplicate Admin identity deletion completed on Neon Production: deleted `bugurupuji@googlemail.com` (`392ab975-c4db-4073-bb42-1ff17a0f8f04`) using Neon Auth user deletion.
+- [x] Post-delete Production verification: `neon_auth.user` contains exactly one Admin identity, `koenbroto@gmail.com` (`bdd0ac87-3c90-4759-a85b-7e10ccf5803b`); `public.users` retains the matching PKE Admin row, active and linked to that same Auth ID. No PKE user row existed for the deleted email.
 
 ## Remaining F0 gates — execute in parallel where safe
 | Priority | Work | Acceptance evidence | Status |
 |---|---|---|---|
 | P0 | Complete Admin User Lifecycle end-to-end wiring: authenticated webhook verification, idempotency, provisioning, identity link, global activation/deactivation, session revocation, project-role independence | Integration tests against Neon test branch, replay tests, audit trail assertions, API route checks | PARTIAL |
 | P0 | Prove RLS isolation across two real synthetic projects and two non-Admin identities | Positive own-project reads/writes; zero cross-project rows; no-context and anonymous denied; cleanup evidence | PARTIAL |
-| P0 | Reconcile duplicate Neon Auth Admin identity | Owner confirms second identity; document retain/revoke decision; no automated removal | BLOCKED_OWNER |
+| P0 | Reconcile duplicate Neon Auth Admin identity | Owner approval, exact Auth ID deletion, Production post-delete verification, retained Admin mapping | COMPLETE |
 | P0 | Restore dependency audit to non-blocking secure state without unsafe downgrade | Lockfile-resolved tree, GHSA applicability assessment, npm audit evidence, CI green | IN_PROGRESS |
 | P0 | Reconcile Vercel deployment source with GitHub canonical branch; ensure migration 038 source and manifest are in the release source | Vercel project linked to intended repo/branch, Preview green, deployed commit recorded | IN_PROGRESS |
 | P1 | Fix deployment packaging so runtime/migration metadata is available without shipping excluded SQL files or weakening tests | Preview build + API health checks; migration verification in CI | PARTIAL |
@@ -38,7 +40,7 @@
 - Production migration 038 is applied. Do not reapply it; verify the ledger/hash before any runner action.
 - Do not apply Migration 039+ without explicit approval and a verified SHA-256.
 - Do not promote Preview to Production until all P0 gates pass and source branch parity is proven.
-- Do not disable or delete the second Neon Auth Admin identity without owner confirmation.
+- Duplicate Neon Auth Admin identity `bugurupuji@googlemail.com` was deleted after explicit owner approval and verified absent. Retained Admin identity `koenbroto@gmail.com` remains active and linked; do not alter it without separate approval.
 - Do not delete validation/restore-drill branches without explicit owner approval. The branches have expiry windows; record actual cleanup outcome.
 - Never expose credentials, tokens, connection strings, or raw secret values in reports or CI logs.
 - Never mark a test PASS unless its command/run, target, and result are captured.

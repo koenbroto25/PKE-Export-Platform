@@ -79,15 +79,15 @@ BEGIN
   END IF;
 
   SELECT count(*)::integer INTO v_count
-    FROM public.users
-   WHERE lower(email) = v_email;
+    FROM public.users AS existing_user
+   WHERE lower(existing_user.email) = v_email;
   IF v_count > 1 THEN
     RAISE EXCEPTION 'email matches multiple existing PKE accounts' USING ERRCODE = '23505';
   END IF;
 
-  SELECT * INTO v_user
-    FROM public.users
-   WHERE lower(email) = v_email
+  SELECT existing_user.* INTO v_user
+    FROM public.users AS existing_user
+   WHERE lower(existing_user.email) = v_email
    FOR UPDATE;
 
   IF FOUND THEN

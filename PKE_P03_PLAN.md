@@ -6,7 +6,7 @@
 - Repository: `koenbroto25/PKE-Export-Platform`
 - Active validation branch: `phase0/reconcile-source-20261117`
 - Latest verified GitHub Actions run: `44304826658`, commit `96d3e4f3a490a70b0724b776412719a1a5f1e785`, SUCCESS. Job steps include unit/security tests, Production migration ledger/release gates, migration runner dry-run, and backend API typecheck.
-- Latest Vercel Preview: `dpl_53bdk3taSpwNGZzfVy56PcC9CuZe`, commit `e6675514bd14166a368f9f97332154cbf691fc6b`, READY. Prior report confirms homepage and `/api/v1/health` HTTP 200.
+- Latest Vercel Preview: prior confirmed READY deployment `dpl_53bdk3taSpwNGZzfVy56PcC9CuZe` on commit `e6675514bd14166a368f9f97332154cbf691fc6b`; new documentation/manifest deployment `dpl_7Cm54ojsDyAGCp82sjHEvLAVhqt7` for commit `9aa7f02db9eae553074a8ca1fd11432393f7c14e` was still QUEUED at last check. Prior report confirms homepage and `/api/v1/health` HTTP 200.
 - Neon project: `purple-base-63944903`; Production branch: `br-damp-shape-b3xlh4nr`.
 
 ## Completed in this execution
@@ -14,6 +14,9 @@
 - [x] Applied Migration 038 to Neon Production in a transaction after the same SQL passed on a temporary branch.
 - [x] Recorded migration ledger row 38 with filename, exact SHA-256, and status `applied`.
 - [x] Re-read Production ledger: row 38 matches the approved filename and SHA-256.
+- [x] Published `migration_history_manifest_001_038.json` with 38 verified Production ledger entries.
+- [x] Opened PR #1 to reconcile the 164-commit validated branch with `main`; PR is open and deliberately not merged pending F0 gates.
+- [x] GitHub Actions run `44320761065` on commit `9aa7f02db9eae553074a8ca1fd11432393f7c14e` completed SUCCESS.
 - [x] Verified all six lifecycle functions exist, are SECURITY DEFINER, executable by `app_runtime_secure`, and not executable by PUBLIC.
 - [x] Temporary-branch preflight confirmed the same six-function privilege contract before Production apply.
 - [x] No account, role, session, or Auth identity was created, deactivated, deleted, or otherwise changed by Migration 038.

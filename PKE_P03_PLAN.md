@@ -249,3 +249,10 @@
 - Corrected manifest row 38 to canonical filename `038_admin_managed_neon_auth_user_lifecycle.sql`; row 39 identifies Migration 039. Manifest applied_count and entries are 39.
 - Added a fail-closed, verification-only path in `scripts/migrate.mjs` for Migration 039. It checks exact approved 039 source SHA, exact 39-row DB ledger, and manifest ordering, then exits without re-running SQL. Other migration apply rules remain restricted.
 - Payment execution API remains explicitly unavailable: GET/POST/PATCH `/api/v1/payment-instructions` return 503 `PAYMENT_EXECUTION_UNAVAILABLE`. Production has instruction, verification, reconciliation tables and ledger triggers, but this repo has no HTTP verification/reconciliation routes. Do not claim end-to-end CoB paid-status lifecycle complete until that critical finance workflow is implemented and tested.
+
+ 
+### F1 CI release-gate correction — 2026-11-19
+- Latest Unit Tests workflow initially passed `npm test` but failed at `verify:release-migrations` before migration dry-run/typecheck.
+- Verified the manifest discrepancy against the authoritative Production `public.migration_history`: baseline migration 005 hash in the manifest had a one-character typo. Corrected it to Production's exact SHA-256 `7c7c3d235ff34ac89f626a038589aefa8b2c143ce963b6967c6e2e53433f159d` (also matching immutable baseline manifest and source file).
+- Adjusted the release verifier's runner assertion to match the safe optional-chain guard `verifiedManifest.entries?.length !== 39`.
+- Dependency Audit workflow run on PR #2: SUCCESS. Latest Unit Tests rerun is pending on the new branch head; prior run had unit tests PASS but failed only at the migration verifier and skipped dry-run/typecheck as a consequence.

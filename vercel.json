@@ -2,7 +2,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci && npm --prefix frontend ci",
-  "buildCommand": "tsc -p api/tsconfig.json && npm run frontend:build",
+  "buildCommand": "npm test && tsc -p api/tsconfig.json && npm run frontend:build",
   "outputDirectory": "frontend/dist",
   "routes": [
     {

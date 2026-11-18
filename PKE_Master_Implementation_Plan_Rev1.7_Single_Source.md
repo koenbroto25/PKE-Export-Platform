@@ -7746,3 +7746,34 @@ This is a targeted execution record following the owner's explicit approval of f
 - The temporary branch resources are time-limited and have provider expiry timestamps as listed above. Verify expiry/cleanup after 19 November 2026; do not delete Production or the restored source branch.
 
 **F0 remains IN PROGRESS / NOT CLOSED.** Infrastructure restore evidence improved, but the remaining behavioral/security and external-provider gates are still open.
+
+
+## 55.10 Owner decision — Admin-controlled user lifecycle; no public self-registration or SMTP onboarding gate — 18 November 2026
+
+### Owner decision (controlling)
+The owner confirms that all PKE users must be registered and managed by an authorized Admin through the Admin Dashboard. Public self-registration is not part of the product and must remain disabled. Therefore SMTP test delivery, OTP delivery for self-registration, and automated invitation email are not required F0 acceptance gates. Do not configure/change SMTP or send further test emails for the purpose of proving public registration.
+
+This decision supersedes any earlier acceptance wording that treats public registration email delivery or automatic invitation email as a prerequisite. It does not waive authentication/session security, admin authorization, secure account provisioning, account activation/deactivation, or password recovery requirements.
+
+### Required Admin Dashboard capability
+The Admin Dashboard must provide a real, server-backed User Management workspace with:
+1. **List/search/filter users:** show identity, email, display name, assigned role, project/organization scope where applicable, account status, created/activated/deactivated timestamps, and last activity where available. Provide pagination and truthful loading/empty/error states.
+2. **Admin creates/registers user:** Admin enters the minimum required identity fields, selects only permitted roles and scopes, and provisions the user through the supported Neon Auth + PKE identity mapping flow. Public sign-up remains disabled. Never store or email a plaintext password; use a secure one-time activation/password-set flow supported by the actual auth provider, or a controlled admin-set temporary credential requiring immediate change if the provider's supported workflow requires it. Do not claim an email activation flow unless delivery and token redemption are supported and verified.
+3. **Activate user:** an authorized Admin can activate an eligible provisioned/inactive account. Activation must verify the Auth identity and PKE application identity mapping, assign only explicitly selected least-privilege role/scope, record actor/time/reason, and make the user eligible to sign in.
+4. **Deactivate user:** an authorized Admin can deactivate/suspend an account, prevent new authenticated application access, revoke/invalidate active sessions/tokens where supported, preserve audit history and business records, and prevent deactivated users from being reactivated through public routes. Deactivation must not delete the user, ownership history, audit events, or business records.
+5. **Reactivate user:** an authorized Admin can reactivate a previously deactivated account after explicit confirmation and audit reason, re-checking role/scope and identity mapping.
+6. **Role/scope changes:** Admin-only, least privilege, validated against the existing role/permission/project schema; never allow self-escalation or arbitrary role names.
+7. **Audit trail:** record who created, activated, deactivated, reactivated, or changed a user's role/scope, with timestamp, target identity, action, reason and outcome. Do not log passwords, activation secrets, reset tokens, or session tokens.
+8. **Authorization:** every write action is protected server-side by authenticated Admin authorization; frontend hiding is not a security control. Non-admin attempts must be denied. All user queries and mutations must use the existing schema and transaction-scoped identity/RLS context.
+9. **Failure safety:** partial provisioning must be recoverable/idempotent. If Auth creation succeeds but PKE mapping fails, user must remain unable to access application resources until the mapping and role/scope are consistent. Fail closed; never show a false success.
+10. **Account recovery:** Admin may initiate a secure password reset/recovery workflow. Email delivery is a provider-dependent capability and must be represented honestly; the core Admin create/activate/deactivate workflow must not depend on shared-provider SMTP test email.
+
+### F0 acceptance criteria update
+- Remove the shared-provider SMTP test-email failure as an F0 blocker. The attempted send to `koenbroto@gmail.com` returned `INVALID_EMAIL_PROVIDER_TYPE`; this is recorded only as provider capability evidence, not a product acceptance failure.
+- Public self-registration email/OTP lifecycle and automated invitation delivery are **NOT REQUIRED / OUT OF SCOPE** for F0.
+- Admin-controlled create/provision, activate, deactivate, reactivate, role/scope assignment, session invalidation, audit trail, and non-admin denial are **REQUIRED**. These must be verified from actual Dashboard UI → API → Neon Auth/PKE identity mapping → authorization/session behavior. Static presence of route names or UI controls alone is insufficient.
+- Authenticated Admin sign-in/session validation remains required. OTP/email delivery for user self-registration is not required. If provider policy requires email verification for newly provisioned accounts, the implementation must provide a secure, owner-operable activation path without enabling public sign-up or representing untested delivery as PASS.
+- No SMTP provider, credentials, Neon Auth configuration, Production user, or Production identity mapping was changed as part of this owner decision.
+
+### Status
+**Owner decision: ACCEPTED.** The previous email-delivery blocker is waived for public registration/invitation. The Admin Dashboard user lifecycle is a mandatory implementation/acceptance item; until its full UI/API/security behavior is evidenced, mark that capability PARTIAL or NOT VERIFIED and keep F0 open.

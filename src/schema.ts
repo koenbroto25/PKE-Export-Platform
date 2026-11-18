@@ -67,7 +67,7 @@ export const role_permissions = pgTable("role_permissions", {
 
 export const projects = pgTable("projects", {
   id: uuid("id").defaultRandom().primaryKey(),
-  contract_program_id: uuid("contract_program_id").references(() => contract_programs.id, { onDelete: "set null" }),
+  contract_program_id: uuid("contract_program_id"),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").notNull().default("draft"),
@@ -139,7 +139,7 @@ export const pks_sites = pgTable("pks_sites", {
 
 export const contracts = pgTable("contracts", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  project_id: uuid("project_id"),
   buyer_id: uuid("buyer_id").notNull().references(() => buyers.id, { onDelete: "cascade" }),
   code: text("code").notNull(),
   name: text("name").notNull(),
@@ -152,11 +152,11 @@ export const contracts = pgTable("contracts", {
 
 export const contract_programs = pgTable("contract_programs", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  project_id: uuid("project_id"),
   name: text("name").notNull(),
   description: text("description"),
   buyer_id: uuid("buyer_id").references(() => buyers.id, { onDelete: "set null" }),
-  contract_id: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
+  contract_id: uuid("contract_id"),
   settlement_unit: text("settlement_unit").notNull(),
   target_quantity: numeric("target_quantity", { precision: 15, scale: 2 }).notNull(),
   cadence: text("cadence").notNull(),
@@ -168,8 +168,8 @@ export const contract_programs = pgTable("contract_programs", {
 
 export const cycle_policies = pgTable("cycle_policies", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  contract_program_id: uuid("contract_program_id").notNull().references(() => contract_programs.id, { onDelete: "cascade" }),
+  project_id: uuid("project_id"),
+  contract_program_id: uuid("contract_program_id").notNull(),
   cadence: text("cadence").notNull(),
   target_quantity: numeric("target_quantity", { precision: 15, scale: 2 }),
   generation_mode: text("generation_mode").notNull(),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   REQUIRED_RUNTIME_ROLE,
+  normalizePostgresSslMode,
   roleFromDatabaseUrl,
   validateRuntimeRoleState,
   type RuntimeRoleState,
@@ -41,6 +42,25 @@ describe("Revision 028 runtime database guard", () => {
       REQUIRED_RUNTIME_ROLE,
     );
     expect(problems).toContain("Runtime role cannot execute the verified Neon Auth identity resolver.");
+  });
+
+  it("normalizes legacy PostgreSQL SSL aliases to the current strict behavior", () => {
+    const normalized = new URL(normalizePostgresSslMode(
+      "postgresql://app_runtime_secure:secret@host.example/db?sslmode=require&application_name=pke",
+    ));
+    expect(normalized.searchParams.get("sslmode")).toBe("verify-full");
+    expect(normalized.searchParams.get("application_name")).toBe("pke");
+  });
+
+  it("preserves explicit verify-full and URLs without an SSL alias", () => {
+    const strict = normalizePostgresSslMode(
+      "postgresql://app_runtime_secure:secret@host.example/db?sslmode=verify-full",
+    );
+    const noAlias = normalizePostgresSslMode(
+      "postgresql://app_runtime_secure:secret@host.example/db?application_name=pke",
+    );
+    expect(new URL(strict).searchParams.get("sslmode")).toBe("verify-full");
+    expect(new URL(noAlias).searchParams.has("sslmode")).toBe(false);
   });
 
   it("reads the role name without exposing connection credentials", () => {

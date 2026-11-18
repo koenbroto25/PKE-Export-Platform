@@ -84,10 +84,12 @@ describe("Admin-managed global user lifecycle contract", () => {
   });
 
   it("does not persist or log the one-time temporary password in browser storage", () => {
+    const factoryStart = APP.indexOf("const makeTemporaryPassword");
     const start = APP.indexOf("const createAccount");
     const end = APP.indexOf("const updateGlobalStatus", start);
+    const factory = APP.slice(factoryStart, start);
     const block = APP.slice(start, end);
-    expect(block).toContain("window.crypto.getRandomValues");
+    expect(factory).toContain("window.crypto.getRandomValues");
     expect(block).toContain("setTemporaryCredential({ email, password: temporaryPassword })");
     expect(APP).toContain("Password sementara — tampil satu kali");
     expect(block).not.toMatch(/localStorage|sessionStorage|console\.(log|info|debug)/);

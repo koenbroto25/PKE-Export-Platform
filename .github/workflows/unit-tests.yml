@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install root dependencies
+      - name: Install root dependencies (refreshed lockfiles)
         run: npm ci --include=dev --no-audit
       - name: Run offline security and unit tests
         run: npm test

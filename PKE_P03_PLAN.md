@@ -227,3 +227,5 @@
 - Corrected the regression-test regex after source review. Latest relevant source commits: migration fix `043d0451f3a6bf76315b28bf116f8b20e3965909`, tests `dbd8bffbb6d2c714a49d6ad2358078e62669ea79` and regex correction `c33f54d9c77ec1038f7b9d62c2d4cc6636e33ef0`.
 - GitHub Actions workflow runs remain unreturned for this PR head; combined commit status reports only Vercel build-rate-limit failure. Vitest and TypeScript build are UNVERIFIED.
 - Production remains at Migration 038; no Production DDL/DML has been applied. Revised Migration 039 still requires final SQL SHA-256 calculation and separate explicit Production approval. F1 remains IN PROGRESS.
+
+- Final revised Migration 039 SQL SHA-256 (computed from the exact GitHub file bytes via PostgreSQL SHA-256 digest on the isolated validation branch): `2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168`. This is a candidate hash for owner review only; Migration 039 is NOT applied to Production.

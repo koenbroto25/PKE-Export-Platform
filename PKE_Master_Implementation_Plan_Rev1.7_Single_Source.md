@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.17 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.18 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.17 (18 November 2026 — Preview build pipeline and dependency hardening)  
+**Revision:** 2.18 (18 November 2026 — full Preview build-gate revalidation)  
 
 **Tanggal dokumen:** 11 November 2026  
 
@@ -7508,7 +7508,7 @@ This project-level setting affects future Preview and Production builds but does
 | Recovery-branch lockfiles | PASS | Both lockfiles regenerated; Preview READY. |
 | Unit tests | PASS | 60/60 tests passed on the latest lockfile tree. |
 | Frontend build | PASS | Preview READY; Vite 6.4.6 build completed. |
-| Vercel build pipeline | PENDING REVALIDATION | Project Build Command now aligned; next Preview must prove audit + tests + API typecheck + frontend build. |
+| Vercel build pipeline | PASS (Preview only) | Project Build Command aligned and all chained commands completed successfully on Preview commit ec8ae02. |
 | Dependency advisories | OPEN | Latest install reports 5 high; exact current audit breakdown pending the aligned build. |
 | Neon Auth regression | NOT VERIFIED | No sign-in, sign-out, invitation, OTP, reset, or session lifecycle test performed. |
 | RLS and authenticated grants | PARTIAL / HARDENING REQUIRED | Catalogue evidence from Section 52; no GRANT/REVOKE performed. |
@@ -7517,3 +7517,54 @@ This project-level setting affects future Preview and Production builds but does
 | Backup/restore | BLOCKED | Automatic schedule and restore proof absent. |
 
 F0 remains IN PROGRESS / NOT CLOSED. This section records GitHub recovery-branch package/lockfile changes and one Vercel project Build Command setting only. No Neon SQL, DDL, DML, migration, Auth, storage, Production business data, or Production deployment mutation was performed.
+
+
+---
+
+# 54. Full Vercel build-gate revalidation (18 November 2026)
+
+## 54.1 Project-level command now enforced and proven
+The Vercel project-level Build Command was updated to:
+`node scripts/audit-dependencies.mjs && npm test && tsc -p api/tsconfig.json && npm run frontend:build`.
+
+The next Preview deployment proves the aligned project setting is effective:
+- Deployment: `dpl_A3JHF5sgpWhBYBsckZMKGjCnGZvh`.
+- Commit: `ec8ae02ec3191eaa69e0f6eca0f27706908966f1`.
+- State: `READY` (Preview, target null).
+- Vercel build event: `Build Completed in /vercel/output [29s]`.
+- Root audit reporter executed and reported exact current package-level results below.
+- `npm test`: 2 test files passed, 60/60 tests passed.
+- `tsc -p api/tsconfig.json` is part of the successful chained Build Command; no TypeScript error was emitted.
+- `npm run frontend:build` completed with Vite 6.4.6 and the deployment reached READY.
+- GitHub Actions Unit Tests run `44236992713` on the same commit completed SUCCESS.
+
+## 54.2 Current dependency advisory report
+The full audit reporter ran with development dependencies included:
+- Root workspace: 6 high-severity package findings; 0 critical, 0 moderate, 0 low.
+- Frontend workspace: 5 high-severity package findings; 0 critical, 0 moderate, 0 low.
+- These are not 11 distinct advisories. The affected package chain resolves to the same underlying Picomatch advisory `GHSA-fc5q-39xc-vjpf`, propagated through `picomatch`, `fdir`, `tinyglobby`, Vite, and Vitest / the React Vite plugin.
+- The advisory affects Picomatch versions through 4.0.7 and does not currently identify a patched release. The npm registry version listing still shows 4.0.7 as latest. <Cite refs="turn380934search0;turn380934search2;turn380934search4" />
+- The attempted Vite 6.2.7 workaround was reverted because it introduced older Vite advisory findings; Vite 6.4.6 was retained. The earlier critical Tinypool findings disappeared after returning to Vitest 4.1.12; the current lockfile contains no Tinypool package entry.
+- The remaining Picomatch finding is in the build/development toolchain; it is not evidence that the production API imports or executes Picomatch. Keep it OPEN and require explicit risk acceptance or a vendor patch before declaring dependency security fully PASS. Do not use `npm audit fix --force` or downgrade to a version with known older advisories.
+
+## 54.3 Current verified state
+- Latest Recovery Preview deployment `dpl_A3JHF5sgpWhBYBsckZMKGjCnGZvh`: READY.
+- Latest Preview commit contains the full single-source Master Plan update; no merge to `main`.
+- GitHub Unit Tests: SUCCESS, 60/60.
+- Vercel project Build Command: aligned with repository `vercel.json`; audit reporter, unit tests, backend API TypeScript check, and frontend build all completed within the successful Preview build.
+- Production deployment remains unchanged and has not been redeployed or promoted.
+- Neon Production branch/database/schema/data, Auth configuration, private bucket, snapshots and roles were not modified.
+
+## 54.4 Remaining F0 blockers
+| Area | Status | Next permitted action |
+|---|---|---|
+| Picomatch advisory | OPEN / NO PATCH IDENTIFIED | Monitor upstream patched release or document owner-approved temporary risk acceptance; do not silently suppress. |
+| Auth lifecycle | PARTIAL | Approved test account / owner-supervised lifecycle test required; no real invitation sent. |
+| RLS semantics | PARTIAL | Continue read-only helper and policy mapping; real two-principal isolation test requires approved test identities. |
+| Authenticated table grants | HARDENING REQUIRED | Prepare exact revoke/default-privilege SQL for owner review; do not apply without explicit SQL approval. |
+| Storage | PARTIAL | Provider round-trip and cross-project denial require owner-approved non-business-data fixture. |
+| Protected API smoke | NOT VERIFIED | Requires approved access to protected Preview/Production endpoint; do not copy Production secrets to Preview. |
+| Backup/restore | BLOCKED | Owner-approved recovery design and non-production restore target required; no new branch/database/project may be created. |
+| Production runtime NODE_ENV | PENDING NEXT APPROVED DEPLOYMENT | `NODE_ENV=production` is configured for Preview and Production, but current Production deployment snapshot remains unchanged. |
+
+F0 remains IN PROGRESS / NOT CLOSED. A successful Preview build is not Production acceptance. No Production deployment, database mutation, migration, Auth change, storage object write, business data creation, or merge to `main` occurred in this section.

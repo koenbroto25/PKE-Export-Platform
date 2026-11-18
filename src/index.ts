@@ -345,7 +345,10 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
               pr.role_code AS project_role_code,
               pr.name AS project_role_name,
               pm.is_active,
-              pm.joined_at
+              pm.joined_at,
+              pm.expires_at,
+              pm.deactivated_at,
+              p.is_active AS project_is_active
          FROM project_members pm
          LEFT JOIN projects p ON p.id = pm.project_id
          LEFT JOIN role_catalog rc ON rc.id = pm.role_id
@@ -382,6 +385,8 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
 
     const activeMemberships = memberships.filter((m: any) =>
       m.is_active === true &&
+      m.deactivated_at == null &&
+      m.project_is_active === true &&
       (!m.expires_at || new Date(m.expires_at).getTime() > Date.now())
     );
     const portalAccess = req.user.isAdmin
@@ -2212,7 +2217,7 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
     const after = rows[0];
     const action = isActive === false
       ? "project_member.deactivated"
-      : isActive === true && before.is_active !== true
+      : isActive === true && (before.is_active !== true || before.deactivated_at != null)
         ? "project_member.reactivated"
         : projectRoleId !== undefined
           ? "project_member.role_changed"

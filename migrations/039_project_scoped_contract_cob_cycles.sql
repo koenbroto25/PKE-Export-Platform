@@ -3,6 +3,7 @@
 -- until explicitly associated with a Project by an authorized Project Manager.
 ALTER TABLE public.contracts
   ADD COLUMN IF NOT EXISTS project_id uuid;
+ALTER TABLE public.projects ALTER COLUMN contract_program_id DROP NOT NULL;
 ALTER TABLE public.contracts
   ADD CONSTRAINT contracts_project_id_fkey
   FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
@@ -28,6 +29,7 @@ ALTER TABLE public.payment_obligations
   ADD CONSTRAINT payment_obligations_shipment_project_fkey
   FOREIGN KEY (project_id, shipment_id)
   REFERENCES public.shipments(project_id, id) ON DELETE RESTRICT;
+CREATE UNIQUE INDEX IF NOT EXISTS contract_programs_one_per_project_unique ON public.contract_programs(project_id) WHERE project_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS payment_obligations_project_shipment_unique
   ON public.payment_obligations(project_id, shipment_id)
   WHERE shipment_id IS NOT NULL;
@@ -36,6 +38,7 @@ ALTER TABLE public.payment_obligations
   CHECK (payment_status <> 'paid' OR amount_paid = amount);
 
 -- Contracts, programs and cycles are Project business data, not platform-global Admin data.
+DROP POLICY IF EXISTS pke_admin_all ON public.payment_obligations;
 DROP POLICY IF EXISTS pke_admin_all ON public.contracts;
 DROP POLICY IF EXISTS pke_contracts_select ON public.contracts;
 CREATE POLICY pke_contracts_project_select ON public.contracts

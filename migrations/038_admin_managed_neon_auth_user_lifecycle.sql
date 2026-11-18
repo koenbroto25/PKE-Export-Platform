@@ -36,6 +36,38 @@ BEGIN
 END;
 $function$;
 
+
+CREATE OR REPLACE FUNCTION public.pke_admin_get_user(
+  p_user_id uuid
+)
+RETURNS TABLE (
+  user_id uuid,
+  email text,
+  name text,
+  role text,
+  is_active boolean,
+  neon_auth_user_id uuid,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $function$
+BEGIN
+  IF NOT public.pke_is_platform_admin() THEN
+    RAISE EXCEPTION 'platform admin required' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+    SELECT u.id, u.email, u.name, u.role::text, u.is_active,
+           u.neon_auth_user_id, u.created_at, u.updated_at
+      FROM public.users AS u
+     WHERE u.id = p_user_id
+     LIMIT 1;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.pke_admin_provision_user(
   p_email text,
   p_name text,
@@ -287,11 +319,13 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.pke_admin_list_users(integer, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.pke_admin_get_user(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_admin_provision_user(text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_link_neon_auth_identity_from_webhook(uuid, text, text, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_admin_set_user_active(uuid, boolean, text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.pke_admin_list_users(integer, integer) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_admin_get_user(uuid) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_admin_provision_user(text, text, text) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_link_neon_auth_identity_from_webhook(uuid, text, text, uuid) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_admin_set_user_active(uuid, boolean, text) TO app_runtime_secure;

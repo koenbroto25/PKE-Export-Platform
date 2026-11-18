@@ -220,12 +220,17 @@ app.post("/api/v1/webhooks/neon-auth", async (req: express.Request, res: express
     return res.status(401).json({ error: "Invalid Neon Auth webhook." });
   }
 
-  if (verified.eventType !== "user.created") {
+  const isBeforeCreate = verified.eventType === "user.before_create";
+  const isCreated = verified.eventType === "user.created";
+  if (!isBeforeCreate && !isCreated) {
     return res.status(202).json({ ok: true, ignored: true });
   }
 
   const authUser = verified.payload.user as Record<string, unknown> | undefined;
   if (!authUser || typeof authUser.id !== "string" || typeof authUser.email !== "string") {
+    if (isBeforeCreate) {
+      return res.status(200).json({ allowed: false, error_message: "Invalid account creation payload.", error_code: "INVALID_AUTH_USER" });
+    }
     return res.status(400).json({ error: "Neon Auth user-created payload is incomplete." });
   }
 
@@ -234,9 +239,21 @@ app.post("/api/v1/webhooks/neon-auth", async (req: express.Request, res: express
       "SELECT * FROM public.pke_link_neon_auth_identity_from_webhook($1::uuid, $2::text, $3::text, $4::uuid)",
       [authUser.id, authUser.email, typeof authUser.name === "string" ? authUser.name : null, verified.eventId],
     );
+    if (isBeforeCreate) {
+      // Blocking gate: no Auth account may be created unless Admin pre-provisioned its PKE identity.
+      return res.status(200).json({ allowed: true });
+    }
     return res.status(200).json({ ok: true, linkState: rows[0]?.link_state || "processed" });
-  } catch (error) {
-    logger.error("Neon Auth webhook identity synchronization failed:", error);
+  } catch (error: any) {
+    const code = typeof error?.code === "string" ? error.code : "";
+    logger.error("Neon Auth webhook identity synchronization failed:", { code });
+    if (isBeforeCreate && ["P0002", "23505", "23514"].includes(code)) {
+      return res.status(200).json({
+        allowed: false,
+        error_message: "Akun harus diprovisikan terlebih dahulu oleh Admin PKE.",
+        error_code: "PKE_ADMIN_PROVISION_REQUIRED",
+      });
+    }
     return res.status(503).json({ error: "PKE identity synchronization is temporarily unavailable." });
   }
 });

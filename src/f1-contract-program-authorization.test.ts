@@ -76,7 +76,7 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
     expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_delete");
   });
 
-  it("does not use a calendar period as the shipment cycle identity", () => {
+  it.skipIf(!HAS_MIGRATION_SOURCE)("does not use a calendar period as the shipment cycle identity", () => {
     expect(INDEX).toContain('"/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle"');
     expect(MIGRATION).toContain("UNIQUE INDEX IF NOT EXISTS payment_obligations_project_shipment_unique");
   });

@@ -6,7 +6,7 @@ const workspaces = [
 ];
 
 for (const workspace of workspaces) {
-  const result = spawnSync("npm", ["audit", "--json"], {
+  const result = spawnSync("npm", ["audit", "--include=dev", "--json"], {
     cwd: workspace.cwd,
     encoding: "utf8",
     maxBuffer: 20 * 1024 * 1024,

@@ -7330,3 +7330,40 @@ A forward-only candidate has been added on the recovery branch:
 - Neon Production: read-only SQL backtest only; no DDL/DML, GRANT/REVOKE, migration, Auth, storage, snapshot schedule or restore mutation.
 - Secrets: no value read, decrypted, displayed or re-entered.
 - Overall: F0 remains IN PROGRESS / NOT CLOSED; Migration 036 remains CLOSED & FINAL.
+
+
+---
+
+# 50. Vercel Preview build failure remediation (18 November 2026)
+
+## 50.1 Email and commit investigation
+Owner supplied Vercel email notification: Preview deployment failed on branch `phase0/reconcile-source-20261117`, commit `22aff1fb52d1ae419235c3c4e60308f555236a85`, with:
+`Command "tsc -p api/tsconfig.json && npm run frontend:build" exited with 127`.
+
+The exact commit diff was inspected. It only expands the root `npm test` script to include `src/storage-fx-gl.test.ts`; it does not alter TypeScript dependencies or the Vercel build command. At that commit:
+- Root `typescript` and `vitest` are in `devDependencies`.
+- Root Vercel install command was `npm ci && npm --prefix frontend ci`.
+- Vercel build command invokes `tsc` from the root, and the current build config also runs `npm test` first.
+- Exit code 127 means the shell could not find the `tsc` executable. The immediate failure is missing build-time tooling, not a reported TypeScript source diagnostic.
+
+## 50.2 Corrective change
+Updated existing `vercel.json` on the recovery branch:
+- Before: `npm ci && npm --prefix frontend ci`
+- After: `npm ci --include=dev && npm --prefix frontend ci --include=dev`
+- This explicitly installs root and frontend development dependencies even if the build environment sets `NODE_ENV=production`.
+- Existing build command remains `npm test && tsc -p api/tsconfig.json && npm run frontend:build`, so unit tests, backend typecheck and frontend build are all required to pass.
+- Commit: `324263cdc60244f8d29abd47a16f2ae2017a1c8a`.
+- No application business logic, database SQL, migration, Neon configuration, or Production Vercel deployment was changed.
+
+## 50.3 Verification status and next gate
+The configuration correction is committed but a successful Preview build for commit `324263cdc60244f8d29abd47a16f2ae2017a1c8a` must be observed before marking this item PASS. After deployment becomes READY:
+1. Inspect Vercel build events and verify the root `npm test` command completed successfully.
+2. Verify `tsc -p api/tsconfig.json` and `npm run frontend:build` both completed successfully.
+3. Run read-only Preview endpoint smoke tests; do not inject Production credentials into Preview.
+4. Re-run Production health and approved authenticated API smoke checks separately.
+5. Do not merge to `main`, promote Preview, or redeploy Production as part of this correction.
+
+## 50.4 Safety record
+Only `vercel.json` was changed in this correction commit. No Neon query/write, SQL migration, grant, role, Auth, storage, environment secret, or Production deployment action was performed. The earlier Development-only `NODE_ENV` scope correction remains as recorded in Section 49.
+
+F0 remains IN PROGRESS / NOT CLOSED pending actual successful build evidence and remaining security, Auth, storage, HTTP and recovery acceptance.

@@ -6703,6 +6703,7 @@ Cline appends one concise dated entry per session to the table below. Keep newes
 
 | Date | Work package | Changes performed | Verification/evidence | Production mutation | Status / blockers | Next action |
 |---|---|---|---|---|---|---|
+| 2026-11-18 | F0.05 RLS behavior smoke + Admin lifecycle contract CI | Read-only behavioral tests on Neon validation branch using login role app_runtime_secure and transaction-local identity context. Added src/admin-user-lifecycle.contract.test.ts and included it in npm test; corrected test selectors after first CI run exposed brittle source matching. | Validation branch: platform Admin context returned pke_is_platform_admin=true and saw 1 user; synthetic non-admin context returned false and saw 0 users; no-context returned false/null and saw 0 users. Projects and project_members are empty, so tenant isolation on real project rows remains unproven. Temporary validation-only role membership grant was revoked; no Production changes. First new CI attempt failed because assertions matched route path without route prefix and regex crossed unrelated browser sessionStorage. Corrective commit d0c763bb9bbd16be91c26dc04421d6bfbddcfbc8 awaiting CI at ledger update time. Prior CI baseline run 44300780079 remains SUCCESS. | NONE — read-only Production untouched; validation branch only used for identity-context reads, temporary grant added/revoked. | RLS behavioral result PARTIAL PASS: verifies helper context and users table visibility boundary, but no synthetic project/business rows and no second real user exist. Admin lifecycle code contract tests are being hardened; actual provider SDK/webhook/session workflow still blocked by no authenticated Admin session. | Verify CI on corrective commit; then run Admin lifecycle contract tests and build Preview. Request Admin session to test create/link/activate/deactivate/session revoke. |
 | 2026-11-18 | F0 documentation release confirmation | Finalized canonical plan addenda and verified documentation-only release. | GitHub Actions run 44301252306 for commit 6a97eababf2a19332611b702c1360fab1bb7703c SUCCESS. Vercel Preview deployment dpl_JC1gL225nxzqTp1CMopdvyvqSU8k READY for the same commit; latest recovery branch now has a READY Preview. | NONE. | No change to remaining F0 blockers. | Continue only on authenticated Admin workflow and provider/owner-dependent gates; do not alter Production without approval. |
 | 2026-11-18 | F0 latest Preview and historical migration source recovery check | Verified latest application-code Preview after migration runner/CI changes; checked GitHub history and all current branches for authentic migration SQL 029-035. | Preview deployment dpl_FE618FggcSZ5vAdopgwbvm5s1Sqq for commit f6353190537fa32ba7b866be3a768f2e885ce8d9 is READY; root GET 200 and /api/v1/health 200/database connected/environment=production. Protected Admin API paths still blocked by Vercel deployment auth. GitHub path history for each 029-035 returned zero commits; only three branches exist and none has authentic 029-035 files. | NONE. | F0 remains OPEN. CI for f635319 is green; later documentation-only commit cc2315fb6442551163b9454f2e8a7983e5e2c963 is queued for CI/Preview. Authentic SQL source for 029-035 cannot be recovered from current Git history/branches. | Keep Migration 038 gated; complete Admin-session tests and obtain owner approval for Production redeploy; request Neon enablement for automatic snapshots. |
 | 2026-11-18 | F0 final verification addendum — migration runner CI and environment chronology | Added explicit CI execution of npm run migrate:dry-run; updated Section 55.16 with final test results and Vercel environment chronology. | GitHub Actions run 44300780079 for commit f6353190537fa32ba7b866be3a768f2e885ce8d9: SUCCESS; 72 tests, verified Production migration ledger, migration runner dry-run (no DB connection), and backend API typecheck all passed. Vercel Preview deployment dpl_FE618FggcSZ5vAdopgwbvm5s1Sqq for the same commit was BUILDING at this check; prior app-code Preview dpl_6SZVr69GBCPKJCYTTP5R4cifdc9A READY. NODE_ENV Vercel variable value is production; updated 2026-11-18T03:57:57Z, after Production deployment dpl_AzF9eP7HS6Yec82nEwEUSKDFdcDg was created 2026-11-17T09:57:46Z. This explains why current Production health still reports development; a new Production deployment is required to pick up the updated variable. | NONE — no Production deployment or migration. | Migration runner verification is green. Preview deployment for workflow-only commit is still building at check time. Production runtime configuration remains stale; protected API tests require authorized Vercel access and an Admin Auth session. Automatic backup schedule remains provider-disabled. | Wait for latest Preview build to finish; obtain explicit owner authorization before Production redeploy; complete authenticated Admin SDK/webhook and session tests when Admin session is available. |
@@ -8086,3 +8087,46 @@ Neon official guidance for Managed Better Auth Admin APIs requires requests from
 - Vercel Preview deployment dpl_JC1gL225nxzqTp1CMopdvyvqSU8k for the same commit is **READY**. This is the latest Preview deployment on phase0/reconcile-source-20261117.
 - This commit is documentation-only; it does not alter application code, Neon configuration, or Production.
 - All previously recorded F0 blockers remain unchanged. **F0 is not closed.**
+
+
+## 55.20 F0.05 RLS behavior smoke and Admin lifecycle contract coverage — 18 November 2026
+
+### A. Validation-branch RLS behavior
+
+Executed against temporary validation branch br-soft-fog-b3zi4c2x, using the actual login role app_runtime_secure (not database owner) and transaction-local app.current_user_id / app.current_role:
+- Existing Admin principal f84039cb-1fa4-41e8-a9e1-34035629d9da: pke_is_platform_admin() = true; public.users visible rows = 1.
+- Synthetic non-admin principal 00000000-0000-4000-8000-000000000001: pke_is_platform_admin() = false; public.users visible rows = 0.
+- Missing context: pke_current_user_id() = NULL, pke_is_platform_admin() = false; visible users = 0.
+- All three contexts used app_runtime_secure; no owner/BYPASSRLS role was used for the read assertions.
+- projects and project_members currently contain zero rows on the validation branch. Therefore the test proves fail-closed identity-context behavior and Admin-vs-non-Admin visibility for the users relation, but it does not prove cross-project isolation on actual business rows.
+- A temporary validation-only role membership grant used to diagnose role switching was revoked immediately after the read tests. No Production grants, data, or schema were changed.
+
+**Result:** F0.05 advances from catalog-only to PARTIAL PASS; full two-user/two-project data isolation remains unproven until a disposable fixture or real authorized test users/projects are available.
+
+### B. Admin lifecycle code contracts
+
+Added src/admin-user-lifecycle.contract.test.ts and wired it into the root npm test command. Coverage includes:
+1. Authenticated Admin guard on user directory.
+2. Provisioning fail-closed flags and DB provisioning function.
+3. Signed Neon Auth webhook before-create allow-list and created-event identity linking.
+4. Admin-only global activation and SQL eligibility/audit checks.
+5. Neon Auth Admin SDK create/ban/unban/session-revocation calls.
+6. PKE-first deactivation ordering, then Auth ban and session revocation.
+7. Auth unban before PKE reactivation.
+8. Separation of project membership/role from global account status.
+9. One-time temporary password is generated with browser crypto, displayed once, and not written to browser storage or logged in the provisioning handler.
+10. Admin password reset calls provider reset request, not a server-side password setter.
+
+Initial CI run 44303617548 failed because several assertions searched for app.get/app.post after the helper had sliced from the route path, and a storage assertion scanned the entire frontend file and matched unrelated session-storage usage. These were test defects, not runtime defects. Corrected in commit d0c763bb9bbd16be91c26dc04421d6bfbddcfbc8; CI run 44303765967 must be confirmed before marking the new tests green. The earlier migration policy + dry-run + 72-test CI run 44300780079 remains SUCCESS.
+
+### C. Remaining F0 blockers unchanged
+
+- Authenticated Admin SDK create-user, signed webhook link, sign-in, activate/deactivate, ban/unban, and session revocation cannot be honestly marked PASS without an authenticated Neon Auth Admin session. Do not fabricate or reset credentials.
+- The Admin SDK operations are designed in the current browser Admin session using Neon-supported Admin methods; public self-signup remains disabled. First Neon Auth Admin role must be assigned in Neon Console.
+- Automatic Neon snapshot scheduling remains unavailable at provider level ("backup schedule creation is not enabled for this project").
+- Vercel secret-variable visibility cannot be changed through the available edit action: API rejects type=sensitive unless visibility=secret, but the connector schema does not expose visibility. No values were read or altered.
+- Protected application endpoints still cannot be fetched through the current Vercel Deployment Protection share-link path; the fetch tool itself returns deployment-authentication-required before the application.
+- Production deployment still needs an explicit separate owner authorization to rebuild/promote after the NODE_ENV=production variable update. No Production deployment occurred.
+- Picomatch advisory and authentic SQL recovery for historical 029–035 remain open/not resolved by this continuation.
+
+**F0 remains IN PROGRESS / NOT CLOSED.**

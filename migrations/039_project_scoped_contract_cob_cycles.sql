@@ -58,11 +58,11 @@ CREATE POLICY pke_contracts_project_select ON public.contracts
   USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'contract.view'));
 CREATE POLICY pke_contracts_project_insert ON public.contracts
   FOR INSERT TO app_runtime_secure
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
+  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 CREATE POLICY pke_contracts_project_update ON public.contracts
   FOR UPDATE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'))
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
+  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
+  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 
 DROP POLICY IF EXISTS pke_admin_all ON public.contract_programs;
 DROP POLICY IF EXISTS pke_contract_programs_select ON public.contract_programs;
@@ -71,11 +71,11 @@ CREATE POLICY pke_contract_programs_project_select ON public.contract_programs
   USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'contract.view'));
 CREATE POLICY pke_contract_programs_project_insert ON public.contract_programs
   FOR INSERT TO app_runtime_secure
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
+  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 CREATE POLICY pke_contract_programs_project_update ON public.contract_programs
   FOR UPDATE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'))
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
+  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
+  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 
 DROP POLICY IF EXISTS pke_admin_all ON public.cycle_policies;
 DROP POLICY IF EXISTS pke_cycle_policies_select ON public.cycle_policies;
@@ -84,8 +84,8 @@ CREATE POLICY pke_cycle_policies_project_select ON public.cycle_policies
   USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'contract.view'));
 CREATE POLICY pke_cycle_policies_project_insert ON public.cycle_policies
   FOR INSERT TO app_runtime_secure
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
+  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 CREATE POLICY pke_cycle_policies_project_update ON public.cycle_policies
   FOR UPDATE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'))
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
+  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
+  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));

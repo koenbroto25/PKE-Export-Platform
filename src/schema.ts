@@ -82,13 +82,40 @@ export const projects = pgTable("projects", {
   export_country_code: text("export_country_code"),
 });
 
+export const project_roles = pgTable("project_roles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  project_id: uuid("project_id").notNull().references(() => projects.id),
+  role_code: text("role_code").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  is_active: boolean("is_active").notNull().default(true),
+  created_by: uuid("created_by").references(() => users.id),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const project_members = pgTable("project_members", {
   id: uuid("id").defaultRandom().primaryKey(),
   project_id: uuid("project_id").notNull().references(() => projects.id),
   user_id: uuid("user_id").notNull().references(() => users.id),
   role_id: uuid("role_id").references(() => role_catalog.id),
-  joined_at: timestamp("joined_at").defaultNow(),
-  is_active: boolean("is_active").default(true),
+  project_role_id: uuid("project_role_id").references(() => project_roles.id),
+  joined_at: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  is_active: boolean("is_active").notNull().default(true),
+  expires_at: timestamp("expires_at", { withTimezone: true }),
+  deactivated_at: timestamp("deactivated_at", { withTimezone: true }),
+  deactivated_by: uuid("deactivated_by").references(() => users.id),
+  invited_at: timestamp("invited_at", { withTimezone: true }),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const project_role_permissions = pgTable("project_role_permissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  project_id: uuid("project_id").notNull().references(() => projects.id),
+  project_role_id: uuid("project_role_id").notNull().references(() => project_roles.id),
+  permission_id: uuid("permission_id").notNull().references(() => permissions.id),
+  granted_by: uuid("granted_by").references(() => users.id),
+  granted_at: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const buyers = pgTable("buyers", {

@@ -128,3 +128,12 @@
 - **PASS — separate identities:** identity A saw only Project A; identity B saw only Project B; neither could view the other project or Project C.
 - Fixture cleanup verified: lifecycle account returned to `users.is_active=false`; Project A membership returned to `is_active=true, deactivated_at=NULL`; Project C remains inactive. No Production rows were changed.
 - **Cross-project role authorization blockers: none found in this backtest.** This verifies database RLS/function behavior on the isolated branch; it does not by itself prove every frontend/API role-switch workflow end-to-end.
+
+
+## Vercel build verification loop — 2026-11-19
+- Re-read `api/tsconfig.json` on both `main` and `phase0/reconcile-source-20261117`: both contain `module: ESNext`, `moduleResolution: Bundler`, `types: ["node"]`, and `typeRoots: ["../node_modules/@types"]`. No further source revision was indicated by the successful preview build.
+- Existing preview deployment `dpl_B3S4kwPYbS5U1WiZoorGPFNpxQwx`, commit `8229f8768d8b7e753afb569594beacc7f132657b`, reached `READY`. Build log confirms `tsc -b && vite build`, frontend Vite build completed, and deployment completed. No TS2688 error appears in the returned build log; build has non-fatal bundle-size and package-install warnings.
+- Attempted a fresh preview build for latest documentation commit `9fa6b5f9a7c97312c6056bfc46e40aec3f2824ce`; Vercel rejected creation with HTTP 402 `api-deployments-free-per-day`, retry-after 86400 seconds. This is an external Vercel daily API deployment quota, not a source/build failure. GitHub Vercel status for this commit likewise reports `build-rate-limit`.
+- Production remains on `dpl_4wYnKdHY1X9aLHsBJqBsDXhoXEDv` / commit `39409a309abbed6abfa05bfa7b01812c5c8a79cc`; no promotion or Production traffic change was performed. Existing preview build proves the TS config fix compiles in Vercel preview, but a fresh latest-commit / Production deployment verification is still pending quota availability.
+- No code change was justified by the successful preview build. Do not change dependencies or TypeScript settings without a reproduced build failure.
+- **Current loop result:** preview build verification PASS; latest deployment attempt BLOCKED by Vercel account daily deployment quota. F0 final deployment verification cannot be marked complete until a fresh deployment can be built and verified. No Production database writes were made.

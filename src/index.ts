@@ -697,6 +697,41 @@ app.post("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res
   }
 });
 
+// Cash on Board: exactly one payment obligation per shipment and Project.
+app.post("/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, shipmentId } = req.params;
+  const { payee, amount, currencyId, basis, dueDate, paymentMethodId, sourceAgreement, evidenceRequirement } = req.body ?? {};
+  if (typeof payee !== "string" || !payee.trim() || !isPositiveQuantity(amount) || typeof currencyId !== "string" || !currencyId || typeof basis !== "string" || !basis.trim()) {
+    return res.status(400).json({ error: "Required fields: payee, positive amount, currencyId, basis" });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "finance.create"))) return;
+  try {
+    const { rows: shipmentRows } = await req.db.query(
+      "SELECT id, project_id, quantity, unit_code, shipment_code FROM shipments WHERE id = $1::uuid AND project_id = $2::uuid LIMIT 1",
+      [shipmentId, projectId],
+    );
+    if (!shipmentRows.length) return res.status(404).json({ error: "Shipment not found in this Project." });
+    const { rows } = await req.db.query(
+      `INSERT INTO payment_obligations
+        (project_id, shipment_id, payee, amount, currency_id, basis, payment_method_id,
+         payment_trigger_event, due_date, cash_classification, approval_status, source_agreement,
+         evidence_requirement, payment_status, source_event_id, source_event_type, created_by,
+         amount_paid, payment_instruction_required, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3::text, $4::numeric, $5::uuid, $6::text, $7::uuid,
+         'cash_on_board', $8::timestamptz, 'cash_operational', 'pending', $9::text,
+         $10::text, 'draft', $2::uuid, 'shipment', $11::uuid, 0, true, now(), now())
+       RETURNING *`,
+      [projectId, shipmentId, payee.trim(), amount, currencyId, basis.trim(), paymentMethodId || null,
+       dueDate || null, sourceAgreement || null, evidenceRequirement || "proof_of_full_payment", req.user.id],
+    );
+    return res.status(201).json({ cobCycle: rows[0], shipment: shipmentRows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "A Cash on Board cycle already exists for this shipment.", code: "COB_CYCLE_ALREADY_EXISTS" });
+    if (error?.code === "23503") return res.status(400).json({ error: "Invalid shipment, currency, or payment method reference." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 // Project management
 app.get("/api/v1/projects", requireAuth, async (req: express.Request, res: express.Response) => {
   try {

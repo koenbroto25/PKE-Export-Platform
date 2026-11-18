@@ -7947,3 +7947,59 @@ These are database-function and SQL backtests, not a live Neon Auth account-crea
 - No Production database migration, Auth config change, Vercel Production deployment, alias promotion, or branch merge occurred.
 
 **Status:** Project-scoped role and membership model: **BACKTEST PASS**. Migration 038 functions: **VALIDATED ON TEMPORARY VALIDATION BRANCH ONLY**. Source/CI/Preview build: **PASS**. Live Neon Auth provisioning and production activation workflow: **NOT VERIFIED**. **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.15 Audit hardening and live provider-account backtest — 18 November 2026
+
+### Migration 038 current exact artifact
+
+- File: migrations/038_admin_managed_neon_auth_user_lifecycle.sql
+- Current SHA-256: 450afd9cceeef4ac575fde62ae562be2f86a0d9bbecd27bb8ddae8d95825dc8a
+- Current GitHub content SHA: 9bb1adb70dd7090f5ba1cc2b62c2e244dac587d9
+- Latest migration changes are in commit f7ec9838e81a48c8d16d91a02d6a84c6356a4d7c.
+- Migration 038 currently defines six narrowly scoped SECURITY DEFINER functions:
+  1. pke_admin_list_users
+  2. pke_admin_get_user
+  3. pke_admin_provision_user
+  4. pke_is_preprovisioned_email
+  5. pke_link_neon_auth_identity_from_webhook
+  6. pke_admin_set_user_active
+- PUBLIC EXECUTE is revoked; app_runtime_secure receives only the required EXECUTE grants. No direct SELECT/INSERT/UPDATE grant on neon_auth tables was added.
+- Provisioning, identity link, and global activation/deactivation now append immutable audit_events with actor, reason, before/after snapshots, provider event ID metadata, and outcome. Approval events remain the workflow state record.
+- Validation branch functions were re-applied after the audit hardening; SQL execution succeeded. Runtime-role backtest verified provision, link, activation, deactivation, and reactivation functions, including audit reason/snapshot fields.
+
+### Actual Neon Auth provider-created account test
+
+- On validation branch br-soft-fog-b3zi4c2x, created a synthetic Auth identity through the Neon Auth provider connector using reserved example.invalid email f0-neon-auth-e2e-20261118@example.invalid.
+- Provider returned Auth user ID 21387a65-d1b0-4a7c-aae7-0c573e747418. The Auth row existed and emailVerified was false; validation-branch Auth config now has require_email_verification=false while public sign-up remains disabled, so the Admin-provisioned user path does not depend on the shared SMTP sender.
+- Before creation, PKE pending record and pke_is_preprovisioned_email gate were verified true.
+- After provider creation, no automatic PKE identity mapping was observed. Therefore webhook delivery/handler success from the provider Admin-create operation is **NOT VERIFIED**. This may mean the connector's direct create operation bypassed the application's webhook lifecycle or the configured webhook delivery did not complete; do not infer which without evidence.
+- For the isolated state-machine test only, the database link function was manually invoked using the actual provider-created Auth ID and a synthetic event UUID. It linked successfully; global activation, deactivation, and reactivation all passed. This does not count as a signed webhook transport test.
+- Test Auth user was deleted from the validation branch; corresponding PKE user and approval rows were deleted. A separate audit backtest created four append-only audit records (provisioned, identity-linked, globally activated, globally deactivated). They remain on the expiring validation branch because the audit table correctly rejects UPDATE/DELETE. No test users, projects, contract programs, roles, or memberships remain.
+
+### Temporary Preview configuration
+
+- Added branch-scoped Vercel Preview environment variables only for git branch phase0/reconcile-source-20261117. DATABASE_URL is stored with secret visibility and points only to validation branch br-soft-fog-b3zi4c2x using app_runtime_secure. No Production secret was read/copied.
+- Added Neon Auth trusted origin for the branch Preview alias.
+- Validation branch Neon Auth webhooks are configured for user.before_create and user.created, timeout 5 seconds, endpoint under the Preview alias.
+- Validation branch Auth config: email/password enabled, public sign-up disabled, require_email_verification=false, verification email sending disabled, password reset revokes sessions.
+- NEON_AUTH_WEBHOOK_ENABLED=true in branch Preview; NEON_AUTH_ADMIN_PROVISIONING_READY=false. Admin provisioning UI remains disabled fail-closed until a real Admin SDK createUser call and signed webhook delivery/link are verified end-to-end.
+- Latest Preview deployment for source commit 3f009d96d7f5a9faf5dcec0ed92f8f373c4c1118 is READY. Earlier fail-closed deployment after disabling the Admin provisioning feature flag (commit 3fffd89fdaeed287735d220bd9a181b8ad418a0d) is also READY. No Production target/promotion occurred.
+
+### Test/build status
+
+- GitHub Actions run 44295555720 for commit 3f009d96d7f5a9faf5dcec0ed92f8f373c4c1118: SUCCESS.
+- Latest completed Preview build logs for the account lifecycle source: 72/72 unit tests passed (53 storage/GL, 12 runtime-security including five temporary Preview allowlist tests, 5 webhook signature tests, 2 HTTP errors); backend API TypeScript check passed; frontend TypeScript and Vite production build passed.
+- The current latest Preview commit additionally changes raw-body capture to tolerate webhook query parameters; GitHub Actions is green and Vercel deployment is READY.
+- Dependency audit still reports the existing high-severity GHSA-fc5q-39xc-vjpf Picomatch/Vite/Vitest dependency chain. No forced major upgrade/downgrade was performed.
+
+### Explicit blockers / next action
+
+1. Perform an actual authenticated Admin Dashboard createUser call on the Preview branch, not the Neon connector's direct create-user helper; capture the returned identity without exposing credentials.
+2. Verify Neon sends signed user.before_create and user.created to the configured Preview alias, verify exact event headers/raw body, and prove the handler links the pending PKE record automatically.
+3. Verify Admin-created account sign-in without SMTP; then test global ban/unban/session revocation through the same Neon Auth Admin SDK wrapper.
+4. Test project assignment UI/API against the same provider-created identity and verify independent project roles/status through API-level requests.
+5. Migration 038 remains validation-only. Existing scripts/migrate.mjs still explicitly restricts mutating apply mode to Migration 036, and migration_manifest_001_027.json remains the immutable baseline manifest for 001-028. Do not bypass these controls or apply Migration 038 to Production without a separately reviewed exact-SQL approval and migration-runner/manifest reconciliation.
+6. Automatic snapshot schedule, storage PUT/GET/HEAD cross-project checks, protected HTTP smoke, remaining F0 infrastructure gates, and dependency advisory remain open as previously recorded.
+
+**Current status:** Project-specific role/status isolation: **BACKTEST PASS**. Migration 038 functions and audit behavior: **VALIDATED ON TEMPORARY BRANCH**. Unit/API/frontend build: **PASS**. Neon provider account creation itself: **PROVIDER CREATE PASS ON TEMPORARY BRANCH**. Signed webhook automatic identity sync: **NOT VERIFIED**. Admin SDK full flow/session revocation: **NOT VERIFIED**. Production Migration 038: **NOT APPLIED**. **F0 remains IN PROGRESS / NOT CLOSED.**

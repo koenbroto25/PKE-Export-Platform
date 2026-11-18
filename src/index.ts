@@ -648,6 +648,27 @@ app.get("/api/v1/contracts", requireAuth, async (req: express.Request, res: expr
   }
 });
 
+app.patch("/api/v1/contracts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id } = req.params;
+  const { rows: current } = await req.db.query("SELECT project_id FROM contracts WHERE id = $1::uuid", [id]);
+  if (!current.length || !current[0].project_id) return res.status(404).json({ error: "Contract not found in an accessible Project." });
+  if (!(await requireProjectPermission(req, res, current[0].project_id, "project.configuration.manage"))) return;
+  const { code, name, startDate, endDate, isActive } = req.body ?? {};
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE contracts SET code = COALESCE($2, code), name = COALESCE($3, name),
+         start_date = COALESCE($4::timestamptz, start_date), end_date = COALESCE($5::timestamptz, end_date),
+         is_active = COALESCE($6::boolean, is_active), updated_at = now()
+       WHERE id = $1::uuid RETURNING *`,
+      [id, code ?? null, name ?? null, startDate ?? null, endDate ?? null, typeof isActive === "boolean" ? isActive : null],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Contract not found." });
+    return res.json({ contract: rows[0] });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.post("/api/v1/contracts", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, buyerId, code, name, startDate, endDate } = req.body;
   if (!projectId || !buyerId || !code || !name || !startDate) return res.status(400).json({ error: "projectId, buyerId, code, name, startDate required" });
@@ -694,6 +715,31 @@ app.post("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res
     res.status(201).json({ cyclePolicy: rows[0] });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/cycle-policies/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id } = req.params;
+  const { rows: current } = await req.db.query("SELECT project_id FROM cycle_policies WHERE id = $1::uuid", [id]);
+  if (!current.length || !current[0].project_id) return res.status(404).json({ error: "Cycle Policy not found in an accessible Project." });
+  if (!(await requireProjectPermission(req, res, current[0].project_id, "project.configuration.manage"))) return;
+  const { cadence, targetQuantity, generationMode, isActive } = req.body ?? {};
+  if (targetQuantity !== undefined && targetQuantity !== null && !isPositiveQuantity(targetQuantity)) {
+    return res.status(400).json({ error: "targetQuantity must be finite and positive." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE cycle_policies SET cadence = COALESCE($2, cadence),
+         target_quantity = COALESCE($3::numeric, target_quantity),
+         generation_mode = COALESCE($4, generation_mode),
+         is_active = COALESCE($5::boolean, is_active), updated_at = now()
+       WHERE id = $1::uuid RETURNING *`,
+      [id, cadence ?? null, targetQuantity ?? null, generationMode ?? null, typeof isActive === "boolean" ? isActive : null],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Cycle Policy not found." });
+    return res.json({ cyclePolicy: rows[0] });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

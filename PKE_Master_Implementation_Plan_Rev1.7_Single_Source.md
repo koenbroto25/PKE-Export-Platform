@@ -6703,6 +6703,7 @@ Cline appends one concise dated entry per session to the table below. Keep newes
 
 | Date | Work package | Changes performed | Verification/evidence | Production mutation | Status / blockers | Next action |
 |---|---|---|---|---|---|---|
+| 2026-11-18 | F0 continuation — RLS partial behavior, Admin lifecycle CI, Preview recovery, Auth role drift | Corrected lifecycle contract tests to avoid .vercelignore-excluded migration SQL; CI and Preview now pass. Read-only Production Auth role counts and read-only validation RLS context checks completed. | CI run 44304069020 for commit e9013fd32376d84e8998f9623ba3b458ab04134c SUCCESS: 82 tests, Production migration ledger verifier, migration dry-run, backend typecheck. Preview dpl_3fXy3wqPyRRzod4QbnYJbvhAzjyo READY; root HTTP 200 and /api/v1/health HTTP 200, DB connected, environment=production. Protected routes still blocked before app by Deployment Protection share-link auth. Production read-only counts: 2 non-banned Neon Auth Admin users, only 1 linked to a PKE Admin record. RLS test on validation branch: actual Admin sees 1 user, synthetic non-admin sees 0, missing context sees 0; projects/project_members empty. | NONE — no Production SQL/data/Auth/config/deployment changes; no secret values read. | F0.05 PARTIAL PASS only; real two-project isolation not proven. Admin Auth orphan/drift needs owner review; no account modified. Automatic backup schedule provider-disabled. Vercel env edit cannot set visibility=secret because action schema omits visibility. Validation branch contains a temporary role membership grant whose grantor is provider-owned cloud_admin; revoke attempted but connector cannot revoke that grantor's privilege. Branch expires 2026-11-19T06:35Z; no Production effect. Picomatch GHSA remains unpatched and disputed; no forced downgrade. | Keep validation branch isolated until expiry or obtain approval to delete it; reconcile the second Auth Admin with PKE ownership; obtain authorized Admin session for lifecycle tests; ask Neon/Vercel support for backup/secret-visibility controls; obtain explicit Production redeploy approval. |
 | 2026-11-18 | F0.05 RLS behavior smoke + Admin lifecycle contract CI | Read-only behavioral tests on Neon validation branch using login role app_runtime_secure and transaction-local identity context. Added src/admin-user-lifecycle.contract.test.ts and included it in npm test; corrected test selectors after first CI run exposed brittle source matching. | Validation branch: platform Admin context returned pke_is_platform_admin=true and saw 1 user; synthetic non-admin context returned false and saw 0 users; no-context returned false/null and saw 0 users. Projects and project_members are empty, so tenant isolation on real project rows remains unproven. Temporary validation-only role membership grant was revoked; no Production changes. First new CI attempt failed because assertions matched route path without route prefix and regex crossed unrelated browser sessionStorage. Corrective commit d0c763bb9bbd16be91c26dc04421d6bfbddcfbc8 awaiting CI at ledger update time. Prior CI baseline run 44300780079 remains SUCCESS. | NONE — read-only Production untouched; validation branch only used for identity-context reads, temporary grant added/revoked. | RLS behavioral result PARTIAL PASS: verifies helper context and users table visibility boundary, but no synthetic project/business rows and no second real user exist. Admin lifecycle code contract tests are being hardened; actual provider SDK/webhook/session workflow still blocked by no authenticated Admin session. | Verify CI on corrective commit; then run Admin lifecycle contract tests and build Preview. Request Admin session to test create/link/activate/deactivate/session revoke. |
 | 2026-11-18 | F0 documentation release confirmation | Finalized canonical plan addenda and verified documentation-only release. | GitHub Actions run 44301252306 for commit 6a97eababf2a19332611b702c1360fab1bb7703c SUCCESS. Vercel Preview deployment dpl_JC1gL225nxzqTp1CMopdvyvqSU8k READY for the same commit; latest recovery branch now has a READY Preview. | NONE. | No change to remaining F0 blockers. | Continue only on authenticated Admin workflow and provider/owner-dependent gates; do not alter Production without approval. |
 | 2026-11-18 | F0 latest Preview and historical migration source recovery check | Verified latest application-code Preview after migration runner/CI changes; checked GitHub history and all current branches for authentic migration SQL 029-035. | Preview deployment dpl_FE618FggcSZ5vAdopgwbvm5s1Sqq for commit f6353190537fa32ba7b866be3a768f2e885ce8d9 is READY; root GET 200 and /api/v1/health 200/database connected/environment=production. Protected Admin API paths still blocked by Vercel deployment auth. GitHub path history for each 029-035 returned zero commits; only three branches exist and none has authentic 029-035 files. | NONE. | F0 remains OPEN. CI for f635319 is green; later documentation-only commit cc2315fb6442551163b9454f2e8a7983e5e2c963 is queued for CI/Preview. Authentic SQL source for 029-035 cannot be recovered from current Git history/branches. | Keep Migration 038 gated; complete Admin-session tests and obtain owner approval for Production redeploy; request Neon enablement for automatic snapshots. |
@@ -8130,3 +8131,43 @@ Initial CI run 44303617548 failed because several assertions searched for app.ge
 - Picomatch advisory and authentic SQL recovery for historical 029–035 remain open/not resolved by this continuation.
 
 **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.21 F0 continuation — final CI/Preview recovery and additional identity findings — 18 November 2026
+
+### A. CI and Preview now green
+
+- Corrected src/admin-user-lifecycle.contract.test.ts to avoid reading the SQL migration file because .vercelignore intentionally excludes all *.sql from the Vercel deployment payload. The tests now verify only the shipped API/frontend contract; the SQL migration remains covered by the separate release-policy verifier.
+- GitHub Actions run 44304069020 for commit e9013fd32376d84e8998f9623ba3b458ab04134c completed **SUCCESS**:
+  - 82 tests passed (including 10 Admin user-lifecycle contract tests);
+  - Production migration ledger/release-policy verifier passed;
+  - migration runner dry-run passed without a DB connection;
+  - backend API TypeScript check passed.
+- Vercel Preview deployment dpl_3fXy3wqPyRRzod4QbnYJbvhAzjyo for the same commit reached **READY**. Root returned HTTP 200. /api/v1/health returned HTTP 200, database connected, environment=production.
+- Protected /api/v1/users and /api/v1/admin/provisioning/status remain untestable through the available Vercel share-link fetch path: the fetch itself is stopped by Deployment Protection with deployment_authentication_required, before reaching Express middleware. This is not an application 401/403 result.
+
+### B. Additional Production Neon Auth role drift
+
+Read-only Production queries against Neon Auth and PKE identity mapping returned:
+- Two non-banned Neon Auth identities have provider role admin.
+- Only one of those identities is linked to a PKE user with global role admin.
+- No user or role was changed. The second Auth Admin may be a legitimate separate administrator or an orphaned/stale identity; this must be reconciled by the owner before lifecycle tests or account changes. Do not automatically demote, ban, delete, or link it.
+
+### C. Vercel secret visibility limitation confirmed
+
+- Identified the eight Production environment variables previously flagged for secret visibility.
+- Attempted to change one variable's Vercel type to sensitive without reading or changing its value. Vercel API rejected it because sensitive requires visibility=secret.
+- The available Vercel edit action schema does not expose visibility, and rejects visibility as an unexpected field. No variable was modified; no secret values were retrieved. This remains blocked on a Vercel-supported action/UI or owner-operated change.
+
+### D. Picomatch advisory status
+
+Current public advisory evidence as of 18 November 2026 identifies GHSA-fc5q-39xc-vjpf / CVE-2026-112366 as affecting picomatch through 4.0.7, with no patched version listed. The advisory describes a ReDoS risk from crafted single-branch repeated extglob patterns. Upstream discussion is disputed and the cited Nx maintainer position notes the risk requires control over glob patterns. No safe patched version is published in the advisory evidence checked; do not force a major downgrade to Vitest 3.1.4 or Vite 6.2.7 just to clear npm audit. Keep the alert open, inventory runtime exposure, and avoid accepting untrusted glob patterns in production code. Sources: GitHub Advisory Database (GHSA-fc5q-39xc-vjpf) and upstream Nx discussion #37696.
+
+### E. Validation-only role grant cleanup
+
+- During read-only RLS tests, a temporary role membership was granted on validation branch br-soft-fog-b3zi4c2x to allow the owner role to switch into app_runtime_secure for a single statement.
+- A normal REVOKE returned without removing the membership because the membership's grantor is provider-owned cloud_admin. A second explicit GRANTED BY attempt was rejected for insufficient grantor privileges; the connector cannot log in as cloud_admin.
+- The membership is confined to the temporary validation branch, not Production. The branch is scheduled to expire at 2026-11-19T06:35Z. Do not repeat the role grant. If immediate cleanup is required before expiry, obtain owner approval to delete the validation branch; otherwise allow the scheduled expiry to remove the temporary clone and grant.
+- This was a test-environment cleanup limitation, not a Production role change.
+
+**Current state:** CI and Preview green; private storage PUT/GET/403 checks PASS; Production migration ledger 37/37 PASS; RLS helper context/one-user visibility partial PASS; full Admin Auth lifecycle, project-row isolation, protected API smoke, automatic backup schedule, secret visibility, and Production redeploy remain open. **F0 remains IN PROGRESS / NOT CLOSED.**

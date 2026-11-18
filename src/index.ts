@@ -675,6 +675,8 @@ app.post("/api/v1/cycle-policies", requireAuth, requireAdmin, async (req: expres
   }
 
   try {
+    const { rows: programRows } = await req.db.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1", [contractProgramId]);
+    if (programRows.length === 0) return res.status(404).json({ error: "Active Contract Program not found." });
     const { rows } = await req.db.query(
       "INSERT INTO cycle_policies (contract_program_id, cadence, target_quantity, generation_mode, is_active, created_at, updated_at) VALUES ($1, $2, $3, $4, true, now(), now()) RETURNING *",
       [contractProgramId, cadence, targetQuantity || null, generationMode]
@@ -893,6 +895,7 @@ app.post("/api/v1/contract-programs", requireAuth, requireAdmin, async (req: exp
 app.patch("/api/v1/contract-programs/:id", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description, isActive } = req.body;
+  if (targetQuantity !== undefined && !isPositiveQuantity(targetQuantity)) return res.status(400).json({ error: "targetQuantity must be a finite positive number." });
   try {
     const { rows } = await req.db.query(
       `UPDATE contract_programs
@@ -937,6 +940,10 @@ app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Requ
     await dbClient.query("SAVEPOINT project_create");
     try {
       let programId = typeof contractProgramId === "string" && contractProgramId ? contractProgramId : null;
+      if (programId) {
+        const { rows: activeProgramRows } = await dbClient.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1", [programId]);
+        if (activeProgramRows.length === 0) throw Object.assign(new Error("Active Contract Program not found."), { status: 404 });
+      }
       if (!programId && createContractProgram && typeof createContractProgram === "object") {
         const cpName = createContractProgram.name || `${name} Program`;
         const cpRows = await dbClient.query(

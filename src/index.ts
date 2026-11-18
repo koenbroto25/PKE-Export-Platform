@@ -989,33 +989,16 @@ app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Requ
   try {
     await dbClient.query("SAVEPOINT project_create");
     try {
-      let programId = typeof contractProgramId === "string" && contractProgramId ? contractProgramId : null;
-      if (programId) {
-        const { rows: activeProgramRows } = await dbClient.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1", [programId]);
-        if (activeProgramRows.length === 0) throw Object.assign(new Error("Active Contract Program not found."), { status: 404 });
-      }
-      if (!programId && createContractProgram && typeof createContractProgram === "object") {
-        const cpName = createContractProgram.name || `${name} Program`;
-        const cpRows = await dbClient.query(
-          `INSERT INTO contract_programs
-            (name, buyer_id, contract_id, settlement_unit, target_quantity, cadence, generation_mode, is_active, created_at, updated_at)
-           VALUES ($1::text, $2::uuid, $3::uuid, $4::text, $5::numeric, $6::text, 'scheduled_draft', true, now(), now())
-           RETURNING id`,
-          [cpName, createContractProgram.buyerId || null, createContractProgram.contractId || null,
-           settlementUnit, targetQuantity, createContractProgram.cadence || "scheduled"]
-        );
-        programId = cpRows.rows[0].id;
-      }
-      if (!programId) {
-        throw Object.assign(new Error("Contract program is required (existing or new)."), { status: 400 });
+      if (contractProgramId || createContractProgram) {
+        throw Object.assign(new Error("Contract Programs are created by the Project Manager after Project setup."), { status: 400 });
       }
       const { rows: projectRows } = await dbClient.query(
         `INSERT INTO projects
-          (contract_program_id, name, description, status, settlement_unit, target_quantity,
+          (name, description, status, settlement_unit, target_quantity,
            export_country_code, is_active, created_at, updated_at)
-         VALUES ($1::uuid, $2::text, $3::text, $4::text, $5::text, $6::numeric, $7::text, true, now(), now())
+         VALUES ($1::text, $2::text, $3::text, $4::text, $5::numeric, $6::text, true, now(), now())
          RETURNING *`,
-        [programId, name, description || null, status || "draft", settlementUnit, targetQuantity, exportCountryCode || null]
+        [name, description || null, status || "draft", settlementUnit, targetQuantity, exportCountryCode || null]
       );
       const project = projectRows[0];
       const projectId = project.id;

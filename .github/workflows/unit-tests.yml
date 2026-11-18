@@ -27,3 +27,5 @@ jobs:
         run: npm ci --include=dev --no-audit
       - name: Run offline security and unit tests
         run: npm test
+      - name: Typecheck backend API
+        run: npx tsc -p api/tsconfig.json --noEmit

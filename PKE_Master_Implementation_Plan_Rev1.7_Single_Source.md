@@ -1,6 +1,6 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.13 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.14 — Single-Source Execution Edition
 
 
 
@@ -7268,7 +7268,7 @@ The default ACL inspection found:
 
 A forward-only candidate has been added on the recovery branch:
 - File: `migrations/037_restrict_security_definer_execute.sql`
-- SHA-256: `8e0e450d3558d7e9d5d847396e311f9be4e659c0a3a6e3571dea39f1c964d1c9`
+- SHA-256: `2613cbd3532d00a6091b131ad3b889a3148892cb13866a434d2d6501528515e3`
 - Scope: revoke PUBLIC and `authenticated` EXECUTE on current public SECURITY DEFINER functions; retain/grant explicit EXECUTE for callable non-trigger helpers to `app_runtime_secure`; correct global PUBLIC and schema-level `authenticated` default function privileges; fail atomically if postconditions are not met.
 - This migration is **CANDIDATE / NOT APPLIED**. No SQL DDL, GRANT, REVOKE, function replacement or migration-history mutation was performed. It requires explicit owner approval of this exact SQL and SHA-256 before Production execution.
 - The frontend uses Neon Auth for identity and the PKE backend API for application data; no direct Neon Data API table/RPC usage was found in the inspected frontend auth/API modules. This supports keeping internal SECURITY DEFINER functions private to the backend runtime.
@@ -7285,6 +7285,8 @@ A forward-only candidate has been added on the recovery branch:
 - The custom `NODE_ENV` variable was scoped to the Development environment only, so future Preview/Production deployments use Vercel's environment default. The existing Production deployment was not redeployed; its runtime response remains unchanged until a separately approved deployment.
 - `DATABASE_URL` remains Production-only. Preview does not receive Production database credentials or Neon Auth secrets. Preview function calls without required database/auth configuration fail closed; do not copy Production credentials into Preview to make smoke tests pass.
 - A temporary attempt to set `NODE_ENV=production` for Preview/Production caused a Preview build to fail with `tsc: command not found` because build-time development dependencies were omitted. The override was immediately restricted to Development only; a fresh Preview deployment for commit `6fa886d40eda3053e2c051b043c2a561a190f360` reached READY. No Production deployment was affected.
+
+- The latest Preview deployment for commit `8f7380b299543c7f4c8fc9f6ef7ee76eb1f2ef25` is READY. The available event-log slice did not expose a definitive Vitest summary, so the test suite is not marked PASS solely from deployment state.
 - Source now normalizes legacy PostgreSQL SSL aliases (`prefer`, `require`, `verify-ca`) to explicit `verify-full`, preserving the current strict TLS behavior and avoiding the pg-connection-string forward-compatibility warning. This is on the recovery branch; Production has not yet received it.
 - Recent runtime-error aggregation contained one PostgreSQL SSL-mode compatibility warning group and no other error group in the inspected window. Runtime logs are not a substitute for endpoint-by-endpoint HTTP tests.
 - The Production health endpoint was accessible, but protected API endpoint checks were blocked by Vercel share-link authentication at the fetch layer. No application response status is claimed for `/me`, `/projects`, `/truck-trips`, `/tracking` or report portfolio.
@@ -7312,7 +7314,7 @@ A forward-only candidate has been added on the recovery branch:
 **F0 remains IN PROGRESS / NOT CLOSED.** Migration-source recovery is no longer a blocker. F0 cannot be declared final while the concrete function ACL defect, storage/Auth acceptance, protected HTTP evidence, secret visibility and backup/recovery evidence remain unresolved.
 
 ## 49.8 Next actions
-1. Obtain explicit owner approval for Migration 037 with SHA-256 `8e0e450d3558d7e9d5d847396e311f9be4e659c0a3a6e3571dea39f1c964d1c9`; apply only that exact forward-only SQL, then re-run ACL/default-ACL and runtime helper checks.
+1. Obtain explicit owner approval for Migration 037 with SHA-256 `2613cbd3532d00a6091b131ad3b889a3148892cb13866a434d2d6501528515e3`; apply only that exact forward-only SQL, then re-run ACL/default-ACL and runtime helper checks.
 2. Complete policy-by-policy scope review and approved cross-project behavioral test design without inserting Production business data.
 3. Finish the current recovery-branch Preview build and offline test workflow; do not merge/promote to Production until exit criteria and deployment approval are satisfied.
 4. Obtain a supported method to run authenticated Production smoke tests without exposing credentials or bypassing Vercel deployment protection.
@@ -7323,7 +7325,7 @@ A forward-only candidate has been added on the recovery branch:
 9. Keep Production on `main`; do not promote the recovery Preview without explicit deployment approval.
 
 ## 49.9 Session completion record
-- Files changed on recovery branch: Master Plan, candidate migration 037, runtime-security verifier, storage adapter, storage/runtime-security tests, package test script and offline GitHub Actions workflow.
+- Files changed on recovery branch: Master Plan, candidate migration 037, runtime-security verifier, `src/runtime-security.ts`, `src/index.ts`, storage adapter, storage/runtime-security tests, package test script, `api/tsconfig.json`, `vercel.json` and offline GitHub Actions workflow.
 - Vercel: Development-only `NODE_ENV` scope correction; Preview deployments only; no Production deployment or alias promotion.
 - Neon Production: read-only SQL backtest only; no DDL/DML, GRANT/REVOKE, migration, Auth, storage, snapshot schedule or restore mutation.
 - Secrets: no value read, decrypted, displayed or re-entered.

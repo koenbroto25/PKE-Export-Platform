@@ -7834,3 +7834,49 @@ Neon documentation confirms that Managed Better Auth exposes Admin `createUser` 
 
 **F0 remains IN PROGRESS / NOT CLOSED.** This targeted backtest is not a repeat of the one-time comprehensive F0 audit and does not waive any other F0 gate.
 
+
+
+## 55.13 Neon Auth provisioning protocol — signed webhook verifier groundwork — 18 November 2026
+
+### Verified provider capability and protocol
+
+Official Neon Managed Better Auth documentation was inspected:
+- Admin plugin APIs are exposed through the Neon SDK and include createUser, banUser, unbanUser, listUserSessions, and revokeUserSessions. Admin operations require an authenticated Admin session with HTTP-only cookies.
+- Neon Auth webhooks support a signed user.created event. It is non-blocking; therefore PKE must remain fail-closed if identity synchronization has not completed.
+- Webhook signatures use detached JWS with EdDSA/Ed25519. The documented verification binds the millisecond timestamp and exact raw request body, uses the matching kid from the Auth JWKS, and recommends a five-minute replay window.
+- Current Production and F0 validation-branch Auth configuration were read-only inspected. Both have public sign-up disabled, email/password enabled, email verification required, shared Neon email provider, and webhooks disabled. No Auth configuration was changed.
+
+### Source implementation
+
+- Added src/neon-auth-webhook.ts: strict detached JWS verifier; HTTPS-only JWKS URL; matching Ed25519 kid; exact raw-body signature; timestamp freshness; event header/body equality; UUID event ID validation; 1 MiB body cap; five-second JWKS fetch timeout.
+- Added src/neon-auth-webhook.test.ts: valid signature, body tampering, stale timestamp, event-header mismatch, and non-HTTPS JWKS negative tests.
+- Added the verifier test file to the root Vitest script.
+- Commits: 5161516d1bf6ced278b5ed836db67507e01f42c5 (verifier), 36aca751baf7ab95f9516be2a600aa3f326de3c2 (tests), 8dfe85502cb88a12a2dfccdbafe15c7173743060 (test script).
+- Latest Preview deployment for 8dfe855 was observed in BUILDING state during this update; do not mark the new tests/build PASS until deployment completes and logs show the test suite result.
+
+### Database/RLS boundary discovered
+
+Read-only inspection of the validation branch confirms:
+- users.neon_auth_user_id has a partial unique index; users.email is unique.
+- The PKE runtime role has no SELECT grants on neon_auth.user or neon_auth.session.
+- RLS on users and approval_events permits platform-admin operations through pke_admin_all; it does not provide a safe anonymous-webhook write path.
+- A signed webhook cannot safely update PKE users under the existing runtime RLS policy without an authenticated PKE Admin context or a narrowly scoped database function.
+
+### Required next implementation and approval boundary
+
+The intended fail-closed provisioning flow is:
+1. Authenticated PKE Admin creates an inactive, unlinked PKE pending user and an audit record. Duplicate email or an already-linked identity is a hard conflict; no automatic email-only linking.
+2. The Admin Dashboard calls the supported Neon SDK Admin createUser operation using the Admin's existing Neon Auth session. Public self-sign-up remains disabled.
+3. Neon sends user.created; PKE verifies its detached Ed25519 signature, exact raw body, JWKS kid, timestamp, event ID, and payload before any identity synchronization.
+4. A narrowly scoped database function links only the matching pre-provisioned, inactive, unlinked PKE user to the signed Neon Auth user ID; it is idempotent, refuses conflicting identities, and records the provisioning actor/audit outcome. No direct neon_auth table grants and no arbitrary identity upsert.
+5. The account remains globally inactive until a separate Admin activation action. Global suspension must ban the Neon Auth account and revoke its sessions; PKE's per-project membership and role state remains independent.
+
+**Migration boundary:** this flow requires a new narrowly scoped migration (proposed Migration 038) for the verified-webhook identity-link function and explicit EXECUTE grant to app_runtime_secure, with PUBLIC EXECUTE revoked. The exact SQL, function owner, RLS behavior, grants, rollback, and test evidence must be reviewed before any application. No Migration 038 was created/applied in this step; Migration 037 and Production remain untouched. Do not use Neon Production for webhook or provisioning tests.
+
+### Current result
+
+- Detached webhook signature-verification source/tests: **IMPLEMENTED; Preview verification pending**.
+- Webhook endpoint, database link function, Admin pre-provision/create UI, global ban/unban/session revocation integration: **NOT IMPLEMENTED / NOT VERIFIED**.
+- No Neon Auth webhook configured; no Auth user created; no SMTP send; no Vercel Production deployment/promotion; no Neon Production write.
+- Project-scoped role/membership behavior remains as recorded in Section 55.12: **BACKTEST PASS**.
+- **F0 remains IN PROGRESS / NOT CLOSED.**

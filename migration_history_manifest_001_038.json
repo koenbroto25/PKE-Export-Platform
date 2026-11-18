@@ -4,8 +4,8 @@
   "project_id": "purple-base-63944903",
   "branch_id": "br-damp-shape-b3xlh4nr",
   "database": "neondb",
-  "verified_at": "2026-11-18",
-  "applied_count": 38,
+  "verified_at": "2026-11-19",
+  "applied_count": 39,
   "source_recovery_note": "Production migration_history is the authoritative evidence for applied names and hashes. Migrations 029-035 are recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migration 038 source is recovered, SHA-256 verified, and applied to Production on 2026-11-18.",
   "entries": [
     {
@@ -271,6 +271,13 @@
       "id": 38,
       "filename": "038_admin_managed_neon_auth_user_lifecycle.sql",
       "sha256": "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 39,
+      "filename": "039_project_scoped_contract_cob_cycles.sql",
+      "sha256": "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168",
       "status": "applied",
       "source_sha_verified": true
     }

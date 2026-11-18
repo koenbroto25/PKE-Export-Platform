@@ -66,7 +66,7 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
   });
 
   it("prevents the generic platform Admin permission shortcut from bypassing Project business RLS", () => {
-    expect(MIGRATION.match(/NOT public\\.pke_is_platform_admin\\(\\) AND public\\.pke_has_project_permission/g)?.length).toBeGreaterThanOrEqual(10);
+    expect(MIGRATION.match(/NOT public\.pke_is_platform_admin\(\) AND public\.pke_has_project_permission/g)?.length).toBeGreaterThanOrEqual(10);
     expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_select");
     expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_insert");
     expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_update");

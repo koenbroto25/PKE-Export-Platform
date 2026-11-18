@@ -55,37 +55,58 @@ DROP POLICY IF EXISTS pke_admin_all ON public.contracts;
 DROP POLICY IF EXISTS pke_contracts_select ON public.contracts;
 CREATE POLICY pke_contracts_project_select ON public.contracts
   FOR SELECT TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'contract.view'));
+  USING (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'contract.view'));
 CREATE POLICY pke_contracts_project_insert ON public.contracts
   FOR INSERT TO app_runtime_secure
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
+  WITH CHECK (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 CREATE POLICY pke_contracts_project_update ON public.contracts
   FOR UPDATE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
+  USING (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
+  WITH CHECK (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 
 DROP POLICY IF EXISTS pke_admin_all ON public.contract_programs;
 DROP POLICY IF EXISTS pke_contract_programs_select ON public.contract_programs;
 CREATE POLICY pke_contract_programs_project_select ON public.contract_programs
   FOR SELECT TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'contract.view'));
+  USING (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'contract.view'));
 CREATE POLICY pke_contract_programs_project_insert ON public.contract_programs
   FOR INSERT TO app_runtime_secure
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
+  WITH CHECK (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 CREATE POLICY pke_contract_programs_project_update ON public.contract_programs
   FOR UPDATE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
+  USING (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
+  WITH CHECK (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 
 DROP POLICY IF EXISTS pke_admin_all ON public.cycle_policies;
 DROP POLICY IF EXISTS pke_cycle_policies_select ON public.cycle_policies;
 CREATE POLICY pke_cycle_policies_project_select ON public.cycle_policies
   FOR SELECT TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'contract.view'));
+  USING (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'contract.view'));
 CREATE POLICY pke_cycle_policies_project_insert ON public.cycle_policies
   FOR INSERT TO app_runtime_secure
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
+  WITH CHECK (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
 CREATE POLICY pke_cycle_policies_project_update ON public.cycle_policies
   FOR UPDATE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
-  WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
+  USING (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'))
+  WITH CHECK (project_id IS NOT NULL AND NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'manage_contract_programs'));
+
+-- The generic permission helper intentionally treats platform Admin as a global
+-- administrator. For these Project business tables that shortcut is not allowed:
+-- Admin is limited to platform setup/database administration, while PM owns business data.
+DROP POLICY IF EXISTS pke_payment_obligations_select ON public.payment_obligations;
+DROP POLICY IF EXISTS pke_payment_obligations_insert ON public.payment_obligations;
+DROP POLICY IF EXISTS pke_payment_obligations_update ON public.payment_obligations;
+DROP POLICY IF EXISTS pke_payment_obligations_delete ON public.payment_obligations;
+CREATE POLICY pke_payment_obligations_project_select ON public.payment_obligations
+  FOR SELECT TO app_runtime_secure
+  USING (NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'finance.view'));
+CREATE POLICY pke_payment_obligations_project_insert ON public.payment_obligations
+  FOR INSERT TO app_runtime_secure
+  WITH CHECK (NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'finance.create'));
+CREATE POLICY pke_payment_obligations_project_update ON public.payment_obligations
+  FOR UPDATE TO app_runtime_secure
+  USING (NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'finance.update'))
+  WITH CHECK (NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'finance.update'));
+CREATE POLICY pke_payment_obligations_project_delete ON public.payment_obligations
+  FOR DELETE TO app_runtime_secure
+  USING (NOT public.pke_is_platform_admin() AND public.pke_has_project_permission(project_id, 'finance.delete'));

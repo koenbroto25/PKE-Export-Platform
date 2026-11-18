@@ -13,12 +13,24 @@ ALTER TABLE public.contract_programs
 ALTER TABLE public.contract_programs
   ADD CONSTRAINT contract_programs_project_id_fkey
   FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS contract_programs_project_id_id_unique ON public.contract_programs(project_id, id);
+ALTER TABLE public.projects
+  ADD CONSTRAINT projects_contract_program_project_fkey
+  FOREIGN KEY (id, contract_program_id) REFERENCES public.contract_programs(project_id, id) ON DELETE RESTRICT;
+ALTER TABLE public.contracts
+  ADD CONSTRAINT contracts_project_id_id_unique UNIQUE (project_id, id);
+ALTER TABLE public.contract_programs
+  ADD CONSTRAINT contract_programs_contract_project_fkey
+  FOREIGN KEY (project_id, contract_id) REFERENCES public.contracts(project_id, id) ON DELETE RESTRICT;
 
 ALTER TABLE public.cycle_policies
   ADD COLUMN IF NOT EXISTS project_id uuid;
 ALTER TABLE public.cycle_policies
   ADD CONSTRAINT cycle_policies_project_id_fkey
   FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+ALTER TABLE public.cycle_policies
+  ADD CONSTRAINT cycle_policies_program_project_fkey
+  FOREIGN KEY (project_id, contract_program_id) REFERENCES public.contract_programs(project_id, id) ON DELETE CASCADE;
 
 ALTER TABLE public.shipments
   ADD CONSTRAINT shipments_project_id_id_unique UNIQUE (project_id, id);
@@ -51,9 +63,6 @@ CREATE POLICY pke_contracts_project_update ON public.contracts
   FOR UPDATE TO app_runtime_secure
   USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'))
   WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
-CREATE POLICY pke_contracts_project_delete ON public.contracts
-  FOR DELETE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
 
 DROP POLICY IF EXISTS pke_admin_all ON public.contract_programs;
 DROP POLICY IF EXISTS pke_contract_programs_select ON public.contract_programs;
@@ -67,9 +76,6 @@ CREATE POLICY pke_contract_programs_project_update ON public.contract_programs
   FOR UPDATE TO app_runtime_secure
   USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'))
   WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
-CREATE POLICY pke_contract_programs_project_delete ON public.contract_programs
-  FOR DELETE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
 
 DROP POLICY IF EXISTS pke_admin_all ON public.cycle_policies;
 DROP POLICY IF EXISTS pke_cycle_policies_select ON public.cycle_policies;
@@ -83,6 +89,3 @@ CREATE POLICY pke_cycle_policies_project_update ON public.cycle_policies
   FOR UPDATE TO app_runtime_secure
   USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'))
   WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));
-CREATE POLICY pke_cycle_policies_project_delete ON public.cycle_policies
-  FOR DELETE TO app_runtime_secure
-  USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id, 'project.configuration.manage'));

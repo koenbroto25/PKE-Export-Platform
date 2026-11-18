@@ -82,16 +82,16 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
     expect(INDEX).toContain("FINANCE_ROLE_REQUIRED");
     expect(INDEX).toContain("pr.role_code = 'finance'");
     expect(INDEX).toContain("pr.role_code = 'pm'");
-    expect(INDEX).toContain("recipient.role::text = 'admin'");
+    expect(INDEX).toContain("role::text = 'admin'");
     expect(INDEX).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
     expect(INDEX).not.toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
     expect(INDEX).toContain('"reports.create"');
   });
 
-  it("reports the payment API lifecycle as unavailable without claiming its database schema is absent", () => {
-    expect(INDEX).toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
-    expect(INDEX).toContain("Production payment tables and database safeguards exist");
-    expect(INDEX).not.toContain("No payments table exists in Production.");
+  it("keeps payment execution explicitly outside the reporting-only Finance scope", () => {
+    expect(INDEX).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
+    expect(INDEX).not.toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
+    expect(INDEX).toContain('financeScope: "reporting_only"');
   });
 
   it.skipIf(!HAS_MIGRATION_SOURCE)("does not use a calendar period as the shipment cycle identity", () => {

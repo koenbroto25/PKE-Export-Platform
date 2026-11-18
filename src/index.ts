@@ -892,7 +892,7 @@ function defaultPermissionsForRole(roleCode: string): string[] {
     ],
     pm: [
       "project.view", "project.members.view", "project.configuration.view", "project.configuration.manage",
-      "contract.view", "manage_contract_programs", "finance.view", "finance.create", "finance.update",
+      "contract.view", "manage_contract_programs", "shipping.view", "finance.view", "finance.create", "finance.update",
       "documents.view", "documents.create", "workflow.view", "workflow.update", "approvals.view", "approvals.create",
       "notifications.view", "notifications.create", "reports.view"
     ],

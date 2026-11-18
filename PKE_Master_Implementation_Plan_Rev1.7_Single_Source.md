@@ -7777,3 +7777,18 @@ The Admin Dashboard must provide a real, server-backed User Management workspace
 
 ### Status
 **Owner decision: ACCEPTED.** The previous email-delivery blocker is waived for public registration/invitation. The Admin Dashboard user lifecycle is a mandatory implementation/acceptance item; until its full UI/API/security behavior is evidenced, mark that capability PARTIAL or NOT VERIFIED and keep F0 open.
+
+
+## 55.11 Source inspection — Admin user lifecycle implementation gap — 18 November 2026
+
+Targeted source inspection on `phase0/reconcile-source-20261117` after the owner decision in Section 55.10:
+- `src/index.ts`: `GET /api/v1/users` exists and is guarded by `requireAuth + requireAdmin`; it lists up to 100 users. `POST /api/v1/admin/users/:id/password-reset` exists and is guarded by `requireAuth + requireAdmin`.
+- `frontend/src/App.tsx`: `AccessPage` currently renders the user list (email, name, Neon Auth identity) and a reset-password action, alongside role and permission catalog tables.
+- The inspected source did not contain user-provision/create, activate, deactivate, reactivate, or role/scope mutation controls/routes. No proof was found for session invalidation on account deactivation.
+- This is a targeted code inspection, not a comprehensive audit. No source code, database schema, Auth configuration, Vercel configuration, or Production data was changed in this inspection.
+
+**Acceptance correction:** SMTP test-email delivery and public self-registration are not F0 gates under owner decision 55.10. The actual Admin Dashboard lifecycle is a required code-completion gate. Current source status: user listing/reset = CODE PRESENT; create/provision = NOT IMPLEMENTED/NOT VERIFIED; activate/deactivate/reactivate = NOT IMPLEMENTED/NOT VERIFIED; role/scope changes = NOT VERIFIED; deactivation session invalidation = NOT VERIFIED; audit completeness = NOT VERIFIED.
+
+**Next implementation work (recovery branch only; no Production migration/deployment):** inspect existing `users`, `role_catalog`, `project_members`, identity mapping and audit/event schema; implement idempotent Admin provisioning integrated with Neon Auth without public signup; implement activate/deactivate/reactivate and session revocation/fail-closed behavior; implement role/project-scope assignment using existing tables; add Admin UI forms/actions, validation/confirmation and status indicators; add backend authorization and unit/API contract tests for Admin success and non-Admin denial; update this Master Plan with exact files and test evidence. Do not invent columns/tables or apply schema changes without exact schema review and any required owner approval. Do not send SMTP email or create a Production user for these tests.
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Admin-managed user lifecycle is a mandatory implementation gap.

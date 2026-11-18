@@ -229,3 +229,16 @@
 - Production remains at Migration 038; no Production DDL/DML has been applied. Revised Migration 039 still requires final SQL SHA-256 calculation and separate explicit Production approval. F1 remains IN PROGRESS.
 
 - Final revised Migration 039 SQL SHA-256 (computed from the exact GitHub file bytes via PostgreSQL SHA-256 digest on the isolated validation branch): `2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168`. This is a candidate hash for owner review only; Migration 039 is NOT applied to Production.
+
+
+## F1 Production Migration 039 — applied — 2026-11-19
+- Owner explicitly approved application of Migration 039 with SHA-256 `2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168`.
+- Recomputed SHA-256 directly against the current GitHub migration SQL and confirmed an exact match before apply.
+- Neon migration prepared on `br-wandering-hat-b3gnxf3m` from Production branch `br-damp-shape-b3xlh4nr`. Prepared SQL was read-only verified for all target RLS policies, composite FK/check constraints, 152 public base tables and preservation of one legacy unassigned Contract Program.
+- Called Neon migration completion with `apply_changes=true`; tool returned `applied=true`, then deleted prepared branch `br-wandering-hat-b3gnxf3m`.
+- **Production verification:** 152/152 public base tables still RLS-enabled; 71 FORCE RLS. Migration schema changes/constraints and updated non-Admin policies verified present. The one existing unassigned Contract Program remains unchanged and no project-linked programs are present.
+- **Ledger discrepancy:** Production `public.migration_history` read immediately after tool apply still contains rows 1–38 only; Migration 039 row is missing. This Neon MCP prepared-migration apply mechanism applies the migration SQL but does not append the app's custom migration_history entry. Do not mark ledger 39 complete until an approved atomic/controlled ledger recording step is performed. The existing deployment migration runner scripts still only support 036 and the special 038 path; they explicitly reject a new migration 039.
+- Updated `migration_history_manifest_001_038.json` on the F1 branch to add an entry 39 with exact approved SHA and applied status. This manifest entry is a release record, not proof of the Production DB ledger row; plan the mismatch explicitly until corrected.
+- Additional source fix: Drizzle declarations for Project-scoped composite-FK relations were changed to remove duplicate/competing single-column FK declarations, allowing the migration's composite constraints to represent the canonical project ownership. The previous schema declarations for projects.contract_program_id, contracts.project_id, contract_programs.project_id/contract_id, and cycle_policies.project_id/contract_program_id contained direct references that could generate implicit global single-column FKs.
+- Relevant migration source SHA-256: `2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168`.
+- **Current blockers:** DB migration ledger row 39; payment reconciliation lifecycle E2E (only direct-write blocking and full-payment CHECK have been confirmed); CI/Vitest/TypeScript run still absent from GitHub evidence. F1 remains IN PROGRESS.

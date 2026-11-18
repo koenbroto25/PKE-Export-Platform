@@ -4,13 +4,15 @@
 -- and its SHA-256. Target: the single mandated Neon Production database.
 --
 -- Finding: Production catalog currently exposes 80 public SECURITY DEFINER functions
--- to PUBLIC and authenticated. Internal API authorization helpers are intended to
--- be called only by app_runtime_secure. Trigger functions are not directly callable
--- as ordinary SQL functions; existing trigger bindings remain unchanged.
+-- to PUBLIC and authenticated. It also grants authenticated SELECT/INSERT/UPDATE/DELETE
+-- on 153 public relations and carries matching default table/sequence grants. The deployed
+-- application accesses business data through the backend as app_runtime_secure; frontend
+-- code does not use the Neon Data API for public application relations.
 --
 -- Correct the global function default ACL (a per-schema REVOKE cannot cancel the
--- built-in global PUBLIC EXECUTE default), remove the schema-level authenticated
--- default grant, and harden existing SECURITY DEFINER function ACLs.
+-- built-in global PUBLIC EXECUTE default), remove schema-level authenticated defaults,
+-- revoke authenticated access to public application relations/sequences, and retain
+-- explicit backend-runtime access to callable SECURITY DEFINER helpers.
 
 BEGIN;
 
@@ -45,6 +47,14 @@ BEGIN
 
   SELECT oid INTO v_owner FROM pg_roles WHERE rolname = 'neondb_owner';
   SELECT oid INTO v_authenticated FROM pg_roles WHERE rolname = 'authenticated';
+
+  -- The deployed frontend calls the PKE backend API; it does not query public
+  -- application tables through Neon Data API. Keep the Neon Auth role isolated
+  -- from the public business schema. app_runtime_secure grants are unchanged.
+  EXECUTE 'REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM authenticated';
+  EXECUTE 'REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM authenticated';
+  EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public REVOKE ALL ON TABLES FROM authenticated';
+  EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM authenticated';
 
   IF EXISTS (
     SELECT 1
@@ -122,6 +132,52 @@ BEGIN
        AND a.grantee IN (0, v_authenticated)
   ) THEN
     RAISE EXCEPTION 'Migration 037 postcondition failed: unsafe function default ACL remains';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND (
+         has_table_privilege('authenticated', c.oid, 'SELECT')
+         OR has_table_privilege('authenticated', c.oid, 'INSERT')
+         OR has_table_privilege('authenticated', c.oid, 'UPDATE')
+         OR has_table_privilege('authenticated', c.oid, 'DELETE')
+         OR has_table_privilege('authenticated', c.oid, 'TRUNCATE')
+         OR has_table_privilege('authenticated', c.oid, 'REFERENCES')
+         OR has_table_privilege('authenticated', c.oid, 'TRIGGER')
+       )
+  ) THEN
+    RAISE EXCEPTION 'Migration 037 postcondition failed: authenticated retains public relation privileges';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relkind = 'S'
+       AND (
+         has_sequence_privilege('authenticated', c.oid, 'USAGE')
+         OR has_sequence_privilege('authenticated', c.oid, 'SELECT')
+         OR has_sequence_privilege('authenticated', c.oid, 'UPDATE')
+       )
+  ) THEN
+    RAISE EXCEPTION 'Migration 037 postcondition failed: authenticated retains public sequence privileges';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_default_acl d
+      CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+     WHERE d.defaclrole = v_owner
+       AND d.defaclnamespace = 'public'::regnamespace
+       AND d.defaclobjtype IN ('r', 'S')
+       AND a.grantee = v_authenticated
+  ) THEN
+    RAISE EXCEPTION 'Migration 037 postcondition failed: authenticated public relation defaults remain';
   END IF;
 END;
 $migration$;

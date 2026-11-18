@@ -7490,8 +7490,8 @@ The following changes were made only on `phase0/reconcile-source-20261117`; `mai
 
 ## 53.3 Advisory triage
 - The earlier full audit on the intermediate Vitest 3.2.7 tree found critical Tinypool advisories and a high-severity Picomatch advisory; that intermediate package tree was superseded by Vitest 4.1.12 and the regenerated lockfile.
-- GitHub Advisory `GHSA-fc5q-39xc-vjpf` reports Picomatch versions through 4.0.7 as affected by a high-severity ReDoS issue; public advisory data does not currently provide a fixed version. The resolved toolchain still needs its exact transitive path confirmed in the next full audit output. Do not claim the Picomatch issue fixed by upgrading Vite alone. <Cite refs="turn380934search0;turn380934search2" />
-- GitHub advisory `GHSA-85c8-ppgw-ccpr` identifies Tinypool versions below 2.1.2 as affected; the current lockfile generated with Vitest 4.1.12 contains no Tinypool package entry. <Cite refs="turn381952search1;turn381952search6" />
+- GitHub Advisory `GHSA-fc5q-39xc-vjpf` reports Picomatch versions through 4.0.7 as affected by a high-severity ReDoS issue; public advisory data does not currently provide a fixed version. The resolved toolchain still needs its exact transitive path confirmed in the next full audit output. Do not claim the Picomatch issue fixed by upgrading Vite alone. [GitHub Advisory GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) and [OSV record](https://osv.dev/vulnerability/GHSA-fc5q-39xc-vjpf).
+- GitHub advisory `GHSA-85c8-ppgw-ccpr` identifies Tinypool versions below 2.1.2 as affected; the current lockfile generated with Vitest 4.1.12 contains no Tinypool package entry. [GitHub Advisory GHSA-85c8-ppgw-ccpr](https://github.com/advisories/GHSA-85c8-ppgw-ccpr) and [OSV record](https://osv.dev/vulnerability/GHSA-85c8-ppgw-ccpr).
 - Dependency vulnerabilities are build-tool/development dependency findings unless a resolved production dependency path is demonstrated. Keep them as a release gate until the current audit output and runtime dependency classification are verified.
 
 ## 53.4 Vercel build-command alignment
@@ -7543,7 +7543,7 @@ The full audit reporter ran with development dependencies included:
 - Root workspace: 6 high-severity package findings; 0 critical, 0 moderate, 0 low.
 - Frontend workspace: 5 high-severity package findings; 0 critical, 0 moderate, 0 low.
 - These are not 11 distinct advisories. The affected package chain resolves to the same underlying Picomatch advisory `GHSA-fc5q-39xc-vjpf`, propagated through `picomatch`, `fdir`, `tinyglobby`, Vite, and Vitest / the React Vite plugin.
-- The advisory affects Picomatch versions through 4.0.7 and does not currently identify a patched release. The npm registry version listing still shows 4.0.7 as latest. <Cite refs="turn380934search0;turn380934search2;turn380934search4" />
+- The advisory affects Picomatch versions through 4.0.7 and does not currently identify a patched release. The npm registry version listing still shows 4.0.7 as latest. [GitHub Advisory GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf), [OSV record](https://osv.dev/vulnerability/GHSA-fc5q-39xc-vjpf), and [npm Picomatch versions](https://www.npmjs.com/package/picomatch?activeTab=versions).
 - The attempted Vite 6.2.7 workaround was reverted because it introduced older Vite advisory findings; Vite 6.4.6 was retained. The earlier critical Tinypool findings disappeared after returning to Vitest 4.1.12; the current lockfile contains no Tinypool package entry.
 - The remaining Picomatch finding is in the build/development toolchain; it is not evidence that the production API imports or executes Picomatch. Keep it OPEN and require explicit risk acceptance or a vendor patch before declaring dependency security fully PASS. Do not use `npm audit fix --force` or downgrade to a version with known older advisories.
 

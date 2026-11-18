@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema.js";
 import { requireAuth, requireAdmin } from "./auth.js";
+import { internalServerErrorPayload, requestRejectedPayload } from "./http-errors.js";
 import { normalizePostgresSslMode, roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
 import { privateStorage } from "./storage.js";
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
@@ -73,14 +74,14 @@ const logger = winston.createLogger({
 
 // Global middleware to log all requests
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.url} - IP: ${req.ip}`);
+  logger.info(`${req.method} ${req.path}`);
   next();
 });
 
 // CORS for local frontend development
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || "http://localhost:3001,http://127.0.0.1:3001")
+  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3001,http://127.0.0.1:3001"))
     .split(",").map((item) => item.trim()).filter(Boolean);
   const allowed = new Set(configuredOrigins);
   if (origin && allowed.has(origin)) {
@@ -403,7 +404,7 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -415,7 +416,7 @@ app.get("/api/v1/contract-programs", requireAuth, async (req: express.Request, r
     const { rows } = await req.db.query("SELECT * FROM contract_programs WHERE is_active = true ORDER BY created_at DESC");
     res.json({ contractPrograms: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -428,7 +429,7 @@ app.get("/api/v1/contract-programs/:id", requireAuth, async (req: express.Reques
     }
     res.json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -438,7 +439,7 @@ app.get("/api/v1/buyers", requireAuth, async (req: express.Request, res: express
     const { rows } = await req.db.query("SELECT * FROM buyers WHERE is_active = true ORDER BY created_at DESC");
     res.json({ buyers: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -452,7 +453,7 @@ app.post("/api/v1/buyers", requireAuth, async (req: express.Request, res: expres
     );
     res.status(201).json({ buyer: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -472,7 +473,7 @@ app.patch("/api/v1/buyers/:id", requireAuth, async (req: express.Request, res: e
     if (rows.length === 0) return res.status(404).json({ error: "Buyer not found" });
     res.json({ buyer: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -501,7 +502,7 @@ app.get("/api/v1/buyer-projects", requireAuth, async (req: express.Request, res:
     const { rows } = await req.db.query(sql, params);
     res.json({ buyerProjects: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -529,7 +530,7 @@ app.get("/api/v1/supplier-projects", requireAuth, async (req: express.Request, r
     const { rows } = await req.db.query(sql, params);
     res.json({ supplierProjects: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -544,7 +545,7 @@ app.get("/api/v1/contracts", requireAuth, async (req: express.Request, res: expr
     const { rows } = await req.db.query(sql, params);
     res.json({ contracts: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -558,7 +559,7 @@ app.post("/api/v1/contracts", requireAuth, async (req: express.Request, res: exp
     );
     res.status(201).json({ contract: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -568,7 +569,7 @@ app.get("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res:
     const { rows } = await req.db.query("SELECT * FROM cycle_policies WHERE is_active = true ORDER BY created_at DESC");
     res.json({ cyclePolicies: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -586,7 +587,7 @@ app.post("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res
     );
     res.status(201).json({ cyclePolicy: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -610,7 +611,7 @@ app.get("/api/v1/projects", requireAuth, async (req: express.Request, res: expre
     }
     res.json({ projects: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -624,7 +625,7 @@ app.get("/api/v1/projects/:id", requireAuth, async (req: express.Request, res: e
     }
     res.json({ project: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -637,7 +638,7 @@ app.get("/api/v1/projects/:projectId/operating-profile", requireAuth, async (req
     if (rows.length === 0) return res.status(404).json({ error: "Operating profile not found" });
     res.json({ operatingProfile: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -666,7 +667,7 @@ app.put("/api/v1/projects/:projectId/operating-profile", requireAuth, async (req
     );
     res.json({ operatingProfile: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -698,7 +699,7 @@ app.patch("/api/v1/projects/:projectId/operating-profile", requireAuth, async (r
     if (rows.length === 0) return res.status(404).json({ error: "Operating profile not found" });
     res.json({ operatingProfile: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 // ============================================
@@ -788,7 +789,7 @@ app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, 
     );
     res.status(201).json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -815,7 +816,7 @@ app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Requ
     if (rows.length === 0) return res.status(404).json({ error: "Contract program not found" });
     res.json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -934,8 +935,9 @@ app.post("/api/v1/projects", requireAuth, async (req: express.Request, res: expr
       throw error;
     }
   } catch (error) {
-    const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
-    res.status(status).json({ error: (error as Error).message });
+    const rawStatus = (error as any)?.status;
+    const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus < 500 ? rawStatus : 500;
+    res.status(status).json(status === 500 ? internalServerErrorPayload() : requestRejectedPayload());
   }
 });
 
@@ -975,7 +977,7 @@ app.get("/api/v1/regulatory-knowledge", requireAuth, requireAdmin, async (req: e
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1002,7 +1004,7 @@ app.post("/api/v1/compliance-check", requireAuth, requireAdmin, async (req: expr
     };
     res.json({ complianceResult });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1051,7 +1053,7 @@ app.get("/api/v1/country-packs", requireAuth, requireAdmin, async (req: express.
     }
     res.json({ countryPacks: Array.from(byCountry.values()) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1106,7 +1108,7 @@ app.get("/api/v1/projects/:projectId/document-requirements", requireAuth, async 
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1155,7 +1157,7 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1188,7 +1190,7 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
     );
     res.status(201).json({ document: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1220,7 +1222,7 @@ app.patch("/api/v1/documents/:id", requireAuth, async (req: express.Request, res
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     res.json({ document: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1253,7 +1255,7 @@ app.post("/api/v1/storage/presigned-upload", requireAuth, async (req: express.Re
     const upload = await privateStorage.presignedUpload(key, mimeType, contentLength);
     res.json({ upload });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1273,7 +1275,7 @@ app.get("/api/v1/storage/presigned-download/*objectKey", requireAuth, async (req
     const download = await privateStorage.presignedDownload(objectKey);
     res.json({ download });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1287,7 +1289,7 @@ app.get("/api/v1/workflows/project/:projectId", requireAuth, async (req: express
     );
     res.json({ workflows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1311,7 +1313,7 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
       .returning();
     res.json({ workflow: result[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1361,7 +1363,7 @@ app.get("/api/v1/reports/portfolio", requireAuth, async (req: express.Request, r
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1380,7 +1382,7 @@ app.get("/api/v1/reports/project/:projectId", requireAuth, async (req: express.R
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1426,7 +1428,7 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
     }));
     res.json({ runs });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1459,7 +1461,7 @@ app.post("/api/v1/reports/generate", requireAuth, async (req: express.Request, r
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1491,7 +1493,7 @@ app.get("/api/v1/notifications", requireAuth, async (req: express.Request, res: 
     }));
     res.json({ notifications, unreadCount: notifications.filter((n: any) => !n.readAt).length });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1538,7 +1540,7 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1552,7 +1554,7 @@ app.patch("/api/v1/notifications/:id/read", requireAuth, async (req: express.Req
     const r = rows[0];
     res.json({ notification: { id: r.id, eventId: r.event_id, projectId: r.project_id, recipient: r.recipient_user_id, title: r.title, message: r.message, priority: r.priority, category: r.category, createdAt: r.created_at, readAt: r.read_at, deliveryStatus: "delivered" } });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1565,7 +1567,7 @@ app.get("/api/v1/reports/export/projects", requireAuth, async (req: express.Requ
     res.setHeader("Content-Disposition", "attachment; filename=projects.csv");
     res.send(header + "\n" + body);
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 // ============================================
@@ -1587,7 +1589,7 @@ app.get("/api/v1/reports/kpis/operational", requireAuth, async (req: express.Req
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1603,7 +1605,7 @@ app.get("/api/v1/reports/kpis/financial", requireAuth, async (req: express.Reque
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1626,7 +1628,7 @@ app.get("/api/v1/reports/historical", requireAuth, async (req: express.Request, 
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1670,7 +1672,7 @@ app.get("/api/v1/reports/schedules", requireAuth, async (req: express.Request, r
     }));
     res.json({ schedules });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1711,7 +1713,7 @@ app.post("/api/v1/reports/schedules", requireAuth, async (req: express.Request, 
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1750,7 +1752,7 @@ app.post("/api/v1/reports/scheduler/run-due", requireAuth, requireAdmin, async (
     }
     res.json({ executedCount: executed.length, executed, note: "Runs created as queued. No file is marked completed without verified storage artifact." });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1759,7 +1761,7 @@ app.get("/api/v1/reports/scheduler/runs", requireAuth, async (req: express.Reque
     const { rows } = await req.db.query("SELECT * FROM report_runs WHERE schedule_id IS NOT NULL ORDER BY generated_at DESC LIMIT 200");
     res.json({ runs: rows.map((r: any) => ({ id: r.id, scheduleId: r.schedule_id, templateId: r.template_id, templateVersion: r.template_version, cutoff: r.cutoff_at, status: r.status, generatedAt: r.generated_at, idempotencyKey: r.idempotency_key, dataFreshness: r.data_freshness })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1810,7 +1812,7 @@ app.patch("/api/v1/projects/:id", requireAuth, async (req: express.Request, res:
     );
     res.json({ project: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1832,7 +1834,7 @@ app.post("/api/v1/projects/:id/archive", requireAuth, async (req: express.Reques
     await req.db.query("UPDATE projects SET is_active = false, status = 'closed', updated_at = now() WHERE id = $1::uuid", [id]);
     res.json({ ok: true, message: "Project archived" });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1861,7 +1863,7 @@ app.post("/api/v1/projects/:id/activate", requireAuth, async (req: express.Reque
     await req.db.query("UPDATE projects SET status = 'active', is_active = true, updated_at = now() WHERE id = $1::uuid", [id]);
     res.json({ ok: true, message: "Project activated" });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1880,7 +1882,7 @@ app.post("/api/v1/projects/:id/deactivate", requireAuth, async (req: express.Req
     await req.db.query("UPDATE projects SET status = 'draft', is_active = false, updated_at = now() WHERE id = $1::uuid", [id]);
     res.json({ ok: true, message: "Project deactivated" });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1976,7 +1978,7 @@ app.post("/api/v1/projects/:id/roles", requireAuth, async (req: express.Request,
     }
     res.status(201).json({ role: { id: projectRoleId, roleCode, name, description } });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1999,7 +2001,7 @@ app.patch("/api/v1/projects/:id/roles/:roleId", requireAuth, async (req: express
     if (rows.length === 0) return res.status(404).json({ error: "Role not found" });
     res.json({ role: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2015,7 +2017,7 @@ app.delete("/api/v1/projects/:id/roles/:roleId", requireAuth, async (req: expres
     if (rows.length === 0) return res.status(404).json({ error: "Role not found" });
     res.json({ ok: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2081,7 +2083,7 @@ app.put("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (re
       throw error;
     }
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2135,7 +2137,7 @@ app.post("/api/v1/projects/:id/members/invite", requireAuth, async (req: express
     );
     res.status(201).json({ invitation: rows[0], tokenHash });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2158,7 +2160,7 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
     if (rows.length === 0) return res.status(404).json({ error: "Member not found" });
     res.json({ member: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2173,7 +2175,7 @@ app.post("/api/v1/projects/:id/members/:memberId/revoke", requireAuth, async (re
     );
     res.json({ ok: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2898,7 +2900,7 @@ app.get("/api/v1/rab", requireAuth, async (req: express.Request, res: express.Re
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2915,7 +2917,7 @@ app.post("/api/v1/rab", requireAuth, async (req: express.Request, res: express.R
     );
     res.status(201).json({ rabItem: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2929,7 +2931,7 @@ app.get("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, r
     );
     res.json({ accounts: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2944,7 +2946,7 @@ app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, 
     );
     res.status(201).json({ account: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -3516,22 +3518,21 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
 // Centralized error handling middleware
 // ============================================
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const status = err.status || 500;
-  const clientMessage = isProduction ? "Internal server error" : "Terjadi kesalahan internal.";
+  const rawStatus = err?.status;
+  const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus < 500 ? rawStatus : 500;
 
-  // Log detail teknis secara internal (file log), jangan kirim ke client.
-  // Jangan log objek error mentah untuk menghindari penyimpanan detail sensitif/secret.
+  // Never persist exception messages, stacks, query strings, tokens or client IPs.
   logger.error({
-    message: err?.message ?? "Unknown error",
-    stack: err?.stack,
+    event: "api_unhandled_error",
     status,
-    url: req.originalUrl,
     method: req.method,
+    path: req.path,
+    errorType: typeof err?.name === "string" ? err.name : "UnknownError",
   });
 
   res.status(status).json({
     status: "error",
-    message: clientMessage,
+    ...(status === 500 ? internalServerErrorPayload() : requestRejectedPayload()),
   });
 });
 

@@ -1082,7 +1082,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   const provisioning = useLoad<{ ready?: boolean; reason?: string | null }>(() => get('/admin/provisioning/status'), []);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const projectDetail = useLoad<{ members?: AnyRecord[]; roles?: AnyRecord[]; project?: AnyRecord }>(
-    () => selectedProjectId ? get(\`/projects/\${selectedProjectId}/detail\`) : Promise.resolve({ members: [], roles: [] }),
+    () => selectedProjectId ? get(`/projects/${selectedProjectId}/detail`) : Promise.resolve({ members: [], roles: [] }),
     [selectedProjectId],
   );
   const [resettingId, setResettingId] = useState('');
@@ -1122,7 +1122,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       onNotice('error', 'Email, nama, dan alasan minimal 5 karakter wajib diisi.');
       return;
     }
-    if (!window.confirm(\`Buat akun PKE dan identitas Neon Auth untuk \${email}? Akun akan tetap nonaktif sampai Admin mengaktifkannya.\`)) return;
+    if (!window.confirm(`Buat akun PKE dan identitas Neon Auth untuk ${email}? Akun akan tetap nonaktif sampai Admin mengaktifkannya.`)) return;
 
     setProvisionBusy(true);
     setTemporaryCredential(null);
@@ -1148,7 +1148,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       onNotice('success', 'Identitas Neon Auth berhasil dibuat. Pemetaan PKE menunggu webhook terverifikasi; akun tetap nonaktif.');
     } catch (e) {
       onNotice('error', pendingPkeCreated
-        ? \`Akun PKE pending telah dicatat, tetapi pembuatan/sinkronisasi Neon Auth belum selesai: \${e instanceof Error ? e.message : 'gagal'}\`
+        ? `Akun PKE pending telah dicatat, tetapi pembuatan/sinkronisasi Neon Auth belum selesai: ${e instanceof Error ? e.message : 'gagal'}`
         : (e instanceof Error ? e.message : 'Provisioning akun gagal.'));
       users.refresh();
     } finally {
@@ -1164,7 +1164,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       return;
     }
     const activate = user.is_active !== true;
-    const reason = window.prompt(\`Alasan \${activate ? 'mengaktifkan' : 'menonaktifkan'} akun global \${user.email || id}:\`);
+    const reason = window.prompt(`Alasan ${activate ? 'mengaktifkan' : 'menonaktifkan'} akun global ${user.email || id}:`);
     if (!reason || reason.trim().length < 5) {
       onNotice('info', 'Perubahan dibatalkan. Alasan minimal 5 karakter wajib dicatat.');
       return;
@@ -1174,16 +1174,16 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       if (activate) {
         const unban: any = await authClient.admin.unbanUser({ userId: authUserId });
         if (unban?.error) throw new Error(unban.error.message || 'Neon Auth tidak dapat mengaktifkan identitas.');
-        await patch(\`/admin/users/\${id}/status\`, { isActive: true, reason: reason.trim() });
+        await patch(`/admin/users/${id}/status`, { isActive: true, reason: reason.trim() });
         onNotice('success', 'Akun global berhasil diaktifkan. Role dan membership tiap proyek tidak berubah.');
       } else {
         // Disable PKE access first (fail-closed), then ban the Auth account and revoke its sessions.
-        await patch(\`/admin/users/\${id}/status\`, { isActive: false, reason: reason.trim() });
+        await patch(`/admin/users/${id}/status`, { isActive: false, reason: reason.trim() });
         const ban: any = await authClient.admin.banUser({ userId: authUserId, banReason: reason.trim() });
         const revoke: any = await authClient.admin.revokeUserSessions({ userId: authUserId });
         if (ban?.error || revoke?.error) {
           const detail = ban?.error?.message || revoke?.error?.message || 'operasi Auth belum terkonfirmasi';
-          onNotice('error', \`Akun PKE sudah nonaktif dan akses aplikasi ditolak, tetapi ban/pencabutan sesi Neon Auth perlu diperiksa: \${detail}\`);
+          onNotice('error', `Akun PKE sudah nonaktif dan akses aplikasi ditolak, tetapi ban/pencabutan sesi Neon Auth perlu diperiksa: ${detail}`);
         } else {
           onNotice('success', 'Akun global dinonaktifkan; sesi Neon Auth dicabut. Membership proyek tetap tersimpan dan terpisah.');
         }
@@ -1205,7 +1205,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
     }
     setMemberAddBusy(true);
     try {
-      await post(\`/admin/projects/\${selectedProjectId}/members\`, {
+      await post(`/admin/projects/${selectedProjectId}/members`, {
         userId: memberAddUserId,
         projectRoleId: memberAddRoleId,
         reason: memberAddReason.trim(),
@@ -1224,10 +1224,10 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
     const id = String(user.id || '');
     if (!id) return;
     const label = String(user.email || user.id || 'pengguna ini');
-    if (!window.confirm(\`Kirim permintaan reset password untuk \${label}?\`)) return;
+    if (!window.confirm(`Kirim permintaan reset password untuk ${label}?`)) return;
     setResettingId(id);
     try {
-      const res = await post<{ ok?: boolean; message?: string }>(\`/admin/users/\${id}/password-reset\`, {});
+      const res = await post<{ ok?: boolean; message?: string }>(`/admin/users/${id}/password-reset`, {});
       onNotice('success', res?.message || 'Permintaan reset password diproses.');
     } catch (e) {
       onNotice('error', e instanceof Error ? e.message : 'Permintaan reset password gagal.');
@@ -1240,14 +1240,14 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
     if (!selectedProjectId || !member.id) return;
     const action = changes.isActive === false ? 'menonaktifkan keanggotaan' :
       changes.isActive === true ? 'mengaktifkan kembali keanggotaan' : 'mengubah role proyek';
-    const reason = window.prompt(\`Alasan \${action} untuk \${member.email || member.user_id}:\`);
+    const reason = window.prompt(`Alasan ${action} untuk ${member.email || member.user_id}:`);
     if (!reason || reason.trim().length < 3) {
       onNotice('info', 'Perubahan dibatalkan. Alasan minimal 3 karakter wajib dicatat.');
       return;
     }
     setMembershipBusyId(String(member.id));
     try {
-      await patch(\`/projects/\${selectedProjectId}/members/\${member.id}\`, { ...changes, reason: reason.trim() });
+      await patch(`/projects/${selectedProjectId}/members/${member.id}`, { ...changes, reason: reason.trim() });
       onNotice('success', 'Keanggotaan proyek berhasil diperbarui.');
       projectDetail.refresh();
     } catch (e) {
@@ -1307,7 +1307,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
         </form>
         {projectDetail.loading ? <Loading /> : projectDetail.error ? <ErrorState message={projectDetail.error} retry={projectDetail.refresh} /> : <DataTable rows={projectDetail.data?.members || []} columns={[
           { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
-          { key: 'role', label: 'Role proyek', render: r => <select aria-label={\`Role proyek untuk \${r.email || r.user_id}\`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },
+          { key: 'role', label: 'Role proyek', render: r => <select aria-label={`Role proyek untuk ${r.email || r.user_id}`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },
           { key: 'is_active', label: 'Status proyek', render: r => <StatusPill value={r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'active' : 'inactive'} /> },
           { key: 'action', label: 'Aksi', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => {
             const currentlyActive = r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now());

@@ -39,7 +39,7 @@
     {
       "id": 5,
       "filename": "005_inventory_and_receipts.sql",
-      "sha256": "7c7c3d235ff34ac89f626a039589aefa8b2c143ce963b6967c6e2e53433f159d",
+      "sha256": "7c7c3d235ff34ac89f626a038589aefa8b2c143ce963b6967c6e2e53433f159d",
       "status": "baselined",
       "source_sha_verified": true
     },

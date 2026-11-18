@@ -157,6 +157,30 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.pke_is_preprovisioned_email(
+  p_email text
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+      FROM public.users u
+      JOIN public.approval_events ae
+        ON ae.entity_type = 'user'
+       AND ae.entity_id = u.id
+       AND ae.action = 'admin_user_provisioned'
+       AND ae.status = 'pending'
+     WHERE lower(u.email) = lower(btrim(COALESCE(p_email, '')))
+       AND u.neon_auth_user_id IS NULL
+       AND u.is_active = false
+       AND u.password_hash IS NULL
+  );
+$function$;
+
 CREATE OR REPLACE FUNCTION public.pke_link_neon_auth_identity_from_webhook(
   p_neon_auth_user_id uuid,
   p_email text,
@@ -322,10 +346,12 @@ REVOKE ALL ON FUNCTION public.pke_admin_list_users(integer, integer) FROM PUBLIC
 REVOKE ALL ON FUNCTION public.pke_admin_get_user(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_admin_provision_user(text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_link_neon_auth_identity_from_webhook(uuid, text, text, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.pke_is_preprovisioned_email(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_admin_set_user_active(uuid, boolean, text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.pke_admin_list_users(integer, integer) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_admin_get_user(uuid) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_admin_provision_user(text, text, text) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_link_neon_auth_identity_from_webhook(uuid, text, text, uuid) TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_is_preprovisioned_email(text) TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_admin_set_user_active(uuid, boolean, text) TO app_runtime_secure;

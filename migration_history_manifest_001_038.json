@@ -269,7 +269,7 @@
     },
     {
       "id": 38,
-      "filename": "039_admin_managed_neon_auth_user_lifecycle.sql",
+      "filename": "038_admin_managed_neon_auth_user_lifecycle.sql",
       "sha256": "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5",
       "status": "applied",
       "source_sha_verified": true

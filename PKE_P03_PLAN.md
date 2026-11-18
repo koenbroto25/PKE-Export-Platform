@@ -265,3 +265,6 @@
 - Dependency Audit run `44398068260`: SUCCESS (root and frontend production dependency audits passed).
 - The Unit Tests and Dependency Audit workflow definitions on the PR base branch `phase0/reconcile-source-20261117` were updated to include pull requests targeting that release branch. This is necessary because GitHub evaluates PR workflow triggers from the base branch; corresponding copies remain in the F1 branch.
 - Await the new PR-head workflow results; previous Unit Tests run stopped after the migration verifier failure and did not reach dry-run or API typecheck. Do not mark CI PASS until fresh runs complete.
+
+ 
+- Vercel test run exposed one additional packaging-related assertion that still read `MIGRATION` when SQL source was omitted: the calendar-period cycle-identity test. Added the same source-availability conditional skip to that assertion. Repository CI continues to execute it with the SQL file present.

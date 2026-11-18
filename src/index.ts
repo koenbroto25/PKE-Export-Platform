@@ -933,6 +933,11 @@ app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, 
        RETURNING *`,
       [projectId, name, buyerId || null, contractId || null, settlementUnit, targetQuantity, cadence, generationMode || "scheduled_draft", description || null]
     );
+    const { rows: linkedProject } = await req.db.query(
+      "UPDATE projects SET contract_program_id = $1::uuid, updated_at = now() WHERE id = $2::uuid AND contract_program_id IS NULL RETURNING id",
+      [rows[0].id, projectId],
+    );
+    if (!linkedProject.length) return res.status(409).json({ error: "Project already has a Contract Program or is unavailable." });
     res.status(201).json({ contractProgram: rows[0] });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());

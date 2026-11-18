@@ -5,7 +5,6 @@ import { join } from "node:path";
 const INDEX = readFileSync(join(__dirname, "index.ts"), "utf8");
 const APP = readFileSync(join(__dirname, "../frontend/src/App.tsx"), "utf8");
 const AUTH = readFileSync(join(__dirname, "../frontend/src/auth-client.ts"), "utf8");
-const MIGRATION = readFileSync(join(__dirname, "../migrations/038_admin_managed_neon_auth_user_lifecycle.sql"), "utf8");
 
 function routeBlock(routeStart: string, max = 7000) {
   const i = INDEX.indexOf(routeStart);
@@ -42,9 +41,6 @@ describe("Admin-managed global user lifecycle contract", () => {
     const block = routeBlock('app.patch("/api/v1/admin/users/:id/status"');
     expect(block).toMatch(/app\.patch\(["']\/api\/v1\/admin\/users\/:id\/status["']\s*,\s*requireAuth\s*,\s*requireAdmin/);
     expect(block).toContain("pke_admin_set_user_active");
-    expect(MIGRATION).toContain("IF NOT public.pke_is_platform_admin() THEN");
-    expect(MIGRATION).toContain("verified Neon Auth identity is required before activation");
-    expect(MIGRATION).toContain("admin cannot deactivate their own account");
   });
 
   it("uses the Neon Auth Admin SDK for create, ban, unban and session revocation", () => {

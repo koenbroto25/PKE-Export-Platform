@@ -3278,27 +3278,27 @@ app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, 
 // explicit unavailable state instead of simulating payment settlement.
 app.get("/api/v1/payment-instructions", requireAuth, async (_req: express.Request, res: express.Response) => {
   res.status(503).json({
-    error: "Payment execution unavailable",
-    code: "PAYMENT_EXECUTION_UNAVAILABLE",
-    reason: "Payment execution data model requires owner-approved schema. No payments table exists in Production.",
+    error: "Payment workflow unavailable",
+    code: "PAYMENT_WORKFLOW_NOT_IMPLEMENTED",
+    reason: "Production payment tables and database safeguards exist, but the authenticated request, approval, execution, evidence, verification, and reconciliation API workflow is not implemented and validated.",
     available: false,
   });
 });
 
 app.post("/api/v1/payment-instructions", requireAuth, async (_req: express.Request, res: express.Response) => {
   res.status(503).json({
-    error: "Payment execution unavailable",
-    code: "PAYMENT_EXECUTION_UNAVAILABLE",
-    reason: "Cannot create payment instruction: payment execution data model requires owner-approved schema.",
+    error: "Payment workflow unavailable",
+    code: "PAYMENT_WORKFLOW_NOT_IMPLEMENTED",
+    reason: "Payment instruction creation remains fail-closed until the permissioned maker-checker and evidence-to-reconciliation lifecycle is implemented and tested end to end.",
     available: false,
   });
 });
 
 app.patch("/api/v1/payment-instructions/:id", requireAuth, async (_req: express.Request, res: express.Response) => {
   res.status(503).json({
-    error: "Payment execution unavailable",
-    code: "PAYMENT_EXECUTION_UNAVAILABLE",
-    reason: "Cannot update payment instruction: payment execution data model requires owner-approved schema.",
+    error: "Payment workflow unavailable",
+    code: "PAYMENT_WORKFLOW_NOT_IMPLEMENTED",
+    reason: "Payment instruction transitions remain fail-closed until each guarded state change is exposed through authorized, audited API operations and tested end to end.",
     available: false,
   });
 });

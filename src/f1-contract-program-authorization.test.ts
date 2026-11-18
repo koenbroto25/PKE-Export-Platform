@@ -10,9 +10,11 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
   it("requires PM project permission for contract, cycle, and CoB business writes", () => {
     for (const route of [
       'app.post("/api/v1/contracts", requireAuth',
+      'app.patch("/api/v1/contracts/:id", requireAuth',
       'app.post("/api/v1/contract-programs", requireAuth',
       'app.post("/api/v1/projects/:projectId/contract-programs", requireAuth',
       'app.post("/api/v1/cycle-policies", requireAuth',
+      'app.patch("/api/v1/cycle-policies/:id", requireAuth',
       'app.post("/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle", requireAuth',
     ]) {
       const start = INDEX.indexOf(route);

@@ -5,7 +5,7 @@ import {
   roleFromDatabaseUrl,
   validateRuntimeRoleState,
   type RuntimeRoleState,
-} from "./runtime-security";
+} from "./runtime-security.ts";
 
 const safeRole: RuntimeRoleState = {
   current_role: "app_runtime_secure",

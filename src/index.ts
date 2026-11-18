@@ -3310,6 +3310,21 @@ app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, re
   const requesterId = req.user?.id;
   if (!requesterId) return res.status(401).json({ error: "Authenticated principal required" });
   try {
+    const { rows: financeMembership } = await req.db.query(
+      `SELECT 1
+         FROM project_members pm
+         JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+         JOIN users u ON u.id = pm.user_id
+        WHERE pm.project_id = $1::uuid AND pm.user_id = $2::uuid
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+          AND pr.is_active = true AND pr.role_code = 'finance' AND u.is_active = true
+        LIMIT 1`,
+      [projectId, requesterId],
+    );
+    if (!financeMembership.length) {
+      return res.status(403).json({ error: "Only an active Finance member can submit a Project financial report.", code: "FINANCE_ROLE_REQUIRED" });
+    }
     const { rows: projectRows } = await req.db.query(
       "SELECT id, name FROM projects WHERE id = $1::uuid AND is_active = true LIMIT 1",
       [projectId],

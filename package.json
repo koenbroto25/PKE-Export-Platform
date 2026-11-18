@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
-"scripts": {
-    "test": "vitest run src/runtime-security.test.ts",
+  "scripts": {
+    "test": "vitest run src/runtime-security.test.ts src/storage-fx-gl.test.ts",
     "test:integration": "node scripts/test-db/run-integration.mjs",
     "test:integration:preflight": "node scripts/test-db/preflight.mjs",
     "frontend:dev": "cd frontend && npm run dev",

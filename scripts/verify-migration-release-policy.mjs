@@ -63,7 +63,7 @@ for (const required of ["MIGRATE_038_CONFIRM", "MIGRATION_038_APPROVED_SHA256", 
   if (!runner.includes(required)) fail("Migration runner is missing explicit 038 approval guard: " + required);
 }
 if (!runner.includes("Production Migration 039 is already applied and ledger-verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe Migration 039 verification-only path.");
-if (!runner.includes("verifiedManifest.entries.length !== 39")) fail("Migration runner does not require exact Production history length 001-039.");
+if (!runner.includes("verifiedManifest.entries?.length !== 39")) fail("Migration runner does not require exact Production history length 001-039.");
 if (!runner.includes("Production migration_history mismatch at sequence")) fail("Migration runner is missing exact 001-039 history reconciliation.");
 if (!runner.includes("Production history ledger:")) fail("Migration status mode does not compare the verified Production ledger.");
 if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");

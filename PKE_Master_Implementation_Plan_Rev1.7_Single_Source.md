@@ -7689,3 +7689,60 @@ No changes to `main`; no Production deployment or promotion. Neon Production was
 
 ---
 
+
+## 55.9 Owner-approved limited F0 validation continuation — 18 November 2026
+
+This is a targeted execution record following the owner's explicit approval of four limited validation operations. It does not repeat the comprehensive audit and does not authorize merge, Production deployment, Production branch replacement, business-data writes, secret changes, or Production Auth/storage mutation.
+
+### Owner authorization and scope
+- Owner explicitly approved: (1) daily snapshot schedule with seven-day retention, (2) temporary restore branch, (3) temporary storage/RLS test artifacts, and (4) Auth tests using an authorized test identity/mailbox.
+- This approval is a narrow, explicit exception to the earlier single-Neon-branch prohibition in Section 2.2, solely for the named temporary validation/restore branches and tests. It does not authorize additional branches or change the permanent Production target.
+- Owner supplied the test mailbox: `koenbroto@gmail.com`.
+- Production remains `purple-base-63944903 / br-damp-shape-b3xlh4nr / production / neondb`.
+
+### Neon temporary branches — FACT: VERIFIED
+- Validation branch `f0-validation-20261118`, ID `br-soft-fog-b3zi4c2x`, status READY, expires `2026-11-19T06:35:00Z`.
+- Restore branch `f0-restore-drill-20261118`, ID `br-bitter-thunder-b3y99pe3`, status READY, `restore_status=restored`, restored from snapshot `snap-lingering-night-b3dnpacn` (`PKE-target-pre-migration-20261115`) and reports restored_as `br-damp-shape-b3xlh4nr`.
+- Production remains the primary/default branch; neither temporary branch is primary/default. No Production branch replacement occurred.
+- Snapshot inventory currently contains only the manual snapshot `PKE-target-pre-migration-20261115`. Automatic snapshot scheduling remains unconfigured. No schedule was created in this continuation; no supported schedule action was available in the connected Neon tool surface.
+- The restore operation is evidenced as a successful Neon restore into a separate temporary branch. It does not prove application-level recovery acceptance or a point-in-time restore at a newly selected timestamp.
+
+### RLS validation branch — FACT: VERIFIED / PARTIAL
+- Read-only catalog query on validation branch, executed with the branch's available owner connection, returned: 152 public tables with RLS enabled, 507 public policies, and three named RLS/Auth helper functions.
+- Attempt to connect as `app_runtime` failed because that role does not exist on the cloned validation branch. Catalog role check showed `authenticated` and `neondb_owner`, but no `app_runtime`.
+- Therefore two-principal behavioral isolation and runtime-role execution remain NOT VERIFIED. No role was created and no policy/privilege changes were made to Production or the validation branch.
+
+### Private storage — FACT: VERIFIED / PARTIAL
+- Neon object storage is enabled on the validation branch.
+- Bucket `pke-private-documents` exists with access level `private`; object listing returned zero objects and zero folders.
+- No upload/download/delete object was performed. Provider PUT/GET/HEAD round-trip and cross-project denial remain NOT VERIFIED. The owner-approved artifact test was not completed because the available connected actions expose presigning and object listing/deletion but no direct HTTP PUT/GET/HEAD transfer action; no presigned URL was treated as proof of transfer.
+
+### Authentication email test — BLOCKED BY PROVIDER CAPABILITY
+- Neon Auth configuration on the validation branch was read-only verified: Better Auth integration exists; public sign-up disabled; email/password enabled; OTP verification required; password-reset session revocation enabled; localhost disallowed; trusted origin is the Production application origin.
+- A test-email send was attempted to the exact owner-supplied mailbox `koenbroto@gmail.com` using Neon Auth's existing shared email provider. Neon rejected the operation with `INVALID_EMAIL_PROVIDER_TYPE`: test email sending is unsupported for the shared provider.
+- No email provider configuration was changed. No SMTP secret was requested, read, entered, or rotated. No Auth user was created; no OTP, reset, invitation or session lifecycle was claimed as tested.
+- Completing real email lifecycle tests requires an owner-approved standard SMTP provider configuration and its credentials through a secure supported configuration path, or a provider capability that supports test delivery with the current shared sender. Do not switch providers or alter Production Auth without a separate explicit approval.
+
+### Updated F0 acceptance delta
+| Item | Status | Evidence |
+|---|---|---|
+| Temporary restore branch | PASS — infrastructure restore only | Neon reports READY and restore_status=restored from the named manual snapshot. |
+| Automatic daily snapshot schedule / seven-day retention | BLOCKED | Snapshot inventory shows only one manual snapshot; no supported schedule operation was available. |
+| RLS two-principal isolation | PARTIAL | Catalog inventory available; app_runtime absent on validation branch, no behavioral test. |
+| Private bucket configuration | PASS | Private bucket exists and is empty. |
+| Storage PUT/GET/HEAD and cross-project denial | NOT VERIFIED | No real transfer/denial test executed. |
+| Auth configuration | PASS | Required settings re-read on validation branch. |
+| Auth email delivery / OTP / reset / invitation / session lifecycle | BLOCKED / NOT VERIFIED | Shared-provider test email rejected; no SMTP configuration or Auth user mutation. |
+| Protected HTTP smoke | NOT VERIFIED | No new successful protected endpoint status evidence in this continuation. |
+| Vercel secret visibility | BLOCKED | Eight previously identified readable-secret metadata findings remain unresolved; no values read or changed. |
+| Picomatch advisory | OPEN | No patched release established by the previous audit; no forced upgrade/downgrade. |
+| Production deployment / merge | PENDING SEPARATE OWNER APPROVAL | No merge to main, deployment or promotion performed. |
+
+### Safety record
+- No Production business data was read or written.
+- No Production Auth user, Auth setting, bucket object, snapshot schedule, role, grant, policy, or secret was changed.
+- No GitHub source code was changed in this continuation; only this Master Plan record is being updated on the existing recovery branch.
+- No Vercel deployment or environment variable was changed.
+- The temporary branch resources are time-limited and have provider expiry timestamps as listed above. Verify expiry/cleanup after 19 November 2026; do not delete Production or the restored source branch.
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Infrastructure restore evidence improved, but the remaining behavioral/security and external-provider gates are still open.

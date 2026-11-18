@@ -1,10 +1,8 @@
-﻿// REVISION 4 — PERMANENT SINGLE NEON PROJECT & SINGLE BRANCH POLICY (2026-11-14, owner-mandated)
-// Project: purple-base-63944903 (PKE-export-platform)
-// Branch: br-damp-shape-b3xlh4nr (production) | DB: neondb | Role: app_runtime_secure
-// Host: ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech
-// ABSOLUTE: NO additional Neon branches ever. NO NEON_TEST_DATABASE_URL. NO branch-selection/fallback.
-// NO local PostgreSQL/Docker. Legacy project lucky-glitter-99553107 + all its hosts/branches FORBIDDEN.
-// Single DATABASE_URL only. Fail-closed on mismatch. Never print secrets/connection strings.
+﻿// REVISION 4 — SINGLE PRODUCTION BRANCH WITH EXPLICIT TEMPORARY F0 PREVIEW EXCEPTION (2026-11-18)
+// Production remains locked to br-damp-shape-b3xlh4nr. The ONLY non-production exception is the owner-approved
+// f0-validation-20261118 branch, allowed only on Vercel Preview for phase0/reconcile-source-20261117 until expiry.
+// No other Neon branches, no NEON_TEST_DATABASE_URL, no branch-selection/fallback, no local PostgreSQL/Docker.
+// Legacy project lucky-glitter-99553107 + all its hosts/branches remain FORBIDDEN. Never print secrets/connection strings.
 
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -17,6 +15,17 @@ export const EXPECTED_HOST = "ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.n
 export const EXPECTED_PORT = 5432;
 export const EXPECTED_DATABASE = "neondb";
 export const EXPECTED_RUNTIME_USER = "app_runtime_secure";
+export const F0_VALIDATION_TARGET = {
+  projectId: "purple-base-63944903",
+  branchId: "br-soft-fog-b3zi4c2x",
+  branchName: "f0-validation-20261118",
+  host: "ep-lucky-credit-b3knh2t7.c-4.ap-southeast-1.aws.neon.tech",
+  database: "neondb",
+  port: 5432,
+  runtimeUser: "app_runtime_secure",
+  expiresAt: "2026-11-19T06:35:00.000Z",
+  gitBranch: "phase0/reconcile-source-20261117",
+};
 export const DATABASE_URL_ENV = "DATABASE_URL";
 
 export const LEGACY_PROJECT_ID = "lucky-glitter-99553107";
@@ -51,46 +60,74 @@ function redactUrl(url) {
 }
 function push(problems, code, message) { problems.push({ code, message }); }
 
-export function validateSingleBranchDatabaseUrl(rawUrl, env = {}) {
+export function validateSingleBranchDatabaseUrl(rawUrl, env = {}, nowMs = Date.now()) {
   const problems = [];
+  const validationFlag = typeof env.PKE_F0_VALIDATION_BRANCH === "string" ? env.PKE_F0_VALIDATION_BRANCH.trim() : "";
+  let target = {
+    projectId: EXPECTED_PROJECT_ID,
+    branchId: EXPECTED_BRANCH_ID,
+    branchName: EXPECTED_BRANCH_NAME,
+    host: EXPECTED_HOST,
+    database: EXPECTED_DATABASE,
+    port: EXPECTED_PORT,
+    runtimeUser: EXPECTED_RUNTIME_USER,
+    mode: "single-production",
+  };
+
+  if (env.VERCEL_ENV === "preview") {
+    if (!validationFlag) {
+      push(problems, "PREVIEW_DATABASE_TARGET_REQUIRED", "Vercel Preview must use the explicitly approved temporary F0 validation branch; Production database access from Preview is denied.");
+    } else if (
+      validationFlag === F0_VALIDATION_TARGET.branchName &&
+      env.VERCEL_GIT_COMMIT_REF === F0_VALIDATION_TARGET.gitBranch &&
+      nowMs < Date.parse(F0_VALIDATION_TARGET.expiresAt)
+    ) {
+      target = { ...F0_VALIDATION_TARGET, mode: "f0-validation-preview" };
+    } else {
+      push(problems, "F0_VALIDATION_EXCEPTION_REJECTED", "The temporary F0 database exception is restricted to the named Vercel Preview branch and expires automatically.");
+    }
+  } else if (validationFlag) {
+    push(problems, "F0_VALIDATION_PREVIEW_ONLY", "The temporary F0 validation database exception is Preview-only and cannot be used by Production or Development.");
+  }
+
   for (const key of FORBIDDEN_ENV_VARS) {
     if (env[key] !== undefined && String(env[key]).trim() !== "") {
-      push(problems, "FORBIDDEN_ENV_VAR", `${key} is FORBIDDEN (Revision 4: no alternate/test/branch-selection/local-db URLs).`);
+      push(problems, "FORBIDDEN_ENV_VAR", key + " is FORBIDDEN (no alternate/test/branch-selection/local-db URLs).");
     }
   }
-  if (env.NEON_PROJECT_ID !== undefined && env.NEON_PROJECT_ID !== EXPECTED_PROJECT_ID) {
-    push(problems, "INVALID_PROJECT_ID", `NEON_PROJECT_ID must be exactly ${EXPECTED_PROJECT_ID}.`);
+  if (env.NEON_PROJECT_ID !== undefined && env.NEON_PROJECT_ID !== target.projectId) {
+    push(problems, "INVALID_PROJECT_ID", "NEON_PROJECT_ID must be exactly " + target.projectId + ".");
   }
-  if (env.NEON_BRANCH_ID !== undefined && env.NEON_BRANCH_ID !== EXPECTED_BRANCH_ID) {
-    push(problems, "INVALID_BRANCH_ID", `NEON_BRANCH_ID must be exactly ${EXPECTED_BRANCH_ID}.`);
+  if (env.NEON_BRANCH_ID !== undefined && env.NEON_BRANCH_ID !== target.branchId) {
+    push(problems, "INVALID_BRANCH_ID", "NEON_BRANCH_ID must be exactly " + target.branchId + ".");
   }
-  if (env.NEON_BRANCH_NAME !== undefined && env.NEON_BRANCH_NAME !== EXPECTED_BRANCH_NAME) {
-    push(problems, "INVALID_BRANCH_NAME", `NEON_BRANCH_NAME must be exactly ${EXPECTED_BRANCH_NAME}.`);
+  if (env.NEON_BRANCH_NAME !== undefined && env.NEON_BRANCH_NAME !== target.branchName) {
+    push(problems, "INVALID_BRANCH_NAME", "NEON_BRANCH_NAME must be exactly " + target.branchName + ".");
   }
 
   if (!rawUrl || typeof rawUrl !== "string" || rawUrl.trim() === "") {
-    push(problems, "MISSING_URL", `${DATABASE_URL_ENV} is not set.`);
-    return { ok: false, problems, mode: "single-production" };
+    push(problems, "MISSING_URL", DATABASE_URL_ENV + " is not set.");
+    return { ok: false, problems, mode: target.mode };
   }
   if (/\s/.test(rawUrl)) {
-    push(problems, "MALFORMED_URL", `${DATABASE_URL_ENV} contains whitespace and is invalid.`);
-    return { ok: false, problems, mode: "single-production" };
+    push(problems, "MALFORMED_URL", DATABASE_URL_ENV + " contains whitespace and is invalid.");
+    return { ok: false, problems, mode: target.mode };
   }
   let parsed;
   try { parsed = new URL(rawUrl); } catch {
-    push(problems, "MALFORMED_URL", `${DATABASE_URL_ENV} is not a valid URL.`);
-    return { ok: false, problems, mode: "single-production" };
+    push(problems, "MALFORMED_URL", DATABASE_URL_ENV + " is not a valid URL.");
+    return { ok: false, problems, mode: target.mode };
   }
 
   if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
-    push(problems, "INVALID_PROTOCOL", `${DATABASE_URL_ENV} must use postgres:// or postgresql://.`);
+    push(problems, "INVALID_PROTOCOL", DATABASE_URL_ENV + " must use postgres:// or postgresql://.");
   }
   const hostname = parsed.hostname || "";
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1" || /^127\./.test(hostname) || /\.local$/i.test(hostname)) {
-    push(problems, "LOCAL_HOST_REJECTED", "Local/Docker/loopback hosts are FORBIDDEN (Revision 4).");
+    push(problems, "LOCAL_HOST_REJECTED", "Local/Docker/loopback hosts are FORBIDDEN.");
   }
   if (LEGACY_HOSTS.includes(hostname)) {
-    push(problems, "LEGACY_HOST_REJECTED", "Legacy Neon project/branch host is FORBIDDEN. Target must be new production host only.");
+    push(problems, "LEGACY_HOST_REJECTED", "Legacy Neon project/branch host is FORBIDDEN.");
   }
   for (const id of LEGACY_BRANCH_IDS) {
     if (hostname.includes(id) || rawUrl.includes(id)) push(problems, "LEGACY_BRANCH_REJECTED", "Legacy Neon branch identifiers are FORBIDDEN.");
@@ -98,48 +135,50 @@ export function validateSingleBranchDatabaseUrl(rawUrl, env = {}) {
   if (rawUrl.includes(LEGACY_PROJECT_ID)) {
     push(problems, "LEGACY_PROJECT_REJECTED", "Legacy Neon project identifier is FORBIDDEN.");
   }
-  if (hostname !== EXPECTED_HOST) {
-    push(problems, "INVALID_HOST", `${DATABASE_URL_ENV} host must be exactly ${EXPECTED_HOST}.`);
+  if (hostname !== target.host) {
+    push(problems, "INVALID_HOST", DATABASE_URL_ENV + " host must be exactly " + target.host + ".");
   }
 
   const port = parsed.port ? Number.parseInt(parsed.port, 10) : 5432;
-  if (!Number.isInteger(port) || port !== EXPECTED_PORT) {
-    push(problems, "INVALID_PORT", `${DATABASE_URL_ENV} port must be ${EXPECTED_PORT}.`);
+  if (!Number.isInteger(port) || port !== target.port) {
+    push(problems, "INVALID_PORT", DATABASE_URL_ENV + " port must be " + target.port + ".");
   }
   const database = parsed.pathname.replace(/^\//, "");
-  if (database !== EXPECTED_DATABASE) {
-    push(problems, "INVALID_DATABASE", `${DATABASE_URL_ENV} database must be exactly ${EXPECTED_DATABASE}.`);
+  if (database !== target.database) {
+    push(problems, "INVALID_DATABASE", DATABASE_URL_ENV + " database must be exactly " + target.database + ".");
   }
   let username = "";
-  try { username = decodeURIComponent(parsed.username || ""); } catch { push(problems, "INVALID_USER", `${DATABASE_URL_ENV} username encoding is invalid.`); }
-  if (username !== EXPECTED_RUNTIME_USER) {
-    push(problems, "INVALID_USER", `${DATABASE_URL_ENV} username must be exactly ${EXPECTED_RUNTIME_USER}.`);
+  try { username = decodeURIComponent(parsed.username || ""); } catch { push(problems, "INVALID_USER", DATABASE_URL_ENV + " username encoding is invalid."); }
+  if (username !== target.runtimeUser) {
+    push(problems, "INVALID_USER", DATABASE_URL_ENV + " username must be exactly " + target.runtimeUser + ".");
   }
-  if (!parsed.password) push(problems, "MISSING_PASSWORD", `${DATABASE_URL_ENV} must include a password.`);
+  if (!parsed.password) push(problems, "MISSING_PASSWORD", DATABASE_URL_ENV + " must include a password.");
 
   const sslmode = parsed.searchParams.get("sslmode");
   if (!sslmode || !["require", "verify-ca", "verify-full"].includes(sslmode)) {
-    push(problems, "TLS_REQUIRED", `${DATABASE_URL_ENV} must include sslmode=require, verify-ca, or verify-full.`);
+    push(problems, "TLS_REQUIRED", DATABASE_URL_ENV + " must include sslmode=require, verify-ca, or verify-full.");
   }
   for (const [k, v] of parsed.searchParams.entries()) {
-    if (k === "sslmode" && ["disable", "allow", "prefer"].includes(v)) push(problems, "TLS_REQUIRED", `${DATABASE_URL_ENV} must not disable TLS.`);
+    if (k === "sslmode" && ["disable", "allow", "prefer"].includes(v)) push(problems, "TLS_REQUIRED", DATABASE_URL_ENV + " must not disable TLS.");
   }
   for (const k of parsed.searchParams.keys()) {
     if (!["sslmode", "uselibpqcompat", "sslrootcert", "channel_binding"].includes(k)) {
-      push(problems, "UNEXPECTED_PARAMS", `${DATABASE_URL_ENV} contains unsupported query parameters.`);
+      push(problems, "UNEXPECTED_PARAMS", DATABASE_URL_ENV + " contains unsupported query parameters.");
     }
   }
-  if (parsed.hash) push(problems, "UNEXPECTED_FRAGMENT", `${DATABASE_URL_ENV} must not include a URL fragment.`);
+  if (parsed.hash) push(problems, "UNEXPECTED_FRAGMENT", DATABASE_URL_ENV + " must not include a URL fragment.");
 
-  // dedupe problems by code+message
   const seen = new Set();
   const uniq = problems.filter((p) => { const k = p.code + "|" + p.message; if (seen.has(k)) return false; seen.add(k); return true; });
-
   return {
     ok: uniq.length === 0,
     problems: uniq,
-    mode: "single-production",
-    config: uniq.length === 0 ? { host: EXPECTED_HOST, port: EXPECTED_PORT, database: EXPECTED_DATABASE, username: EXPECTED_RUNTIME_USER, projectId: EXPECTED_PROJECT_ID, branchId: EXPECTED_BRANCH_ID, branchName: EXPECTED_BRANCH_NAME } : undefined,
+    mode: target.mode,
+    config: uniq.length === 0 ? {
+      host: target.host, port: target.port, database: target.database,
+      username: target.runtimeUser, projectId: target.projectId,
+      branchId: target.branchId, branchName: target.branchName,
+    } : undefined,
   };
 }
 

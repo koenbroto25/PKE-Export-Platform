@@ -1088,6 +1088,10 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   const [resettingId, setResettingId] = useState('');
   const [membershipBusyId, setMembershipBusyId] = useState('');
   const [globalBusyId, setGlobalBusyId] = useState('');
+  const [memberAddUserId, setMemberAddUserId] = useState('');
+  const [memberAddRoleId, setMemberAddRoleId] = useState('');
+  const [memberAddReason, setMemberAddReason] = useState('');
+  const [memberAddBusy, setMemberAddBusy] = useState(false);
   const [provisionBusy, setProvisionBusy] = useState(false);
   const [provisionEmail, setProvisionEmail] = useState('');
   const [provisionName, setProvisionName] = useState('');
@@ -1193,6 +1197,29 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
     }
   };
 
+  const addMemberToProject = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedProjectId || !memberAddUserId || !memberAddRoleId || memberAddReason.trim().length < 5) {
+      onNotice('error', 'Pilih akun aktif, role proyek, dan alasan minimal 5 karakter.');
+      return;
+    }
+    setMemberAddBusy(true);
+    try {
+      await post(\`/admin/projects/\${selectedProjectId}/members\`, {
+        userId: memberAddUserId,
+        projectRoleId: memberAddRoleId,
+        reason: memberAddReason.trim(),
+      });
+      setMemberAddReason('');
+      onNotice('success', 'Akun berhasil ditambahkan atau diaktifkan pada proyek ini. Role di proyek lain tidak berubah.');
+      projectDetail.refresh();
+    } catch (e) {
+      onNotice('error', e instanceof Error ? e.message : 'Penetapan role proyek gagal.');
+    } finally {
+      setMemberAddBusy(false);
+    }
+  };
+
   const requestReset = async (user: AnyRecord) => {
     const id = String(user.id || '');
     if (!id) return;
@@ -1266,6 +1293,18 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       <PanelHeading title="Role & status per proyek" description="Satu pengguna dapat mempunyai role berbeda dan status aktif/nonaktif yang independen pada setiap proyek." />
       {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : !projects.data?.projects?.length ? <EmptyState title="Belum ada proyek" desc="Keanggotaan proyek dapat dikelola setelah proyek tersedia." /> : <>
         <FormField label="Pilih proyek"><select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+        <form className="form-grid" onSubmit={addMemberToProject}>
+          <FormField label="Akun aktif"><select value={memberAddUserId} onChange={e => setMemberAddUserId(e.target.value)} required>
+            <option value="">Pilih akun PKE</option>
+            {(users.data?.users || []).filter(user => user.is_active === true && !!user.neon_auth_user_id).map(user => <option key={user.id} value={user.id}>{user.name || user.email} — {user.email}</option>)}
+          </select></FormField>
+          <FormField label="Role pada proyek ini"><select value={memberAddRoleId} onChange={e => setMemberAddRoleId(e.target.value)} required>
+            <option value="">Pilih role proyek</option>
+            {(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}
+          </select></FormField>
+          <FormField label="Alasan penetapan akses"><input value={memberAddReason} onChange={e => setMemberAddReason(e.target.value)} minLength={5} maxLength={500} required placeholder="Dasar pemberian role pada proyek ini" /></FormField>
+          <div className="form-actions"><button className="primary-button" disabled={memberAddBusy || projectDetail.loading || !users.data?.users?.length}>{memberAddBusy ? 'Menyimpan…' : 'Tambahkan ke proyek'}</button></div>
+        </form>
         {projectDetail.loading ? <Loading /> : projectDetail.error ? <ErrorState message={projectDetail.error} retry={projectDetail.refresh} /> : <DataTable rows={projectDetail.data?.members || []} columns={[
           { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
           { key: 'role', label: 'Role proyek', render: r => <select aria-label={\`Role proyek untuk \${r.email || r.user_id}\`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },

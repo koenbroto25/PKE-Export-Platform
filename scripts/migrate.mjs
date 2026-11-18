@@ -10,6 +10,7 @@ dotenv.config({ path: ".env.migrate", override: false });
 const mode = process.argv[2] || "dry-run";
 const migrationsDir = path.resolve("migrations");
 const manifestPath = path.resolve("migration_manifest_001_027.json");
+const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_037.json");
 
 // REVISION 5.6 safety policy:
 // - Migrations 001-035 are immutable; no apply/baseline may rerun or mutate them.
@@ -37,6 +38,11 @@ function fail(message) {
 function loadManifest() {
   if (!fs.existsSync(manifestPath)) return null;
   try { return JSON.parse(fs.readFileSync(manifestPath, "utf8")); } catch { return null; }
+}
+
+function loadProductionHistoryManifest() {
+  if (!fs.existsSync(productionHistoryManifestPath)) return null;
+  try { return JSON.parse(fs.readFileSync(productionHistoryManifestPath, "utf8")); } catch { return null; }
 }
 
 function listSqlFiles() {
@@ -81,6 +87,7 @@ async function main() {
   const databaseUrl = process.env.MIGRATION_DATABASE_URL;
   const files = listSqlFiles();
   const manifest = loadManifest();
+  const productionHistoryManifest = loadProductionHistoryManifest();
   const manifestMap = new Map((manifest?.baseline_migrations || []).map((m) => [m.file, m.sha256]));
 
   console.log(`Found ${files.length} numbered migration files in migrations/.`);
@@ -166,13 +173,12 @@ async function main() {
     if (mode === "apply") {
       const approved036 = "036_validate_production_schema_invariants.sql";
       const approved036Sha = "4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52";
+      const approved037 = "037_restrict_security_definer_execute.sql";
+      const approved037Sha = "c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85";
+      const approved038 = "038_admin_managed_neon_auth_user_lifecycle.sql";
+      const approved038Sha = "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
-      if (newFiles.length !== 1 || newFiles[0] !== approved036) {
-        fail("Approved apply is restricted to exactly 036_validate_production_schema_invariants.sql.");
-      }
-      const approvedPath = path.join(migrationsDir, approved036);
-      const actual036Sha = sha256File(approvedPath);
-      if (actual036Sha !== approved036Sha) fail("036 checksum mismatch; refusing to apply.");
+
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
       await client.connect();
       let lockHeld = false;
@@ -180,28 +186,107 @@ async function main() {
         const identity = await client.query("SELECT current_database() AS db, current_user AS usr, inet_server_port() AS port");
         const ident = identity.rows[0] || {};
         if (ident.db !== EXPECTED_DB || ident.usr === "app_runtime_secure" || ident.usr === "app_runtime" || Number(ident.port) !== EXPECTED_PORT) {
-          fail("036 target identity verification failed.");
+          fail("Migration apply target identity verification failed.");
         }
         await client.query("SELECT pg_advisory_lock(424242)");
         lockHeld = true;
-        const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
-        if (history.rows.length !== 35 || history.rows.some((r, i) => Number(r.id) !== i + 1)) {
-          fail("036 requires an exact, contiguous migration_history 001-035; refusing.");
+
+        if (newFiles.length === 1 && newFiles[0] === approved036) {
+          if (sha256File(path.join(migrationsDir, approved036)) !== approved036Sha) fail("036 checksum mismatch; refusing to apply.");
+          const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          if (history.rows.length !== 35 || history.rows.some((r, i) => Number(r.id) !== i + 1)) {
+            fail("036 requires an exact, contiguous migration_history 001-035; refusing.");
+          }
+          if (history.rows.some((r) => r.filename === approved036)) fail("036 already exists in migration_history; refusing re-apply.");
+          const sql = fs.readFileSync(path.join(migrationsDir, approved036), "utf8");
+          await client.query("BEGIN");
+          try {
+            await client.query(sql);
+            await client.query(
+              "INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, 'applied')",
+              [approved036, approved036Sha]
+            );
+            await client.query("COMMIT");
+            console.log("Applied approved migration 036; SQL and history row committed atomically.");
+          } catch (error) {
+            await client.query("ROLLBACK");
+            fail("036 apply failed and transaction rolled back: " + (error?.message || "unknown error"));
+          }
+          return;
         }
-        if (history.rows.some((r) => r.filename === approved036)) fail("036 already exists in migration_history; refusing re-apply.");
-        const sql = fs.readFileSync(approvedPath, "utf8");
+
+        if (
+          newFiles.length !== 3 ||
+          !newFiles.includes(approved036) ||
+          !newFiles.includes(approved037) ||
+          !newFiles.includes(approved038)
+        ) {
+          fail("Apply is restricted to the exact approved 036-only historical path or the explicit 038 release path (036, 037, 038 files present).");
+        }
+
+        if (process.env.MIGRATE_038_CONFIRM !== "1") {
+          fail("Migration 038 requires MIGRATE_038_CONFIRM=1 after separate owner approval.");
+        }
+        if (process.env.MIGRATION_038_APPROVED_SHA256 !== approved038Sha) {
+          fail("Migration 038 approval SHA-256 is absent or does not match the exact reviewed SQL.");
+        }
+        if (!process.env.MIGRATION_038_APPROVAL_REFERENCE || !process.env.MIGRATION_038_APPROVAL_REFERENCE.trim()) {
+          fail("Migration 038 requires MIGRATION_038_APPROVAL_REFERENCE identifying the owner's explicit approval.");
+        }
+        if (newFiles.some((f) => {
+          const expected = f === approved036 ? approved036Sha : f === approved037 ? approved037Sha : approved038Sha;
+          return sha256File(path.join(migrationsDir, f)) !== expected;
+        })) {
+          fail("One or more 036-038 SQL files do not match their pinned SHA-256 values.");
+        }
+
+        const releaseManifest = productionHistoryManifest;
+        if (
+          !releaseManifest ||
+          releaseManifest.purpose !== "verified_production_history_only_not_sql_source" ||
+          releaseManifest.applied_count !== 37 ||
+          !Array.isArray(releaseManifest.entries) ||
+          releaseManifest.entries.length !== 37 ||
+          !Array.isArray(releaseManifest.pending_migrations) ||
+          !releaseManifest.pending_migrations.some((m) => m.file === approved038 && m.sha256 === approved038Sha)
+        ) {
+          fail("Verified Production history manifest 001-037 is missing, malformed, or does not pin pending migration 038.");
+        }
+
+        const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+        if (history.rows.length !== 37) {
+          fail("Migration 038 requires exactly 37 verified Production history rows; refusing.");
+        }
+        for (let i = 0; i < releaseManifest.entries.length; i++) {
+          const expected = releaseManifest.entries[i];
+          const actual = history.rows[i];
+          if (
+            Number(actual.id) !== i + 1 ||
+            Number(expected.id) !== i + 1 ||
+            actual.filename !== expected.filename ||
+            actual.sha256 !== expected.sha256 ||
+            actual.status !== expected.status
+          ) {
+            fail("Production migration_history differs from the verified 001-037 release manifest at sequence " + (i + 1) + "; refusing.");
+          }
+        }
+        if (history.rows.some((r) => r.filename === approved038)) {
+          fail("Migration 038 already exists in Production history; refusing re-apply.");
+        }
+
+        const sql = fs.readFileSync(path.join(migrationsDir, approved038), "utf8");
         await client.query("BEGIN");
         try {
           await client.query(sql);
           await client.query(
             "INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, 'applied')",
-            [approved036, approved036Sha]
+            [approved038, approved038Sha]
           );
           await client.query("COMMIT");
-          console.log("Applied approved migration 036; SQL and history row committed atomically.");
+          console.log("Applied explicitly owner-approved migration 038; approval reference: " + process.env.MIGRATION_038_APPROVAL_REFERENCE);
         } catch (error) {
           await client.query("ROLLBACK");
-          fail(`036 apply failed and transaction rolled back: ${error?.message || "unknown error"}`);
+          fail("038 apply failed and transaction rolled back: " + (error?.message || "unknown error"));
         }
       } finally {
         if (lockHeld) await client.query("SELECT pg_advisory_unlock(424242)").catch(() => {});

@@ -152,6 +152,16 @@ BEGIN
   VALUES
     ('user', v_user.id, 'admin_user_provisioned', v_actor_id, 'pending', NULL, now(), now());
 
+  INSERT INTO public.audit_events
+    (actor_user_id, actor_type, actor_role, action, target_type, target_id,
+     reason, after_snapshot, metadata, outcome)
+  VALUES
+    (v_actor_id, 'user', 'admin', 'user.provisioned', 'user', v_user.id,
+     v_reason,
+     jsonb_build_object('email', v_email, 'name', v_name, 'is_active', false, 'auth_linked', false),
+     jsonb_build_object('provisioning_state', 'pending_auth'),
+     'success');
+
   RETURN QUERY SELECT v_user.id, v_user.email, v_user.name, v_user.role::text,
                       v_user.is_active, v_user.neon_auth_user_id, 'pending_auth'::text;
 END;
@@ -279,6 +289,17 @@ BEGIN
     ('user', v_user.id, 'neon_auth_identity_linked:' || p_event_id::text,
      v_actor_id, 'succeeded', NULL, now(), now());
 
+  INSERT INTO public.audit_events
+    (actor_user_id, actor_type, actor_role, action, target_type, target_id,
+     reason, before_snapshot, after_snapshot, metadata, outcome)
+  VALUES
+    (v_actor_id, 'user', 'admin', 'user.auth_identity_linked', 'user', v_user.id,
+     'Verified Neon Auth user.created webhook',
+     jsonb_build_object('neon_auth_user_id', NULL),
+     jsonb_build_object('neon_auth_user_id', p_neon_auth_user_id),
+     jsonb_build_object('provider_event_id', p_event_id),
+     'success');
+
   RETURN QUERY SELECT v_user.id, 'linked'::text;
 END;
 $function$;
@@ -336,6 +357,18 @@ BEGIN
       ('user', p_user_id,
        CASE WHEN p_is_active THEN 'global_user_activated' ELSE 'global_user_deactivated' END,
        v_actor_id, 'succeeded', NULL, now(), now());
+
+    INSERT INTO public.audit_events
+      (actor_user_id, actor_type, actor_role, action, target_type, target_id,
+       reason, before_snapshot, after_snapshot, metadata, outcome)
+    VALUES
+      (v_actor_id, 'user', 'admin',
+       CASE WHEN p_is_active THEN 'user.globally_activated' ELSE 'user.globally_deactivated' END,
+       'user', p_user_id, v_reason,
+       jsonb_build_object('is_active', v_user.is_active),
+       jsonb_build_object('is_active', p_is_active, 'neon_auth_user_id', v_user.neon_auth_user_id),
+       jsonb_build_object('session_revocation_required', NOT p_is_active),
+       'success');
   END IF;
 
   RETURN QUERY SELECT p_user_id, p_is_active, v_user.neon_auth_user_id;

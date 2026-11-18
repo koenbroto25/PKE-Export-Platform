@@ -6,6 +6,7 @@ import {
   validateRuntimeRoleState,
   type RuntimeRoleState,
 } from "./runtime-security.ts";
+import { validateSingleBranchDatabaseUrl, F0_VALIDATION_TARGET } from "../scripts/test-db/preflight.mjs";
 
 const safeRole: RuntimeRoleState = {
   current_role: "app_runtime_secure",
@@ -67,5 +68,56 @@ describe("Revision 028 runtime database guard", () => {
     expect(roleFromDatabaseUrl("postgresql://app_runtime_secure:secret@host.example/db?sslmode=require"))
       .toBe(REQUIRED_RUNTIME_ROLE);
     expect(() => roleFromDatabaseUrl("not-a-url")).toThrow(/valid PostgreSQL/);
+  });
+});
+
+
+describe("temporary F0 validation database exception", () => {
+  const validationUrl = "postgresql://app_runtime_secure:secret@ep-lucky-credit-b3knh2t7.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+  const validationEnv = {
+    VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: F0_VALIDATION_TARGET.gitBranch,
+    PKE_F0_VALIDATION_BRANCH: F0_VALIDATION_TARGET.branchName,
+    NEON_PROJECT_ID: F0_VALIDATION_TARGET.projectId,
+    NEON_BRANCH_ID: F0_VALIDATION_TARGET.branchId,
+    NEON_BRANCH_NAME: F0_VALIDATION_TARGET.branchName,
+  };
+
+  it("accepts only the exact temporary validation branch in its named Vercel Preview", () => {
+    const result = validateSingleBranchDatabaseUrl(validationUrl, validationEnv, Date.parse("2026-11-18T12:00:00Z"));
+    expect(result.ok).toBe(true);
+    expect(result.mode).toBe("f0-validation-preview");
+    expect(result.config?.branchId).toBe(F0_VALIDATION_TARGET.branchId);
+  });
+
+  it("rejects a validation branch in Production", () => {
+    const result = validateSingleBranchDatabaseUrl(validationUrl, {
+      ...validationEnv,
+      VERCEL_ENV: "production",
+    }, Date.parse("2026-11-18T12:00:00Z"));
+    expect(result.ok).toBe(false);
+    expect(result.problems.map(problem => problem.code)).toContain("F0_VALIDATION_PREVIEW_ONLY");
+  });
+
+  it("rejects the validation branch on any other Preview branch", () => {
+    const result = validateSingleBranchDatabaseUrl(validationUrl, {
+      ...validationEnv,
+      VERCEL_GIT_COMMIT_REF: "main",
+    }, Date.parse("2026-11-18T12:00:00Z"));
+    expect(result.ok).toBe(false);
+    expect(result.problems.map(problem => problem.code)).toContain("F0_VALIDATION_EXCEPTION_REJECTED");
+  });
+
+  it("rejects the temporary validation exception after branch expiry", () => {
+    const result = validateSingleBranchDatabaseUrl(validationUrl, validationEnv, Date.parse("2026-11-20T00:00:00Z"));
+    expect(result.ok).toBe(false);
+    expect(result.problems.map(problem => problem.code)).toContain("F0_VALIDATION_EXCEPTION_REJECTED");
+  });
+
+  it("refuses Production database access from Vercel Preview without the explicit validation flag", () => {
+    const productionUrl = "postgresql://app_runtime_secure:secret@ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+    const result = validateSingleBranchDatabaseUrl(productionUrl, { VERCEL_ENV: "preview" }, Date.parse("2026-11-18T12:00:00Z"));
+    expect(result.ok).toBe(false);
+    expect(result.problems.map(problem => problem.code)).toContain("PREVIEW_DATABASE_TARGET_REQUIRED");
   });
 });

@@ -9,11 +9,11 @@ const hashFile = (name) => crypto.createHash("sha256").update(fs.readFileSync(pa
 const fail = (message) => { console.error("FAIL: " + message); process.exitCode = 1; };
 
 const baseline = readJson("migration_manifest_001_027.json");
-const ledger = readJson("migration_history_manifest_001_037.json");
+const ledger = readJson("migration_history_manifest_001_038.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
-if (ledger.applied_count !== 37 || ledger.entries.length !== 37) fail("Production history ledger must contain exactly 37 entries.");
+if (ledger.applied_count !== 38 || ledger.entries.length !== 38) fail("Production history ledger must contain exactly 37 entries.");
 if (ledger.project_id !== "purple-base-63944903" || ledger.branch_id !== "br-damp-shape-b3xlh4nr" || ledger.database !== "neondb") fail("history ledger target identity mismatch.");
 
 for (let i = 0; i < ledger.entries.length; i++) {
@@ -37,22 +37,27 @@ if (ledger.entries[36]?.filename !== "037_restrict_security_definer_execute.sql"
   fail("Migration 037 source/hash does not match verified Production history.");
 }
 
-const pending = ledger.pending_migrations?.find((m) => m.file === "038_admin_managed_neon_auth_user_lifecycle.sql");
 const expected038 = "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5";
-if (!pending || pending.status !== "pending_owner_approval" || pending.production_applied !== false ||
-    pending.sha256 !== expected038 || hashFile("migrations/038_admin_managed_neon_auth_user_lifecycle.sql") !== expected038) {
-  fail("Migration 038 must remain a hash-pinned pending candidate, not an applied migration.");
+const applied038 = ledger.entries[37];
+if (!applied038 || applied038.id !== 38 ||
+    applied038.filename !== "038_admin_managed_neon_auth_user_lifecycle.sql" ||
+    applied038.sha256 !== expected038 || applied038.status !== "applied" ||
+    applied038.source_sha_verified !== true ||
+    hashFile("migrations/038_admin_managed_neon_auth_user_lifecycle.sql") !== expected038) {
+  fail("Migration 038 must match the exact hash-verified applied Production ledger entry.");
 }
-if (ledger.entries.some((m) => m.filename.startsWith("038_"))) fail("Migration 038 must not appear in applied history.");
+if ((ledger.pending_migrations || []).some((m) => m.file === "038_admin_managed_neon_auth_user_lifecycle.sql")) {
+  fail("Migration 038 is already applied and must not remain in pending_migrations.");
+}
 
 for (const required of ["MIGRATE_038_CONFIRM", "MIGRATION_038_APPROVED_SHA256", "MIGRATION_038_APPROVAL_REFERENCE", expected038]) {
   if (!runner.includes(required)) fail("Migration runner is missing explicit 038 approval guard: " + required);
 }
-if (!runner.includes("releaseManifest.entries.length !== 37")) fail("Migration runner does not require exact Production history length.");
-if (!runner.includes("Production migration_history differs from the verified 001-037 release manifest")) fail("Migration runner is missing exact history reconciliation.");
+if (!runner.includes("releaseManifest.entries.length !== 38")) fail("Migration runner does not require exact Production history length 001-038.");
+if (!runner.includes("Production migration_history differs from the verified 001-038 release manifest")) fail("Migration runner is missing exact history reconciliation.");
 if (!runner.includes("Production history ledger:")) fail("Migration status mode does not compare the verified Production ledger.");
 if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");
 
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028, verified Production history 001-037, exact source 036-037, and pending Migration 038 approval gate.");
+console.log("PASS: baseline 001-028, verified Production history 001-038, and exact source hashes for migrations 036-038.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

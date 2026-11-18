@@ -1,4 +1,4 @@
--- PKE Migration 037: least-privilege execution ACLs for SECURITY DEFINER functions.
+-- PKE Migration 037: least-privilege public-schema privilege and execution ACLs.
 -- REVIEW REQUIRED. This is a forward-only security correction; it does not reopen
 -- or modify migrations 001-036. Do not apply without owner approval of this exact SQL
 -- and its SHA-256. Target: the single mandated Neon Production database.

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.18 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.19 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.18 (18 November 2026 — full Preview build-gate revalidation)  
+**Revision:** 2.19 (18 November 2026 — one-time comprehensive F0 audit and security revisions)  
 
 **Tanggal dokumen:** 11 November 2026  
 
@@ -7568,3 +7568,105 @@ The full audit reporter ran with development dependencies included:
 | Production runtime NODE_ENV | PENDING NEXT APPROVED DEPLOYMENT | `NODE_ENV=production` is configured for Preview and Production, but current Production deployment snapshot remains unchanged. |
 
 F0 remains IN PROGRESS / NOT CLOSED. A successful Preview build is not Production acceptance. No Production deployment, database mutation, migration, Auth change, storage object write, business data creation, or merge to `main` occurred in this section.
+
+
+---
+
+# 55. One-time comprehensive F0 audit and finalization revisions (18 November 2026)
+
+## 55.1 Audit boundary and target identity
+This is the consolidated F0 audit record requested by the owner. It supersedes earlier partial status notes where newer live evidence is available. The audit used read-only GitHub, Vercel and Neon inspection. Code and candidate-migration revisions below are confined to the recovery branch; this section does not authorize Production deployment or database mutation.
+
+- Repository: `koenbroto25/PKE-Export-Platform`.
+- Production source: `main`, HEAD `625109a2531ada0ff190d9ef91e7e8428e9ceebe`.
+- Recovery branch: `phase0/reconcile-source-20261117`; current revision at the time of this record is the recovery-branch head.
+- Production deployment: `dpl_AzF9eP7HS6Yec82nEwEUSKDFdcDg`, READY, source SHA matches `main` HEAD. It was not redeployed.
+- Neon: project `purple-base-63944903`, sole branch `production` (`br-damp-shape-b3xlh4nr`), database `neondb`.
+- Migration 036 remains CLOSED & FINAL, Production history row 036 SHA-256 `4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52`.
+- Owner decision in Section 49.1 remains controlling: former F0.06–F0.08 historical source-recovery gates are WAIVED/CLOSED BY OWNER DIRECTION. Do not reopen migration 029–035 recovery or edit historical migrations 001–036.
+
+## 55.2 Neon Production catalog and privilege findings
+The audit queried catalog metadata only; no business rows were selected or changed.
+
+| Area | Live catalog result | Assessment |
+|---|---|---|
+| Public base/partitioned tables | 152; RLS enabled 152/152; FORCE RLS 71/152 | RLS is universally enabled; FORCE is not universal. |
+| RLS policies | 507 total; 507 PERMISSIVE; zero RESTRICTIVE; all target `app_runtime_secure`; zero target `authenticated` or `anon` | No unconditional `USING (true)`/`WITH CHECK (true)`; no missing required USING or write-check expressions. Policy expressions do not prove two-principal behavioral isolation. |
+| SECURITY DEFINER functions | 80; all 80 have fixed function search_path; PUBLIC EXECUTE on 80; authenticated EXECUTE on 80; runtime EXECUTE on 24 non-trigger helpers | Concrete least-privilege defect: internal privileged functions are executable by PUBLIC/authenticated. |
+| Authenticated public relation grants | 153 public relation objects with SELECT/INSERT/UPDATE/DELETE (612 privilege entries) | Unnecessary direct grants. No policy targets authenticated; no direct frontend Neon Data API use was found in inspected frontend modules. |
+| Default ACL | `neondb_owner` public-schema defaults grant authenticated table privileges and sequence USAGE; function defaults expose EXECUTE | Future objects can inherit the same unnecessary access unless defaults are corrected. |
+| Runtime role | `app_runtime_secure`: LOGIN; SUPERUSER/BYPASSRLS/CREATEDB/CREATEROLE all false; read-only SELECT connectivity succeeds | Role attributes are least-privilege; relation privileges remain intentionally used by the backend and are governed by RLS. |
+| Migration history | 36 rows: 16 baselined, 20 applied; last is applied 036 with owner-approved SHA-256 above | No 037 row; candidate 037 is not applied. |
+
+Additional catalog-wide integrity counts returned 429 foreign keys and 280 CHECK constraints with zero unvalidated entries, 1,033 indexes with zero invalid/not-ready entries, and zero disabled non-internal public triggers. These are catalog counts, not behavioral workflow tests.
+
+## 55.3 API security review and recovery-branch code revisions
+Static route inventory of `src/index.ts` found 125 API route declarations: health is registered before the global `/api/v1` authentication middleware; the other 124 routes pass through global `requireAuth`. Ten routes also apply `requireAdmin`. This is route/middleware evidence, not proof of project-scope correctness for every SQL query.
+
+The audit identified 60 catch handlers returning raw `Error.message` to clients, one additional status-preserving catch returning raw exception text, a central error handler logging exception message/stack and original URL, and request access logging that included query strings and client IP. Recovery-branch revisions:
+- Added `src/http-errors.ts` with stable generic internal/client-rejection payloads.
+- Replaced all 60 raw 500 error responses and the additional status-preserving raw error response with generic, non-sensitive payloads.
+- Sanitized the central Express error handler: no exception message, stack, query string, token or IP is logged; only event, status, method, path and error type are recorded.
+- Request access logging now uses method and path only, excluding query strings and IP.
+- Production CORS no longer defaults to localhost development origins; an explicit `CORS_ALLOWED_ORIGINS` remains the owner-controlled allow-list.
+- Added `src/http-errors.test.ts` and included it in `npm test`.
+
+GitHub Actions run `44244510605` on commit `20bca7d053418cfe3f4417b0ce26395d975978ae` passed: 3 test files, 62/62 tests. The recovery branch also updates `scripts/verify-runtime-security.mjs` to check authenticated public relation/sequence grants and public default ACLs in addition to the existing SECURITY DEFINER checks. That Production-connected verifier is not claimed to pass before Migration 037 is approved/applied.
+
+## 55.4 Forward-only Migration 037 candidate — expanded privilege correction
+Candidate `migrations/037_restrict_security_definer_execute.sql` now covers both live privilege defects:
+1. Revoke PUBLIC and authenticated EXECUTE from current public SECURITY DEFINER functions while retaining explicit EXECUTE for callable non-trigger helpers to `app_runtime_secure`.
+2. Revoke authenticated privileges on all public tables/views and sequences.
+3. Remove `neondb_owner` public-schema default table/sequence privileges to authenticated and correct global/schema function defaults.
+4. Fail atomically if any prohibited relation, sequence, function or default ACL remains.
+
+Exact current candidate:
+- Git blob SHA: `90d0a737a87f5786d8af19ed04e74574637be4c7`.
+- SHA-256: `c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85`.
+- Status: **CANDIDATE / NOT APPLIED**.
+- The hash is for the exact file currently on the recovery branch. Any subsequent edit invalidates this approval hash.
+- Production still has the catalog privileges recorded in Section 55.2. No GRANT/REVOKE, DDL, migration execution or migration-history change occurred. This exact SQL and SHA-256 require explicit owner approval before Production execution. Do not auto-apply it from build/startup.
+
+## 55.5 Vercel, Auth, storage and recovery posture
+- Production remains on `main` SHA `625109a...`; no merge, promotion, alias change or Production redeploy occurred.
+- Recovery Preview builds execute the aligned chain: dependency audit reporter, unit tests, API TypeScript check and frontend TypeScript/Vite build. The dependency audit currently reports 6 high findings in root and 5 high findings in frontend; these are not 11 independent advisories. The common underlying finding is Picomatch `GHSA-fc5q-39xc-vjpf`, with no patched release identified in the reviewed registry/advisory data. Vite 6.4.6 and Vitest 4.1.12 are retained; do not downgrade or run forced major upgrades. This remains an open dependency risk/owner risk-acceptance gate.
+- Production runtime error aggregation for the inspected 24-hour window contained one SSL compatibility warning group (24 occurrences, last observed 18 Nov 2026 03:57 UTC) associated with the current Production deployment. The 24-hour individual runtime-log request failed because the Vercel Hobby plan retains only one hour of runtime logs. This is not evidence of zero 5xx. The recovery branch already normalizes legacy SSL aliases; Production has not consumed that code.
+- Vercel environment metadata was inspected with decryption disabled. Eight keys carry the `readable-secret` security issue: `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, and `NEON_DATA_API_URL`. No values were decrypted, copied, displayed or replaced. Current available Vercel edit action does not expose the required secret-visibility control; leave this as a blocker until a supported control is available.
+- `NODE_ENV=production` is configured for Preview and Production, but the existing Production deployment predates that variable update and has not consumed it. A separate approved Production deployment is required to activate it.
+- Neon Auth: public sign-up disabled; email/password enabled; email verification/OTP and reset-session revocation settings are configured. Invitation, email delivery, OTP, reset and session lifecycle have not been exercised.
+- Storage bucket `pke-private-documents` remains private and empty. Source includes signed upload/download URL generation and a read-only signed HEAD metadata request. No live upload/download/HEAD round-trip or cross-project denial test was run. Deletion remains fail-closed. Declared upload size is validated before signing but has not been proven as a provider-enforced content-length ceiling.
+- Snapshot inventory remains one manual snapshot `PKE-target-pre-migration-20261115`; automatic snapshot schedule is empty and no restore drill exists. No schedule, snapshot or restore mutation was performed.
+- Public/protected HTTP smoke evidence remains unavailable: external fetch attempts could not access the Vercel app through the current protection layer. No application HTTP status is inferred. Production credentials were not copied into Preview.
+
+## 55.6 Consolidated F0 acceptance state
+| F0 item | Final audit status | Evidence / reason |
+|---|---|---|
+| F0.01–F0.04 | PASS | Repository/main/Production deployment/Neon target and runtime connectivity/role attributes verified. |
+| F0.05 | PARTIAL | RLS/policy catalogue reviewed; SECURITY DEFINER and authenticated grants defects remain; two-principal behavioral isolation is unproven. |
+| F0.06–F0.08 | CLOSED BY OWNER DIRECTION / WAIVED | Section 49.1 controls; do not reopen historical migration recovery. |
+| F0.09–F0.10 | PASS | Public sign-up disabled; localhost disallowed. |
+| F0.11–F0.12 | PARTIAL / NOT VERIFIED | Auth settings verified; invitation, OTP, reset and session lifecycle not exercised. |
+| F0.13 | PARTIAL | Private bucket and signed HEAD code; no real provider round-trip/cross-project denial; deletion fail-closed. |
+| F0.14–F0.15 | NOT VERIFIED / PARTIAL | No protected endpoint HTTP status evidence; runtime aggregation only, with log-retention limitation. |
+| F0.16 | BLOCKED | No automatic schedule or restore proof. |
+| Security ACL hardening | BLOCKED_PENDING_OWNER_APPROVAL | Migration 037 exact SQL/SHA above is prepared but not applied. |
+| Dependency security | OPEN | Picomatch high-severity advisory remains without a patched release. |
+| Vercel secret visibility | BLOCKED | Eight variables flagged readable-secret; supported visibility edit unavailable to current action. |
+| Production runtime mode | PENDING_APPROVED_DEPLOYMENT | NODE_ENV variable updated, current Production deployment unchanged. |
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Recovery-branch code revisions and offline tests do not replace Production SQL approval, Auth lifecycle, real storage round-trip, protected HTTP evidence, backup/restore proof, secret-visibility correction, or an approved Production deployment. Application Complete and Business Production Ready are not certified.
+
+## 55.7 Change and safety record
+Recovery-branch files changed in this finalization pass:
+- `src/http-errors.ts` (new)
+- `src/http-errors.test.ts` (new)
+- `src/index.ts` (safe errors, sanitized logs, production CORS default)
+- `package.json` (include new test)
+- `scripts/verify-runtime-security.mjs` (authenticated relation/sequence grant checks)
+- `migrations/037_restrict_security_definer_execute.sql` (candidate only; no apply)
+- This Master Plan.
+
+No changes to `main`; no Production deployment or promotion; no Neon DDL/DML/GRANT/REVOKE/migration; no Auth setting, storage object, snapshot schedule, branch or database mutation; no business/test data; no secret decryption or exposure. Migration 036 and historical migrations 001–036 remain untouched.
+
+---
+

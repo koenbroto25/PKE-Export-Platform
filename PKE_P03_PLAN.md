@@ -302,3 +302,13 @@ Owner clarified Finance is reporting-only: no bank transfer, payment instruction
 - CI first run after the Finance scope update: Dependency Audit PASS; Unit Tests failed only in two stale/over-specific regression assertions (old 503 wording and recipient SQL alias expectation), not in the application code. Updated both assertions to the new 410 out-of-scope contract and actual admin-recipient query. Rerun pending.
 
 - Hardened financial report submission so PM/Admin notification rows are inserted by one set-based SQL statement. The API is executed inside the existing request-scoped PostgreSQL transaction middleware; report insertion and notifications therefore commit or roll back together with the HTTP response.
+
+ 
+### Finance reporting-only migration validation — 2026-11-19
+- Migration 040 source SHA-256 recomputed from the GitHub file: `3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f`.
+- Prepared Migration 040 on isolated Neon branch `br-square-darkness-b3g97o4p` (parent Production `br-damp-shape-b3xlh4nr`). Read-only validation confirms the 4 report_runs columns, financial period check/index, Finance report notification insert policy, and existing `reports.create` permission. The single legacy unassigned Contract Program remains 1.
+- Migration 040 is NOT applied to Production. Production still at migration 039. The API code requires these columns and RLS policy, so production endpoint activation is gated on explicit owner approval of the exact Migration 040 SHA-256 above.
+- CI at source head `639de9e7198899d1142e889c0f9ab40f99d2bbd2`: Unit Tests SUCCESS (tests, migration release verifier, migration runner dry-run, API TypeScript check); Dependency Audit SUCCESS. A later plan-only commit updated the plan after these successful code checks.
+- Vercel has accepted Preview deployments for commits `f8e96bb` and `3de57d25` into QUEUED/BUILDING states; no READY preview has yet been verified. Continue to monitor only the latest branch deployment; no Production promotion.
+- Final scope: Finance creates/submits Project financial report JSON payload with period metadata; only active Finance Project members may submit. Active PM members and all active platform Admin accounts receive in-app notifications. PM/Admin can retrieve reports via Project-scoped report view. No payment execution endpoints or permissions are implemented; legacy payment-instruction routes return HTTP 410 `PAYMENT_EXECUTION_OUT_OF_SCOPE`.
+- Request-scoped database middleware wraps each API request in one transaction, so the report row and set-based notification insert commit/rollback together.

@@ -1079,25 +1079,128 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   const roles = useLoad<{ roles?: AnyRecord[]; permissions?: AnyRecord[] }>(() => get('/roles'), []);
   const users = useLoad<{ users?: AnyRecord[] }>(() => get('/users'), []);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
+  const provisioning = useLoad<{ ready?: boolean; reason?: string | null }>(() => get('/admin/provisioning/status'), []);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const projectDetail = useLoad<{ members?: AnyRecord[]; roles?: AnyRecord[]; project?: AnyRecord }>(
-    () => selectedProjectId ? get(`/projects/${selectedProjectId}/detail`) : Promise.resolve({ members: [], roles: [] }),
+    () => selectedProjectId ? get(\`/projects/\${selectedProjectId}/detail\`) : Promise.resolve({ members: [], roles: [] }),
     [selectedProjectId],
   );
   const [resettingId, setResettingId] = useState('');
   const [membershipBusyId, setMembershipBusyId] = useState('');
+  const [globalBusyId, setGlobalBusyId] = useState('');
+  const [provisionBusy, setProvisionBusy] = useState(false);
+  const [provisionEmail, setProvisionEmail] = useState('');
+  const [provisionName, setProvisionName] = useState('');
+  const [provisionReason, setProvisionReason] = useState('');
+  const [temporaryCredential, setTemporaryCredential] = useState<{ email: string; password: string } | null>(null);
+
   useEffect(() => {
     if (!selectedProjectId && projects.data?.projects?.[0]?.id) setSelectedProjectId(String(projects.data.projects[0].id));
   }, [projects.data, selectedProjectId]);
+
+  const makeTemporaryPassword = () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const bytes = new Uint8Array(28);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, value => alphabet[value % alphabet.length]).join('');
+  };
+
+  const createAccount = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!provisioning.data?.ready) {
+      onNotice('error', 'Provisioning belum diaktifkan pada environment ini.');
+      return;
+    }
+    const email = provisionEmail.trim().toLowerCase();
+    const name = provisionName.trim();
+    const reason = provisionReason.trim();
+    if (!email || name.length < 2 || reason.length < 5) {
+      onNotice('error', 'Email, nama, dan alasan minimal 5 karakter wajib diisi.');
+      return;
+    }
+    if (!window.confirm(\`Buat akun PKE dan identitas Neon Auth untuk \${email}? Akun akan tetap nonaktif sampai Admin mengaktifkannya.\`)) return;
+
+    setProvisionBusy(true);
+    setTemporaryCredential(null);
+    let pendingPkeCreated = false;
+    try {
+      await post('/admin/users/provision', { email, name, reason });
+      pendingPkeCreated = true;
+      const temporaryPassword = makeTemporaryPassword();
+      const authResult: any = await authClient.admin.createUser({
+        email,
+        name,
+        password: temporaryPassword,
+        role: 'user',
+      });
+      if (authResult?.error) {
+        throw new Error(authResult.error.message || 'Neon Auth menolak pembuatan identitas.');
+      }
+      setTemporaryCredential({ email, password: temporaryPassword });
+      setProvisionEmail('');
+      setProvisionName('');
+      setProvisionReason('');
+      users.refresh();
+      onNotice('success', 'Identitas Neon Auth berhasil dibuat. Pemetaan PKE menunggu webhook terverifikasi; akun tetap nonaktif.');
+    } catch (e) {
+      onNotice('error', pendingPkeCreated
+        ? \`Akun PKE pending telah dicatat, tetapi pembuatan/sinkronisasi Neon Auth belum selesai: \${e instanceof Error ? e.message : 'gagal'}\`
+        : (e instanceof Error ? e.message : 'Provisioning akun gagal.'));
+      users.refresh();
+    } finally {
+      setProvisionBusy(false);
+    }
+  };
+
+  const updateGlobalStatus = async (user: AnyRecord) => {
+    const id = String(user.id || '');
+    const authUserId = String(user.neon_auth_user_id || '');
+    if (!id || !authUserId) {
+      onNotice('error', 'Akun belum memiliki identitas Neon Auth terverifikasi.');
+      return;
+    }
+    const activate = user.is_active !== true;
+    const reason = window.prompt(\`Alasan \${activate ? 'mengaktifkan' : 'menonaktifkan'} akun global \${user.email || id}:\`);
+    if (!reason || reason.trim().length < 5) {
+      onNotice('info', 'Perubahan dibatalkan. Alasan minimal 5 karakter wajib dicatat.');
+      return;
+    }
+    setGlobalBusyId(id);
+    try {
+      if (activate) {
+        const unban: any = await authClient.admin.unbanUser({ userId: authUserId });
+        if (unban?.error) throw new Error(unban.error.message || 'Neon Auth tidak dapat mengaktifkan identitas.');
+        await patch(\`/admin/users/\${id}/status\`, { isActive: true, reason: reason.trim() });
+        onNotice('success', 'Akun global berhasil diaktifkan. Role dan membership tiap proyek tidak berubah.');
+      } else {
+        // Disable PKE access first (fail-closed), then ban the Auth account and revoke its sessions.
+        await patch(\`/admin/users/\${id}/status\`, { isActive: false, reason: reason.trim() });
+        const ban: any = await authClient.admin.banUser({ userId: authUserId, banReason: reason.trim() });
+        const revoke: any = await authClient.admin.revokeUserSessions({ userId: authUserId });
+        if (ban?.error || revoke?.error) {
+          const detail = ban?.error?.message || revoke?.error?.message || 'operasi Auth belum terkonfirmasi';
+          onNotice('error', \`Akun PKE sudah nonaktif dan akses aplikasi ditolak, tetapi ban/pencabutan sesi Neon Auth perlu diperiksa: \${detail}\`);
+        } else {
+          onNotice('success', 'Akun global dinonaktifkan; sesi Neon Auth dicabut. Membership proyek tetap tersimpan dan terpisah.');
+        }
+      }
+      users.refresh();
+    } catch (e) {
+      onNotice('error', e instanceof Error ? e.message : 'Perubahan status akun global gagal.');
+      users.refresh();
+    } finally {
+      setGlobalBusyId('');
+    }
+  };
 
   const requestReset = async (user: AnyRecord) => {
     const id = String(user.id || '');
     if (!id) return;
     const label = String(user.email || user.id || 'pengguna ini');
-    if (!window.confirm(`Kirim permintaan reset password untuk ${label}?`)) return;
+    if (!window.confirm(\`Kirim permintaan reset password untuk \${label}?\`)) return;
     setResettingId(id);
     try {
-      const res = await post<{ ok?: boolean; message?: string }>(`/admin/users/${id}/password-reset`, {});
+      const res = await post<{ ok?: boolean; message?: string }>(\`/admin/users/\${id}/password-reset\`, {});
       onNotice('success', res?.message || 'Permintaan reset password diproses.');
     } catch (e) {
       onNotice('error', e instanceof Error ? e.message : 'Permintaan reset password gagal.');
@@ -1110,14 +1213,14 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
     if (!selectedProjectId || !member.id) return;
     const action = changes.isActive === false ? 'menonaktifkan keanggotaan' :
       changes.isActive === true ? 'mengaktifkan kembali keanggotaan' : 'mengubah role proyek';
-    const reason = window.prompt(`Alasan ${action} untuk ${member.email || member.user_id}:`);
+    const reason = window.prompt(\`Alasan \${action} untuk \${member.email || member.user_id}:\`);
     if (!reason || reason.trim().length < 3) {
       onNotice('info', 'Perubahan dibatalkan. Alasan minimal 3 karakter wajib dicatat.');
       return;
     }
     setMembershipBusyId(String(member.id));
     try {
-      await patch(`/projects/${selectedProjectId}/members/${member.id}`, { ...changes, reason: reason.trim() });
+      await patch(\`/projects/\${selectedProjectId}/members/\${member.id}\`, { ...changes, reason: reason.trim() });
       onNotice('success', 'Keanggotaan proyek berhasil diperbarui.');
       projectDetail.refresh();
     } catch (e) {
@@ -1128,22 +1231,44 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   };
 
   return <>
-    <PageTitle eyebrow="IDENTITY & GOVERNANCE" title="Role & permission" subtitle="Status akun bersifat global; role dan status keanggotaan ditetapkan terpisah untuk setiap proyek." actions={<ActionButton variant="secondary" onClick={() => { roles.refresh(); users.refresh(); projects.refresh(); projectDetail.refresh(); }}><RefreshCw size={16} /> Segarkan</ActionButton>} />
+    <PageTitle eyebrow="IDENTITY & GOVERNANCE" title="Role & permission" subtitle="Status akun bersifat global; role dan status keanggotaan ditetapkan terpisah untuk setiap proyek." actions={<ActionButton variant="secondary" onClick={() => { roles.refresh(); users.refresh(); projects.refresh(); projectDetail.refresh(); provisioning.refresh(); }}><RefreshCw size={16} /> Segarkan</ActionButton>} />
+    <Card>
+      <PanelHeading title="Pembuatan akun oleh Admin" description="Pendaftaran publik tetap ditutup. Akun baru dibuat melalui Neon Auth Admin SDK, lalu dipetakan oleh webhook bertanda tangan; akun PKE tetap nonaktif sampai diaktifkan Admin." />
+      {provisioning.loading ? <Loading /> : provisioning.error ? <ErrorState message={provisioning.error} retry={provisioning.refresh} /> : !provisioning.data?.ready ? <div className="muted">{provisioning.data?.reason || 'Provisioning belum diaktifkan pada environment ini.'}</div> : <>
+        <form className="form-grid" onSubmit={createAccount}>
+          <FormField label="Email pengguna"><input type="email" autoComplete="off" value={provisionEmail} onChange={e => setProvisionEmail(e.target.value)} required placeholder="nama@perusahaan.com" /></FormField>
+          <FormField label="Nama pengguna"><input value={provisionName} onChange={e => setProvisionName(e.target.value)} required minLength={2} maxLength={160} placeholder="Nama lengkap" /></FormField>
+          <FormField label="Alasan pembuatan akun"><input value={provisionReason} onChange={e => setProvisionReason(e.target.value)} required minLength={5} maxLength={500} placeholder="Dasar pemberian akses" /></FormField>
+          <div className="form-actions"><button className="primary-button" disabled={provisionBusy}>{provisionBusy ? 'Membuat akun…' : 'Buat akun baru'}</button></div>
+        </form>
+        <p className="muted">Password sementara dibuat acak dan hanya ditampilkan satu kali. Sampaikan kepada pengguna melalui kanal terpisah yang aman; jangan simpan di catatan PKE.</p>
+      </>}
+      {temporaryCredential && <div className="identity-error" role="status">
+        <strong>Password sementara — tampil satu kali</strong>
+        <p>{temporaryCredential.email}</p>
+        <code>{temporaryCredential.password}</code>
+        <div className="form-actions"><button className="secondary-button" type="button" onClick={() => {
+          void navigator.clipboard.writeText(temporaryCredential.password).then(() => onNotice('success', 'Password sementara disalin.')).catch(() => onNotice('error', 'Clipboard tidak tersedia; salin password secara manual.'));
+        }}>Salin password</button><button className="secondary-button" type="button" onClick={() => setTemporaryCredential(null)}>Tutup</button></div>
+        <p className="muted">Akun masih nonaktif. Setelah identitas tersinkron, Admin harus mengaktifkan akun global dan menetapkan role pada masing-masing proyek.</p>
+      </div>}
+    </Card>
     <Card><PanelHeading title="Akun pengguna" description="Akun autentikasi global. Menonaktifkan membership proyek tidak menonaktifkan akun ini atau membership proyek lainnya." />{users.loading ? <Loading /> : users.error ? <ErrorState message={users.error} retry={users.refresh} /> : <DataTable rows={users.data?.users || []} columns={[
       { key: 'email', label: 'Email', render: r => <strong>{String(r.email || '—')}</strong> },
       { key: 'name', label: 'Nama', render: r => r.name || '—' },
       { key: 'role', label: 'Role global', render: r => <StatusPill value={r.role || 'viewer'} /> },
       { key: 'is_active', label: 'Akun', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> },
       { key: 'neon_auth_user_id', label: 'Neon Auth', render: r => <span className="mono">{shortId(r.neon_auth_user_id)}</span> },
+      { key: 'global_action', label: 'Akun global', render: r => <ActionButton variant="secondary" disabled={!!globalBusyId || !r.neon_auth_user_id} onClick={() => updateGlobalStatus(r)}>{globalBusyId === String(r.id) ? 'Memproses…' : r.is_active ? 'Nonaktifkan global' : 'Aktifkan global'}</ActionButton> },
       { key: 'action', label: 'Pemulihan', render: r => <ActionButton variant="secondary" disabled={!!resettingId || !r.neon_auth_user_id} onClick={() => requestReset(r)}>{resettingId === String(r.id) ? 'Memproses…' : 'Kirim reset password'}</ActionButton> }
-    ]} />}</Card>
+    ]} /></Card>
     <Card>
       <PanelHeading title="Role & status per proyek" description="Satu pengguna dapat mempunyai role berbeda dan status aktif/nonaktif yang independen pada setiap proyek." />
       {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : !projects.data?.projects?.length ? <EmptyState title="Belum ada proyek" desc="Keanggotaan proyek dapat dikelola setelah proyek tersedia." /> : <>
         <FormField label="Pilih proyek"><select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
         {projectDetail.loading ? <Loading /> : projectDetail.error ? <ErrorState message={projectDetail.error} retry={projectDetail.refresh} /> : <DataTable rows={projectDetail.data?.members || []} columns={[
           { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
-          { key: 'role', label: 'Role proyek', render: r => <select aria-label={`Role proyek untuk ${r.email || r.user_id}`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },
+          { key: 'role', label: 'Role proyek', render: r => <select aria-label={\`Role proyek untuk \${r.email || r.user_id}\`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },
           { key: 'is_active', label: 'Status proyek', render: r => <StatusPill value={r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'active' : 'inactive'} /> },
           { key: 'action', label: 'Aksi', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => {
             const currentlyActive = r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now());

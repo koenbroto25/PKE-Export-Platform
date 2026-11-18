@@ -271,3 +271,18 @@
 
  
 - Final Drizzle/schema parity review: restored the six single-column references that remain present in Production alongside Migration 039's composite constraints. Delete actions now mirror Production: Project Program pointer cascade, contracts.project cascade, contract_programs project cascade / contract set-null, cycle_policy project/program cascade. This is a source metadata correction only; no SQL or Production changes. Composite same-Project constraints remain in Migration 039.
+
+ 
+### F1 current blocker accuracy — payment API remains fail-closed — 2026-11-19
+- Corrected the three `/api/v1/payment-instructions` HTTP 503 responses. Production does contain payment instruction/evidence/verification/reconciliation tables and guarded DB triggers; the actual gap is that the request/approval/issue/acknowledgement/external execution/evidence/verification/journal/reconciliation HTTP lifecycle is not implemented and end-to-end tested. Removed the inaccurate “No payments table exists in Production” assertion.
+- Kept all three API operations fail-closed; no payment instruction, payment reconciliation or obligation paid-status operation was exposed, and no finance permissions were broadened. Added a regression test preventing the stale schema-missing message.
+- The CoB route creates one unpaid draft `payment_obligations` record per shipment/Project. The authenticated application cannot yet progress that obligation through payment execution/reconciliation to `paid`; Production triggers prohibit direct paid-balance/status mutation.
+- Payment workflow authorization must preserve distinct requester/approver/executor/evidence-verifier/reconciler actors and existing permissions (`payment.request`, `payment.approve`, `payment.instruction.issue`, `payment.evidence.verify`, `payment.reconcile`, `accounting.post`). These permissions are deliberately not granted wholesale to PM by default; owner decision defines PM for contract/cycle management but does not define who performs Finance execution/approval.
+ 
+### F1 validation snapshot — 2026-11-19
+- Latest complete GitHub Actions for branch head `fdd6b07340f1606dda2ba3098476389b66204c0d`: Unit Tests run `44399074821` SUCCESS; Dependency Audit run `44399074765` SUCCESS. Unit job steps all passed: npm test, Production migration release verifier (001–039), migration runner dry-run and API TypeScript typecheck. Dependency audit passed root and frontend production audits.
+- Production ledger last read: row 39 exactly matches Migration 039 filename/SHA/status applied. Public base tables: 152 total, 152 RLS enabled, 71 FORCE RLS. Legacy unassigned Contract Program count remains 1.
+- Isolated DML backtest remains PASS for PM Project A reads/writes vs Project B isolation, Admin business reads/writes denied, one CoB obligation per shipment, duplicate prevention, cross-Project shipment FK denial; synthetic fixtures were cleaned and count checks passed.
+- Vercel Preview cannot be produced for the current branch head: deployment API returned HTTP 402 `api-deployments-free-per-day` with a 24-hour retry window (>100 deployments/day). No Production deployment was attempted or promoted.
+- PR #2 remains OPEN / Draft / mergeable; no review submissions or inline review threads were recorded. It is intentionally not marked Ready or merged while the authenticated payment execution/reconciliation API remains unavailable and a fresh Preview deployment is blocked by Vercel quota.
+- F1 status: **CORE CONTRACT / PROJECT RLS / CoB OBLIGATION IMPLEMENTATION COMPLETE; FULL WORKFLOW NOT FINAL**. Remaining blockers are the guarded Finance payment lifecycle API and Vercel Preview quota. Do not mark F1 COMPLETE until both are addressed and the payment lifecycle is backtested end-to-end.

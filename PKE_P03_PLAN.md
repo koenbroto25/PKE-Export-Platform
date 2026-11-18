@@ -137,3 +137,13 @@
 - Production remains on `dpl_4wYnKdHY1X9aLHsBJqBsDXhoXEDv` / commit `39409a309abbed6abfa05bfa7b01812c5c8a79cc`; no promotion or Production traffic change was performed. Existing preview build proves the TS config fix compiles in Vercel preview, but a fresh latest-commit / Production deployment verification is still pending quota availability.
 - No code change was justified by the successful preview build. Do not change dependencies or TypeScript settings without a reproduced build failure.
 - **Current loop result:** preview build verification PASS; latest deployment attempt BLOCKED by Vercel account daily deployment quota. F0 final deployment verification cannot be marked complete until a fresh deployment can be built and verified. No Production database writes were made.
+
+
+## F1 initial revision checkpoint — 2026-11-19
+- F1 begins while the Vercel Production redeploy check for F0 is deferred by the owner until the daily quota recovers. No F0 Production mutation was performed.
+- Business contract from the owner: single Admin approves/controls Contract Program; recurring cycle policy is configured by Admin; each Project Instance represents a single buyer obligation/settlement. P01–P13 remain the overall implementation/readiness plan; this checkpoint does not claim all are complete.
+- Source review identified missing explicit Admin middleware on four write endpoints: POST /api/v1/contracts, POST /api/v1/contract-programs, PATCH /api/v1/contract-programs/:id, POST /api/v1/cycle-policies. They previously required authentication but not Admin at the HTTP route.
+- Added `requireAdmin` after `requireAuth` for all four endpoints in `src/index.ts`. This is an API authorization defense-in-depth change; database RLS remains in force. No schema/migration change.
+- Added `src/f1-contract-program-authorization.test.ts` (five static regression assertions) and registered it in the root `npm test` command. CI execution result is not yet verified; do not mark test suite PASS until run evidence exists.
+- Scope still to implement/verify in F1: contract approval workflow, recurring-cycle generation, buyer obligation/settlement cardinality, project permission isolation end-to-end, and P01–P13 functional acceptance. Static route protection is not a substitute for runtime E2E authorization tests.
+- Git commits: authorization `75bb54cabfb54c00432ae716a8d770db1f522fdf`, regression file `bf83dd71665ceeeec51a80bda11e0948817646b6`, CI test registration `666f514d054265d6ae303d2867ffa137ad423098`.

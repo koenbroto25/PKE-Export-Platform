@@ -1145,7 +1145,12 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
           { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
           { key: 'role', label: 'Role proyek', render: r => <select aria-label={`Role proyek untuk ${r.email || r.user_id}`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },
           { key: 'is_active', label: 'Status proyek', render: r => <StatusPill value={r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'active' : 'inactive'} /> },
-          { key: 'action', label: 'Aksi', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => updateMembership(r, { isActive: !(r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now())) })}>{membershipBusyId === String(r.id) ? 'Memproses…' : r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'Nonaktifkan proyek ini' : 'Aktifkan proyek ini'}</ActionButton> }
+          { key: 'action', label: 'Aksi', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => {
+            const currentlyActive = r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now());
+            updateMembership(r, currentlyActive
+              ? { isActive: false }
+              : { isActive: true, ...(r.expires_at && new Date(r.expires_at).getTime() <= Date.now() ? { expiresAt: null } : {}) });
+          }}>{membershipBusyId === String(r.id) ? 'Memproses…' : r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'Nonaktifkan proyek ini' : 'Aktifkan proyek ini'}</ActionButton> }
         ]} emptyTitle="Belum ada anggota" emptyText="Belum ada keanggotaan untuk proyek ini." />}
       </>}
     </Card>

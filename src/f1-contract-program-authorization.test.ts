@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { canAccessProjectMembership, canManageContractProgram, isPositiveQuantity } from "./f1-contract-rules.js";
 
-const INDEX = readFileSync(join(__dirname, "index.ts"), "utf8");
+const INDEX = readFileSync(fileURLToPath(new URL("./index.ts", import.meta.url)), "utf8");
 
 describe("F1 Admin ownership of contract programs and project instances", () => {
   for (const [method, route] of [

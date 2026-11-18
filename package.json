@@ -21,7 +21,8 @@
     "test:revision028": "vitest run src/runtime-security.test.ts",
     "verify:runtime": "node scripts/verify-runtime-security.mjs",
     "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
-    "verify:migrations": "node scripts/verify-migration-manifest.mjs"
+    "verify:migrations": "node scripts/verify-migration-manifest.mjs",
+    "verify:release-migrations": "node scripts/verify-migration-release-policy.mjs"
   },
   "keywords": [],
   "author": "",

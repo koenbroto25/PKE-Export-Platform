@@ -53,7 +53,7 @@ export const app = express();
 app.use(express.json({
   limit: "2mb",
   verify: (req, _res, buffer) => {
-    if ((req as express.Request).originalUrl === "/api/v1/webhooks/neon-auth") {
+    if ((req as express.Request).originalUrl.split("?")[0] === "/api/v1/webhooks/neon-auth") {
       (req as express.Request).rawBody = buffer.toString("utf8");
     }
   },

@@ -148,11 +148,39 @@ async function main() {
       }
       const applied = await client.query("SELECT filename, sha256, status, applied_at FROM migration_history ORDER BY id");
       const appliedMap = new Map(applied.rows.map((r) => [r.filename, r]));
+
+      if (productionHistoryManifest) {
+        const expected = productionHistoryManifest.entries || [];
+        const exactLedgerMatch = expected.length === applied.rows.length &&
+          expected.every((entry, i) => {
+            const actual = applied.rows[i];
+            return actual &&
+              Number(actual.id) === Number(entry.id) &&
+              actual.filename === entry.filename &&
+              actual.sha256 === entry.sha256 &&
+              actual.status === entry.status;
+          });
+        console.log(`Production history ledger: ${exactLedgerMatch ? "PASS" : "MISMATCH"} (expected=${expected.length}, actual=${applied.rows.length}).`);
+        console.log("Historical authentic SQL source for migrations 029-035: NOT RECOVERED; reconstructed candidates are not executable.");
+      } else {
+        console.log("Production history ledger manifest: NOT FOUND; full historical release verification unavailable.");
+      }
+
       for (const file of files) {
         const row = appliedMap.get(file);
-        if (!row) console.log(`${file}: PENDING`);
-        else if (row.sha256 !== sha256File(path.join(migrationsDir, file))) console.log(`${file}: CHECKSUM_MISMATCH`);
-        else console.log(`${file}: ${String(row.status).toUpperCase()}_VERIFIED`);
+        if (!row) {
+          const n = parseMigrationNumber(file);
+          const sameSequence = applied.rows.find((r) => parseMigrationNumber(r.filename) === n);
+          if (sameSequence && sameSequence.filename !== file) {
+            console.log(`${file}: SOURCE_NAME_MISMATCH (Production history records ${sameSequence.filename}; local file is not accepted as its source).`);
+          } else {
+            console.log(`${file}: PENDING`);
+          }
+        } else if (row.sha256 !== sha256File(path.join(migrationsDir, file))) {
+          console.log(`${file}: CHECKSUM_MISMATCH`);
+        } else {
+          console.log(`${file}: ${String(row.status).toUpperCase()}_VERIFIED`);
+        }
       }
       // show history-only applied files not present locally (important for 029-032/035 gaps)
       for (const [fname, row] of appliedMap.entries()) {

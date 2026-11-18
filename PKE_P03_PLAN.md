@@ -301,4 +301,4 @@ Owner clarified Finance is reporting-only: no bank transfer, payment instruction
 
 - CI first run after the Finance scope update: Dependency Audit PASS; Unit Tests failed only in two stale/over-specific regression assertions (old 503 wording and recipient SQL alias expectation), not in the application code. Updated both assertions to the new 410 out-of-scope contract and actual admin-recipient query. Rerun pending.
 
-- Hardened financial report submission so PM/Admin notification rows are inserted by one set-based SQL statement. The report and all notifications are still separate database statements (not one transaction); if notification insert fails the API returns 500 after report row may already exist. This is documented as a remaining atomicity improvement before production acceptance.
+- Hardened financial report submission so PM/Admin notification rows are inserted by one set-based SQL statement. The API is executed inside the existing request-scoped PostgreSQL transaction middleware; report insertion and notifications therefore commit or roll back together with the HTTP response.

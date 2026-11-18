@@ -256,3 +256,12 @@
 - Verified the manifest discrepancy against the authoritative Production `public.migration_history`: baseline migration 005 hash in the manifest had a one-character typo. Corrected it to Production's exact SHA-256 `7c7c3d235ff34ac89f626a038589aefa8b2c143ce963b6967c6e2e53433f159d` (also matching immutable baseline manifest and source file).
 - Adjusted the release verifier's runner assertion to match the safe optional-chain guard `verifiedManifest.entries?.length !== 39`.
 - Dependency Audit workflow run on PR #2: SUCCESS. Latest Unit Tests rerun is pending on the new branch head; prior run had unit tests PASS but failed only at the migration verifier and skipped dry-run/typecheck as a consequence.
+
+ 
+### F1 release gate and CI routing corrections — 2026-11-19
+- Vercel Preview build exposed a packaging-only test issue: `.vercelignore` excludes all `*.sql` files, while the F1 source test attempted to load Migration 039 SQL at module import time. Changed the test to skip only SQL-source assertions when the deployment package intentionally omits SQL; repository CI still runs those assertions because the source file exists there. Other F1 role, route and rule tests continue running during deployment builds.
+- GitHub Actions run `44398068572` confirmed `npm test` PASS. The same run then failed in `verify:release-migrations` due to a pre-existing one-character typo for Migration 005 in the Production history manifest. Production ledger and immutable baseline both confirm the correct SHA-256 `7c7c3d235ff34ac89f626a038589aefa8b2c143ce963b6967c6e2e53433f159d`; corrected the manifest without changing Production.
+- Updated verifier check to match the actual optional-chain implementation of the runner's Migration 039 verification-only branch.
+- Dependency Audit run `44398068260`: SUCCESS (root and frontend production dependency audits passed).
+- The Unit Tests and Dependency Audit workflow definitions on the PR base branch `phase0/reconcile-source-20261117` were updated to include pull requests targeting that release branch. This is necessary because GitHub evaluates PR workflow triggers from the base branch; corresponding copies remain in the F1 branch.
+- Await the new PR-head workflow results; previous Unit Tests run stopped after the migration verifier failure and did not reach dry-run or API typecheck. Do not mark CI PASS until fresh runs complete.

@@ -36,13 +36,18 @@ for (const workspace of workspaces) {
   }));
 
   for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
-    const advisories = (item.via || [])
-      .filter((entry) => typeof entry === "object" && entry !== null)
-      .map((entry) => ({
+    const advisories = (item.via || []).map((entry) => {
+      if (typeof entry === "string") return { dependency: entry };
+      return {
+        name: entry.name,
         title: entry.title,
         url: entry.url,
         range: entry.range,
-      }));
+        severity: entry.severity,
+        cwe: entry.cwe,
+        cvss: entry.cvss?.score,
+      };
+    });
 
     console.log(JSON.stringify({
       type: "AUDIT_PACKAGE",
@@ -52,6 +57,7 @@ for (const workspace of workspaces) {
       direct: item.isDirect,
       range: item.range,
       fixAvailable: item.fixAvailable,
+      effects: item.effects,
       advisories,
     }));
   }

@@ -1,0 +1,6 @@
+-- SUPERSEDED — DO NOT EXECUTE
+-- This early partial snapshot is retained only to preserve commit history.
+-- Use docs/recovery/migration-reconstruction/029_035_CATALOG_RECONSTRUCTION_SNAPSHOT.sql
+-- for the corrected cumulative parent-to-child catalog evidence.
+-- The corrected snapshot is still REVIEW-ONLY and is NOT an authentic standalone
+-- migration 033. It includes cumulative effects across migrations 029–035.

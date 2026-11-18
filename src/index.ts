@@ -6,7 +6,9 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema.js";
 import { requireAuth, requireAdmin } from "./auth.js";
-import { roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
+import { verifyNeonAuthWebhook } from "./neon-auth-webhook.js";
+import { internalServerErrorPayload, requestRejectedPayload } from "./http-errors.js";
+import { normalizePostgresSslMode, roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
 import { privateStorage } from "./storage.js";
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
 import { detectManualTrialMode } from "./demo/mode.js";
@@ -20,6 +22,7 @@ declare global {
       drizzleDb: any;
       logger: winston.Logger;
       user: any;
+      rawBody?: string;
     }
   }
 }
@@ -47,7 +50,14 @@ if (process.env.NODE_ENV === "test") {
 }
 
 export const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({
+  limit: "2mb",
+  verify: (req, _res, buffer) => {
+    if ((req as express.Request).originalUrl.split("?")[0] === "/api/v1/webhooks/neon-auth") {
+      (req as express.Request).rawBody = buffer.toString("utf8");
+    }
+  },
+}));
 const PORT = process.env.PORT || 3000;
 
 if (manualTrialMode.enabled) {
@@ -73,14 +83,14 @@ const logger = winston.createLogger({
 
 // Global middleware to log all requests
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.url} - IP: ${req.ip}`);
+  logger.info(`${req.method} ${req.path}`);
   next();
 });
 
 // CORS for local frontend development
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || "http://localhost:3001,http://127.0.0.1:3001")
+  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3001,http://127.0.0.1:3001"))
     .split(",").map((item) => item.trim()).filter(Boolean);
   const allowed = new Set(configuredOrigins);
   if (origin && allowed.has(origin)) {
@@ -155,7 +165,7 @@ if (!manualTrialMode.enabled) {
   // ============================================
   try {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: normalizePostgresSslMode(process.env.DATABASE_URL || ""),
       max: 20,
       idleTimeoutMillis: 30000,
     });
@@ -189,6 +199,76 @@ app.get("/api/v1/health", async (req: express.Request, res: express.Response) =>
       message: "Database health check failed.",
     });
   }
+});
+
+// Neon Managed Better Auth webhook. This endpoint accepts only signed provider events;
+// it never trusts a browser-supplied Auth user ID and never reads neon_auth tables.
+app.post("/api/v1/webhooks/neon-auth", async (req: express.Request, res: express.Response) => {
+  if (process.env.NEON_AUTH_WEBHOOK_ENABLED !== "true") {
+    return res.status(503).json({ error: "Auth identity synchronization is not enabled." });
+  }
+
+  let verified;
+  try {
+    verified = await verifyNeonAuthWebhook(
+      req.rawBody || "",
+      req.headers as any,
+      { jwksUrl: process.env.NEON_AUTH_JWKS_URL || "" },
+    );
+  } catch {
+    logger.warn("Rejected Neon Auth webhook: signature, timestamp, or payload verification failed.");
+    return res.status(401).json({ error: "Invalid Neon Auth webhook." });
+  }
+
+  const isBeforeCreate = verified.eventType === "user.before_create";
+  const isCreated = verified.eventType === "user.created";
+  if (!isBeforeCreate && !isCreated) {
+    return res.status(202).json({ ok: true, ignored: true });
+  }
+
+  const authUser = verified.payload.user as Record<string, unknown> | undefined;
+  if (!authUser || typeof authUser.email !== "string") {
+    if (isBeforeCreate) {
+      return res.status(200).json({ allowed: false, error_message: "Invalid account creation payload.", error_code: "INVALID_AUTH_USER" });
+    }
+    return res.status(400).json({ error: "Neon Auth user-created payload is incomplete." });
+  }
+
+  if (isBeforeCreate) {
+    try {
+      const { rows } = await pool.query(
+        "SELECT public.pke_is_preprovisioned_email($1::text) AS allowed",
+        [authUser.email],
+      );
+      const allowed = rows[0]?.allowed === true;
+      return res.status(200).json(allowed
+        ? { allowed: true }
+        : { allowed: false, error_message: "Akun harus diprovisikan terlebih dahulu oleh Admin PKE.", error_code: "PKE_ADMIN_PROVISION_REQUIRED" });
+    } catch (error: any) {
+      logger.error("Neon Auth before-create verification failed:", { code: error?.code || "UNKNOWN" });
+      return res.status(503).json({ error: "PKE provisioning validation is temporarily unavailable." });
+    }
+  }
+
+  if (typeof authUser.id !== "string") {
+    return res.status(400).json({ error: "Neon Auth user-created payload has no identity id." });
+  }
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM public.pke_link_neon_auth_identity_from_webhook($1::uuid, $2::text, $3::text, $4::uuid)",
+      [authUser.id, authUser.email, typeof authUser.name === "string" ? authUser.name : null, verified.eventId],
+    );
+    return res.status(200).json({ ok: true, linkState: rows[0]?.link_state || "processed" });
+  } catch (error: any) {
+    logger.error("Neon Auth webhook identity synchronization failed:", { code: error?.code || "UNKNOWN" });
+    return res.status(503).json({ error: "PKE identity synchronization is temporarily unavailable." });
+  }
+});
+
+app.get("/api/v1/admin/provisioning/status", (req: express.Request, _res: express.Response, next: express.NextFunction) => { req.db = pool; next(); }, requireAuth, requireAdmin, (_req: express.Request, res: express.Response) => {
+  const ready = process.env.NEON_AUTH_ADMIN_PROVISIONING_READY === "true"
+    && process.env.NEON_AUTH_WEBHOOK_ENABLED === "true";
+  res.json({ ready, reason: ready ? null : "Auth Admin provisioning and signed webhook synchronization have not both been enabled for this environment." });
 });
 
 // ============================================
@@ -344,7 +424,10 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
               pr.role_code AS project_role_code,
               pr.name AS project_role_name,
               pm.is_active,
-              pm.joined_at
+              pm.joined_at,
+              pm.expires_at,
+              pm.deactivated_at,
+              p.is_active AS project_is_active
          FROM project_members pm
          LEFT JOIN projects p ON p.id = pm.project_id
          LEFT JOIN role_catalog rc ON rc.id = pm.role_id
@@ -367,16 +450,27 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
            JOIN project_members pm ON pm.project_role_id IS NOT NULL
                                  AND pm.project_id = prp.project_id
                                  AND pm.project_role_id = prp.project_role_id
-          WHERE pm.user_id = $1::uuid AND pm.is_active = true AND perm.is_active = true
+          WHERE pm.user_id = $1::uuid
+             AND pm.is_active = true
+             AND pm.deactivated_at IS NULL
+             AND (pm.expires_at IS NULL OR pm.expires_at > now())
+             AND EXISTS (SELECT 1 FROM projects p WHERE p.id = pm.project_id AND p.is_active = true)
+             AND perm.is_active = true
           ORDER BY perm.code`,
         [userId],
       );
       permissions = rows.map((r: any) => r.code);
     }
 
+    const activeMemberships = memberships.filter((m: any) =>
+      m.is_active === true &&
+      m.deactivated_at == null &&
+      m.project_is_active === true &&
+      (!m.expires_at || new Date(m.expires_at).getTime() > Date.now())
+    );
     const portalAccess = req.user.isAdmin
       ? ["admin", "workspace", "field", "buyer", "partner", "reports"]
-      : memberships.length > 0
+      : activeMemberships.length > 0
         ? ["workspace", "field"]
         : ["workspace"];
 
@@ -403,7 +497,7 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -415,7 +509,7 @@ app.get("/api/v1/contract-programs", requireAuth, async (req: express.Request, r
     const { rows } = await req.db.query("SELECT * FROM contract_programs WHERE is_active = true ORDER BY created_at DESC");
     res.json({ contractPrograms: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -428,7 +522,7 @@ app.get("/api/v1/contract-programs/:id", requireAuth, async (req: express.Reques
     }
     res.json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -438,7 +532,7 @@ app.get("/api/v1/buyers", requireAuth, async (req: express.Request, res: express
     const { rows } = await req.db.query("SELECT * FROM buyers WHERE is_active = true ORDER BY created_at DESC");
     res.json({ buyers: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -452,7 +546,7 @@ app.post("/api/v1/buyers", requireAuth, async (req: express.Request, res: expres
     );
     res.status(201).json({ buyer: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -472,7 +566,7 @@ app.patch("/api/v1/buyers/:id", requireAuth, async (req: express.Request, res: e
     if (rows.length === 0) return res.status(404).json({ error: "Buyer not found" });
     res.json({ buyer: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -501,7 +595,7 @@ app.get("/api/v1/buyer-projects", requireAuth, async (req: express.Request, res:
     const { rows } = await req.db.query(sql, params);
     res.json({ buyerProjects: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -529,7 +623,7 @@ app.get("/api/v1/supplier-projects", requireAuth, async (req: express.Request, r
     const { rows } = await req.db.query(sql, params);
     res.json({ supplierProjects: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -544,7 +638,7 @@ app.get("/api/v1/contracts", requireAuth, async (req: express.Request, res: expr
     const { rows } = await req.db.query(sql, params);
     res.json({ contracts: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -558,7 +652,7 @@ app.post("/api/v1/contracts", requireAuth, async (req: express.Request, res: exp
     );
     res.status(201).json({ contract: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -568,7 +662,7 @@ app.get("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res:
     const { rows } = await req.db.query("SELECT * FROM cycle_policies WHERE is_active = true ORDER BY created_at DESC");
     res.json({ cyclePolicies: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -586,7 +680,7 @@ app.post("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res
     );
     res.status(201).json({ cyclePolicy: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -602,15 +696,18 @@ app.get("/api/v1/projects", requireAuth, async (req: express.Request, res: expre
       ({ rows } = await req.db.query(
         `SELECT DISTINCT p.*
            FROM projects p
-           JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1::uuid AND pm.is_active = true
+           JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1::uuid
           WHERE p.is_active = true
+            AND pm.is_active = true
+            AND pm.deactivated_at IS NULL
+            AND (pm.expires_at IS NULL OR pm.expires_at > now())
           ORDER BY p.created_at DESC`,
         [userId],
       ));
     }
     res.json({ projects: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -624,7 +721,7 @@ app.get("/api/v1/projects/:id", requireAuth, async (req: express.Request, res: e
     }
     res.json({ project: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -637,7 +734,7 @@ app.get("/api/v1/projects/:projectId/operating-profile", requireAuth, async (req
     if (rows.length === 0) return res.status(404).json({ error: "Operating profile not found" });
     res.json({ operatingProfile: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -666,7 +763,7 @@ app.put("/api/v1/projects/:projectId/operating-profile", requireAuth, async (req
     );
     res.json({ operatingProfile: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -698,7 +795,7 @@ app.patch("/api/v1/projects/:projectId/operating-profile", requireAuth, async (r
     if (rows.length === 0) return res.status(404).json({ error: "Operating profile not found" });
     res.json({ operatingProfile: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 // ============================================
@@ -788,7 +885,7 @@ app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, 
     );
     res.status(201).json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -815,7 +912,7 @@ app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Requ
     if (rows.length === 0) return res.status(404).json({ error: "Contract program not found" });
     res.json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -934,8 +1031,9 @@ app.post("/api/v1/projects", requireAuth, async (req: express.Request, res: expr
       throw error;
     }
   } catch (error) {
-    const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
-    res.status(status).json({ error: (error as Error).message });
+    const rawStatus = (error as any)?.status;
+    const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus < 500 ? rawStatus : 500;
+    res.status(status).json(status === 500 ? internalServerErrorPayload() : requestRejectedPayload());
   }
 });
 
@@ -975,7 +1073,7 @@ app.get("/api/v1/regulatory-knowledge", requireAuth, requireAdmin, async (req: e
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1002,7 +1100,7 @@ app.post("/api/v1/compliance-check", requireAuth, requireAdmin, async (req: expr
     };
     res.json({ complianceResult });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1051,7 +1149,7 @@ app.get("/api/v1/country-packs", requireAuth, requireAdmin, async (req: express.
     }
     res.json({ countryPacks: Array.from(byCountry.values()) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1106,7 +1204,7 @@ app.get("/api/v1/projects/:projectId/document-requirements", requireAuth, async 
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1155,7 +1253,7 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1188,7 +1286,7 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
     );
     res.status(201).json({ document: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1220,7 +1318,7 @@ app.patch("/api/v1/documents/:id", requireAuth, async (req: express.Request, res
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     res.json({ document: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1253,7 +1351,7 @@ app.post("/api/v1/storage/presigned-upload", requireAuth, async (req: express.Re
     const upload = await privateStorage.presignedUpload(key, mimeType, contentLength);
     res.json({ upload });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1273,7 +1371,7 @@ app.get("/api/v1/storage/presigned-download/*objectKey", requireAuth, async (req
     const download = await privateStorage.presignedDownload(objectKey);
     res.json({ download });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1287,7 +1385,7 @@ app.get("/api/v1/workflows/project/:projectId", requireAuth, async (req: express
     );
     res.json({ workflows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1311,7 +1409,7 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
       .returning();
     res.json({ workflow: result[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1361,7 +1459,7 @@ app.get("/api/v1/reports/portfolio", requireAuth, async (req: express.Request, r
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1380,7 +1478,7 @@ app.get("/api/v1/reports/project/:projectId", requireAuth, async (req: express.R
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1426,7 +1524,7 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
     }));
     res.json({ runs });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1459,7 +1557,7 @@ app.post("/api/v1/reports/generate", requireAuth, async (req: express.Request, r
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1491,7 +1589,7 @@ app.get("/api/v1/notifications", requireAuth, async (req: express.Request, res: 
     }));
     res.json({ notifications, unreadCount: notifications.filter((n: any) => !n.readAt).length });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1538,7 +1636,7 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1552,7 +1650,7 @@ app.patch("/api/v1/notifications/:id/read", requireAuth, async (req: express.Req
     const r = rows[0];
     res.json({ notification: { id: r.id, eventId: r.event_id, projectId: r.project_id, recipient: r.recipient_user_id, title: r.title, message: r.message, priority: r.priority, category: r.category, createdAt: r.created_at, readAt: r.read_at, deliveryStatus: "delivered" } });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1565,7 +1663,7 @@ app.get("/api/v1/reports/export/projects", requireAuth, async (req: express.Requ
     res.setHeader("Content-Disposition", "attachment; filename=projects.csv");
     res.send(header + "\n" + body);
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 // ============================================
@@ -1587,7 +1685,7 @@ app.get("/api/v1/reports/kpis/operational", requireAuth, async (req: express.Req
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1603,7 +1701,7 @@ app.get("/api/v1/reports/kpis/financial", requireAuth, async (req: express.Reque
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1626,7 +1724,7 @@ app.get("/api/v1/reports/historical", requireAuth, async (req: express.Request, 
       dataFreshness: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1670,7 +1768,7 @@ app.get("/api/v1/reports/schedules", requireAuth, async (req: express.Request, r
     }));
     res.json({ schedules });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1711,7 +1809,7 @@ app.post("/api/v1/reports/schedules", requireAuth, async (req: express.Request, 
       },
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1750,7 +1848,7 @@ app.post("/api/v1/reports/scheduler/run-due", requireAuth, requireAdmin, async (
     }
     res.json({ executedCount: executed.length, executed, note: "Runs created as queued. No file is marked completed without verified storage artifact." });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1759,7 +1857,7 @@ app.get("/api/v1/reports/scheduler/runs", requireAuth, async (req: express.Reque
     const { rows } = await req.db.query("SELECT * FROM report_runs WHERE schedule_id IS NOT NULL ORDER BY generated_at DESC LIMIT 200");
     res.json({ runs: rows.map((r: any) => ({ id: r.id, scheduleId: r.schedule_id, templateId: r.template_id, templateVersion: r.template_version, cutoff: r.cutoff_at, status: r.status, generatedAt: r.generated_at, idempotencyKey: r.idempotency_key, dataFreshness: r.data_freshness })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1810,7 +1908,7 @@ app.patch("/api/v1/projects/:id", requireAuth, async (req: express.Request, res:
     );
     res.json({ project: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1832,7 +1930,7 @@ app.post("/api/v1/projects/:id/archive", requireAuth, async (req: express.Reques
     await req.db.query("UPDATE projects SET is_active = false, status = 'closed', updated_at = now() WHERE id = $1::uuid", [id]);
     res.json({ ok: true, message: "Project archived" });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1861,7 +1959,7 @@ app.post("/api/v1/projects/:id/activate", requireAuth, async (req: express.Reque
     await req.db.query("UPDATE projects SET status = 'active', is_active = true, updated_at = now() WHERE id = $1::uuid", [id]);
     res.json({ ok: true, message: "Project activated" });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1880,7 +1978,7 @@ app.post("/api/v1/projects/:id/deactivate", requireAuth, async (req: express.Req
     await req.db.query("UPDATE projects SET status = 'draft', is_active = false, updated_at = now() WHERE id = $1::uuid", [id]);
     res.json({ ok: true, message: "Project deactivated" });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1976,7 +2074,7 @@ app.post("/api/v1/projects/:id/roles", requireAuth, async (req: express.Request,
     }
     res.status(201).json({ role: { id: projectRoleId, roleCode, name, description } });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -1999,7 +2097,7 @@ app.patch("/api/v1/projects/:id/roles/:roleId", requireAuth, async (req: express
     if (rows.length === 0) return res.status(404).json({ error: "Role not found" });
     res.json({ role: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2015,7 +2113,7 @@ app.delete("/api/v1/projects/:id/roles/:roleId", requireAuth, async (req: expres
     if (rows.length === 0) return res.status(404).json({ error: "Role not found" });
     res.json({ ok: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2081,7 +2179,7 @@ app.put("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (re
       throw error;
     }
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2135,7 +2233,7 @@ app.post("/api/v1/projects/:id/members/invite", requireAuth, async (req: express
     );
     res.status(201).json({ invitation: rows[0], tokenHash });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2143,22 +2241,87 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
   const { id, memberId } = req.params;
   const allowed = await requireProjectPermission(req, res, id, 'project.members.manage');
   if (!allowed) return;
-  const { projectRoleId, isActive, expiresAt } = req.body;
+
+  const body = req.body ?? {};
+  const { projectRoleId, isActive, expiresAt } = body;
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (isActive !== undefined && typeof isActive !== "boolean") {
+    return res.status(400).json({ error: "isActive must be a boolean.", code: "INVALID_MEMBERSHIP_STATUS" });
+  }
+  if (projectRoleId !== undefined && (typeof projectRoleId !== "string" || !projectRoleId.trim())) {
+    return res.status(400).json({ error: "projectRoleId must be a non-empty project role ID.", code: "INVALID_PROJECT_ROLE" });
+  }
+  if (expiresAt !== undefined && expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)))) {
+    return res.status(400).json({ error: "expiresAt must be a valid timestamp or null.", code: "INVALID_MEMBERSHIP_EXPIRY" });
+  }
+  const sensitiveChange = isActive !== undefined || projectRoleId !== undefined;
+  if (sensitiveChange && reason.length < 3) {
+    return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status or role changes.", code: "AUDIT_REASON_REQUIRED" });
+  }
+
   try {
+    const { rows: beforeRows } = await req.db.query(
+      `SELECT pm.*, pr.role_code, pr.name AS role_name
+         FROM project_members pm
+         LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+        WHERE pm.id = $2::uuid AND pm.project_id = $1::uuid
+        FOR UPDATE OF pm`,
+      [id, memberId],
+    );
+    if (beforeRows.length === 0) return res.status(404).json({ error: "Member not found.", code: "MEMBER_NOT_FOUND" });
+    const before = beforeRows[0];
+
+    if (projectRoleId !== undefined) {
+      const { rows: roleRows } = await req.db.query(
+        "SELECT id FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true LIMIT 1",
+        [id, projectRoleId],
+      );
+      if (roleRows.length === 0) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+    }
+
+    const nextActive = isActive === undefined ? before.is_active === true : isActive;
+    const nextExpiresAt = expiresAt === undefined ? before.expires_at : expiresAt;
     const { rows } = await req.db.query(
       `UPDATE project_members
-        SET project_role_id = COALESCE($3::uuid, project_role_id),
-            is_active = COALESCE($4::boolean, is_active),
-            expires_at = COALESCE($5::timestamptz, expires_at),
-            updated_at = now()
-       WHERE id = $2::uuid AND project_id = $1::uuid
-       RETURNING *`,
-      [id, memberId, projectRoleId || null, isActive !== undefined ? isActive : null, expiresAt || null]
+          SET project_role_id = COALESCE($3::uuid, project_role_id),
+              is_active = $4::boolean,
+              expires_at = $5::timestamptz,
+              deactivated_at = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_at, now()) END,
+              deactivated_by = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_by, $6::uuid) END,
+              updated_at = now()
+        WHERE id = $2::uuid AND project_id = $1::uuid
+        RETURNING *`,
+      [id, memberId, projectRoleId ?? null, nextActive, nextExpiresAt ?? null, req.user?.id ?? null],
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Member not found" });
-    res.json({ member: rows[0] });
+    const after = rows[0];
+    const action = isActive === false
+      ? "project_member.deactivated"
+      : isActive === true && (before.is_active !== true || before.deactivated_at != null)
+        ? "project_member.reactivated"
+        : projectRoleId !== undefined
+          ? "project_member.role_changed"
+          : "project_member.updated";
+    await req.db.query(
+      `INSERT INTO audit_events
+        (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+         reason, before_snapshot, after_snapshot, metadata, outcome)
+       VALUES ($1::uuid, 'user', $2::text, $3::text, 'project_member', $4::uuid, $5::uuid,
+               $6::text, $7::jsonb, $8::jsonb, $9::jsonb, 'success')`,
+      [
+        req.user?.id ?? null,
+        req.user?.role ?? null,
+        action,
+        after.id,
+        id,
+        reason || null,
+        JSON.stringify({ user_id: before.user_id, project_role_id: before.project_role_id, is_active: before.is_active, expires_at: before.expires_at, deactivated_at: before.deactivated_at }),
+        JSON.stringify({ user_id: after.user_id, project_role_id: after.project_role_id, is_active: after.is_active, expires_at: after.expires_at, deactivated_at: after.deactivated_at }),
+        JSON.stringify({ changed_fields: Object.keys(body).filter((key) => ["projectRoleId", "isActive", "expiresAt"].includes(key)) }),
+      ],
+    );
+    res.json({ member: after });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2166,14 +2329,41 @@ app.post("/api/v1/projects/:id/members/:memberId/revoke", requireAuth, async (re
   const { id, memberId } = req.params;
   const allowed = await requireProjectPermission(req, res, id, 'project.members.manage');
   if (!allowed) return;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 3) return res.status(400).json({ error: "A deactivation reason of at least 3 characters is required.", code: "AUDIT_REASON_REQUIRED" });
   try {
-    await req.db.query(
-      "UPDATE project_members SET is_active = false, deactivated_at = now(), updated_at = now() WHERE id = $2::uuid AND project_id = $1::uuid",
-      [id, memberId]
+    const { rows: beforeRows } = await req.db.query(
+      "SELECT * FROM project_members WHERE id = $2::uuid AND project_id = $1::uuid FOR UPDATE",
+      [id, memberId],
     );
-    res.json({ ok: true });
+    if (beforeRows.length === 0) return res.status(404).json({ error: "Member not found.", code: "MEMBER_NOT_FOUND" });
+    const before = beforeRows[0];
+    const { rows } = await req.db.query(
+      `UPDATE project_members
+          SET is_active = false,
+              deactivated_at = COALESCE(deactivated_at, now()),
+              deactivated_by = COALESCE(deactivated_by, $3::uuid),
+              updated_at = now()
+        WHERE id = $2::uuid AND project_id = $1::uuid
+        RETURNING *`,
+      [id, memberId, req.user?.id ?? null],
+    );
+    const after = rows[0];
+    await req.db.query(
+      `INSERT INTO audit_events
+        (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+         reason, before_snapshot, after_snapshot, outcome)
+       VALUES ($1::uuid, 'user', $2::text, 'project_member.deactivated', 'project_member', $3::uuid,
+               $4::uuid, $5::text, $6::jsonb, $7::jsonb, 'success')`,
+      [
+        req.user?.id ?? null, req.user?.role ?? null, after.id, id, reason,
+        JSON.stringify({ user_id: before.user_id, project_role_id: before.project_role_id, is_active: before.is_active }),
+        JSON.stringify({ user_id: after.user_id, project_role_id: after.project_role_id, is_active: after.is_active, deactivated_at: after.deactivated_at, deactivated_by: after.deactivated_by }),
+      ],
+    );
+    res.json({ ok: true, member: after });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2898,7 +3088,7 @@ app.get("/api/v1/rab", requireAuth, async (req: express.Request, res: express.Re
       updatedAt: r.updated_at,
     })) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2915,7 +3105,7 @@ app.post("/api/v1/rab", requireAuth, async (req: express.Request, res: express.R
     );
     res.status(201).json({ rabItem: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2929,7 +3119,7 @@ app.get("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, r
     );
     res.json({ accounts: rows });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2944,7 +3134,7 @@ app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, 
     );
     res.status(201).json({ account: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -3339,11 +3529,138 @@ app.patch("/api/v1/contracts/:id", requireAuth, requireAdmin, async (req: expres
 app.get("/api/v1/users", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query(
-      "SELECT id, email, name, role, is_active, neon_auth_user_id, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT 100"
+      "SELECT user_id AS id, email, name, role, is_active, neon_auth_user_id, created_at, updated_at FROM public.pke_admin_list_users($1::integer, $2::integer)",
+      [100, 0],
     );
     res.json({ users: rows });
   } catch (error) {
     res.status(500).json({ error: "Failed to load users" });
+  }
+});
+
+// Admin provisioning creates a PKE pending account first. The browser then uses the Neon SDK Admin
+// createUser operation; only the signed user.created webhook may link the provider identity.
+app.post("/api/v1/admin/users/provision", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  if (process.env.NEON_AUTH_ADMIN_PROVISIONING_READY !== "true" || process.env.NEON_AUTH_WEBHOOK_ENABLED !== "true") {
+    return res.status(503).json({ error: "Admin provisioning is not enabled for this environment.", code: "PROVISIONING_NOT_READY" });
+  }
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (!email || !name || reason.length < 5) {
+    return res.status(400).json({ error: "Email, name, and an audit reason of at least five characters are required.", code: "INVALID_PROVISION_INPUT" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "SELECT * FROM public.pke_admin_provision_user($1::text, $2::text, $3::text)",
+      [email, name, reason],
+    );
+    return res.status(201).json({ user: rows[0] });
+  } catch (error: any) {
+    const code = typeof error?.code === "string" ? error.code : "";
+    if (code === "23505") return res.status(409).json({ error: "Email already belongs to an existing or linked PKE account.", code: "USER_ALREADY_EXISTS" });
+    if (code === "22023") return res.status(400).json({ error: "Provisioning input is invalid.", code: "INVALID_PROVISION_INPUT" });
+    if (code === "42501") return res.status(403).json({ error: "Platform Admin authorization is required.", code: "ADMIN_REQUIRED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
+  const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || !uuidPattern.test(projectRoleId) || reason.length < 5) {
+    return res.status(400).json({ error: "Project, user, project role, and an audit reason are required.", code: "INVALID_PROJECT_MEMBER_INPUT" });
+  }
+
+  try {
+    const { rows: userRows } = await req.db.query(
+      "SELECT user_id, email, is_active, neon_auth_user_id FROM public.pke_admin_get_user($1::uuid)",
+      [userId],
+    );
+    if (userRows.length !== 1) return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
+    if (userRows[0].is_active !== true || !userRows[0].neon_auth_user_id) {
+      return res.status(409).json({ error: "User must have an active PKE account and a linked Neon Auth identity before project assignment.", code: "USER_NOT_READY" });
+    }
+
+    const { rows: roleRows } = await req.db.query(
+      "SELECT id, role_code, name FROM public.project_roles WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true LIMIT 1",
+      [projectRoleId, projectId],
+    );
+    if (roleRows.length !== 1) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+
+    // Serialize Admin assignments for this project/user pair because this schema has no unique pair constraint.
+    await req.db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))", [projectId, userId]);
+    const { rows: existingRows } = await req.db.query(
+      "SELECT id, user_id, project_role_id, is_active, deactivated_at, expires_at FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid ORDER BY joined_at DESC FOR UPDATE",
+      [projectId, userId],
+    );
+    if (existingRows.length > 1) {
+      return res.status(409).json({ error: "Multiple memberships already exist for this user/project pair; reconcile duplicates before changing access.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
+    }
+
+    const before = existingRows[0] || null;
+    let member;
+    if (before) {
+      const { rows } = await req.db.query(
+        "UPDATE public.project_members SET project_role_id = $3::uuid, is_active = true, expires_at = NULL, deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *",
+        [before.id, projectId, projectRoleId],
+      );
+      member = rows[0];
+    } else {
+      const { rows } = await req.db.query(
+        "INSERT INTO public.project_members (project_id, user_id, project_role_id, is_active, joined_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, true, now(), now()) RETURNING *",
+        [projectId, userId, projectRoleId],
+      );
+      member = rows[0];
+    }
+
+    const action = !before ? "project_member.created" :
+      before.is_active !== true || before.deactivated_at !== null ? "project_member.reactivated" :
+        before.project_role_id !== projectRoleId ? "project_member.role_changed" : "project_member.reconfirmed";
+    await req.db.query(
+      "INSERT INTO public.audit_events (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id, reason, before_snapshot, after_snapshot, metadata, outcome) VALUES ($1::uuid, 'user', $2::text, $3::text, 'project_member', $4::uuid, $5::uuid, $6::text, $7::jsonb, $8::jsonb, $9::jsonb, 'success')",
+      [
+        req.user?.id ?? null,
+        req.user?.role ?? null,
+        action,
+        member.id,
+        projectId,
+        reason,
+        before ? JSON.stringify(before) : null,
+        JSON.stringify({ user_id: member.user_id, project_role_id: member.project_role_id, is_active: member.is_active, expires_at: member.expires_at, deactivated_at: member.deactivated_at }),
+        JSON.stringify({ email: userRows[0].email, role_code: roleRows[0].role_code }),
+      ],
+    );
+    return res.status(before ? 200 : 201).json({ member });
+  } catch (error) {
+    logger.error("Admin project membership assignment failed:", error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/admin/users/:id/status", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const userId = req.params.id as string;
+  const isActive = req.body?.isActive;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId) || typeof isActive !== "boolean" || reason.length < 5) {
+    return res.status(400).json({ error: "Valid user id, isActive, and an audit reason are required.", code: "INVALID_USER_STATUS_INPUT" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "SELECT * FROM public.pke_admin_set_user_active($1::uuid, $2::boolean, $3::text)",
+      [userId, isActive, reason],
+    );
+    if (!rows.length) return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
+    return res.json({ user: rows[0] });
+  } catch (error: any) {
+    const code = typeof error?.code === "string" ? error.code : "";
+    if (code === "P0002") return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
+    if (code === "23514" || code === "22023") return res.status(409).json({ error: "User is not eligible for this status change.", code: "USER_STATUS_CONFLICT" });
+    if (code === "42501") return res.status(403).json({ error: "Platform Admin authorization is required.", code: "ADMIN_REQUIRED" });
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -3358,7 +3675,7 @@ app.post("/api/v1/admin/users/:id/password-reset", requireAuth, requireAdmin, as
   let auditStatus: "succeeded" | "failed" = "failed";
   try {
     const { rows } = await req.db.query(
-      "SELECT id, email, neon_auth_user_id, is_active FROM users WHERE id = $1::uuid LIMIT 1",
+      "SELECT user_id AS id, email, neon_auth_user_id, is_active FROM public.pke_admin_get_user($1::uuid)",
       [targetId]
     );
     if (rows.length !== 1) {
@@ -3451,30 +3768,8 @@ app.get("/api/v1/permissions", requireAuth, async (req: express.Request, res: ex
   }
 });
 
-// ============================================
-// Session revocation (P03 Identity/RBAC)
-// ============================================
-app.post("/api/v1/auth/revoke-session", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { userId } = req.body ?? {};
-  const actorId = req.user?.id;
-  if (!actorId) return res.status(401).json({ error: "Authenticated principal required" });
-  try {
-    // Admin can revoke any user session; non-admin can only revoke their own
-    const targetId = typeof userId === "string" && userId ? userId : actorId;
-    if (!req.user?.isAdmin && targetId !== actorId) {
-      return res.status(403).json({ error: "Forbidden: cannot revoke another user's session" });
-    }
-    // Use request-scoped RLS transaction client (never global pool) so context/audit/RLS remain consistent.
-    const { rows } = await req.db.query(
-      `UPDATE users SET is_active = false, updated_at = now() WHERE id = $1::uuid RETURNING id, email, is_active`,
-      [targetId],
-    );
-    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
-    res.json({ revoked: rows[0], revokedBy: actorId });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to revoke session" });
-  }
-});
+// Session revocation is performed by the Neon Auth Admin provider SDK in the Admin UI.
+// Do not expose a database-only endpoint that would incorrectly deactivate the global PKE account.
 
 // ============================================
 // Privileged action audit (P03 Identity/RBAC)
@@ -3516,22 +3811,21 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
 // Centralized error handling middleware
 // ============================================
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const status = err.status || 500;
-  const clientMessage = isProduction ? "Internal server error" : "Terjadi kesalahan internal.";
+  const rawStatus = err?.status;
+  const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus < 500 ? rawStatus : 500;
 
-  // Log detail teknis secara internal (file log), jangan kirim ke client.
-  // Jangan log objek error mentah untuk menghindari penyimpanan detail sensitif/secret.
+  // Never persist exception messages, stacks, query strings, tokens or client IPs.
   logger.error({
-    message: err?.message ?? "Unknown error",
-    stack: err?.stack,
+    event: "api_unhandled_error",
     status,
-    url: req.originalUrl,
     method: req.method,
+    path: req.path,
+    errorType: typeof err?.name === "string" ? err.name : "UnknownError",
   });
 
   res.status(status).json({
     status: "error",
-    message: clientMessage,
+    ...(status === 500 ? internalServerErrorPayload() : requestRejectedPayload()),
   });
 });
 

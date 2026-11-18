@@ -72,6 +72,40 @@ export const authClient = {
     } catch (e: any) {
       return { data: null, error: { message: safeAuthMessage(e, 'Reset password tidak dapat diproses. Token mungkin tidak valid atau kedaluwarsa.') } };
     }
+  },
+  admin: {
+    createUser: async (args: { email: string; password: string; name: string; role?: string }) => {
+      const { neonClient } = getNeon();
+      const client: any = neonAuth as any;
+      const admin = client.admin || (neonClient as any).admin || client;
+      if (typeof admin.createUser !== 'function') return { data: null, error: { message: 'Neon Auth Admin createUser tidak tersedia pada SDK ini.' } };
+      try { return await admin.createUser(args); }
+      catch (e: any) { return { data: null, error: { message: safeAuthMessage(e, 'Pembuatan identitas Auth gagal.') } }; }
+    },
+    banUser: async (args: { userId: string; banReason?: string }) => {
+      const { neonClient } = getNeon();
+      const client: any = neonAuth as any;
+      const admin = client.admin || (neonClient as any).admin || client;
+      if (typeof admin.banUser !== 'function') return { data: null, error: { message: 'Neon Auth Admin banUser tidak tersedia pada SDK ini.' } };
+      try { return await admin.banUser(args); }
+      catch (e: any) { return { data: null, error: { message: safeAuthMessage(e, 'Penonaktifan identitas Auth gagal.') } }; }
+    },
+    unbanUser: async (args: { userId: string }) => {
+      const { neonClient } = getNeon();
+      const client: any = neonAuth as any;
+      const admin = client.admin || (neonClient as any).admin || client;
+      if (typeof admin.unbanUser !== 'function') return { data: null, error: { message: 'Neon Auth Admin unbanUser tidak tersedia pada SDK ini.' } };
+      try { return await admin.unbanUser(args); }
+      catch (e: any) { return { data: null, error: { message: safeAuthMessage(e, 'Reaktivasi identitas Auth gagal.') } }; }
+    },
+    revokeUserSessions: async (args: { userId: string }) => {
+      const { neonClient } = getNeon();
+      const client: any = neonAuth as any;
+      const admin = client.admin || (neonClient as any).admin || client;
+      if (typeof admin.revokeUserSessions !== 'function') return { data: null, error: { message: 'Neon Auth Admin revokeUserSessions tidak tersedia pada SDK ini.' } };
+      try { return await admin.revokeUserSessions(args); }
+      catch (e: any) { return { data: null, error: { message: safeAuthMessage(e, 'Pencabutan sesi Auth gagal.') } }; }
+    },
   }
 };
 

@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
-"scripts": {
-    "test": "vitest run src/runtime-security.test.ts",
+  "scripts": {
+    "test": "vitest run src/runtime-security.test.ts src/storage-fx-gl.test.ts src/http-errors.test.ts src/neon-auth-webhook.test.ts src/admin-user-lifecycle.contract.test.ts",
     "test:integration": "node scripts/test-db/run-integration.mjs",
     "test:integration:preflight": "node scripts/test-db/preflight.mjs",
     "frontend:dev": "cd frontend && npm run dev",
@@ -21,14 +21,14 @@
     "test:revision028": "vitest run src/runtime-security.test.ts",
     "verify:runtime": "node scripts/verify-runtime-security.mjs",
     "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
-    "verify:migrations": "node scripts/verify-migration-manifest.mjs"
+    "verify:migrations": "node scripts/verify-migration-manifest.mjs",
+    "verify:release-migrations": "node scripts/verify-migration-release-policy.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@neondatabase/auth": "0.7.0-beta",
     "@neondatabase/serverless": "^1.2.0",
     "@types/node": "^26.6.6",
     "bcryptjs": "^3.0.3",
@@ -47,10 +47,14 @@
     "@types/react": "^19.3.0",
     "@types/uuid": "^10.0.0",
     "react": "^19.3.1",
-    "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "uuid": "^14.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "4.1.12"
+  },
+  "overrides": {
+    "zod": "$zod",
+    "vite": "6.4.6",
+    "tinypool": "2.1.2"
   }
 }

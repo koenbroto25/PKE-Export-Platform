@@ -1,0 +1,51 @@
+name: Dependency Audit Evidence
+
+on:
+  push:
+    branches:
+      - phase0/reconcile-source-20261117
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install locked dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit
+          npm --prefix frontend ci --ignore-scripts --no-audit
+      - name: Enforce root production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Enforce frontend production dependency audit
+        run: npm --prefix frontend audit --omit=dev --audit-level=high
+      - name: Audit root dependency tree
+        run: |
+          npm audit --json > root-audit.json || true
+          node -e "const r=require('./root-audit.json'); const v=r.vulnerabilities||{}; console.log(JSON.stringify({metadata:r.metadata?.vulnerabilities,packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable,via:x.via.map(a=>typeof a==='string'?a:{title:a.title,url:a.url,range:a.range})}))},null,2))"
+      - name: Audit frontend dependency tree
+        run: |
+          npm --prefix frontend audit --json > frontend-audit.json || true
+          node -e "const r=require('./frontend-audit.json'); const v=r.vulnerabilities||{}; console.log(JSON.stringify({metadata:r.metadata?.vulnerabilities,packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable,via:x.via.map(a=>typeof a==='string'?a:{title:a.title,url:a.url,range:a.range})}))},null,2))"
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-evidence
+          path: |
+            root-audit.json
+            frontend-audit.json
+          if-no-files-found: warn
+          retention-days: 14

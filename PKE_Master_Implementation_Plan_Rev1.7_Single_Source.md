@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev1.7 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.19 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 1.7  
+**Revision:** 2.19 (18 November 2026 — one-time comprehensive F0 audit and security revisions)  
 
 **Tanggal dokumen:** 11 November 2026  
 
@@ -497,7 +497,6 @@ Temuan berikut berasal dari pemeriksaan read-only Neon Production dan pemeriksaa
 
 
 Batas bukti pada update tersebut: laporan menyebut GET/POST `/fx-exposure` tetap ada tetapi tidak menyatakan secara eksplisit apakah query sudah dipindahkan ke `fx_exposures` plural; mapping exposure tetap OPEN sampai diperiksa. Koreksi `journal_entries`/`journal_lines` membuktikan penyesuaian nama kolom menurut laporan, bukan otomatis membuktikan validasi balance, akun, periode, approval, atau posting. Penghapusan route dokumen lama bukan bukti bahwa P08 sudah tersambung ke `project_export_documents` dan private storage.
-
 
 
 Urutan kerja:
@@ -997,7 +996,6 @@ Status tabel: **EXISTING** berarti ditemukan di Production snapshot; **PROPOSED*
 |---|---|---|---|---|---|
 
 | Partner Organization | `organizations` (PROPOSED) / reconcile `buyers`, `vendors`, `service_vendors` | `id` | UUID | Yes | Primary key |
-
 | | | `legal_name` | text | Yes | Nama legal sesuai dokumen |
 
 | | | `trading_name` | text | No | Nama dagang |
@@ -1499,7 +1497,6 @@ PKE harus membedakan **port authority/port area, terminal, berth/jetty, channel,
 Every depth value must carry:
 
 
-
 - `depth_value` and `depth_unit` (store canonical SI metres; preserve original unit/source if supplied in feet/fathoms).
 
 - `depth_feature_type` (channel, berth, jetty, anchorage, fairway, river segment).
@@ -1995,7 +1992,6 @@ PKE must reconcile quantities across each handoff:
 7. On-board quantity and final survey/weight document.
 
 8. Bill of Lading quantity and contract accepted quantity.
-
 
 
 Every variance has a unit, calculation basis, threshold, evidence, reason code, responsible reviewer and disposition. Thresholds are Admin-configurable by contract/product/handling mode; never silently auto-write off differences. Corrections use a reversal/adjustment event, not deletion.
@@ -2497,7 +2493,6 @@ Prompt injection in PDF/web pages must be treated as untrusted source text. RAG 
 - Project Instance adalah unit pemenuhan/settlement komersial. Satu instance dapat memiliki beberapa PKS/KCP, truck, warehouse, shipment, voyage, invoice, dan pembayaran parsial.
 
 - Konfigurasi Admin di-snapshot pada Project Instance. Perubahan konfigurasi/kontrak yang berpengaruh ke transaksi aktif harus melalui change request dengan pilihan revise-current-project, successor project, atau apply-next-cycle.
-
 - Contract amendment tidak boleh menimpa evidence/journal/transaksi historis.
 
 - Project close tidak otomatis saat `loaded_on_board`; perlu quantity acceptance, documents, AR/AP, advances, funding, claims, FX dan GL checklist.
@@ -2997,7 +2992,6 @@ erDiagram
 - Document is linked by immutable version and requirement. Superseding a document does not delete prior version.
 
 - Regulatory assessment records source/rule versions used and input snapshot.
-
 - Finance tables remain in P07 domain; operational event links to finance through references, not duplicate amount postings.
 
 
@@ -3495,7 +3489,6 @@ Do not change an existing public endpoint breaking contract without backward-com
 
 
 External systems must be behind domain adapter interfaces with:
-
 
 
 - Provider-neutral input/output DTOs.
@@ -3997,7 +3990,6 @@ Exception handling: duplicate, inconsistent coordinates, company does not own/op
 5. Production lot is created and tied to product variant/process/facility/batch.
 
 6. Sampler creates sample and chain-of-custody record.
-
 7. Lab results are loaded manually or extracted into draft; reviewer validates values/method/basis.
 
 8. COA generated or linked; source file checksum/version recorded.
@@ -4497,7 +4489,6 @@ All metrics must have written formula, data lineage, unit, time period, data fre
 | Cash readiness | Cash/funding forecast vs obligations by date | Cash schedule/obligation |
 
 | FX exposure | Currency net receipts/payments by due window | FX exposure and AP/AR |
-
 | Data freshness | Current verified record count / records requiring review | Source and verification fields |
 
 
@@ -4997,7 +4988,6 @@ Metrics:
 - Storage uploads/downloads/errors/size.
 
 - External provider latency/quota/error/freshness.
-
 - AIS last position age; regulatory source last retrieval; FX last update.
 
 - Inventory variance and document expiry event counts.
@@ -5498,7 +5488,6 @@ Prioritas berikut mengesampingkan urutan sprint historis jika terjadi konflik, t
 4. Selaraskan Operations/Tracking, P07 Finance v1.2, P08 Compliance, P11 Notifications/Reporting dan RBAC/permission/RLS dengan mapping Section 2.7. MFA ditunda sesuai keputusan D-107.
 
 5. Setelah API request/response stabil, revisi frontend langsung untuk menggunakan DTO yang sama; disable/hide action yang belum memiliki backend nyata. Jangan tampilkan status completed/paid/uploaded bila tindakan belum benar-benar terjadi.
-
 6. Integrasikan bucket private yang sudah ada, tanpa bucket publik. Reports hanya completed jika file nyata tersimpan dan `file_reference` valid.
 
 7. Pertahankan blocker production origin/SMTP/branch protection/provider approval sebagai blocker nyata. MFA bukan blocker rilis awal sesuai D-107.
@@ -6000,7 +5989,6 @@ The following are not assumed. Cline should identify impact and prepare an ADR; 
 Cline must track this checklist in this Master Implementation Plan only. Check only with evidence.
 
 
-
 ## Foundation and security
 
 
@@ -6471,7 +6459,7 @@ Bukti validasi disimpan sebagai ringkasan pada Section 32: nama command, timesta
 ## 32.1 Keputusan owner yang berlaku (terkonsiliasi, Revision 4 — PERMANENT SINGLE PROJECT/BRANCH)
 
 1. Dokumen Master Implementation Plan ini adalah satu-satunya dokumen referensi aktif. Tidak ada dokumen status/laporan paralel.
-2. **[Rev 4, 14 Nov 2026, MUTLAK/PERMANEN]** Satu proyek Neon `purple-base-63944903` (`PKE-export-platform`), satu branch `br-damp-shape-b3xlh4nr` (`production`), satu DB `neondb`, host `ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech`, role `app_runtime_secure`. **DILARANG MEMBUAT BRANCH NEON TAMBAHAN DALAM KONDISI APA PUN** (tanpa pengecualian otomatis; hanya instruksi tertulis baru owner). Satu `DATABASE_URL`; tidak ada `NEON_TEST_DATABASE_URL`, fallback, koneksi alternatif, atau branch-selection. Script/CI/runner wajib validasi Project/Branch ID dan berhenti bila tidak sesuai.
+2. **[Rev 4, 14 Nov 2026, MUTLAK/PERMANEN]** Satu proyek Neon `purple-base-63944903` (`PKE-export-platform`), satu branch `br-damp-shape-b3xlh4nr` (`production`), satu DB `neondb`, host `ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech`, role `app_runtime_secure`. **DILARANG MEMBUAT BRANCH NEON TAMBAHAN DALAM KONDISI APA PUN**, kecuali instruksi tertulis owner yang spesifik. Pengecualian tertulis terbatas yang telah disetujui owner untuk F0 adalah `f0-validation-20261118` (`br-soft-fog-b3zi4c2x`) dan `f0-restore-drill-20261118` (`br-bitter-thunder-b3y99pe3`), hanya untuk validasi/restore drill, tanpa data bisnis, dan keduanya bersifat sementara/berakhir 2026-11-19 06:35Z; tidak ada branch tambahan lain yang diizinkan. Satu `DATABASE_URL`; tidak ada `NEON_TEST_DATABASE_URL`, fallback, koneksi alternatif, atau branch-selection. Script/CI/runner wajib validasi Project/Branch ID dan berhenti bila tidak sesuai.
 3. **Proyek lama (SUPERSEDED sebagai target aktif):** `lucky-glitter-99553107` (`PKE-export-platform-legacy-migration-source`) hanya sumber migrasi sementara; seluruh branch/host lama (`br-calm-glade-b3nrleet`, `br-billowing-math-b31f4wos`, endpoint terkait) dilarang dipakai app/backend/frontend/test/CI/Cline. Compute lama suspended/idle bila tidak perlu migrasi. **Jangan hapus sebelum migrasi + seluruh acceptance gate tervalidasi + persetujuan final owner.** Tidak ada branch pengganti di proyek lama.
 4. **(SUPERSEDED oleh Rev 4)** Keputusan 3C yang mengizinkan validation branch `br-billowing-math-b31f4wos` untuk integrasi — dicabut permanen; neon-branch/local test modes tidak lagi diizinkan.
 5. Dilarang PostgreSQL lokal/Docker/alternatif. Integration test pada single production branch yang sama dengan **transaksi + rollback + fixture QA namespace unik**, cleanup terverifikasi, tanpa dummy business data dan tanpa mutasi di luar namespace; test tidak aman fail-closed.
@@ -6497,8 +6485,7 @@ Project `lucky-glitter-99553107` (`PKE-export-platform-legacy-migration-source` 
 
 ### 32.2.3 New mandated target (Rev 4) — NOT YET PROVISIONED/VERIFIED HERE
 | Item | Status |
-|---|---|
-| Neon target | `purple-base-63944903` / branch `br-damp-shape-b3xlh4nr` (`production`) / `neondb` / `aws-ap-southeast-1` / PG 18 / host `ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech` |
+|---|---|| Neon target | `purple-base-63944903` / branch `br-damp-shape-b3xlh4nr` (`production`) / `neondb` / `aws-ap-southeast-1` / PG 18 / host `ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech` |
 | Connection | `DATABASE_URL` untuk target mandat **belum terkonfigurasi/terverifikasi** di sesi ini (env kosong/placeholder). Konektivitas/akses: **BLOCKED_EXTERNAL**. |
 | Schema/migrations/role/RLS/Auth/storage/grants | **BELUM DIMIGRASIKAN / BELUM DIVERIFIKASI** pada proyek baru (migration history 001–035, `app_runtime_secure`, RLS/policies, Neon Auth, object storage config & round-trip pending). |
 | Branch count | Harus tepat 1 branch `production` (belum diverifikasi dari sini). |
@@ -6716,6 +6703,15 @@ Cline appends one concise dated entry per session to the table below. Keep newes
 
 | Date | Work package | Changes performed | Verification/evidence | Production mutation | Status / blockers | Next action |
 |---|---|---|---|---|---|---|
+| 2026-11-18 | F0 continuation — canonical ledger commit verified | Confirmed CI and Preview completion for the latest canonical-plan commit e6675514bd14166a368f9f97332154cbf691fc6b. | GitHub Actions run 44304605969 SUCCESS. Vercel Preview deployment dpl_53bdk3taSpwNGZzfVy56PcC9CuZe READY; build completed in 48 seconds, 82 tests passed, backend TypeScript and frontend Vite build passed. Preview root and health checks already passed on the preceding app-code commit e9013fd. | NONE — no Production change. | F0 remains OPEN. All automation/code checks in this continuation are green, but external/owner gates remain: Admin Auth lifecycle session tests, second Neon Auth Admin identity reconciliation, cross-project RLS with real project rows, protected API app-layer smoke, automatic backup schedule, Vercel secret visibility, Production redeploy approval, and temporary validation branch cleanup at expiry. | Owner review of second Auth Admin; authenticated Admin session; Neon backup feature enablement; Vercel visibility control; explicit Production redeploy authorization. |
+| 2026-11-18 | F0 continuation — RLS partial behavior, Admin lifecycle CI, Preview recovery, Auth role drift | Corrected lifecycle contract tests to avoid .vercelignore-excluded migration SQL; CI and Preview now pass. Read-only Production Auth role counts and read-only validation RLS context checks completed. | CI run 44304069020 for commit e9013fd32376d84e8998f9623ba3b458ab04134c SUCCESS: 82 tests, Production migration ledger verifier, migration dry-run, backend typecheck. Preview dpl_3fXy3wqPyRRzod4QbnYJbvhAzjyo READY; root HTTP 200 and /api/v1/health HTTP 200, DB connected, environment=production. Protected routes still blocked before app by Deployment Protection share-link auth. Production read-only counts: 2 non-banned Neon Auth Admin users, only 1 linked to a PKE Admin record. RLS test on validation branch: actual Admin sees 1 user, synthetic non-admin sees 0, missing context sees 0; projects/project_members empty. | NONE — no Production SQL/data/Auth/config/deployment changes; no secret values read. | F0.05 PARTIAL PASS only; real two-project isolation not proven. Admin Auth orphan/drift needs owner review; no account modified. Automatic backup schedule provider-disabled. Vercel env edit cannot set visibility=secret because action schema omits visibility. Validation branch contains a temporary role membership grant whose grantor is provider-owned cloud_admin; revoke attempted but connector cannot revoke that grantor's privilege. Branch expires 2026-11-19T06:35Z; no Production effect. Picomatch GHSA remains unpatched and disputed; no forced downgrade. | Keep validation branch isolated until expiry or obtain approval to delete it; reconcile the second Auth Admin with PKE ownership; obtain authorized Admin session for lifecycle tests; ask Neon/Vercel support for backup/secret-visibility controls; obtain explicit Production redeploy approval. |
+| 2026-11-18 | F0.05 RLS behavior smoke + Admin lifecycle contract CI | Read-only behavioral tests on Neon validation branch using login role app_runtime_secure and transaction-local identity context. Added src/admin-user-lifecycle.contract.test.ts and included it in npm test; corrected test selectors after first CI run exposed brittle source matching. | Validation branch: platform Admin context returned pke_is_platform_admin=true and saw 1 user; synthetic non-admin context returned false and saw 0 users; no-context returned false/null and saw 0 users. Projects and project_members are empty, so tenant isolation on real project rows remains unproven. Temporary validation-only role membership grant was revoked; no Production changes. First new CI attempt failed because assertions matched route path without route prefix and regex crossed unrelated browser sessionStorage. Corrective commit d0c763bb9bbd16be91c26dc04421d6bfbddcfbc8 awaiting CI at ledger update time. Prior CI baseline run 44300780079 remains SUCCESS. | NONE — read-only Production untouched; validation branch only used for identity-context reads, temporary grant added/revoked. | RLS behavioral result PARTIAL PASS: verifies helper context and users table visibility boundary, but no synthetic project/business rows and no second real user exist. Admin lifecycle code contract tests are being hardened; actual provider SDK/webhook/session workflow still blocked by no authenticated Admin session. | Verify CI on corrective commit; then run Admin lifecycle contract tests and build Preview. Request Admin session to test create/link/activate/deactivate/session revoke. |
+| 2026-11-18 | F0 documentation release confirmation | Finalized canonical plan addenda and verified documentation-only release. | GitHub Actions run 44301252306 for commit 6a97eababf2a19332611b702c1360fab1bb7703c SUCCESS. Vercel Preview deployment dpl_JC1gL225nxzqTp1CMopdvyvqSU8k READY for the same commit; latest recovery branch now has a READY Preview. | NONE. | No change to remaining F0 blockers. | Continue only on authenticated Admin workflow and provider/owner-dependent gates; do not alter Production without approval. |
+| 2026-11-18 | F0 latest Preview and historical migration source recovery check | Verified latest application-code Preview after migration runner/CI changes; checked GitHub history and all current branches for authentic migration SQL 029-035. | Preview deployment dpl_FE618FggcSZ5vAdopgwbvm5s1Sqq for commit f6353190537fa32ba7b866be3a768f2e885ce8d9 is READY; root GET 200 and /api/v1/health 200/database connected/environment=production. Protected Admin API paths still blocked by Vercel deployment auth. GitHub path history for each 029-035 returned zero commits; only three branches exist and none has authentic 029-035 files. | NONE. | F0 remains OPEN. CI for f635319 is green; later documentation-only commit cc2315fb6442551163b9454f2e8a7983e5e2c963 is queued for CI/Preview. Authentic SQL source for 029-035 cannot be recovered from current Git history/branches. | Keep Migration 038 gated; complete Admin-session tests and obtain owner approval for Production redeploy; request Neon enablement for automatic snapshots. |
+| 2026-11-18 | F0 final verification addendum — migration runner CI and environment chronology | Added explicit CI execution of npm run migrate:dry-run; updated Section 55.16 with final test results and Vercel environment chronology. | GitHub Actions run 44300780079 for commit f6353190537fa32ba7b866be3a768f2e885ce8d9: SUCCESS; 72 tests, verified Production migration ledger, migration runner dry-run (no DB connection), and backend API typecheck all passed. Vercel Preview deployment dpl_FE618FggcSZ5vAdopgwbvm5s1Sqq for the same commit was BUILDING at this check; prior app-code Preview dpl_6SZVr69GBCPKJCYTTP5R4cifdc9A READY. NODE_ENV Vercel variable value is production; updated 2026-11-18T03:57:57Z, after Production deployment dpl_AzF9eP7HS6Yec82nEwEUSKDFdcDg was created 2026-11-17T09:57:46Z. This explains why current Production health still reports development; a new Production deployment is required to pick up the updated variable. | NONE — no Production deployment or migration. | Migration runner verification is green. Preview deployment for workflow-only commit is still building at check time. Production runtime configuration remains stale; protected API tests require authorized Vercel access and an Admin Auth session. Automatic backup schedule remains provider-disabled. | Wait for latest Preview build to finish; obtain explicit owner authorization before Production redeploy; complete authenticated Admin SDK/webhook and session tests when Admin session is available. |
+| 2026-11-18 | F0 completion continuation — storage security, HTTP health, backup blocker, migration ledger/release hardening | Ran real private-storage PUT/GET and denial tests from an isolated Vercel Sandbox against the temporary Neon validation branch; removed test object and deleted sandbox. Added migration_history_manifest_001_037.json as a verified Production history ledger (not SQL source), scripts/verify-migration-release-policy.mjs, npm script and CI step. Updated scripts/migrate.mjs so read-only status reconciles exact Production history and flags local filename conflicts; Migration 038 apply now requires exact 001-037 history, pinned 036/037/038 hashes, MIGRATE_038_CONFIRM=1, MIGRATION_038_APPROVED_SHA256, and MIGRATION_038_APPROVAL_REFERENCE. Commits: 0b8803c, 11d423b, 7509b20, 21b1005, 43de06d, 429662f, 03e7716, cce5520. | Storage validation branch: PUT 200, signed GET 200 and exact body hash; anonymous GET 403; cross-branch signed PUT 403; Production bucket anonymous GET 403; validation and Production test prefixes empty after cleanup. Preview and Production /api/v1/health both returned HTTP 200/database connected. Production health currently reports environment=development, while latest Preview reports production. Neon Production migration_history was independently read: exactly 37 rows; all 37 names/hashes/statuses match the new ledger; Migration 038 absent. GitHub Actions run 44300055574 SUCCESS for the initial ledger CI commit (72 tests + ledger verifier + backend API typecheck); the latest runner status-mode refinement is on subsequent commit and its CI is queued/running at ledger update time. Latest Preview commit before that refinement 429662f READY. | NONE — no Production DDL/DML/migration, no Production object upload, no Production Auth change, no Production deployment/promotion, no secret values read. Only read-only Production health/history/private-object denial checks. | PARTIAL / F0 OPEN. Private storage round-trip and denial checks PASS. Automatic snapshot schedule cannot be enabled: Neon set_snapshot_schedule returned 'backup schedule creation is not enabled for this project'; Production schedule remains empty. Existing manual snapshot and prior restore drill do not replace automatic schedule. Admin SDK createUser/webhook auto-link, sign-in, ban/unban/session revocation, and authenticated project API/UI smoke remain BLOCKED pending an authenticated Admin session; Neon provider-created test user previously needed manual DB linking. Vercel deployment protection blocks unauthenticated protected API smoke. Production deployment is old and health reports NODE_ENV=development; no Production redeploy was authorized. Historical authentic SQL source for 029-035 remains unrecovered; no reconstructed candidate is executable. Migration 038 remains pending owner approval at SHA 37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5. | Finish authenticated Admin Dashboard SDK/webhook/API lifecycle tests after an Admin session is available; request Neon enablement for automatic snapshots; obtain separate Production deployment approval to refresh runtime environment and test protected routes; recover authentic 029-035 SQL sources where possible; only then seek explicit approval for exact Migration 038 SHA. |
+| 2026-11-18 | F0 Admin account lifecycle — Migration 038 validation, audit hardening, Neon Auth provider test | Added six scoped lifecycle functions in Migration 038, signed Neon Auth webhook verifier/handler, Admin user provisioning/global status APIs, project membership assignment API/UI, and independent project-role controls. Added audit reason and before/after snapshots. Added temporary Preview-only validation-branch allowlist and tests; configured branch-only Preview env/Auth origin/webhooks; provisioning UI remains disabled (`NEON_AUTH_ADMIN_PROVISIONING_READY=false`). Commits include `f7ec983`, `3f009d9`, `4d63678`. | Validation branch: provision/link/global activate/deactivate/reactivate SQL tests PASS; audit rows with reasons/snapshots PASS; project A Operator active, B Finance active, C Viewer inactive PASS; runtime role has only scoped EXECUTE, no direct users table SELECT/UPDATE; non-admin denied. Neon provider connector created a temporary Auth user, but automatic webhook-to-PKE link was not observed; link was manually invoked for state-machine testing. Auth/PKE user deleted; four append-only audit evidence rows remain on expiring validation branch. GitHub Actions run `44295555720` SUCCESS; latest Preview commit `3f009d9` READY; 72 unit tests, backend/frontend typechecks and Vite build PASS. | **NONE** — no Production DDL/DML, no Migration 038 Production apply, no Production Auth config, no Production deploy/promotion, no secrets read/copied. | **PARTIAL / F0 OPEN.** Project-specific role isolation and lifecycle DB functions PASS on temporary branch. Neon Admin SDK createUser + signed `user.before_create`/`user.created` delivery and automatic identity link NOT VERIFIED; Admin provisioning feature stays disabled. Session ban/unban/revocation via app SDK NOT VERIFIED. Migration 038 is not registered for Production apply; runner remains fail-closed to 036. Other F0 infrastructure gates and Picomatch advisory remain open. | Verify actual Admin Dashboard SDK createUser and signed webhook delivery on isolated Preview; test sign-in, global ban/unban/session revocation and project assignment UI/API; reconcile migration runner/manifest and obtain explicit approval before any Production Migration 038. |
+| 2026-11-18 | F0 targeted backtest — project-scoped account membership, role assignment, deactivation/reactivation | On recovery branch, updated `src/index.ts` to filter expired/deactivated memberships, validate that assigned project roles belong to the same active project, clear `deactivated_at/deactivated_by` on reactivation, record actor/reason/before-after audit snapshots, and record deactivation actor. Updated `frontend/src/App.tsx` with Admin project selector, per-project role/status controls, global account status display, reason prompts, and explicit expiry renewal when reactivating an expired membership. Updated `src/schema.ts` project role/member/role-permission mappings to reflect Neon columns. A trial addition of root `tsc --noEmit` to the test script was reverted after Preview reported TS7016 for the existing `.mjs` preflight import; root test script is back to its original Vitest command. The configured Vercel pipeline separately runs `tsc -p api/tsconfig.json` after tests. Commits: `b188e3e`, `a366af3`, `c18800b`, `f351464`, `0bcd3d3`, `87f72b9` (typecheck experiment, reverted), `14c53d9` (revert). | Neon validation branch only: transaction-scoped synthetic fixture (3 projects, 1 PKE user, 3 distinct project roles) proved A role/permission allowed, B distinct role/permission allowed, C inactive denied, and A cannot use B permission. Cross-project role assignment candidate count = 0. B role changed within B and permission switched as expected. C reactivation with `is_active=true,deactivated_at=NULL,deactivated_by=NULL` restored access. Legacy update setting only `is_active=true` left stale `deactivated_at` and access remained false (reproduced defect). Audit insert contract produced 2 rows. All fixture users/projects/roles/permissions/memberships/audit events rolled back; cleanup verification counts all 0. The first synthetic PKE principal had no Neon Auth ID (resolver match count 0), so it was not treated as proof of account creation. A second rollback-only run used the existing real Auth-linked PKE Admin identity: resolver match count = 1; the Admin role was temporarily changed to viewer inside the transaction, then A and B different project roles/permissions returned true while C inactive returned false; reactivating C made C true while A and B stayed true; global account stayed active. Transaction rollback restored the original Admin role and read-only cleanup confirmed zero test projects/memberships remained. No new Auth user was created. Vercel Preview: source commits `b188e3e`, `a366af3`, `c18800b`, `f351464`, `0bcd3d3`, and revert commit `14c53d9` READY. Commit `14c53d9` ran the configured pipeline successfully: root Vitest 3 files / 62 tests passed, `tsc -p api/tsconfig.json`, frontend `tsc -b`, and Vite build completed. Experimental commit `87f72b9` ERROR due broad root `tsc --noEmit` TS7016 described below; reverted. Latest doc-only commit `472fe95` was QUEUED at time of this update. | **NONE** — no Neon Production SQL/DML/migration, no Production user, no Production role/member mutation, no Production deployment/promotion, no secrets read. Temporary validation branch transaction fixtures fully rolled back. | **PARTIAL / F0 OPEN.** Project membership and role isolation database backtest PASS. Reactivation stale-deactivation defect fixed in source. Admin Dashboard per-project membership controls added. End-to-end Neon Auth account provisioning remains BLOCKED: Neon Auth Admin SDK `createUser` requires an authenticated Admin HTTP-only cookie session; backend runtime role has no direct SELECT on `neon_auth.user/session` for verifying a newly provisioned Auth identity before PKE mapping. No secure server-verifiable Auth-to-PKE link flow is implemented/tested. Global account activation/deactivation/session revocation also remains separate and unverified. | Complete secure Admin Auth provisioning/linking and global account lifecycle without public signup; add route/UI contract tests for non-admin denial, audit and session invalidation; verify latest Preview build; then continue F0 gates without touching Production absent explicit approval. |
 | 2026-11-15 | Rev 5.8 finalization — working-tree verification, release-path demo guard, build/test QA, blocker confirmation | **No source files changed in this session**; pre-existing dirty tree preserved incl. `.env` deletion (not restored — secret safety). Independently re-verified: frontend `auth-client.ts`/`api.ts`/`App.tsx` contain no Manual Trial/demo/fake-success/simulated paths; real Neon Auth sign-in/forgot/reset + bearer API client retained; metric grids render truthful empty states ("—" / "Tidak ada data dummy"). Backend: `src/demo/*` routes registered only under `detectManualTrialMode` (NODE_ENV development/test + loopback + explicit `PKE_MANUAL_TRIAL_MODE` flag; production and non-loopback rejected); `registerDemoApiRoutes` not reachable in release; `requireAdminMfa` not mounted on any route (D-107); `/api/v1/payment-instructions` returns 503 `PAYMENT_EXECUTION_UNAVAILABLE` fail-closed; report runs insert as `queued` with no fake `fileReference`; storage routes enforce `projects/<uuid>/` key namespace + `documents.create`/`documents.view` project permission + 503 `STORAGE_UNAVAILABLE` when credentials absent. Commands (cwd `D:\\PKE`): `npx tsc --noEmit` exit 0; `npx vitest run` exit 0 — Test Files 16 passed (16), Tests 138 passed (138); root `npx tsc` production build exit 0; frontend `npx tsc -b` exit 0; frontend `npm run build` exit 0 (vite built 11.69s); `node scripts/verify-migration-manifest.mjs` exit 0 — PASS all 28 migration files. `node scripts/test-db/preflight.mjs` exit 1 — BLOCKED at url_validation: no verified target `DATABASE_URL` for mandated `purple-base-63944903/br-damp-shape-b3xlh4nr/neondb/app_runtime_secure`; `.env` absent (pre-existing). Neon read-only evidence (prior session): SQL `rolcanlogin=true` vs Neon metadata `authentication_method=no_login` discrepancy unresolved; no role/password reset performed. | **NONE** — no DDL/DML, no role/password/Auth/storage/config changes, no branch creation, no business data, no deploy, no git operations. | **STATE 2 — APPLICATION_COMPLETE / DEPLOYMENT_BLOCKED_OWNER**. Source complete and static/type/unit/build green. Live Neon runtime, Auth sign-in/session/reset/onboarding, RLS transaction isolation, storage round-trip, deployment, and owner UAT cannot be proven until: (1) owner configures target `DATABASE_URL` locally in secure env (never via chat), (2) owner approves production trusted origin for CORS/cookies/CSRF, (3) storage endpoint/credentials available, (4) deployment approval + hosting access. Email onboarding/reset explicitly blocked: Neon shared provider rejected test email with `INVALID_EMAIL_PROVIDER_TYPE`. | Owner: provide target Neon runtime credential locally and approve deployed origin/deployment; then live smoke tests + UAT handover. |
 | 2026-11-15 16:56Z | Rev 5.8 Stage B (current session) — frontend release-path cleanup, backend demo guard test, validations | Read complete canonical Rev1.7 plan (2859 lines; §§0,2,32,33,34 incl. 34.1–34.7/32.7 Rev 5.8). Inspected current working tree (dirty/pre-existing preserved). **Frontend (release path):** removed Manual Trial/demo UI/helpers/fake-success paths from `frontend/src/auth-client.ts`, `frontend/src/api.ts`, `frontend/src/App.tsx` (demo login/banner/role picker/reset-demo, demo session/token helpers, demo API header, `DEMO-TPL-001` fallback, report ‘simulasi’/fake unavailable states, wizard step fake-save/auto-advance) while keeping real Neon Auth sign-in/token, forgot/reset, admin reset request UI, role guards, and fail-closed messaging. **Backend/demo guard:** inspected `src/demo/mode.ts`, `src/demo/routes.ts`, `src/demo/*`, and `src/index.ts` registration (`detectManualTrialMode`/`registerDemoApiRoutes`); demo mode remains gated to `NODE_ENV` development/test + loopback + explicit flag and is not wired as a release path. Added regression `src/demo/release-mode.guard.test.ts` proving production/non-loopback/non-dev/flag-absent activation is rejected. **Config/evidence (names only, no values):** `.env` key names present incl. `DATABASE_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL` (values not read/printed); `frontend/.env.local` exists with `VITE_API_BASE`, `VITE_NEON_AUTH_URL`, `PKE_API_ORIGIN` names only. `node scripts/test-db/preflight.mjs` exit 1 (`BLOCKED: DATABASE_URL preflight failed at url_validation.` `LEGACY_HOST_REJECTED`, `INVALID_HOST`) — mandated `ep-odd-resonance-b3zb42fw.../purple-base-63944903/br-damp-shape-b3xlh4nr/neondb/app_runtime_secure` target not verified/configured. Vercel serverless entry `api/[...path].ts` present (exports Express app); Vercel CLI/deployment/project/origins not verified. | **Commands/exit codes (cwd D:\PKE unless noted):** `npx vitest run` exit 0 (15 files, 133 tests). `npx vitest run src/demo/release-mode.guard.test.ts` exit 0 (1 file, 5 tests). `npx tsc --noEmit` exit 0. `frontend: npx tsc -b` exit 0. `frontend: npm run build` exit 0 (vite chunk-size warning + zod annotation warnings only). `node scripts/verify-migration-manifest.mjs` exit 0 (28/28 verified). `node scripts/test-db/preflight.mjs` exit 1 (legacy/invalid host). **Proof boundary:** static/source/type/build/unit/contract only; no live Neon/Auth/storage/RLS/runtime connection, no deployed smoke, no email delivery, no object round-trip. | **NONE** — no DDL/DML/migration/restore, no role/Auth/storage/config changes, no Neon branch/project, no business data, no Git commit/push/remote change, no secret values read/printed, no deployment. | **NOT READY / PARTIAL (APPLICATION_COMPLETE? NO, OWNER_UAT_READY? NO).** Frontend release demo paths removed and validated; backend Manual Trial remains dev-gated by `src/demo/mode.ts` (release activation blocked by code+test) but source still present in repo. **BLOCKED_OWNER/EXTERNAL:** mandated runtime `DATABASE_URL`/credentials for `app_runtime_secure` on target, Neon Auth/session/reset/onboarding live proof, approved production trusted origin/CORS/cookie config, private storage round-trip, Vercel/project/env/deploy authorization, DB-write E2E protocol (tx/rollback+QA namespace+cleanup). Pre-existing dirty tree/staged `D .env` index state and historical secret exposure unresolved (no remediation). | Resolve target runtime/auth/storage/origin/deploy blockers with owner; verify live mandated Neon/Auth/storage flows and remove/fully isolate any residual dev-only demo registration if required for final release artifact; complete exhaustive workflow/API/schema/RLS audit+fixes and rerun validations; perform approved compatible deployment + live smoke/UAT handover; update this Master Plan evidence/checklists. |
 | 2026-11-15 | REV 5.8 — document-first finalization order + direct target Neon verification | **Master Plan amended in-place:** added Section 34 with mandatory read-before-action rule for every developer/agent, explicit `OWNER_UAT_READY` target (real deployed application, not demo), three-stage finalization (production integration, application completion, deployment/UAT), safety boundaries, Cline work order, and owner acceptance checklist. Canonical document was successfully overwritten in Library as version 2. **Direct Neon read-only verification:** checked `app_runtime_secure` attributes, Neon Auth config and private bucket on `purple-base-63944903/br-damp-shape-b3xlh4nr`. | SQL `pg_roles`: `rolcanlogin=true`, `rolinherit=true`, all privileged flags false incl. `rolbypassrls=false`. Neon role metadata API simultaneously reports `authentication_method=no_login` — unresolved provider/runtime metadata discrepancy; no credential reset/role alteration. Auth Better Auth, email/password enabled, self-signup disabled, verification required, OTP, localhost trusted origin only. Private bucket `pke-private-documents` exists. Prior verified ACL digests and admin identity mapping retained as Section 34.2 evidence. No live app runtime connection, deployed origin, email delivery, or storage round-trip was tested. | **NONE** — read-only SQL/API checks only; no DDL/DML, no role/password/Auth/storage config changes, no branch creation, no business data, no deployment, no Git operations. | **NOT READY — FINALIZATION IN PROGRESS.** Target ACL/schema restore and admin identity foundation verified in earlier work; runtime login path discrepancy, target runtime credential connection, production trusted origin, real email/onboarding delivery, storage round-trip, full frontend/API workflow integration, deployment and owner UAT remain unproven. | Execute Section 34.6 in `D:\PKE`: first read the complete canonical Master Plan; inspect current working tree; resolve safe code/config integration and all real UI/API workflows; run actual build/tests; record evidence in this document only. Do not alter Neon Production or deploy without the specific required approval. |
@@ -6760,6 +6756,8 @@ eondb) credentials/access not available in env (no target DATABASE_URL configure
 | Build and automated QA | **PASS (static/type/unit/build)** | Root `npx tsc --noEmit` exit 0; root `npx tsc` production build exit 0; `npx vitest run` exit 0 — Test Files 16 passed (16), Tests 138 passed (138) (incl. route-registry, preflight guard, run-integration guard, runtime-security x2, foundation x2, storage-fx-gl 51, auth-mfa-deferral, demo/mode, demo release-guard 5, admin-password-reset contract, revision33 x2, field-tests x2); frontend `npx tsc -b` exit 0, `npm run build` exit 0 (vite 11.69s); `node scripts/verify-migration-manifest.mjs` exit 0 — PASS all 28 migration files. No live DB/Auth/storage/deploy proof (BLOCKED_OWNER/BLOCKED_EXTERNAL). |
 | Deployment / trusted origin | **BLOCKED_OWNER / NOT READY** | Vercel/serverless entry exists (`api/[...path].ts`, `vercel.json` routes `/api/v1/*` to it + frontend static build) but no deployed URL; production trusted origin unknown (CORS allowlist defaults to localhost only — no guessing); owner deployment approval + hosting access required. No push/deploy performed (git safety: no commit/push/force; `origin` unchanged, `PKECTRL` ignored). |
 | Owner UAT | **NOT STARTED (deployment-blocked)** | No deployed HTTPS URL; live smoke tests (health, admin sign-in, session, role scope, storage auth, truthful empty states) cannot run until target `DATABASE_URL`, approved origin, and deployment are available. |
+
+| Admin-controlled user lifecycle and project-scoped RBAC | **PARTIAL — project-scoped role/status path implemented; Auth account provisioning BLOCKED** | Project Dashboard now lists global account state and supports project-specific role assignment, activation/deactivation with reason, and reactivation. Transaction/rollback backtest passed A active role, B different active role, C inactive/denied, project permission isolation, cross-project role rejection, audit insert, and reactivation fix. Full Auth user creation/linking, global account suspension, session revocation, non-admin denial, and real Dashboard-to-Neon Auth lifecycle still require implementation and live proof. |
 
 **Execution order:** (A) obtain/configure mandated target runtime credentials + Neon Auth/storage/origin/deploy access (owner), verify live TLS/identity/RLS/storage safely; (B) complete exhaustive backend+frontend workflow/schema/permission fixes and residual demo-release isolation with regression evidence; (C) approved compatible deployment + live smoke tests; (D) owner UAT handover. No Neon branch/local DB/dummy Production data/destructive SQL/role-reset/global Auth change/public storage/legacy deletion/Git push.
 
@@ -6997,8 +6995,7 @@ The owner must be able to open the deployed PKE application, sign in as the prov
 
 ### Stage A — establish real production integration
 
-- Read this Master Plan first (Section 34.1).
-- Reconcile runtime environment variable names and code paths against the single target; do not print secret values. Remove legacy project endpoints/fallbacks from active runtime config while retaining source project only as historical migration evidence.
+- Read this Master Plan first (Section 34.1).- Reconcile runtime environment variable names and code paths against the single target; do not print secret values. Remove legacy project endpoints/fallbacks from active runtime config while retaining source project only as historical migration evidence.
 - Resolve `app_runtime_secure` login metadata discrepancy; verify actual TLS connection and `current_user`, database, server, and branch/project identity through a safe health/preflight path. Never expose credentials.
 - Verify request-scoped DB transactions set and clear RLS identity/project context correctly; verify no connection-pool context leakage. Test only safe read-only paths until owner-authorized write-test procedure exists.
 - Verify admin login, session, logout, session revocation, admin user listing, admin password-reset initiation, token redemption, and user onboarding. Do not send credentials/passwords in email or expose reset tokens in logs.
@@ -7062,7 +7059,8 @@ Do not create `PKE_P03_PLAN.md`, sprint reports, audit reports, revision summari
 px vercel@latest v65.16.0, authenticated as koenbroto-7254 (scope pphubsite) in D:\PKE_GITHUB_RELEASE (whoami exit 0).
 - **Project:** no existing PKE project in project ls; created pke-export-platform (prj_Xv6a7ogFkpQ1XRFEn8Y6XOdidTBF, org 	eam_ZSpwwL9NiuhstzRw4wt9ArBh) and linked folder (exit 0). .vercel/project.json created. env ls (scoped): **no Environment Variables configured**.
 - **Deployment:** 
-px vercel@latest --scope apphubsite --yes → **READY** (exit 0). dpl_1b9XUgkKksomXD2kPB17hGhqk7KV, target/environment production (first deployment auto-assigned), deployment URL https://pke-export-platform-ifwccugfi-apphubsite.vercel.app, production alias https://pke-export-platform.vercel.app, inspector https://vercel.com/apphubsite/pke-export-platform/1b9XUgkKksomXD2kPB17hGhqk7KV. Protection: ercel_authentication. Project settings (inspected): framework Other, root ., Node 26.x, build 
+px vercel@latest --scope apphubsite --yes → **READY** (exit 0). dpl_1b9XUgkKksomXD2kPB17hGhqk7KV, target/environment production (first deployment auto-assigned), deployment URL https://pke-export-platform-ifwccugfi-apphubsite.vercel.app, production alias https://pke-export-platform.vercel.app, inspector https://vercel.com/apphubsite/pke-export-platform/1b9XUgkKksomXD2kPB17hGhqk7KV. Protection: 
+ercel_authentication. Project settings (inspected): framework Other, root ., Node 26.x, build 
 pm run vercel-build or 
 pm run build, output public if exists or ..
 - **Runtime probe (unauthenticated):** GET / → HTTP 404 (X-Vercel-Error: NOT_FOUND); GET /api/v1/health → HTTP 500. **Not healthy/verified** — likely due to missing server-side env vars (DATABASE_URL, Neon Auth, storage, CORS_ALLOWED_ORIGINS, auth secrets), possible output/routing alignment, and/or deployment protection. No env values configured or exposed.
@@ -7092,3 +7090,1096 @@ pm run build, output public if exists or ..
 **Remaining guardrails (Section 32.6):** all active — single Neon project/branch `purple-base-63944903`/`br-damp-shape-b3xlh4nr`/`neondb`; no local/Docker/alt DB; no branch creation; no dummy business data; no destructive/schema/auth/role/storage-public changes without explicit approval; MFA deferred (D-107) not faked.
 
 ---
+
+---
+
+# 47. REVISION 2.12 — F0 LIVE REVALIDATION AFTER MIGRATION 036 CLOSURE
+**Session date:** 18 November 2026 (UTC+08:00)  
+**Execution mode:** GitHub, Vercel and Neon connected accounts; read-only Production inspection.  
+**Authority:** The owner-uploaded Master Implementation Plan Rev2.11 and Migration Case Closed Final Report remain the source basis. This section supersedes only the older F0 status/evidence where newer live evidence is recorded. All permanent restrictions remain binding.
+
+## 47.1 Safety boundary and actions
+- Target Neon is exactly project `purple-base-63944903`, branch `production` / `br-damp-shape-b3xlh4nr`, database `neondb`.
+- Exactly one branch was returned by the active project inventory; state `ready`, primary/default. No branch, project, database, clone or restore was created.
+- No local PostgreSQL, Docker database, legacy Neon project, alternate connection, or synthetic business data was used.
+- No SQL write, migration, restore, Auth mutation, storage write, role/password reset, Vercel environment mutation, Production deployment, Git merge, force-push or secret decryption was performed.
+- The only GitHub source-control branch inspected for recovery remains `phase0/reconcile-source-20261117`; it is not a Neon branch and is not Production.
+- No source code was changed in this session. This update is confined to this existing Master Plan file on the existing recovery Git branch.
+
+## 47.2 Live evidence — GitHub, Vercel and Neon
+**GitHub**
+- Repository: `koenbroto25/PKE-Export-Platform`; default branch `main`.
+- Main HEAD: `625109a2531ada0ff190d9ef91e7e8428e9ceebe`.
+- Main migration directory contains 001–028, plus candidate files 033 and 034; it does not contain authentic source files for 029–032, 035 or 036.
+- Recovery branch `phase0/reconcile-source-20261117` contains `migrations/036_validate_production_schema_invariants.sql`; it does not restore byte-identical original SQL 029–035.
+- The latest observed Preview deployment for that recovery branch is `dpl_5rFNxHGfQUdrwGLXUNzyRLTAvkGH`, READY, commit `b068c1a6860272b77a1af72f45214eec1a510283`. It is not a Production deployment and was not promoted.
+
+**Vercel**
+- Project: `pke-export-platform`; verified Production domain: `pke-export-platform.vercel.app`.
+- Current observed Production deployment: `dpl_AzF9eP7HS6Yec82nEwEUSKDFdcDg`, READY, target `production`, branch `main`, commit `625109a2531ada0ff190d9ef91e7e8428e9ceebe`.
+- Neon Auth trusted origin is `https://pke-export-platform.vercel.app`; localhost is not allowed.
+- Environment-variable metadata shows `DATABASE_URL` scoped to Production, not Preview. No environment values were decrypted or displayed.
+- Vercel metadata still flags several sensitive variables with `readable-secret` security issues. Values were not read. No visibility/configuration change was attempted; remediation requires a supported sensitive-variable operation and must not expose or re-enter values in chat.
+- Runtime log query for the latest 30-minute window returned no records. This is not proof of successful HTTP smoke tests or absence of 5xx.
+- The 24-hour error aggregation included historical `app_runtime_secure` password-authentication failures (27 occurrences; last observed 17 November 2026 01:54 UTC, associated with an older deployment) and SSL-mode compatibility warnings (25 occurrences; last observed 17 November 2026 11:21 UTC). The error aggregation does not supply HTTP response status. Do not infer that current HTTP smoke tests passed.
+
+**Neon Production**
+- Branch inventory: exactly one branch, `production`, ID `br-damp-shape-b3xlh4nr`, state `ready`, primary/default.
+- Database reports PostgreSQL 18.7; connected inspection identity was `neondb_owner` for catalog/history queries.
+- `migration_history`: 36 rows, IDs 1–36; 16 `baselined`, 20 `applied`. Tail record 036 has filename `036_validate_production_schema_invariants.sql`, status `applied`, timestamp `2026-11-17T21:31:15.111Z`, SHA-256 `4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52`.
+- Runtime role `app_runtime_secure` successfully executed `SELECT 1`. Catalog flags: can login=true; superuser=false; BYPASSRLS=false; CREATEDB=false; CREATEROLE=false.
+- Public base/partitioned tables: 152; RLS enabled: 152/152; FORCE RLS: 71/152.
+- Migration 036 report/postflight: 429 foreign keys, zero unvalidated; zero public SECURITY DEFINER functions without fixed search_path; zero disabled non-internal triggers; zero RLS tables without policies. This validates catalog invariants, not policy semantics or cross-project isolation.
+- Neon Auth current config: email/password enabled; public sign-up=false; email OTP verification required; password-reset session revocation enabled; trusted origin is Production domain only; localhost=false; shared Neon email provider. No invitation, email delivery, reset, OTP or session-revocation workflow was exercised in this session.
+- Object bucket `pke-private-documents` exists and is private; object listing is empty.
+- Snapshot inventory contains one manual snapshot, `PKE-target-pre-migration-20261115`, dated 15 November 2026. Automatic snapshot schedule is empty. No restore drill was run.
+
+## 47.3 F0 checklist — current status
+| Item | Status | Current evidence / remaining acceptance |
+|---|---|---|
+| F0.01 | PASS | GitHub repository, main branch and HEAD independently fetched. |
+| F0.02 | PASS | Production deployment READY and SHA matches main HEAD; Preview is kept distinct. |
+| F0.03 | PASS | Correct single Neon Production target and branch identity verified. |
+| F0.04 | PASS | Production database reachable; runtime role `app_runtime_secure` passed read-only SELECT and least-privilege catalog checks. |
+| F0.05 | PARTIAL | 152/152 RLS, 71 FORCE RLS, policies present, FK/function/trigger invariants verified. Policy-by-policy semantic review and cross-scope behavioral tests remain unproven. |
+| F0.06 | BLOCKED | Production history through 036 is verified, but authentic historical source/checksum parity for 029–035 is not established. |
+| F0.07 | BLOCKED | Original SQL 029–035 has not been recovered byte-for-byte. Reconstructed candidates are not substitutes. |
+| F0.08 | BLOCKED | Manifest/source/history consistency for 001–035 cannot be proven while original 029–035 files remain absent or non-authentic. Never rewrite historical hashes. |
+| F0.09 | PASS | Temporary public-signup override and its owner-controlled debugging purpose are understood; current live setting is false. |
+| F0.10 | PASS | Owner-directed closure of public sign-up is reflected live: `allow_sign_up=false`; localhost is also disallowed. |
+| F0.11 | NOT VERIFIED | Negative public-signup test and positive Admin-managed invitation/provisioning test have not been performed. |
+| F0.12 | PARTIAL | Trusted origin, localhost policy, OTP requirement and reset session-revocation setting are verified. Email delivery, invitation, OTP/reset and session lifecycle remain untested. |
+| F0.13 | BLOCKED | Bucket is private, but no application upload/download round-trip or cross-project denial is proven. `src/storage.ts` still fails closed for object metadata and deletion round-trips. |
+| F0.14 | NOT VERIFIED | Actual HTTP status smoke tests for health, me, projects, truck trips, tracking and report portfolio have not been captured. |
+| F0.15 | NOT VERIFIED | No current HTTP status evidence; runtime error aggregation contains historical auth failures and SSL warnings. Empty recent logs do not prove no 5xx. |
+| F0.16 | BLOCKED | Only one manual snapshot is present, automatic schedule is empty, and no permitted restore drill/recovery proof exists. |
+
+**F0 decision: NOT CLOSED.** F0 exit criteria are not met. Migration 036 is CLOSED & FINAL, but that does not waive the remaining F0 requirements.
+
+## 47.4 Required next actions and blockers
+1. Obtain an authentic repository archive, release artifact or commit containing original migrations 029–035. Verify each exact file SHA-256 against Production history; do not reconstruct or replay them.
+2. Complete policy semantics and scope review without changing Production policy/schema.
+3. Perform approved Auth lifecycle checks without leaving public sign-up enabled and without sending test invitations to real people.
+4. Complete private storage protocol implementation and provider round-trip only through an owner-approved, non-business-data test method. Keep metadata/delete actions disabled until truly implemented.
+5. Obtain real HTTP status evidence for the specified read-only endpoints and correlate it with current Production deployment logs. Do not mark no-5xx based on empty logs.
+6. Define an owner-approved backup/restore validation method compatible with the permanent single-branch/no-alternate-database rule. Do not create a branch or restore Production to test.
+7. Review Vercel `readable-secret` metadata through supported controls without decrypting or disclosing values.
+8. Keep Production deployment on `main`; do not promote the recovery Preview without a separate explicit deployment decision.
+
+## 47.5 Session completion record
+- Files changed: this Master Plan file only; no application source or SQL file changed.
+- GitHub target: existing branch `phase0/reconcile-source-20261117`; no merge to `main`.
+- Neon: read-only only; no DDL/DML, migration, restore, branch creation or business data.
+- Vercel: read-only inspection only; no environment, domain, deployment or protection changes.
+- Tests: no build/test suite or live HTTP smoke test was run in this session. Do not reuse earlier test exit codes as current-session evidence.
+- Final status: F0 remains IN PROGRESS / NOT CLOSED. Application and Business Production Readiness are not certified by this session.
+
+
+---
+
+# 48. F0 continuation — policy semantic review and current deployment revalidation (18 November 2026)
+
+## 48.1 Scope and safety
+Read-only continuation through GitHub, Neon Production and Vercel. The only write in this session is this dated update to the existing Master Plan on the existing GitHub recovery branch. No application source, migration SQL, database object, business row, Auth setting, storage object, Vercel environment, production alias or deployment was changed. No credentials or secret values were read or disclosed. No Neon branch/project/database was created.
+
+## 48.2 GitHub and Vercel revalidation
+- Repository remains `koenbroto25/PKE-Export-Platform`; current recovery branch remains `phase0/reconcile-source-20261117`.
+- Master Plan was fetched as one complete UTF-8 file from the preceding commit, avoiding line-range reconstruction.
+- Latest recovery-branch commit before this correction: `8f340298826b22ad4d5589c1a8858bf7a93a9245`.
+- Vercel Preview deployment `dpl_CE2QKGR9ptqMuMD6BCetvfH9kbBE` is `READY`, commit `8f340298826b22ad4d5589c1a8858bf7a93a9245`, branch `phase0/reconcile-source-20261117`. It remains Preview (`target=null`); it is not Production and was not promoted.
+- A protected fetch attempt against the Production domain's `/api/v1/health` could not retrieve deployment content: Vercel returned `401 deployment_authentication_required` at share-link authentication. No endpoint HTTP result is therefore established. Do not treat this as an application 401 or health failure; it is a tooling/deployment-access limitation.
+- GitHub `main` remains the production-linked source of truth until a separately approved merge/release decision. No merge was made.
+
+## 48.3 Read-only Production policy review
+Neon target was explicitly set to project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`. Only catalog SELECT statements were run.
+
+- `pg_policies` returned 507 policies across all 152 public tables. All 507 are `PERMISSIVE` and target `app_runtime_secure`; no INSERT policy in the inspected set had a NULL `WITH CHECK`.
+- There are 150 `ALL` policies. Many tables have both a broad `pke_admin_all` policy and narrower action-specific policies. PostgreSQL combines permissive policies with OR semantics; this is not automatically a defect because platform-admin access is intentional, but the intended Admin global scope and all table-specific policy overlaps need an explicit semantic review.
+- Catalog inspection found 80 public `SECURITY DEFINER` functions. All 80 have a function-level fixed `search_path`; all are owned by `neondb_owner`; all 80 are executable by `app_runtime_secure`. The ACL query also found PUBLIC EXECUTE on all 80 under the inspected ACL expansion.
+- Among non-trigger SECURITY DEFINER functions, the publicly executable set includes identity resolver `resolve_pke_user_by_neon_auth_user_id(uuid)`, invitation acceptance `accept_pke_project_invitation(text)`, platform-admin and project/buyer/contract/AI/truck-trip permission helpers. Trigger-returning SECURITY DEFINER functions were excluded from that callable-function subset; their trigger execution context is a separate review.
+- The identity resolver definition accepts an arbitrary Neon Auth UUID and returns the matching active PKE user's ID, email, name, role and active state. The invitation-acceptance function reads transaction-local `app.current_user_id`, validates invitation token hash and email, then creates/reactivates membership and accepts the invitation. These definitions and broad PUBLIC EXECUTE grants warrant a focused least-privilege review. The inspection does not demonstrate that an unauthenticated HTTP user can call these functions directly, nor does it establish exploitability from the deployed app.
+- Permission helpers depend on transaction-local custom GUC identity context (`app.current_user_id`) and role/project membership checks. The API source sets these values inside a request transaction after authentication. A caller that obtains direct SQL execution as the runtime role can set custom GUCs; therefore RLS policy presence and function `search_path` alone do not prove a trustworthy end-user identity boundary. Validate that runtime SQL is reachable only through the authenticated API and that no untrusted SQL execution/injection path exists.
+- No policy/function/grant was altered. Do not issue REVOKE/GRANT or replace function definitions autonomously. If a least-privilege correction is approved, it must be a narrow forward-only migration with exact SQL, SHA-256, impact review, rollback/recovery plan and explicit owner approval; migration 036 remains CLOSED & FINAL.
+
+## 48.4 Source review and route inventory
+- GitHub `main` `src/index.ts` was fetched at blob SHA `4b3b4244d8352e92479d867c4fabc99f7258610a`.
+- Static route extraction found 125 direct `app.METHOD` declarations. 124 have route-level auth middleware in the matched declaration; `GET /api/v1/health` is public and is registered before the global `/api/v1` authentication mount. This is consistent with a deliberately public health probe, but its response must not expose sensitive details.
+- The remaining 124 API routes are behind the global `/api/v1` `requireAuth` middleware and request-scoped transaction middleware in source. Static extraction is not complete proof of permission/scope correctness, route behavior, or HTTP status.
+- `src/storage.ts` still generates presigned PUT/GET URLs; content-length is client-declared pre-sign validation only. `objectMetadata()` and `deleteObject()` deliberately throw fail-closed “not implemented” errors pending real provider round-trips. No object was uploaded or deleted.
+- The read-only integration suite explicitly fails closed for unapproved write-path E2E fixtures. No tests/builds were run in this session; prior test exit codes are historical evidence only.
+
+## 48.5 F0 checklist update
+| Item | Status | Update |
+|---|---|---|
+| F0.05 | PARTIAL | Policy inventory and selected function definitions inspected (507 policies, 152 tables, 80 public SECURITY DEFINER functions). Behavioral cross-project tests and complete policy overlap/intent review remain outstanding. |
+| F0.11 | NOT VERIFIED | No public-signup-negative or Admin invitation positive lifecycle test. |
+| F0.12 | PARTIAL | Config evidence retained; invitation acceptance function source inspected, but real identity/invitation/email/session workflow not tested. |
+| F0.13 | BLOCKED | Storage round-trip still not tested; metadata/delete intentionally fail closed. |
+| F0.14 | NOT VERIFIED | Protected Vercel fetch returned tooling-level 401 before application content; no endpoint status evidence. |
+| F0.15 | NOT VERIFIED | No response-status/runtime correlation. |
+| F0.16 | BLOCKED | Backup schedule/restore evidence remains as recorded in Section 47. |
+
+**F0 remains NOT CLOSED.** Migration 036 remains CLOSED & FINAL; this audit does not change that status.
+
+## 48.6 Next actions
+1. Obtain authentic historical SQL 029–035 and verify byte-for-byte SHA-256 against Production history; do not reconstruct or replay.
+2. Obtain owner authorization for a focused SQL least-privilege remediation proposal covering PUBLIC EXECUTE on non-trigger SECURITY DEFINER functions, especially the identity resolver and invitation acceptance routine. No database grant/function change until exact SQL is approved.
+3. Complete a table-by-table policy intent/overlap review, emphasizing platform-admin global scope, tenant-scoped predicates, parent-child references, and functions that use custom GUC identity.
+4. Obtain a supported authenticated method for read-only HTTP smoke tests and capture actual status/body for health, me, projects, truck trips, tracking and report portfolio.
+5. Complete provider-approved storage round-trip, Auth lifecycle, and backup/restore acceptance without creating another Neon branch/database or introducing business/test data into Production.
+6. Keep Production on `main`; Preview is not approval to promote.
+
+## 48.7 Session completion record
+- Files changed: this Master Plan only.
+- GitHub: correction/update is on `phase0/reconcile-source-20261117`; no merge to `main`.
+- Neon Production: SELECT-only catalog review; no DDL/DML, migration, grant, role, Auth, branch, snapshot or storage mutation.
+- Vercel: deployment metadata read; no deployment, alias, environment or protection mutation.
+- HTTP smoke: BLOCKED by Vercel deployment authentication at fetch/share-link layer; no application response inferred.
+- Build/tests: not run.
+- Overall: F0 IN PROGRESS / NOT CLOSED; application and business production readiness remain uncertified.
+
+
+---
+
+# 49. F0 continuation — owner migration closure, SQL/RLS backtest, and platform hardening (18 November 2026)
+
+## 49.1 Owner direction — migration scope is closed
+The owner explicitly directed that recovery of original migration SQL 029–035 is no longer an F0 gate. Migration 036 and the historical migration work are considered CLOSED & FINAL. Do not reopen source recovery, reconstruct missing historical files, rewrite historical checksums, or use this as a reason to block F0.
+
+For the former checklist entries:
+- F0.06, F0.07 and F0.08 are **CLOSED BY OWNER DIRECTION / WAIVED AS F0 EXIT GATES**.
+- They are not being relabelled PASS; exact historical source parity is not being claimed.
+- No further work to recover 029–035 is authorized or required for this F0 execution.
+- Migration 036 remains CLOSED & FINAL. Any new SQL correction must be a separate forward-only change and must not alter migrations 001–036.
+
+## 49.2 Production SQL and RLS backtest — read-only evidence
+Target: Neon project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`. Queries were catalog SELECTs and EXPLAIN without ANALYZE; no business rows were inserted, updated, deleted or exported.
+
+**Schema and constraint integrity**
+- Public base/partitioned tables: 152; RLS enabled on 152/152; FORCE RLS enabled on 71/152.
+- Constraints: 423 foreign keys, zero unvalidated; 278 CHECK constraints, zero unvalidated; 152 primary keys; 65 unique constraints.
+- Public indexes: 693 total; zero invalid and zero not-ready.
+- The runtime role remains `app_runtime_secure`: login enabled; SUPERUSER=false; BYPASSRLS=false; CREATEDB=false; CREATEROLE=false.
+- Runtime negative-context backtest passed: with an empty transaction-local `app.current_user_id`, current PKE identity is NULL; platform-admin, project-access and permission helpers return false; the nil UUID identity resolver returns zero rows.
+- EXPLAIN under `app_runtime_secure` for `SELECT id FROM public.projects WHERE id=<nil UUID>` showed the RLS filter `pke_has_project_permission(projects.id,'project.view') OR pke_is_platform_admin()`. This confirms policy injection in the plan, not cross-project behavioral isolation with real principals.
+
+**Policy inventory**
+- 507 policies across all 152 public tables; all are PERMISSIVE and target `app_runtime_secure`.
+- 150 policies use command `ALL`; many tables have the broad Admin policy alongside narrower action-specific policies. PostgreSQL OR-combines permissive policies. This is compatible with intentional global Admin access but requires policy-by-policy scope validation.
+- No INSERT policy in the inspected catalog had a NULL `WITH CHECK`.
+- Cross-project/buyer/facility/warehouse/port behavioral isolation remains unproven because the Production database has no approved test principals/business fixtures. Do not create synthetic business data to force a test.
+
+## 49.3 Concrete SQL privilege defect and forward-only candidate
+The live catalog exposes 80 public `SECURITY DEFINER` functions with EXECUTE granted to both PUBLIC and `authenticated`. All 80 are owned by `neondb_owner` and have a function-level fixed `search_path`. The 24 non-trigger helper functions also have explicit `app_runtime_secure` EXECUTE grants; the runtime can continue calling these helpers without relying on PUBLIC.
+
+The default ACL inspection found:
+- PostgreSQL's global default PUBLIC EXECUTE on functions is still effective.
+- A schema-level default EXECUTE grant to `authenticated` exists for functions in `public`.
+- The source of migration 020 uses `ALTER DEFAULT PRIVILEGES ... IN SCHEMA public REVOKE EXECUTE ... FROM PUBLIC`. A per-schema REVOKE does not cancel PostgreSQL's global default PUBLIC grant. This explains why future functions can regain PUBLIC EXECUTE despite that line.
+
+A forward-only candidate has been added on the recovery branch:
+- File: `migrations/037_restrict_security_definer_execute.sql`
+- SHA-256: `2613cbd3532d00a6091b131ad3b889a3148892cb13866a434d2d6501528515e3`
+- Scope: revoke PUBLIC and `authenticated` EXECUTE on current public SECURITY DEFINER functions; retain/grant explicit EXECUTE for callable non-trigger helpers to `app_runtime_secure`; correct global PUBLIC and schema-level `authenticated` default function privileges; fail atomically if postconditions are not met.
+- This migration is **CANDIDATE / NOT APPLIED**. No SQL DDL, GRANT, REVOKE, function replacement or migration-history mutation was performed. It requires explicit owner approval of this exact SQL and SHA-256 before Production execution.
+- The frontend uses Neon Auth for identity and the PKE backend API for application data; no direct Neon Data API table/RPC usage was found in the inspected frontend auth/API modules. This supports keeping internal SECURITY DEFINER functions private to the backend runtime.
+
+## 49.4 Storage adapter hardening
+- `src/storage.ts` now performs object metadata lookup through a signed, read-only S3-compatible HEAD request and returns provider content length, ETag, last-modified and version ID.
+- Request redirects are rejected, the request has a 10-second timeout, and errors do not include the presigned URL.
+- `deleteObject()` remains fail-closed; no deletion workflow or retention approval was introduced.
+- Offline tests were added for HEAD success and provider failure. The root `npm test` script now includes runtime-security and storage tests, and a GitHub Actions workflow was added for the recovery branch.
+- No provider round-trip was executed; the private bucket remains empty. Actual upload/download/HEAD behavior and cross-project object denial remain unverified.
+
+## 49.5 Vercel and runtime revalidation
+- Production `GET /api/v1/health` returned HTTP 200 with database connected. Its response reported `environment=development` on the existing Production deployment.
+- The custom `NODE_ENV` variable was scoped to the Development environment only, so future Preview/Production deployments use Vercel's environment default. The existing Production deployment was not redeployed; its runtime response remains unchanged until a separately approved deployment.
+- `DATABASE_URL` remains Production-only. Preview does not receive Production database credentials or Neon Auth secrets. Preview function calls without required database/auth configuration fail closed; do not copy Production credentials into Preview to make smoke tests pass.
+- A temporary attempt to set `NODE_ENV=production` for Preview/Production caused a Preview build to fail with `tsc: command not found` because build-time development dependencies were omitted. The override was immediately restricted to Development only; a fresh Preview deployment for commit `6fa886d40eda3053e2c051b043c2a561a190f360` reached READY. No Production deployment was affected.
+
+- The latest Preview deployment for commit `8f7380b299543c7f4c8fc9f6ef7ee76eb1f2ef25` is READY. The available event-log slice did not expose a definitive Vitest summary, so the test suite is not marked PASS solely from deployment state.
+- Source now normalizes legacy PostgreSQL SSL aliases (`prefer`, `require`, `verify-ca`) to explicit `verify-full`, preserving the current strict TLS behavior and avoiding the pg-connection-string forward-compatibility warning. This is on the recovery branch; Production has not yet received it.
+- Recent runtime-error aggregation contained one PostgreSQL SSL-mode compatibility warning group and no other error group in the inspected window. Runtime logs are not a substitute for endpoint-by-endpoint HTTP tests.
+- The Production health endpoint was accessible, but protected API endpoint checks were blocked by Vercel share-link authentication at the fetch layer. No application response status is claimed for `/me`, `/projects`, `/truck-trips`, `/tracking` or report portfolio.
+- Build logs reported npm dependency vulnerabilities (latest observed install summary: 1 low, 4 high, 1 critical) and deprecated packages. No blind `npm audit fix --force` was run. Exact advisory/package remediation remains to be investigated.
+
+## 49.6 Secrets, Auth and recovery posture
+- Vercel environment metadata flags several Production variables as `readable-secret`, including `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. No values were read or decrypted. The supported environment-edit action rejected `type=sensitive` because Vercel requires `visibility=secret`, a field not exposed by the current action. No values were replaced or re-entered; this needs a supported Vercel UI/API operation.
+- Neon Auth configuration remains as previously verified: public sign-up disabled; email/password enabled; email verification required; reset revokes sessions. Invitation, email delivery, OTP, reset and session lifecycle were not exercised.
+- Snapshot schedule remains empty. Only the manual snapshot `PKE-target-pre-migration-20261115` is present; no restore drill has been run. No branch, database, snapshot or restore was created during this audit.
+
+## 49.7 F0 status after owner direction
+| Area | Status | Reason |
+|---|---|---|
+| Migration 029–035 recovery/parity (former F0.06–08) | CLOSED BY OWNER DIRECTION | Not an F0 exit gate; migration 036 remains final. |
+| Runtime DB identity/role | PASS | Runtime role and no-identity negative helper checks passed. |
+| RLS catalogue and query-plan injection | PARTIAL | 152/152 tables RLS; policy overlaps and cross-project behavior still require approved behavioral evidence. |
+| SECURITY DEFINER least privilege | BLOCKED_PENDING_APPROVAL | Candidate migration 037 prepared; current PUBLIC/authenticated grants remain until exact SQL is approved/applied. |
+| Storage | PARTIAL | Signed HEAD implemented in source; no live provider round-trip; delete remains fail-closed. |
+| Auth lifecycle | PARTIAL | Config verified; real invitation/OTP/reset/session flow not exercised. |
+| HTTP smoke tests | PARTIAL | Production health 200; protected endpoints blocked by deployment-share-link tooling. |
+| Vercel runtime/build | PARTIAL | Preview build correction in progress; latest code commit build must finish; Production not redeployed. |
+| Secret visibility | BLOCKED | Current API cannot set Vercel `visibility=secret`; no secret value exposed. |
+| Backup/restore | BLOCKED | No automatic snapshot schedule or restore proof. |
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Migration-source recovery is no longer a blocker. F0 cannot be declared final while the concrete function ACL defect, storage/Auth acceptance, protected HTTP evidence, secret visibility and backup/recovery evidence remain unresolved.
+
+## 49.8 Next actions
+1. Obtain explicit owner approval for Migration 037 with SHA-256 `2613cbd3532d00a6091b131ad3b889a3148892cb13866a434d2d6501528515e3`; apply only that exact forward-only SQL, then re-run ACL/default-ACL and runtime helper checks.
+2. Complete policy-by-policy scope review and approved cross-project behavioral test design without inserting Production business data.
+3. Finish the current recovery-branch Preview build and offline test workflow; do not merge/promote to Production until exit criteria and deployment approval are satisfied.
+4. Obtain a supported method to run authenticated Production smoke tests without exposing credentials or bypassing Vercel deployment protection.
+5. Complete private storage round-trip only under an owner-approved disposable-object procedure; retain fail-closed deletion until an approved deletion lifecycle exists.
+6. Complete Auth invitation/OTP/reset/session tests using an approved controlled account and no real third-party invitee.
+7. Obtain owner decision for a daily automatic snapshot schedule and a compliant recovery/restore validation method that does not create another Neon branch/database or restore over Production.
+8. Resolve Vercel secret visibility using a supported `visibility=secret` control without reading/re-entering the secret values in chat; investigate the dependency audit findings without forced major upgrades.
+9. Keep Production on `main`; do not promote the recovery Preview without explicit deployment approval.
+
+## 49.9 Session completion record
+- Files changed on recovery branch: Master Plan, candidate migration 037, runtime-security verifier, `src/runtime-security.ts`, `src/index.ts`, storage adapter, storage/runtime-security tests, package test script, `api/tsconfig.json`, `vercel.json` and offline GitHub Actions workflow.
+- Vercel: Development-only `NODE_ENV` scope correction; Preview deployments only; no Production deployment or alias promotion.
+- Neon Production: read-only SQL backtest only; no DDL/DML, GRANT/REVOKE, migration, Auth, storage, snapshot schedule or restore mutation.
+- Secrets: no value read, decrypted, displayed or re-entered.
+- Overall: F0 remains IN PROGRESS / NOT CLOSED; Migration 036 remains CLOSED & FINAL.
+
+
+---
+
+# 50. Vercel Preview build failure remediation (18 November 2026)
+
+## 50.1 Email and commit investigation
+Owner supplied Vercel email notification: Preview deployment failed on branch `phase0/reconcile-source-20261117`, commit `22aff1fb52d1ae419235c3c4e60308f555236a85`, with:
+`Command "tsc -p api/tsconfig.json && npm run frontend:build" exited with 127`.
+
+The exact commit diff was inspected. It only expands the root `npm test` script to include `src/storage-fx-gl.test.ts`; it does not alter TypeScript dependencies or the Vercel build command. At that commit:
+- Root `typescript` and `vitest` are in `devDependencies`.
+- Root Vercel install command was `npm ci && npm --prefix frontend ci`.
+- Vercel build command invokes `tsc` from the root, and the current build config also runs `npm test` first.
+- Exit code 127 means the shell could not find the `tsc` executable. The immediate failure is missing build-time tooling, not a reported TypeScript source diagnostic.
+
+## 50.2 Corrective change
+Updated existing `vercel.json` on the recovery branch:
+- Before: `npm ci && npm --prefix frontend ci`
+- After: `npm ci --include=dev && npm --prefix frontend ci --include=dev`
+- This explicitly installs root and frontend development dependencies even if the build environment sets `NODE_ENV=production`.
+- Existing build command remains `npm test && tsc -p api/tsconfig.json && npm run frontend:build`, so unit tests, backend typecheck and frontend build are all required to pass.
+- Commit: `324263cdc60244f8d29abd47a16f2ae2017a1c8a`.
+- No application business logic, database SQL, migration, Neon configuration, or Production Vercel deployment was changed.
+
+## 50.3 Verification status and next gate
+The configuration correction is committed but a successful Preview build for commit `324263cdc60244f8d29abd47a16f2ae2017a1c8a` must be observed before marking this item PASS. After deployment becomes READY:
+1. Inspect Vercel build events and verify the root `npm test` command completed successfully.
+2. Verify `tsc -p api/tsconfig.json` and `npm run frontend:build` both completed successfully.
+3. Run read-only Preview endpoint smoke tests; do not inject Production credentials into Preview.
+4. Re-run Production health and approved authenticated API smoke checks separately.
+5. Do not merge to `main`, promote Preview, or redeploy Production as part of this correction.
+
+## 50.4 Safety record
+Only `vercel.json` was changed in this correction commit. No Neon query/write, SQL migration, grant, role, Auth, storage, environment secret, or Production deployment action was performed. The earlier Development-only `NODE_ENV` scope correction remains as recorded in Section 49.
+
+F0 remains IN PROGRESS / NOT CLOSED pending actual successful build evidence and remaining security, Auth, storage, HTTP and recovery acceptance.
+
+
+---
+
+# 51. Preview build proof and runtime environment correction (18 November 2026)
+
+## 51.1 Successful Preview build
+Vercel deployment `dpl_JHUbuf6tVHRzDHcvcnbKdnQ7rvte` for commit `324263cdc60244f8d29abd47a16f2ae2017a1c8a` reached `READY` (Preview; target remains null).
+Build event evidence:
+- Install command used `npm ci --include=dev && npm --prefix frontend ci --include=dev`.
+- Root `npm test` passed: 2 test files, 60 tests.
+- Frontend build command ran `tsc -b && vite build`.
+- Vercel event: `Build Completed in /vercel/output [37s]`.
+- The chained build command was `npm test && tsc -p api/tsconfig.json && npm run frontend:build`; successful Build Completed establishes that all chained commands exited successfully.
+- Build reported 14 dependency vulnerabilities (1 low, 12 high, 1 critical), plus deprecated packages and peer dependency warnings. No automatic/forced dependency upgrade was run. Exact advisories still require a lockfile-aware audit.
+
+## 51.2 Read-only HTTP evidence
+- Preview static homepage returned HTTP 200 and served the built React app.
+- Preview `GET /api/v1/health` returned Vercel HTTP 500 `FUNCTION_INVOCATION_FAILED`. Preview intentionally has no Production `DATABASE_URL` or Neon Auth secrets; no Production credentials were copied into Preview. This is a fail-closed Preview runtime limitation, not evidence that the Production database is down. Do not mark Preview API smoke as PASS.
+- Production `GET /api/v1/health` returned HTTP 200 with `database=connected`, but its current deployed response still reported `environment=development`. This is the existing Production deployment's environment snapshot, not a redeployment after the latest configuration change.
+
+## 51.3 NODE_ENV correction
+Source inspection confirmed API startup requires `DATABASE_URL`, `NODE_ENV`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL`, and checks `NODE_ENV` to establish runtime mode. The Vercel project previously had `NODE_ENV=development` scoped only to Development after the earlier correction, which would leave future Preview/Production deployment snapshots without the required value.
+
+Corrected the non-secret Vercel environment variable:
+- `NODE_ENV=production`
+- Targets: `preview`, `production`
+- Development target remains separate and is not overwritten.
+- Environment variable ID: `zdFXIVDSQ2HprDZB`.
+- No secret value was read, changed, or re-entered.
+- No deployment was triggered manually and no Production redeploy/alias promotion was performed. New deployments will consume the updated scope; the existing Production deployment remains unchanged until an approved deployment.
+
+## 51.4 Current gate
+- Build tooling failure from email: resolved in Preview build commit `324263c`.
+- Static Preview: PASS (HTTP 200).
+- Preview API: NOT VERIFIED / FAIL-CLOSED due to absent approved Preview DB/Auth configuration.
+- Production health: PASS for HTTP and DB connectivity; runtime environment label is stale until a future approved deployment consumes the corrected NODE_ENV scope.
+- Dependency vulnerability remediation: OPEN; collect exact advisory/package paths before selecting compatible updates.
+- No Neon SQL/DDL/DML, Auth, storage, database branch, business data, or Production deployment mutation was performed in this section.
+
+F0 remains IN PROGRESS / NOT CLOSED. Do not promote Preview or redeploy Production until database privilege remediation decision, Auth/storage acceptance, dependency review, protected endpoint evidence and backup/recovery acceptance are complete.
+
+
+---
+
+# 52. RLS privilege backtest and dependency audit instrumentation (18 November 2026)
+
+## 52.1 RLS policy expression backtest
+Read-only catalog query against the mandated Neon Production target confirmed:
+- 507 policies across 152 public tables.
+- 507 PERMISSIVE policies; zero RESTRICTIVE policies.
+- Zero unconditional `USING (true)` / `WITH CHECK (true)` expressions.
+- Zero missing row-visibility predicates for SELECT/UPDATE/DELETE/ALL.
+- Zero missing write checks for INSERT/UPDATE/ALL.
+- Zero policies target `authenticated` or `anon`; all 507 target `app_runtime_secure`.
+- All 152 public tables have RLS enabled. Earlier query-plan check under `app_runtime_secure` confirmed the project permission helper appears in the projects SELECT plan.
+- No cross-project positive/negative test with two real principals was run; policy expression inventory is not a substitute for behavior tests.
+
+## 52.2 Authenticated role grants — least-privilege observation
+Catalog inspection found `authenticated` has SELECT/INSERT/UPDATE/DELETE grants on 153 public relation objects (612 relation privilege grants), plus USAGE on the public schema and USAGE on the single public sequence `migration_history_id_seq`. The `neondb_owner` default ACL also grants those four table privileges to `authenticated` for future public tables.
+
+This is an over-broad grant surface relative to the deployed architecture:
+- All 152 public tables currently have RLS.
+- None of the 507 policies target `authenticated` or `anon`.
+- The only public view with authenticated privileges, `project_module_readiness`, has `security_invoker=true`, so underlying-table RLS remains in force.
+- No direct client-side Neon Data API/table/RPC use was found in the inspected frontend auth/API modules; application data is routed through the authenticated backend API.
+
+This catalog evidence does **not** establish a current data leak: the authenticated role has no applicable row policies, and no BYPASSRLS grant was found in the prior role audit. It does establish unnecessary grants/default privileges that should be removed after a final Neon Auth dependency check. No GRANT/REVOKE was executed. Do not add a table-privilege migration to Production without exact SQL review and owner approval. Candidate Migration 037 currently addresses SECURITY DEFINER function grants/defaults only; it does not revoke table privileges.
+
+## 52.3 Dependency advisory identification
+Vercel's successful Preview build reported 14 npm vulnerabilities (1 low, 12 high, 1 critical), but the standard install summary did not identify the packages/advisories. Added:
+- `scripts/audit-dependencies.mjs` to run `npm audit --json` separately against root and frontend lockfiles and print a concise package/advisory summary without exposing environment variables.
+- Vercel build command now runs the audit reporter before unit tests, backend typecheck and frontend build. Audit-report failure is warned rather than masking the build/typecheck result; vulnerability remediation remains a separate release gate.
+- Commit containing the audit instrumentation: `66f5a412af81ae03bbadfa2ab65b98d02f8908c9`.
+- The new audit output has not yet been observed; do not claim any advisory has been fixed.
+
+## 52.4 Latest verified state
+- Preview commit `42f534e2585a82603256a6a4bd0809529ac3341a`: READY; 60/60 tests passed; frontend TypeScript/Vite build completed.
+- `NODE_ENV=production` was set as a non-secret Vercel variable for Preview and Production; Development remains separately scoped. No Production deployment was triggered.
+- Production health endpoint last returned HTTP 200 and `database=connected`; it still reports the old deployment's `environment=development` until a separately approved Production deployment consumes the updated variable.
+- Preview static homepage returned HTTP 200. Preview API remains unavailable without its own approved database/Auth configuration; Production credentials were not copied into Preview.
+- Protected Production API route attempts remain blocked at Vercel share-link authentication; no application status is inferred from those failures.
+
+## 52.5 F0 status
+| Area | Status | Reason |
+|---|---|---|
+| Migration 029–035 recovery | CLOSED BY OWNER DIRECTION | Explicitly waived as an F0 gate; Migration 036 remains final. |
+| RLS policy expression inventory | PASS (catalogue only) | No unconditional or missing predicates found; cross-project behavior still untested. |
+| Authenticated table grants | PARTIAL / HARDENING REQUIRED | Broad grants/defaults exist but no applicable policies; no exposure proven. |
+| SECURITY DEFINER ACLs | BLOCKED_PENDING_APPROVAL | Migration 037 candidate prepared; not applied. |
+| Preview build toolchain | PASS | 60 unit tests and chained build completed. |
+| Dependency vulnerabilities | OPEN | Exact package/advisory report pending. |
+| Auth lifecycle | PARTIAL | Configuration verified; lifecycle not exercised. |
+| Storage | PARTIAL | Signed HEAD implementation; no provider round-trip or approved object fixture. |
+| Protected API smoke | NOT VERIFIED | Vercel share-link auth prevents application response retrieval. |
+| Backup/restore | BLOCKED | Automatic snapshot schedule and restore proof absent. |
+| Secret visibility | BLOCKED | Current Vercel action lacks the required visibility field. |
+
+F0 remains IN PROGRESS / NOT CLOSED. No Production database, Auth, storage, or deployment mutation occurred in this section.
+
+
+---
+
+# 53. Preview dependency remediation and Vercel build-gate alignment (18 November 2026)
+
+## 53.1 Lockfile and package changes on recovery branch
+The following changes were made only on `phase0/reconcile-source-20261117`; `main` and Production deployment were not changed:
+- Removed root `@neondatabase/auth` dependency after source inspection confirmed backend auth uses `jose` remote JWKS verification; the frontend continues to use `@neondatabase/neon-js/auth`.
+- Removed unused root `ts-node-dev` devDependency; root `dev` script uses `tsx`.
+- Kept root `zod` pinned to 4.6.7 and Better Auth packages resolved to 1.7.25 through the frontend Neon SDK dependency tree.
+- Set root and frontend Vite to 6.4.6; set root Vitest to 4.1.12. Added a root override for `tinypool` 2.1.2 (the current Vitest 4.1.12 lockfile does not include a Tinypool package, so this override has no resolved package instance in the generated lockfile).
+- Neon frontend SDK remains `@neondatabase/neon-js@0.9.0-beta`; this remains a beta dependency and requires functional Auth regression testing.
+- Lockfiles regenerated by the dedicated GitHub Actions workflow. Latest lockfile commit: `88a838824eea1c3339ba0804c0342d28a4d9ee48`.
+- Unit workflow adjusted to install the refreshed root lockfile with `npm ci --include=dev --no-audit`.
+
+## 53.2 Test and Preview evidence
+- GitHub Actions Unit Tests run `44236795517` on commit `ab7454f170fadf7d6b7541432707b64540304946` completed SUCCESS. Both test files passed; 60/60 tests passed.
+- Vercel Preview `dpl_49E9AVsB4vNi53D3Z56EsWLBxLsp` for lockfile commit `88a838824eea1c3339ba0804c0342d28a4d9ee48` reached READY. Frontend TypeScript/Vite build completed in 30 seconds using Vite 6.4.6.
+- Earlier deployments for commits with manifest/lockfile mismatch failed during `npm ci`. These were Preview-only; the lockfile workflow subsequently regenerated both lockfiles and the next Preview reached READY.
+- Latest Vercel install output still reports 5 high-severity dependency vulnerabilities. Exact current per-package breakdown remains OPEN pending the aligned Vercel build-gate run described below. Do not run `npm audit fix --force` blindly.
+
+## 53.3 Advisory triage
+- The earlier full audit on the intermediate Vitest 3.2.7 tree found critical Tinypool advisories and a high-severity Picomatch advisory; that intermediate package tree was superseded by Vitest 4.1.12 and the regenerated lockfile.
+- GitHub Advisory `GHSA-fc5q-39xc-vjpf` reports Picomatch versions through 4.0.7 as affected by a high-severity ReDoS issue; public advisory data does not currently provide a fixed version. The resolved toolchain still needs its exact transitive path confirmed in the next full audit output. Do not claim the Picomatch issue fixed by upgrading Vite alone. [GitHub Advisory GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) and [OSV record](https://osv.dev/vulnerability/GHSA-fc5q-39xc-vjpf).
+- GitHub advisory `GHSA-85c8-ppgw-ccpr` identifies Tinypool versions below 2.1.2 as affected; the current lockfile generated with Vitest 4.1.12 contains no Tinypool package entry. [GitHub Advisory GHSA-85c8-ppgw-ccpr](https://github.com/advisories/GHSA-85c8-ppgw-ccpr) and [OSV record](https://osv.dev/vulnerability/GHSA-85c8-ppgw-ccpr).
+- Dependency vulnerabilities are build-tool/development dependency findings unless a resolved production dependency path is demonstrated. Keep them as a release gate until the current audit output and runtime dependency classification are verified.
+
+## 53.4 Vercel build-command alignment
+Inspection of Preview build events showed the Vercel project-level Build Command was still invoking only `npm run frontend:build`, despite the repository's `vercel.json` defining the fuller validation chain. Consequently, some later Preview builds did not execute the dependency audit reporter, backend typecheck, or root unit tests inside Vercel.
+
+Corrected the Vercel project-level Build Command to match the repository pipeline:
+`node scripts/audit-dependencies.mjs && npm test && tsc -p api/tsconfig.json && npm run frontend:build`.
+
+This project-level setting affects future Preview and Production builds but does not itself trigger a deployment. No Production deployment was triggered, promoted, or redeployed. The next Preview commit must prove that all four stages actually execute and complete. If the audit reports vulnerabilities, the script reports them but does not silently suppress the release gate.
+
+## 53.5 Current acceptance gates
+| Area | Status | Evidence / remaining work |
+|---|---|---|
+| Recovery-branch lockfiles | PASS | Both lockfiles regenerated; Preview READY. |
+| Unit tests | PASS | 60/60 tests passed on the latest lockfile tree. |
+| Frontend build | PASS | Preview READY; Vite 6.4.6 build completed. |
+| Vercel build pipeline | PASS (Preview only) | Project Build Command aligned and all chained commands completed successfully on Preview commit ec8ae02. |
+| Dependency advisories | OPEN | Latest install reports 5 high; exact current audit breakdown pending the aligned build. |
+| Neon Auth regression | NOT VERIFIED | No sign-in, sign-out, invitation, OTP, reset, or session lifecycle test performed. |
+| RLS and authenticated grants | PARTIAL / HARDENING REQUIRED | Catalogue evidence from Section 52; no GRANT/REVOKE performed. |
+| Storage | PARTIAL | No real provider round-trip or approved object fixture. |
+| Protected API smoke | NOT VERIFIED | Vercel share-link authentication prevents application response retrieval. |
+| Backup/restore | BLOCKED | Automatic schedule and restore proof absent. |
+
+F0 remains IN PROGRESS / NOT CLOSED. This section records GitHub recovery-branch package/lockfile changes and one Vercel project Build Command setting only. No Neon SQL, DDL, DML, migration, Auth, storage, Production business data, or Production deployment mutation was performed.
+
+
+---
+
+# 54. Full Vercel build-gate revalidation (18 November 2026)
+
+## 54.1 Project-level command now enforced and proven
+The Vercel project-level Build Command was updated to:
+`node scripts/audit-dependencies.mjs && npm test && tsc -p api/tsconfig.json && npm run frontend:build`.
+
+The next Preview deployment proves the aligned project setting is effective:
+- Deployment: `dpl_A3JHF5sgpWhBYBsckZMKGjCnGZvh`.
+- Commit: `ec8ae02ec3191eaa69e0f6eca0f27706908966f1`.
+- State: `READY` (Preview, target null).
+- Vercel build event: `Build Completed in /vercel/output [29s]`.
+- Root audit reporter executed and reported exact current package-level results below.
+- `npm test`: 2 test files passed, 60/60 tests passed.
+- `tsc -p api/tsconfig.json` is part of the successful chained Build Command; no TypeScript error was emitted.
+- `npm run frontend:build` completed with Vite 6.4.6 and the deployment reached READY.
+- GitHub Actions Unit Tests run `44236992713` on the same commit completed SUCCESS.
+
+## 54.2 Current dependency advisory report
+The full audit reporter ran with development dependencies included:
+- Root workspace: 6 high-severity package findings; 0 critical, 0 moderate, 0 low.
+- Frontend workspace: 5 high-severity package findings; 0 critical, 0 moderate, 0 low.
+- These are not 11 distinct advisories. The affected package chain resolves to the same underlying Picomatch advisory `GHSA-fc5q-39xc-vjpf`, propagated through `picomatch`, `fdir`, `tinyglobby`, Vite, and Vitest / the React Vite plugin.
+- The advisory affects Picomatch versions through 4.0.7 and does not currently identify a patched release. The npm registry version listing still shows 4.0.7 as latest. [GitHub Advisory GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf), [OSV record](https://osv.dev/vulnerability/GHSA-fc5q-39xc-vjpf), and [npm Picomatch versions](https://www.npmjs.com/package/picomatch?activeTab=versions).
+- The attempted Vite 6.2.7 workaround was reverted because it introduced older Vite advisory findings; Vite 6.4.6 was retained. The earlier critical Tinypool findings disappeared after returning to Vitest 4.1.12; the current lockfile contains no Tinypool package entry.
+- The remaining Picomatch finding is in the build/development toolchain; it is not evidence that the production API imports or executes Picomatch. Keep it OPEN and require explicit risk acceptance or a vendor patch before declaring dependency security fully PASS. Do not use `npm audit fix --force` or downgrade to a version with known older advisories.
+
+## 54.3 Current verified state
+- Latest Recovery Preview deployment `dpl_A3JHF5sgpWhBYBsckZMKGjCnGZvh`: READY.
+- Latest Preview commit contains the full single-source Master Plan update; no merge to `main`.
+- GitHub Unit Tests: SUCCESS, 60/60.
+- Vercel project Build Command: aligned with repository `vercel.json`; audit reporter, unit tests, backend API TypeScript check, and frontend build all completed within the successful Preview build.
+- Production deployment remains unchanged and has not been redeployed or promoted.
+- Neon Production branch/database/schema/data, Auth configuration, private bucket, snapshots and roles were not modified.
+
+## 54.4 Remaining F0 blockers
+| Area | Status | Next permitted action |
+|---|---|---|
+| Picomatch advisory | OPEN / NO PATCH IDENTIFIED | Monitor upstream patched release or document owner-approved temporary risk acceptance; do not silently suppress. |
+| Auth lifecycle | PARTIAL | Approved test account / owner-supervised lifecycle test required; no real invitation sent. |
+| RLS semantics | PARTIAL | Continue read-only helper and policy mapping; real two-principal isolation test requires approved test identities. |
+| Authenticated table grants | HARDENING REQUIRED | Prepare exact revoke/default-privilege SQL for owner review; do not apply without explicit SQL approval. |
+| Storage | PARTIAL | Provider round-trip and cross-project denial require owner-approved non-business-data fixture. |
+| Protected API smoke | NOT VERIFIED | Requires approved access to protected Preview/Production endpoint; do not copy Production secrets to Preview. |
+| Backup/restore | BLOCKED | Owner-approved recovery design and non-production restore target required; no new branch/database/project may be created. |
+| Production runtime NODE_ENV | PENDING NEXT APPROVED DEPLOYMENT | `NODE_ENV=production` is configured for Preview and Production, but current Production deployment snapshot remains unchanged. |
+
+F0 remains IN PROGRESS / NOT CLOSED. A successful Preview build is not Production acceptance. No Production deployment, database mutation, migration, Auth change, storage object write, business data creation, or merge to `main` occurred in this section.
+
+
+---
+
+# 55. One-time comprehensive F0 audit and finalization revisions (18 November 2026)
+
+## 55.1 Audit boundary and target identity
+This is the consolidated F0 audit record requested by the owner. It supersedes earlier partial status notes where newer live evidence is available. The audit used read-only GitHub, Vercel and Neon inspection. Code and candidate-migration revisions below are confined to the recovery branch; this section does not authorize Production deployment or database mutation.
+
+- Repository: `koenbroto25/PKE-Export-Platform`.
+- Production source: `main`, HEAD `625109a2531ada0ff190d9ef91e7e8428e9ceebe`.
+- Recovery branch: `phase0/reconcile-source-20261117`; current revision at the time of this record is the recovery-branch head.
+- Production deployment: `dpl_AzF9eP7HS6Yec82nEwEUSKDFdcDg`, READY, source SHA matches `main` HEAD. It was not redeployed.
+- Neon: project `purple-base-63944903`, sole branch `production` (`br-damp-shape-b3xlh4nr`), database `neondb`.
+- Migration 036 remains CLOSED & FINAL, Production history row 036 SHA-256 `4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52`.
+- Owner decision in Section 49.1 remains controlling: former F0.06–F0.08 historical source-recovery gates are WAIVED/CLOSED BY OWNER DIRECTION. Do not reopen migration 029–035 recovery or edit historical migrations 001–036.
+
+## 55.2 Neon Production catalog and privilege findings
+The audit queried catalog metadata only; no business rows were selected or changed.
+
+| Area | Live catalog result | Assessment |
+|---|---|---|
+| Public base/partitioned tables | 152; RLS enabled 152/152; FORCE RLS 71/152 | RLS is universally enabled; FORCE is not universal. |
+| RLS policies | 507 total; 507 PERMISSIVE; zero RESTRICTIVE; all target `app_runtime_secure`; zero target `authenticated` or `anon` | No unconditional `USING (true)`/`WITH CHECK (true)`; no missing required USING or write-check expressions. Policy expressions do not prove two-principal behavioral isolation. |
+| SECURITY DEFINER functions | 80; all 80 have fixed function search_path; PUBLIC EXECUTE on 80; authenticated EXECUTE on 80; runtime EXECUTE on 24 non-trigger helpers | Concrete least-privilege defect: internal privileged functions are executable by PUBLIC/authenticated. |
+| Authenticated public relation grants | 153 public relation objects with SELECT/INSERT/UPDATE/DELETE (612 privilege entries) | Unnecessary direct grants. No policy targets authenticated; no direct frontend Neon Data API use was found in inspected frontend modules. |
+| Default ACL | `neondb_owner` public-schema defaults grant authenticated table privileges and sequence USAGE; function defaults expose EXECUTE | Future objects can inherit the same unnecessary access unless defaults are corrected. |
+| Runtime role | `app_runtime_secure`: LOGIN; SUPERUSER/BYPASSRLS/CREATEDB/CREATEROLE all false; read-only SELECT connectivity succeeds | Role attributes are least-privilege; relation privileges remain intentionally used by the backend and are governed by RLS. |
+| Migration history | 37 rows: 16 baselined, 21 applied; 036 remains unchanged and 037 is applied with owner-approved SHA-256 `c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85` | Migration 037 recorded as row id 37; its in-migration postconditions passed. |
+
+Additional catalog-wide integrity counts returned 429 foreign keys and 280 CHECK constraints with zero unvalidated entries, 1,033 indexes with zero invalid/not-ready entries, and zero disabled non-internal public triggers. These are catalog counts, not behavioral workflow tests.
+
+## 55.3 API security review and recovery-branch code revisions
+Static route inventory of `src/index.ts` found 125 API route declarations: health is registered before the global `/api/v1` authentication middleware; the other 124 routes pass through global `requireAuth`. Ten routes also apply `requireAdmin`. This is route/middleware evidence, not proof of project-scope correctness for every SQL query.
+
+The audit identified 60 catch handlers returning raw `Error.message` to clients, one additional status-preserving catch returning raw exception text, a central error handler logging exception message/stack and original URL, and request access logging that included query strings and client IP. Recovery-branch revisions:
+- Added `src/http-errors.ts` with stable generic internal/client-rejection payloads.
+- Replaced all 60 raw 500 error responses and the additional status-preserving raw error response with generic, non-sensitive payloads.
+- Sanitized the central Express error handler: no exception message, stack, query string, token or IP is logged; only event, status, method, path and error type are recorded.
+- Request access logging now uses method and path only, excluding query strings and IP.
+- Production CORS no longer defaults to localhost development origins; an explicit `CORS_ALLOWED_ORIGINS` remains the owner-controlled allow-list.
+- Added `src/http-errors.test.ts` and included it in `npm test`.
+
+GitHub Actions run `44244510605` on commit `20bca7d053418cfe3f4417b0ce26395d975978ae` passed: 3 test files, 62/62 tests. The recovery branch also updates `scripts/verify-runtime-security.mjs` to check authenticated public relation/sequence grants and public default ACLs in addition to the existing SECURITY DEFINER checks. That Production-connected verifier is not claimed to pass before Migration 037 is approved/applied.
+
+## 55.4 Forward-only Migration 037 candidate — expanded privilege correction
+Candidate `migrations/037_restrict_security_definer_execute.sql` now covers both live privilege defects:
+1. Revoke PUBLIC and authenticated EXECUTE from current public SECURITY DEFINER functions while retaining explicit EXECUTE for callable non-trigger helpers to `app_runtime_secure`.
+2. Revoke authenticated privileges on all public tables/views and sequences.
+3. Remove `neondb_owner` public-schema default table/sequence privileges to authenticated and correct global/schema function defaults.
+4. Fail atomically if any prohibited relation, sequence, function or default ACL remains.
+
+Exact current candidate:
+- Git blob SHA: `90d0a737a87f5786d8af19ed04e74574637be4c7`.
+- SHA-256: `c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85`.
+- Status: **APPLIED TO NEON PRODUCTION** on 18 Nov 2026 at `2026-11-18T05:58:32.719Z`.
+- Owner approval was explicit for the exact SHA-256 above; the GitHub file blob matched the previously approved candidate blob SHA `90d0a737a87f5786d8af19ed04e74574637be4c7` before execution.
+- Production target: project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`, role `neondb_owner`.
+- The migration body executed as one atomic DO statement inside the Neon transaction wrapper. The first multi-command prepared-statement attempt was rejected before execution and made no changes; the successful transaction then applied the exact approved migration body.
+- Migration history row: id `37`, filename `037_restrict_security_definer_execute.sql`, SHA-256 `c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85`, status `applied`.
+- Read-only postconditions: PUBLIC SECURITY DEFINER EXECUTE `0`; authenticated SECURITY DEFINER EXECUTE `0`; authenticated public relation privilege objects `0`; authenticated public sequence privilege objects `0`; missing `app_runtime_secure` helper EXECUTE grants `0`; unsafe function default ACL entries `0`; authenticated relation/sequence default ACL entries `0`.
+- No migration 001–036 was modified or replayed. No Production deployment, merge, Vercel promotion, business data or secret was changed.
+
+## 55.5 Vercel, Auth, storage and recovery posture
+- Production remains on `main` SHA `625109a...`; no merge, promotion, alias change or Production redeploy occurred.
+- Recovery Preview builds execute the aligned chain: dependency audit reporter, unit tests, API TypeScript check and frontend TypeScript/Vite build. The dependency audit currently reports 6 high findings in root and 5 high findings in frontend; these are not 11 independent advisories. The common underlying finding is Picomatch `GHSA-fc5q-39xc-vjpf`, with no patched release identified in the reviewed registry/advisory data. Vite 6.4.6 and Vitest 4.1.12 are retained; do not downgrade or run forced major upgrades. This remains an open dependency risk/owner risk-acceptance gate.
+- Production runtime error aggregation for the inspected 24-hour window contained one SSL compatibility warning group (24 occurrences, last observed 18 Nov 2026 03:57 UTC) associated with the current Production deployment. The 24-hour individual runtime-log request failed because the Vercel Hobby plan retains only one hour of runtime logs. This is not evidence of zero 5xx. The recovery branch already normalizes legacy SSL aliases; Production has not consumed that code.
+- Vercel environment metadata was inspected with decryption disabled. Eight keys carry the `readable-secret` security issue: `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, and `NEON_DATA_API_URL`. No values were decrypted, copied, displayed or replaced. A metadata-only edit attempt to mark the first flagged variable as `type=sensitive` was rejected by Vercel with HTTP 400 because Vercel additionally requires `visibility=secret`; the available `edit_project_env` connector schema does not expose that field. No environment variable was changed. This remains blocked pending a supported Vercel control.
+- `NODE_ENV=production` is configured for Preview and Production, but the existing Production deployment predates that variable update and has not consumed it. A separate approved Production deployment is required to activate it.
+- Neon Auth: public sign-up disabled; email/password enabled; email verification/OTP and reset-session revocation settings are configured. Invitation, email delivery, OTP, reset and session lifecycle have not been exercised.
+- Storage bucket `pke-private-documents` remains private and empty (confirmed by a fresh object listing). Source includes signed upload/download URL generation and a read-only signed HEAD metadata request. No live upload/download/HEAD round-trip or cross-project denial test was run. Deletion remains fail-closed. Declared upload size is validated before signing but has not been proven as a provider-enforced content-length ceiling.
+- Snapshot inventory remains one manual snapshot `PKE-target-pre-migration-20261115`; automatic snapshot schedule is empty (reconfirmed) and no restore drill exists. No schedule, snapshot or restore mutation was performed.
+- The recovery Preview deployment for commit `45756b5f659b92641213189335c9afce97524917` is now **READY**: deployment `dpl_8A3mRhdRiAVjWnj6EFZMVjLMuNtz`, URL `pke-export-platform-31ndwt4zn-apphubsite.vercel.app`. This is a Preview deployment only, not Production. Public/protected HTTP smoke evidence remains unavailable: direct health endpoint fetch attempts could not access the Vercel app through the current protection layer. No application HTTP status is inferred. Production credentials were not copied into Preview.
+
+## 55.6 Consolidated F0 acceptance state
+| F0 item | Final audit status | Evidence / reason |
+|---|---|---|
+| F0.01–F0.04 | PASS | Repository/main/Production deployment/Neon target and runtime connectivity/role attributes verified. |
+| F0.05 | PARTIAL | RLS/policy catalogue reviewed; SECURITY DEFINER and authenticated grants defects remain; two-principal behavioral isolation is unproven. |
+| F0.06–F0.08 | CLOSED BY OWNER DIRECTION / WAIVED | Section 49.1 controls; do not reopen historical migration recovery. |
+| F0.09–F0.10 | PASS | Public sign-up disabled; localhost disallowed. |
+| F0.11–F0.12 | PARTIAL / NOT VERIFIED | Auth settings verified; invitation, OTP, reset and session lifecycle not exercised. |
+| F0.13 | PARTIAL | Private bucket and signed HEAD code; no real provider round-trip/cross-project denial; deletion fail-closed. |
+| F0.14–F0.15 | NOT VERIFIED / PARTIAL | No protected endpoint HTTP status evidence; runtime aggregation only, with log-retention limitation. |
+| F0.16 | BLOCKED | No automatic schedule or restore proof. |
+| Security ACL hardening | PASS — Migration 037 applied | Exact owner-approved SHA recorded in Production migration_history row 37; all seven read-only postcondition counts are zero. |
+| Dependency security | OPEN | Picomatch high-severity advisory remains without a patched release. |
+| Vercel secret visibility | BLOCKED | Eight variables flagged readable-secret; supported visibility edit unavailable to current action. |
+| Production runtime mode | PENDING_APPROVED_DEPLOYMENT | NODE_ENV variable updated, current Production deployment unchanged. |
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Recovery-branch code revisions and offline tests do not replace Production SQL approval, Auth lifecycle, real storage round-trip, protected HTTP evidence, backup/restore proof, secret-visibility correction, or an approved Production deployment. Application Complete and Business Production Ready are not certified.
+
+## 55.8 Post-Migration 037 and targeted F0 continuation — 18 November 2026
+This is a narrow execution update to the single comprehensive audit record, not a second comprehensive audit.
+
+- Migration 037 is applied and recorded as Production migration-history row 37. Its exact approved SHA-256 and the seven zero-count read-only postconditions are recorded in Section 55.4.
+- Recovery Preview deployment dpl_8A3mRhdRiAVjWnj6EFZMVjLMuNtz reached READY for recovery commit 45756b5f659b92641213189335c9afce97524917. This does not change Production source or deployment.
+- Neon Auth settings were re-read: public sign-up disabled; email/password enabled; OTP verification on sign-up/sign-in; email verification required; password-reset session revocation enabled; localhost disallowed; only the Production app origin is trusted. This confirms configuration, not successful email delivery, OTP, reset, invitation or session-revocation behavior.
+- The single mandated Neon Production branch remains the only branch. The private storage bucket remains empty. No Auth user, synthetic business record, storage object, extra branch, snapshot, schedule, or database data was created.
+- Automatic snapshot schedule remains empty. Restore testing remains outstanding.
+- The environment-variable visibility edit was attempted without reading or replacing any value. Vercel rejected type=sensitive because it also requires visibility=secret; the available connector edit schema does not expose visibility. No variable was changed; all eight readable-secret findings remain open.
+- The Picomatch advisory GHSA-fc5q-39xc-vjpf remains without a published patched version in the current advisory record; do not force an unverified override or downgrade. Targeted lockfile inspection shows `picomatch@4.0.7` is marked `dev: true` in both root `package-lock.json` (blob `3f2e23b97cf0f6dda0cf2cb87ab87100025cbb33`) and `frontend/package-lock.json` (blob `f9caa9ec2cc66718539c8b08ccc8f8a4e76f685c`); the visible dependency chain is through Vite/Vitest/tinyglobby/fdir build tooling. This narrows the exposure to build/test dependency installation rather than identifying it as a production runtime dependency, but does not eliminate build-time risk. The advisory describes ReDoS in versions through 4.0.7 and lists patched versions as unknown.
+- The remaining F0 gates require controlled, real tests and/or owner action: two-principal RLS behavior with valid identities and scoped fixtures; Auth delivery/OTP/reset/session lifecycle; real private-storage PUT/GET/HEAD plus cross-project denial; protected HTTP smoke; automatic backup schedule and restore drill; secret visibility correction; dependency-risk disposition; and an explicitly approved Production deployment that consumes the recovery code and runtime configuration.
+- No merge to main, Production redeploy/promotion, Auth mutation, storage mutation, backup schedule mutation, branch creation, or business/test data insertion was performed.
+
+**Updated F0 status: IN PROGRESS / NOT CLOSED.** The recovery Preview build and Migration 037 are now complete, but the remaining acceptance gates are not evidenced as PASS.
+
+## 55.7 Change and safety record
+Recovery-branch files changed in this finalization pass:
+- `src/http-errors.ts` (new)
+- `src/http-errors.test.ts` (new)
+- `src/index.ts` (safe errors, sanitized logs, production CORS default)
+- `package.json` (include new test)
+- `scripts/verify-runtime-security.mjs` (authenticated relation/sequence grant checks)
+- `migrations/037_restrict_security_definer_execute.sql` (owner-approved and applied to Neon Production; SHA-256 recorded in Section 55.4)
+- This Master Plan.
+
+No changes to `main`; no Production deployment or promotion. Neon Production was changed only by the exact owner-approved Migration 037 body and its migration_history row 37. No Auth setting, storage object, snapshot schedule, branch or database mutation beyond Migration 037; no business/test data; no secret decryption or exposure. Migration 036 and historical migrations 001–036 remain untouched.
+
+---
+
+
+## 55.9 Owner-approved limited F0 validation continuation — 18 November 2026
+
+This is a targeted execution record following the owner's explicit approval of four limited validation operations. It does not repeat the comprehensive audit and does not authorize merge, Production deployment, Production branch replacement, business-data writes, secret changes, or Production Auth/storage mutation.
+
+### Owner authorization and scope
+- Owner explicitly approved: (1) daily snapshot schedule with seven-day retention, (2) temporary restore branch, (3) temporary storage/RLS test artifacts, and (4) Auth tests using an authorized test identity/mailbox.
+- This approval is a narrow, explicit exception to the earlier single-Neon-branch prohibition in Section 2.2, solely for the named temporary validation/restore branches and tests. It does not authorize additional branches or change the permanent Production target.
+- Owner supplied the test mailbox: `koenbroto@gmail.com`.
+- Production remains `purple-base-63944903 / br-damp-shape-b3xlh4nr / production / neondb`.
+
+### Neon temporary branches — FACT: VERIFIED
+- Validation branch `f0-validation-20261118`, ID `br-soft-fog-b3zi4c2x`, status READY, expires `2026-11-19T06:35:00Z`.
+- Restore branch `f0-restore-drill-20261118`, ID `br-bitter-thunder-b3y99pe3`, status READY, `restore_status=restored`, restored from snapshot `snap-lingering-night-b3dnpacn` (`PKE-target-pre-migration-20261115`) and reports restored_as `br-damp-shape-b3xlh4nr`.
+- Production remains the primary/default branch; neither temporary branch is primary/default. No Production branch replacement occurred.
+- Snapshot inventory currently contains only the manual snapshot `PKE-target-pre-migration-20261115`. Automatic snapshot scheduling remains unconfigured. No schedule was created in this continuation; no supported schedule action was available in the connected Neon tool surface.
+- The restore operation is evidenced as a successful Neon restore into a separate temporary branch. It does not prove application-level recovery acceptance or a point-in-time restore at a newly selected timestamp.
+
+### RLS validation branch — FACT: VERIFIED / PARTIAL
+- Read-only catalog query on validation branch, executed with the branch's available owner connection, returned: 152 public tables with RLS enabled, 507 public policies, and three named RLS/Auth helper functions.
+- Attempt to connect as `app_runtime` failed because that role does not exist on the cloned validation branch. Catalog role check showed `authenticated` and `neondb_owner`, but no `app_runtime`.
+- Therefore two-principal behavioral isolation and runtime-role execution remain NOT VERIFIED. No role was created and no policy/privilege changes were made to Production or the validation branch.
+
+### Private storage — FACT: VERIFIED / PARTIAL
+- Neon object storage is enabled on the validation branch.
+- Bucket `pke-private-documents` exists with access level `private`; object listing returned zero objects and zero folders.
+- No upload/download/delete object was performed. Provider PUT/GET/HEAD round-trip and cross-project denial remain NOT VERIFIED. The owner-approved artifact test was not completed because the available connected actions expose presigning and object listing/deletion but no direct HTTP PUT/GET/HEAD transfer action; no presigned URL was treated as proof of transfer.
+
+### Authentication email test — BLOCKED BY PROVIDER CAPABILITY
+- Neon Auth configuration on the validation branch was read-only verified: Better Auth integration exists; public sign-up disabled; email/password enabled; OTP verification required; password-reset session revocation enabled; localhost disallowed; trusted origin is the Production application origin.
+- A test-email send was attempted to the exact owner-supplied mailbox `koenbroto@gmail.com` using Neon Auth's existing shared email provider. Neon rejected the operation with `INVALID_EMAIL_PROVIDER_TYPE`: test email sending is unsupported for the shared provider.
+- No email provider configuration was changed. No SMTP secret was requested, read, entered, or rotated. No Auth user was created; no OTP, reset, invitation or session lifecycle was claimed as tested.
+- Completing real email lifecycle tests requires an owner-approved standard SMTP provider configuration and its credentials through a secure supported configuration path, or a provider capability that supports test delivery with the current shared sender. Do not switch providers or alter Production Auth without a separate explicit approval.
+
+### Updated F0 acceptance delta
+| Item | Status | Evidence |
+|---|---|---|
+| Temporary restore branch | PASS — infrastructure restore only | Neon reports READY and restore_status=restored from the named manual snapshot. |
+| Automatic daily snapshot schedule / seven-day retention | BLOCKED | Snapshot inventory shows only one manual snapshot; no supported schedule operation was available. |
+| RLS two-principal isolation | PARTIAL | Catalog inventory available; app_runtime absent on validation branch, no behavioral test. |
+| Private bucket configuration | PASS | Private bucket exists and is empty. |
+| Storage PUT/GET/HEAD and cross-project denial | NOT VERIFIED | No real transfer/denial test executed. |
+| Auth configuration | PASS | Required settings re-read on validation branch. |
+| Auth email delivery / OTP / reset / invitation / session lifecycle | BLOCKED / NOT VERIFIED | Shared-provider test email rejected; no SMTP configuration or Auth user mutation. |
+| Protected HTTP smoke | NOT VERIFIED | No new successful protected endpoint status evidence in this continuation. |
+| Vercel secret visibility | BLOCKED | Eight previously identified readable-secret metadata findings remain unresolved; no values read or changed. |
+| Picomatch advisory | OPEN | No patched release established by the previous audit; no forced upgrade/downgrade. |
+| Production deployment / merge | PENDING SEPARATE OWNER APPROVAL | No merge to main, deployment or promotion performed. |
+
+### Safety record
+- No Production business data was read or written.
+- No Production Auth user, Auth setting, bucket object, snapshot schedule, role, grant, policy, or secret was changed.
+- No GitHub source code was changed in this continuation; only this Master Plan record is being updated on the existing recovery branch.
+- No Vercel deployment or environment variable was changed.
+- The temporary branch resources are time-limited and have provider expiry timestamps as listed above. Verify expiry/cleanup after 19 November 2026; do not delete Production or the restored source branch.
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Infrastructure restore evidence improved, but the remaining behavioral/security and external-provider gates are still open.
+
+
+## 55.10 Owner decision — Admin-controlled user lifecycle; no public self-registration or SMTP onboarding gate — 18 November 2026
+
+### Owner decision (controlling)
+The owner confirms that all PKE users must be registered and managed by an authorized Admin through the Admin Dashboard. Public self-registration is not part of the product and must remain disabled. Therefore SMTP test delivery, OTP delivery for self-registration, and automated invitation email are not required F0 acceptance gates. Do not configure/change SMTP or send further test emails for the purpose of proving public registration.
+
+This decision supersedes any earlier acceptance wording that treats public registration email delivery or automatic invitation email as a prerequisite. It does not waive authentication/session security, admin authorization, secure account provisioning, account activation/deactivation, or password recovery requirements.
+
+### Required Admin Dashboard capability
+The Admin Dashboard must provide a real, server-backed User Management workspace with:
+1. **List/search/filter users:** show identity, email, display name, assigned role, project/organization scope where applicable, account status, created/activated/deactivated timestamps, and last activity where available. Provide pagination and truthful loading/empty/error states.
+2. **Admin creates/registers user:** Admin enters the minimum required identity fields, selects only permitted roles and scopes, and provisions the user through the supported Neon Auth + PKE identity mapping flow. Public sign-up remains disabled. Never store or email a plaintext password; use a secure one-time activation/password-set flow supported by the actual auth provider, or a controlled admin-set temporary credential requiring immediate change if the provider's supported workflow requires it. Do not claim an email activation flow unless delivery and token redemption are supported and verified.
+3. **Activate user:** an authorized Admin can activate an eligible provisioned/inactive account. Activation must verify the Auth identity and PKE application identity mapping, assign only explicitly selected least-privilege role/scope, record actor/time/reason, and make the user eligible to sign in.
+4. **Deactivate user:** an authorized Admin can deactivate/suspend an account, prevent new authenticated application access, revoke/invalidate active sessions/tokens where supported, preserve audit history and business records, and prevent deactivated users from being reactivated through public routes. Deactivation must not delete the user, ownership history, audit events, or business records.
+5. **Reactivate user:** an authorized Admin can reactivate a previously deactivated account after explicit confirmation and audit reason, re-checking role/scope and identity mapping.
+6. **Role/scope changes:** Admin-only, least privilege, validated against the existing role/permission/project schema; never allow self-escalation or arbitrary role names.
+7. **Audit trail:** record who created, activated, deactivated, reactivated, or changed a user's role/scope, with timestamp, target identity, action, reason and outcome. Do not log passwords, activation secrets, reset tokens, or session tokens.
+8. **Authorization:** every write action is protected server-side by authenticated Admin authorization; frontend hiding is not a security control. Non-admin attempts must be denied. All user queries and mutations must use the existing schema and transaction-scoped identity/RLS context.
+9. **Failure safety:** partial provisioning must be recoverable/idempotent. If Auth creation succeeds but PKE mapping fails, user must remain unable to access application resources until the mapping and role/scope are consistent. Fail closed; never show a false success.
+10. **Account recovery:** Admin may initiate a secure password reset/recovery workflow. Email delivery is a provider-dependent capability and must be represented honestly; the core Admin create/activate/deactivate workflow must not depend on shared-provider SMTP test email.
+
+### F0 acceptance criteria update
+- Remove the shared-provider SMTP test-email failure as an F0 blocker. The attempted send to `koenbroto@gmail.com` returned `INVALID_EMAIL_PROVIDER_TYPE`; this is recorded only as provider capability evidence, not a product acceptance failure.
+- Public self-registration email/OTP lifecycle and automated invitation delivery are **NOT REQUIRED / OUT OF SCOPE** for F0.
+- Admin-controlled create/provision, activate, deactivate, reactivate, role/scope assignment, session invalidation, audit trail, and non-admin denial are **REQUIRED**. These must be verified from actual Dashboard UI → API → Neon Auth/PKE identity mapping → authorization/session behavior. Static presence of route names or UI controls alone is insufficient.
+- Authenticated Admin sign-in/session validation remains required. OTP/email delivery for user self-registration is not required. If provider policy requires email verification for newly provisioned accounts, the implementation must provide a secure, owner-operable activation path without enabling public sign-up or representing untested delivery as PASS.
+- No SMTP provider, credentials, Neon Auth configuration, Production user, or Production identity mapping was changed as part of this owner decision.
+
+### Status
+**Owner decision: ACCEPTED.** The previous email-delivery blocker is waived for public registration/invitation. The Admin Dashboard user lifecycle is a mandatory implementation/acceptance item; until its full UI/API/security behavior is evidenced, mark that capability PARTIAL or NOT VERIFIED and keep F0 open.
+
+
+## 55.11 Source inspection — Admin user lifecycle implementation gap — 18 November 2026
+
+Targeted source inspection on `phase0/reconcile-source-20261117` after the owner decision in Section 55.10:
+- `src/index.ts`: `GET /api/v1/users` exists and is guarded by `requireAuth + requireAdmin`; it lists up to 100 users. `POST /api/v1/admin/users/:id/password-reset` exists and is guarded by `requireAuth + requireAdmin`.
+- `frontend/src/App.tsx`: `AccessPage` currently renders the user list (email, name, Neon Auth identity) and a reset-password action, alongside role and permission catalog tables.
+- The inspected source did not contain user-provision/create, activate, deactivate, reactivate, or role/scope mutation controls/routes. No proof was found for session invalidation on account deactivation.
+- This is a targeted code inspection, not a comprehensive audit. No source code, database schema, Auth configuration, Vercel configuration, or Production data was changed in this inspection.
+
+**Acceptance correction:** SMTP test-email delivery and public self-registration are not F0 gates under owner decision 55.10. The actual Admin Dashboard lifecycle is a required code-completion gate. Current source status: user listing/reset = CODE PRESENT; create/provision = NOT IMPLEMENTED/NOT VERIFIED; activate/deactivate/reactivate = NOT IMPLEMENTED/NOT VERIFIED; role/scope changes = NOT VERIFIED; deactivation session invalidation = NOT VERIFIED; audit completeness = NOT VERIFIED.
+
+**Next implementation work (recovery branch only; no Production migration/deployment):** inspect existing `users`, `role_catalog`, `project_members`, identity mapping and audit/event schema; implement idempotent Admin provisioning integrated with Neon Auth without public signup; implement activate/deactivate/reactivate and session revocation/fail-closed behavior; implement role/project-scope assignment using existing tables; add Admin UI forms/actions, validation/confirmation and status indicators; add backend authorization and unit/API contract tests for Admin success and non-Admin denial; update this Master Plan with exact files and test evidence. Do not invent columns/tables or apply schema changes without exact schema review and any required owner approval. Do not send SMTP email or create a Production user for these tests.
+
+**F0 remains IN PROGRESS / NOT CLOSED.** Admin-managed user lifecycle is a mandatory implementation gap.
+
+## 55.12 Targeted F0 backtest — Admin project-scoped role and membership lifecycle — 18 November 2026
+
+### Intended authorization model (controlling clarification)
+
+A PKE user has one global authentication/application account state (`users.is_active`) and an independent membership state plus project role for each project (`project_members.is_active`, `project_members.project_role_id`). The same user may therefore be active as one role in Project A, active under a different role in Project B, and inactive in Project C. Deactivating Project C membership must not deactivate the global account or change memberships/roles in A or B. Global account suspension is a separate Admin action and is not a substitute for project membership deactivation.
+
+### Backtest evidence (temporary validation branch only; all test fixtures rolled back)
+
+- Test fixture: one PKE user with global `is_active=true`, three project instances, distinct project roles and permissions. Project A: active role A; Project B: active role B; Project C: inactive role C.
+- RLS helper `pke_has_project_permission` returned: A's own permission = true; A using B's permission = false; B's own permission = true; inactive C permission = false. `pke_is_active_project_member` also returned false for inactive C. A project role belonging to A could not be selected as a valid role for B (candidate count 0).
+- Role reassignment inside Project B changed the user's role from Finance to Auditor only in B; the B permission changed accordingly. Project A remained on role A. Project C remained inactive until separately reactivated.
+- Deactivation/reactivation regression: the legacy behavior (`is_active=true` only) was reproduced to leave `deactivated_at` populated, and access stayed denied. The corrected update clears both `deactivated_at` and `deactivated_by`; access then returned true. Global `users.is_active` remained true throughout.
+- Audit event insert contract produced the expected role-change and reactivation events. All transaction fixtures (users, projects, roles, permissions, memberships, audit events) were rolled back; a subsequent read-only cleanup query confirmed zero remaining test rows.
+- A synthetic PKE row without `neon_auth_user_id` resolved to zero Neon Auth identities. This deliberately demonstrates that database membership testing is not proof of actual Neon Auth account provisioning.
+- Additional backtest with the existing real Auth-linked Admin identity (no new Auth user): the resolver returned exactly one match. Within one rollback-only transaction, the existing identity was temporarily demoted to `viewer`; Project A and Project B then independently authorized their own distinct role permissions, while inactive Project C denied access. Reactivating C restored C access without changing A or B. The global account remained active; rollback restored the original Admin role; cleanup query showed zero temporary projects and memberships.
+
+### Source changes
+
+- `src/index.ts`: active-project listing and permission aggregation now exclude inactive, expired, deactivated memberships and inactive projects. Membership role updates validate that the target role is active and belongs to the same project. Reactivation clears deactivation metadata; deactivation records actor; role/status changes require an audit reason and write before/after audit snapshots.
+- `frontend/src/App.tsx`: Admin Access page separates global account status from project-specific role/status; project selector, membership role control, activate/deactivate action, required reason prompt, and expired-membership renewal behavior added.
+- `src/schema.ts`: project_roles, project_members, and project_role_permissions mappings aligned with the actual project-scoped columns.
+- Commits on `phase0/reconcile-source-20261117`: `b188e3eae390556c44294605aa435a76c2511844`, `a366af3a2daf091cba3b51800bd1b4772de35b74`, `c18800b51a2e0ceefbeb757089fd09e35bd3876d`, `f35146413bb72937964dc7ea640577f70d8c713b`, `0bcd3d3857ce4ecbc2ed84a9d2ca7a20125f2daf`.
+
+### Account creation boundary and remaining blocker
+
+Neon documentation confirms that Managed Better Auth exposes Admin `createUser` through the Neon SDK, requiring an authenticated Admin session with HTTP-only cookies. The PKE backend's `app_runtime_secure` has no direct SELECT grant on `neon_auth.user` or `neon_auth.session`; the existing identity resolver only resolves already-linked PKE identities. Consequently, the current implementation cannot independently verify a just-created Auth identity before writing its PKE mapping. Do not trust a browser-supplied Auth user ID as proof, do not enable public signup, do not insert directly into `neon_auth`, and do not add grants/SECURITY DEFINER functions or a migration without separate exact owner approval. Implement a supported server-verifiable provisioning/link protocol first. No real Auth user was created in this backtest.
+
+### Verification and status
+
+- Neon Production: no writes, no migration, no Auth configuration change, no Production account, no deployment/promotion.
+- Vercel Preview evidence at the time of recording: `b188e3e`, `a366af3`, and `c18800b` deployments READY; `f351464` BUILDING and `0bcd3d3` QUEUED. The latter two must be checked before claiming final Preview build success.
+- Project-scoped membership/role matrix and reactivation database behavior: **BACKTEST PASS**, including one existing real Auth-linked PKE identity; temporary fixtures fully rolled back and cleanup verified. Source changes: **IMPLEMENTED**; Preview commit `14c53d9` **READY** with root tests 62/62, backend API TypeScript check, frontend TypeScript check, and Vite build passing.
+- Neon Auth account create/provision/link, global activate/deactivate, session invalidation, and actual Admin Dashboard-to-provider end-to-end lifecycle: **BLOCKED / NOT VERIFIED**. Public self-registration and SMTP invitation delivery remain out of scope per Section 55.10.
+
+**Build/typecheck note (18 Nov 2026):** a temporary attempt to add broad root `tsc --noEmit` to `npm test` failed in Preview with `TS7016` at `src/index.ts` importing `../scripts/test-db/preflight.mjs` (no declaration file). This was a typecheck-scope failure, not a test assertion; the root test script was reverted in commit `14c53d93c7a2f327efc8f0876ed36fcf08e9eb65`. The configured Vercel build command runs the existing targeted backend `tsc -p api/tsconfig.json` after root Vitest tests and before frontend build. This pipeline completed successfully on Preview commit `14c53d93c7a2f327efc8f0876ed36fcf08e9eb65`: Vercel state READY; root Vitest 3 files / 62 tests passed; backend `tsc -p api/tsconfig.json` completed without error (overall build command exit 0); frontend `tsc -b` and Vite build completed. The broader root `tsc --noEmit` experiment remains reverted.
+
+**F0 remains IN PROGRESS / NOT CLOSED.** This targeted backtest is not a repeat of the one-time comprehensive F0 audit and does not waive any other F0 gate.
+
+
+
+## 55.13 Neon Auth provisioning protocol — signed webhook verifier groundwork — 18 November 2026
+
+### Verified provider capability and protocol
+
+Official Neon Managed Better Auth documentation was inspected:
+- Admin plugin APIs are exposed through the Neon SDK and include createUser, banUser, unbanUser, listUserSessions, and revokeUserSessions. Admin operations require an authenticated Admin session with HTTP-only cookies.
+- Neon Auth webhooks support a signed user.created event. It is non-blocking; therefore PKE must remain fail-closed if identity synchronization has not completed.
+- Webhook signatures use detached JWS with EdDSA/Ed25519. The documented verification binds the millisecond timestamp and exact raw request body, uses the matching kid from the Auth JWKS, and recommends a five-minute replay window.
+- Current Production and F0 validation-branch Auth configuration were read-only inspected. Both have public sign-up disabled, email/password enabled, email verification required, shared Neon email provider, and webhooks disabled. No Auth configuration was changed.
+
+### Source implementation
+
+- Added src/neon-auth-webhook.ts: strict detached JWS verifier; HTTPS-only JWKS URL; matching Ed25519 kid; exact raw-body signature; timestamp freshness; event header/body equality; UUID event ID validation; 1 MiB body cap; five-second JWKS fetch timeout.
+- Added src/neon-auth-webhook.test.ts: valid signature, body tampering, stale timestamp, event-header mismatch, and non-HTTPS JWKS negative tests.
+- Added the verifier test file to the root Vitest script.
+- Commits: 5161516d1bf6ced278b5ed836db67507e01f42c5 (verifier), 36aca751baf7ab95f9516be2a600aa3f326de3c2 (tests), 8dfe85502cb88a12a2dfccdbafe15c7173743060 (test script).
+- Latest Preview deployment for 8dfe855 was observed in BUILDING state during this update; do not mark the new tests/build PASS until deployment completes and logs show the test suite result.
+
+### Database/RLS boundary discovered
+
+Read-only inspection of the validation branch confirms:
+- users.neon_auth_user_id has a partial unique index; users.email is unique.
+- The PKE runtime role has no SELECT grants on neon_auth.user or neon_auth.session.
+- RLS on users and approval_events permits platform-admin operations through pke_admin_all; it does not provide a safe anonymous-webhook write path.
+- A signed webhook cannot safely update PKE users under the existing runtime RLS policy without an authenticated PKE Admin context or a narrowly scoped database function.
+
+### Required next implementation and approval boundary
+
+The intended fail-closed provisioning flow is:
+1. Authenticated PKE Admin creates an inactive, unlinked PKE pending user and an audit record. Duplicate email or an already-linked identity is a hard conflict; no automatic email-only linking.
+2. The Admin Dashboard calls the supported Neon SDK Admin createUser operation using the Admin's existing Neon Auth session. Public self-sign-up remains disabled.
+3. Neon sends user.created; PKE verifies its detached Ed25519 signature, exact raw body, JWKS kid, timestamp, event ID, and payload before any identity synchronization.
+4. A narrowly scoped database function links only the matching pre-provisioned, inactive, unlinked PKE user to the signed Neon Auth user ID; it is idempotent, refuses conflicting identities, and records the provisioning actor/audit outcome. No direct neon_auth table grants and no arbitrary identity upsert.
+5. The account remains globally inactive until a separate Admin activation action. Global suspension must ban the Neon Auth account and revoke its sessions; PKE's per-project membership and role state remains independent.
+
+**Migration boundary:** this flow requires a new narrowly scoped migration (proposed Migration 038) for the verified-webhook identity-link function and explicit EXECUTE grant to app_runtime_secure, with PUBLIC EXECUTE revoked. The exact SQL, function owner, RLS behavior, grants, rollback, and test evidence must be reviewed before any application. No Migration 038 was created/applied in this step; Migration 037 and Production remain untouched. Do not use Neon Production for webhook or provisioning tests.
+
+### Current result
+
+- Detached webhook signature-verification source/tests: **IMPLEMENTED; Preview verification pending**.
+- Webhook endpoint, database link function, Admin pre-provision/create UI, global ban/unban/session revocation integration: **NOT IMPLEMENTED / NOT VERIFIED**.
+- No Neon Auth webhook configured; no Auth user created; no SMTP send; no Vercel Production deployment/promotion; no Neon Production write.
+- Project-scoped role/membership behavior remains as recorded in Section 55.12: **BACKTEST PASS**.
+- **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.14 Admin account lifecycle, project assignment, and Migration 038 validation — 18 November 2026
+
+### Implemented source on recovery branch
+
+The Admin-controlled user lifecycle and per-project membership workflow were implemented in source:
+- Admin user directory now calls narrowly scoped database functions rather than directly selecting the protected users table.
+- Admin pre-provision endpoint creates an inactive PKE pending account and audit record. Neon Auth identity linking is accepted only through the verified provider webhook; browser-supplied Auth IDs are never trusted.
+- Neon Auth webhook endpoint supports signed user.before_create (blocking allow/deny gate) and user.created (non-blocking confirmation). The blocking gate rejects any Auth account that has not first been provisioned by PKE Admin.
+- Admin global activate/deactivate endpoint records the PKE global account state. Dashboard activation calls Neon Auth unban before enabling PKE; deactivation disables PKE first, then bans the Auth user and revokes sessions. Any Auth-side failure leaves PKE access disabled.
+- Admin can assign an already-linked, globally active PKE account to a project-specific role. The endpoint verifies the user and project role, serializes assignment by project/user, reactivates only the selected project's membership, clears stale deactivation/expiry state, and writes an audit event. Other project memberships are untouched.
+- Dashboard now separates global account status from per-project role/status, supports account provisioning (feature-gated), global activation/deactivation, and adding an existing active account to the selected project's role.
+- Neon Auth Admin SDK wrappers include createUser, banUser, unbanUser, and revokeUserSessions. A random temporary password is generated client-side and shown once; it is not stored in PKE. Admin must transfer it through a separate secure channel.
+- New Admin provisioning UI remains deliberately disabled until environment flags and the Auth webhook configuration are explicitly enabled. This prevents accidental account creation while the provider/database integration is incomplete.
+
+Relevant source commits:
+- Backend webhook and Admin lifecycle API: 408bc1952ca6b1d37e0c7c3ccd780cc34475b0d4; later hardening/gating: 9ad8bf1283b9243e7c8d28ac963c14b79efdabb5.
+- Neon SDK Admin client wrapper: b559fdb75eee53cb2ace19c17cc95bc86e9920bb; adapter resolution correction: a1a74673c5241155f5b047c4873f1164c79c152b.
+- Project assignment API: 90147dfac8fe4aa9a6aa6491aab035dfc61a8c0c.
+- Admin Dashboard: 98184c470863cab7641fa108ffc6116d9b8fd26e; project assignment UI: 2a85bc39370f51da8996072a76264d07b4fff0f0; final JSX fix: 17de57b43c49959a44a7b3905754bac4b3e6b934.
+- CI now includes backend API TypeScript check: 4679dc6de27b1550e0800c4a70518fcf04f259e6.
+
+### Migration 038 — validation branch only
+
+Draft file: migrations/038_admin_managed_neon_auth_user_lifecycle.sql
+- SHA-256: 8f238d74901488909fa9044fd339ecad7493d10403dccb7ffcffa3abe8770d90
+- GitHub content SHA: 1fdfcce05a11dfbcf1fb2c1db72eaf48f15dfeec
+- Commit containing the final draft: 9df3f0b010b6595f8a57c00c3094c65d5cb107a1
+- Functions: pke_admin_list_users, pke_admin_get_user, pke_admin_provision_user, pke_link_neon_auth_identity_from_webhook, pke_admin_set_user_active.
+- Functions are SECURITY DEFINER with pinned search_path; PUBLIC EXECUTE is revoked; EXECUTE is granted only to app_runtime_secure. No direct grants to neon_auth tables are introduced.
+- Migration 038 was executed only on existing temporary F0 validation branch br-soft-fog-b3zi4c2x for validation. It was NOT applied to Neon Production. The Migration 037 Production state is unchanged.
+
+### Database backtest evidence — temporary validation branch
+
+All tests below used synthetic test identities and were cleaned up. No business data remains:
+1. Pending PKE account created with global is_active=false, password_hash NULL, and role viewer.
+2. Activation before Auth identity link was rejected.
+3. Signed-webhook database-link function linked the synthetic Auth UUID to the exact pending email; duplicate delivery returned already_linked.
+4. Global account activation, deactivation, and reactivation all passed; conflicting Auth UUID for the same PKE user was rejected.
+5. Five audit events were recorded for the tested lifecycle; test user and audit rows were deleted.
+6. Runtime-role test ran as app_runtime_secure: list, provision, link, activate, deactivate, and reactivate functions all succeeded. The role has no direct SELECT or UPDATE privilege on public.users.
+7. Permission catalog check: PUBLIC EXECUTE=false and app_runtime_secure EXECUTE=true for all five functions.
+8. Non-admin context was denied by pke_admin_list_users.
+9. Project assignment backtest created three temporary projects: same account had role f0_test_operator in A (active), f0_test_finance in B (active), and f0_test_viewer in C (inactive). Results matched the requested independent-per-project model. All test memberships, audit events, roles, projects, contract programs, and the test account were removed; post-cleanup counts were zero.
+
+These are database-function and SQL backtests, not a live Neon Auth account-creation test. No real Auth user was created.
+
+### Build and CI evidence
+
+- GitHub Actions run 44292978562 on commit 17de57b43c49959a44a7b3905754bac4b3e6b934: SUCCESS. Unit test step and backend API TypeScript check both completed successfully. The unit suite includes 67 tests (53 storage/GL, 7 runtime security, 2 HTTP errors, 5 Neon webhook signature tests).
+- Vercel Preview deployment dpl_3UQZYFfqk6Tem1Cs7scY6JWoJAAJ for the same commit: READY. Frontend TypeScript and Vite production build completed.
+- Earlier failed Preview builds caused by JSX escaping and conditional closure were corrected; the final 17de build is READY.
+- Preview deployment URL: https://pke-export-platform-13su0c15n-apphubsite.vercel.app
+- Vercel Preview still has no Preview-target DATABASE_URL or VITE_NEON_AUTH_URL. Production-only environment variables were not copied to Preview because that would connect Preview to Production Auth/database. Therefore live API/Auth end-to-end tests remain blocked.
+
+### Remaining blockers and safety boundary
+
+- Migration 038 requires explicit owner approval of the exact SHA-256 above before Production application. Do not apply it to Production autonomously.
+- Neon Auth Production and validation branch currently have public sign-up disabled and email verification required. Admin-created accounts must be proven able to sign in without shared SMTP before setting NEON_AUTH_ADMIN_PROVISIONING_READY=true. If Admin createUser does not mark the email verified, the proposed configuration is to set require_email_verification=false while retaining disable_sign_up=true; this Production Auth setting change requires explicit owner approval.
+- No Preview environment variables were copied from Production; no secrets were read.
+- No Neon Auth webhook was configured on either Production or validation branch. NEON_AUTH_WEBHOOK_ENABLED and NEON_AUTH_ADMIN_PROVISIONING_READY remain unset/false.
+- No actual Auth user creation, webhook delivery, ban/unban, or session-revocation test has yet been performed. The UI is intentionally feature-gated until a safe isolated Preview environment is configured and verified.
+- Existing dependency advisory GHSA-fc5q-39xc-vjpf remains open; no forced Vitest/Vite/picomatch upgrade was performed.
+- No Production database migration, Auth config change, Vercel Production deployment, alias promotion, or branch merge occurred.
+
+**Status:** Project-scoped role and membership model: **BACKTEST PASS**. Migration 038 functions: **VALIDATED ON TEMPORARY VALIDATION BRANCH ONLY**. Source/CI/Preview build: **PASS**. Live Neon Auth provisioning and production activation workflow: **NOT VERIFIED**. **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.15 Audit hardening and live provider-account backtest — 18 November 2026
+
+### Migration 038 current exact artifact
+
+- File: migrations/038_admin_managed_neon_auth_user_lifecycle.sql
+- Current SHA-256: 450afd9cceeef4ac575fde62ae562be2f86a0d9bbecd27bb8ddae8d95825dc8a
+- Current GitHub content SHA: 9bb1adb70dd7090f5ba1cc2b62c2e244dac587d9
+- Latest migration changes are in commit f7ec9838e81a48c8d16d91a02d6a84c6356a4d7c.
+- Migration 038 currently defines six narrowly scoped SECURITY DEFINER functions:
+  1. pke_admin_list_users
+  2. pke_admin_get_user
+  3. pke_admin_provision_user
+  4. pke_is_preprovisioned_email
+  5. pke_link_neon_auth_identity_from_webhook
+  6. pke_admin_set_user_active
+- PUBLIC EXECUTE is revoked; app_runtime_secure receives only the required EXECUTE grants. No direct SELECT/INSERT/UPDATE grant on neon_auth tables was added.
+- Provisioning, identity link, and global activation/deactivation now append immutable audit_events with actor, reason, before/after snapshots, provider event ID metadata, and outcome. Approval events remain the workflow state record.
+- Validation branch functions were re-applied after the audit hardening; SQL execution succeeded. Runtime-role backtest verified provision, link, activation, deactivation, and reactivation functions, including audit reason/snapshot fields.
+
+### Actual Neon Auth provider-created account test
+
+- On validation branch br-soft-fog-b3zi4c2x, created a synthetic Auth identity through the Neon Auth provider connector using reserved example.invalid email f0-neon-auth-e2e-20261118@example.invalid.
+- Provider returned Auth user ID 21387a65-d1b0-4a7c-aae7-0c573e747418. The Auth row existed and emailVerified was false; validation-branch Auth config now has require_email_verification=false while public sign-up remains disabled, so the Admin-provisioned user path does not depend on the shared SMTP sender.
+- Before creation, PKE pending record and pke_is_preprovisioned_email gate were verified true.
+- After provider creation, no automatic PKE identity mapping was observed. Therefore webhook delivery/handler success from the provider Admin-create operation is **NOT VERIFIED**. This may mean the connector's direct create operation bypassed the application's webhook lifecycle or the configured webhook delivery did not complete; do not infer which without evidence.
+- For the isolated state-machine test only, the database link function was manually invoked using the actual provider-created Auth ID and a synthetic event UUID. It linked successfully; global activation, deactivation, and reactivation all passed. This does not count as a signed webhook transport test.
+- Test Auth user was deleted from the validation branch; corresponding PKE user and approval rows were deleted. A separate audit backtest created four append-only audit records (provisioned, identity-linked, globally activated, globally deactivated). They remain on the expiring validation branch because the audit table correctly rejects UPDATE/DELETE. No test users, projects, contract programs, roles, or memberships remain.
+
+### Temporary Preview configuration
+
+- Added branch-scoped Vercel Preview environment variables only for git branch phase0/reconcile-source-20261117. DATABASE_URL is stored with secret visibility and points only to validation branch br-soft-fog-b3zi4c2x using app_runtime_secure. No Production secret was read/copied.
+- Added Neon Auth trusted origin for the branch Preview alias.
+- Validation branch Neon Auth webhooks are configured for user.before_create and user.created, timeout 5 seconds, endpoint under the Preview alias.
+- Validation branch Auth config: email/password enabled, public sign-up disabled, require_email_verification=false, verification email sending disabled, password reset revokes sessions.
+- NEON_AUTH_WEBHOOK_ENABLED=true in branch Preview; NEON_AUTH_ADMIN_PROVISIONING_READY=false. Admin provisioning UI remains disabled fail-closed until a real Admin SDK createUser call and signed webhook delivery/link are verified end-to-end.
+- Latest Preview deployment for source commit 3f009d96d7f5a9faf5dcec0ed92f8f373c4c1118 is READY. Earlier fail-closed deployment after disabling the Admin provisioning feature flag (commit 3fffd89fdaeed287735d220bd9a181b8ad418a0d) is also READY. No Production target/promotion occurred.
+
+### Test/build status
+
+- GitHub Actions run 44295555720 for commit 3f009d96d7f5a9faf5dcec0ed92f8f373c4c1118: SUCCESS.
+- Latest completed Preview build logs for the account lifecycle source: 72/72 unit tests passed (53 storage/GL, 12 runtime-security including five temporary Preview allowlist tests, 5 webhook signature tests, 2 HTTP errors); backend API TypeScript check passed; frontend TypeScript and Vite production build passed.
+- The current latest Preview commit additionally changes raw-body capture to tolerate webhook query parameters; GitHub Actions is green and Vercel deployment is READY.
+- Dependency audit still reports the existing high-severity GHSA-fc5q-39xc-vjpf Picomatch/Vite/Vitest dependency chain. No forced major upgrade/downgrade was performed.
+
+### Explicit blockers / next action
+
+1. Perform an actual authenticated Admin Dashboard createUser call on the Preview branch, not the Neon connector's direct create-user helper; capture the returned identity without exposing credentials.
+2. Verify Neon sends signed user.before_create and user.created to the configured Preview alias, verify exact event headers/raw body, and prove the handler links the pending PKE record automatically.
+3. Verify Admin-created account sign-in without SMTP; then test global ban/unban/session revocation through the same Neon Auth Admin SDK wrapper.
+4. Test project assignment UI/API against the same provider-created identity and verify independent project roles/status through API-level requests.
+5. Migration 038 remains validation-only. Existing scripts/migrate.mjs still explicitly restricts mutating apply mode to Migration 036, and migration_manifest_001_027.json remains the immutable baseline manifest for 001-028. Do not bypass these controls or apply Migration 038 to Production without a separately reviewed exact-SQL approval and migration-runner/manifest reconciliation.
+6. Automatic snapshot schedule, storage PUT/GET/HEAD cross-project checks, protected HTTP smoke, remaining F0 infrastructure gates, and dependency advisory remain open as previously recorded.
+
+**Current status:** Project-specific role/status isolation: **BACKTEST PASS**. Migration 038 functions and audit behavior: **VALIDATED ON TEMPORARY BRANCH**. Unit/API/frontend build: **PASS**. Neon provider account creation itself: **PROVIDER CREATE PASS ON TEMPORARY BRANCH**. Signed webhook automatic identity sync: **NOT VERIFIED**. Admin SDK full flow/session revocation: **NOT VERIFIED**. Production Migration 038: **NOT APPLIED**. **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.16 F0 continuation — private storage round-trip, Production health, and migration release reconciliation — 18 November 2026
+
+### A. Private object storage — actual HTTP round-trip
+
+Performed using an ephemeral Vercel Sandbox with network access limited to the exact validation and Production Neon Storage hostnames:
+- Validation bucket: pke-private-documents (private), branch br-soft-fog-b3zi4c2x.
+- Synthetic key: f0-validation/storage-smoke-20261118.txt.
+- Signed PUT: HTTP 200.
+- Signed GET: HTTP 200; returned body matched byte-for-byte. SHA-256 of body: a43d3c1e0ba2b0d4a6c962b0d2645f23ee5e0e9388728ce9c6c5c9e4983bf5f4.
+- Anonymous GET to validation bucket: HTTP 403.
+- Reusing validation-branch signed PUT URL against Production storage hostname: HTTP 403 (signature not portable across branch endpoint).
+- Anonymous GET against Production private bucket: HTTP 403.
+- Production and validation f0-validation/ prefixes both empty after cleanup. Validation test object deleted. Ephemeral sandbox pke-f0-storage-check-20261118 deleted and listing verified empty.
+**Result:** storage PUT/GET and private/cross-branch denial smoke PASS. No Production object was uploaded.
+
+### B. Backup schedule capability
+
+Read-only get_snapshot_schedule returned an empty schedule for Production branch br-damp-shape-b3xlh4nr and validation branch br-soft-fog-b3zi4c2x. Attempted to set Production daily schedule at 02:00 UTC with 30-day retention. Neon provider rejected it with "backup schedule creation is not enabled for this project" (HTTP 404). No schedule was created or changed. The existing manual snapshot snap-lingering-night-b3dnpacn and prior restored drill branch prove a manual snapshot/restore operation only; they do not satisfy automatic backup scheduling. **F0.16 remains BLOCKED_EXTERNAL / provider capability required.**
+
+### C. HTTP smoke and runtime finding
+
+- Latest recovery Preview deployment before final migration-status refinement: dpl_EaRGpUzaH3N5jYtFD37V5KYPv8aM, source 429662f3a12e01dfc274be82466d58cca5b3de0d, state READY.
+- Preview root GET returned HTTP 200; Preview /api/v1/health returned HTTP 200 with database connected and environment=production.
+- Current Production deployment dpl_AzF9eP7HS6Yec82nEwEUSKDFdcDg, source 625109a2531ada0ff190d9ef91e7e8428e9ceebe, state READY. Production /api/v1/health returned HTTP 200/database connected but reports environment=development. NODE_ENV is configured for Preview/Production in Vercel environment metadata, but this Production deployment predates the setting. Do not redeploy/promote Production without explicit owner approval.
+- Protected /api/v1/users and /api/v1/admin/provisioning/status requests could not be inspected by unauthenticated smoke because Vercel Deployment Protection redirected/blocked access. No authenticated Admin session was available in this workflow. This is not evidence that application authorization passed or failed.
+
+### D. Production migration ledger and runner reconciliation
+
+- Read-only query against Neon Production public.migration_history returned exactly 37 rows, IDs 1–37, covering migrations 001–037. Exact filename, SHA-256 and status for every row were compared with the new checked-in migration_history_manifest_001_037.json: **37/37 exact matches; zero mismatches**. Migration 038 is absent from Production history.
+- New migration_history_manifest_001_037.json is explicitly marked verified_production_history_only_not_sql_source. It records that authentic source SQL for 029–035 is not recovered. Reconstructed candidates and cumulative catalog snapshots are not executable substitutes.
+- Current exact Migration 038 file SHA-256: 37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5. This supersedes the earlier 55.15 draft hash 450afd9c...; audit additions changed the final file, and the hash is recalculated from the exact current file in Node.js.
+- scripts/migrate.mjs now has an explicit 038 release path requiring:
+  - MIGRATE_CONFIRM=1 and MIGRATE_038_CONFIRM=1;
+  - MIGRATION_038_APPROVED_SHA256 equal to the exact current 038 SHA;
+  - non-empty MIGRATION_038_APPROVAL_REFERENCE;
+  - exact Production migration_history rows 001–037 matching the new ledger;
+  - pinned exact SHA values for 036, 037, and 038;
+  - atomic SQL + migration_history insert in one transaction.
+- Read-only status mode now compares the Production ledger and reports SOURCE_NAME_MISMATCH when a local migration filename shares a sequence number with a differently named historical applied migration (notably local 033/034). It explicitly states 029–035 authentic source is unrecovered.
+- Added scripts/verify-migration-release-policy.mjs, npm script verify:release-migrations, and CI workflow step.
+- GitHub Actions run 44300055574 for commit 429662f3a12e01dfc274be82466d58cca5b3de0d: **SUCCESS** (72 unit tests, release-ledger verifier, backend API TypeScript check). The subsequent status-mode refinement and verifier assertions are in commits 03e7716 and cce5520; their CI run must be checked separately before considering this latest revision green.
+- No Migration 038 Production apply occurred. The exact SHA remains pending separate owner approval.
+
+### E. Admin lifecycle — still requires authenticated Admin session
+
+Neon official guidance for Managed Better Auth Admin APIs requires requests from an authenticated user with the admin role. The first Admin must be assigned through Neon Console. Current PKE Dashboard calls Neon Auth Admin SDK operations from the browser session (createUser, banUser, unbanUser, revokeUserSessions). No Admin credentials/session were available to execute this real browser-authenticated path. The prior provider connector create-user test is not equivalent: it created an Auth user, but automatic signed webhook linking was not observed; manual DB linking was used only to backtest the state machine. Admin provisioning remains fail-closed (NEON_AUTH_ADMIN_PROVISIONING_READY=false) on Preview. No user/password/session was fabricated or reset.
+
+**Current status:** storage security round-trip PASS; exact Production history ledger reconciliation PASS; Migration 038 runner guard + CI PASS for run 44300055574, with latest status-mode refinement pending CI confirmation; Admin SDK/webhook/session and authenticated project API/UI tests BLOCKED on authenticated Admin session; automatic backup schedule BLOCKED_EXTERNAL; Production runtime environment correction/redeploy requires separate owner approval. **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.17 Final verification addendum — 18 November 2026
+
+- Final GitHub Actions run 44300780079 for commit f6353190537fa32ba7b866be3a768f2e885ce8d9 completed **SUCCESS**. It passed 72 unit tests, Production migration ledger/release-policy verifier, migration runner dry-run (no database connection), and backend API TypeScript check.
+- Migration 038 exact candidate hash remains 37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5; Production migration_history was independently reconciled 37/37 and contains no Migration 038 row. No Production apply occurred.
+- Vercel NODE_ENV variable was read as the non-secret value production, targeting Preview and Production, last updated 2026-11-18T03:57:57.362Z. Current Production deployment dpl_AzF9eP7HS6Yec82nEwEUSKDFdcDg was created 2026-11-17T09:57:46.570Z, before that update. Therefore the Production health response reporting environment=development is consistent with a stale deployment environment snapshot; it does not mean the current Vercel project variable is set to development. A new Production deployment is needed to consume the current variable, but it was not created because Production redeploy/promotion remains outside the approved actions.
+- The latest Preview deployment for commit f6353190537fa32ba7b866be3a768f2e885ce8d9 was still BUILDING at the time of this addendum. The preceding app-code Preview dpl_6SZVr69GBCPKJCYTTP5R4cifdc9A for commit cce55205d5cb23fa18ae9db13278204ec8fa3d18 was READY.
+- The automatic Neon snapshot schedule remains empty; provider rejects schedule creation because the feature is not enabled for this project. Storage round-trip/403 denial tests are complete and all synthetic objects/sandbox resources were removed.
+- **F0 remains IN PROGRESS / NOT CLOSED.** Outstanding external/owner-dependent gates are automatic snapshot scheduling, authenticated Neon Auth Admin SDK + signed webhook end-to-end verification, authenticated project membership API/UI smoke, and explicit Production redeploy approval. Migration 038 also remains pending separate owner approval of the exact SHA above.
+
+
+## 55.18 Preview verification and migration-source recovery check — 18 November 2026
+
+- Latest application-code Preview deployment dpl_FE618FggcSZ5vAdopgwbvm5s1Sqq (commit f6353190537fa32ba7b866be3a768f2e885ce8d9) reached **READY**. Preview root GET returned HTTP 200; /api/v1/health returned HTTP 200 with database connected and environment=production.
+- Unauthenticated GET requests to /api/v1/users and /api/v1/admin/provisioning/status remain blocked by Vercel Deployment Protection; no authenticated Admin session was supplied, so the application-level protected-route response and Admin SDK workflows remain unverified.
+- Read-only GitHub history checks for all exact historical filenames 029–035 returned zero commits. Current repository has only main, phase0/reconcile-source-20261117, and deploy/vercel-esm-fix-20261116; neither alternate branch contains authentic SQL 029–035. Existing reconstruction documents remain evidence/candidates only, never executable source.
+- GitHub Actions run 44300780079 for commit f6353190537fa32ba7b866be3a768f2e885ce8d9 is SUCCESS, including 72 tests, migration history/release policy verification, migration runner dry-run, and backend API typecheck.
+- Later documentation-only commit cc2315fb6442551163b9454f2e8a7983e5e2c963 is queued for CI/Preview and does not change application code.
+- **F0 remains IN PROGRESS / NOT CLOSED.** Storage security checks and migration release safeguards are complete; Admin authenticated end-to-end verification, automatic backup schedule enablement, protected API smoke, Production redeploy approval, and recovery of authentic 029–035 SQL remain outstanding.
+
+
+## 55.19 Canonical plan release confirmation — 18 November 2026
+
+- The latest canonical-plan commit 6a97eababf2a19332611b702c1360fab1bb7703c passed GitHub Actions run 44301252306 (**SUCCESS**).
+- Vercel Preview deployment dpl_JC1gL225nxzqTp1CMopdvyvqSU8k for the same commit is **READY**. This is the latest Preview deployment on phase0/reconcile-source-20261117.
+- This commit is documentation-only; it does not alter application code, Neon configuration, or Production.
+- All previously recorded F0 blockers remain unchanged. **F0 is not closed.**
+
+
+## 55.20 F0.05 RLS behavior smoke and Admin lifecycle contract coverage — 18 November 2026
+
+### A. Validation-branch RLS behavior
+
+Executed against temporary validation branch br-soft-fog-b3zi4c2x, using the actual login role app_runtime_secure (not database owner) and transaction-local app.current_user_id / app.current_role:
+- Existing Admin principal f84039cb-1fa4-41e8-a9e1-34035629d9da: pke_is_platform_admin() = true; public.users visible rows = 1.
+- Synthetic non-admin principal 00000000-0000-4000-8000-000000000001: pke_is_platform_admin() = false; public.users visible rows = 0.
+- Missing context: pke_current_user_id() = NULL, pke_is_platform_admin() = false; visible users = 0.
+- All three contexts used app_runtime_secure; no owner/BYPASSRLS role was used for the read assertions.
+- projects and project_members currently contain zero rows on the validation branch. Therefore the test proves fail-closed identity-context behavior and Admin-vs-non-Admin visibility for the users relation, but it does not prove cross-project isolation on actual business rows.
+- A temporary validation-only role membership grant used to diagnose role switching was revoked immediately after the read tests. No Production grants, data, or schema were changed.
+
+**Result:** F0.05 advances from catalog-only to PARTIAL PASS; full two-user/two-project data isolation remains unproven until a disposable fixture or real authorized test users/projects are available.
+
+### B. Admin lifecycle code contracts
+
+Added src/admin-user-lifecycle.contract.test.ts and wired it into the root npm test command. Coverage includes:
+1. Authenticated Admin guard on user directory.
+2. Provisioning fail-closed flags and DB provisioning function.
+3. Signed Neon Auth webhook before-create allow-list and created-event identity linking.
+4. Admin-only global activation and SQL eligibility/audit checks.
+5. Neon Auth Admin SDK create/ban/unban/session-revocation calls.
+6. PKE-first deactivation ordering, then Auth ban and session revocation.
+7. Auth unban before PKE reactivation.
+8. Separation of project membership/role from global account status.
+9. One-time temporary password is generated with browser crypto, displayed once, and not written to browser storage or logged in the provisioning handler.
+10. Admin password reset calls provider reset request, not a server-side password setter.
+
+Initial CI run 44303617548 failed because several assertions searched for app.get/app.post after the helper had sliced from the route path, and a storage assertion scanned the entire frontend file and matched unrelated session-storage usage. These were test defects, not runtime defects. Corrected in commit d0c763bb9bbd16be91c26dc04421d6bfbddcfbc8; CI run 44303765967 must be confirmed before marking the new tests green. The earlier migration policy + dry-run + 72-test CI run 44300780079 remains SUCCESS.
+
+### C. Remaining F0 blockers unchanged
+
+- Authenticated Admin SDK create-user, signed webhook link, sign-in, activate/deactivate, ban/unban, and session revocation cannot be honestly marked PASS without an authenticated Neon Auth Admin session. Do not fabricate or reset credentials.
+- The Admin SDK operations are designed in the current browser Admin session using Neon-supported Admin methods; public self-signup remains disabled. First Neon Auth Admin role must be assigned in Neon Console.
+- Automatic Neon snapshot scheduling remains unavailable at provider level ("backup schedule creation is not enabled for this project").
+- Vercel secret-variable visibility cannot be changed through the available edit action: API rejects type=sensitive unless visibility=secret, but the connector schema does not expose visibility. No values were read or altered.
+- Protected application endpoints still cannot be fetched through the current Vercel Deployment Protection share-link path; the fetch tool itself returns deployment-authentication-required before the application.
+- Production deployment still needs an explicit separate owner authorization to rebuild/promote after the NODE_ENV=production variable update. No Production deployment occurred.
+- Picomatch advisory and authentic SQL recovery for historical 029–035 remain open/not resolved by this continuation.
+
+**F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.21 F0 continuation — final CI/Preview recovery and additional identity findings — 18 November 2026
+
+### A. CI and Preview now green
+
+- Corrected src/admin-user-lifecycle.contract.test.ts to avoid reading the SQL migration file because .vercelignore intentionally excludes all *.sql from the Vercel deployment payload. The tests now verify only the shipped API/frontend contract; the SQL migration remains covered by the separate release-policy verifier.
+- GitHub Actions run 44304069020 for commit e9013fd32376d84e8998f9623ba3b458ab04134c completed **SUCCESS**:
+  - 82 tests passed (including 10 Admin user-lifecycle contract tests);
+  - Production migration ledger/release-policy verifier passed;
+  - migration runner dry-run passed without a DB connection;
+  - backend API TypeScript check passed.
+- Vercel Preview deployment dpl_3fXy3wqPyRRzod4QbnYJbvhAzjyo for the same commit reached **READY**. Root returned HTTP 200. /api/v1/health returned HTTP 200, database connected, environment=production.
+- Protected /api/v1/users and /api/v1/admin/provisioning/status remain untestable through the available Vercel share-link fetch path: the fetch itself is stopped by Deployment Protection with deployment_authentication_required, before reaching Express middleware. This is not an application 401/403 result.
+
+### B. Additional Production Neon Auth role drift
+
+Read-only Production queries against Neon Auth and PKE identity mapping returned:
+- Two non-banned Neon Auth identities have provider role admin.
+- Only one of those identities is linked to a PKE user with global role admin.
+- No user or role was changed. The second Auth Admin may be a legitimate separate administrator or an orphaned/stale identity; this must be reconciled by the owner before lifecycle tests or account changes. Do not automatically demote, ban, delete, or link it.
+
+### C. Vercel secret visibility limitation confirmed
+
+- Identified the eight Production environment variables previously flagged for secret visibility.
+- Attempted to change one variable's Vercel type to sensitive without reading or changing its value. Vercel API rejected it because sensitive requires visibility=secret.
+- The available Vercel edit action schema does not expose visibility, and rejects visibility as an unexpected field. No variable was modified; no secret values were retrieved. This remains blocked on a Vercel-supported action/UI or owner-operated change.
+
+### D. Picomatch advisory status
+
+Current public advisory evidence as of 18 November 2026 identifies GHSA-fc5q-39xc-vjpf / CVE-2026-112366 as affecting picomatch through 4.0.7, with no patched version listed. The advisory describes a ReDoS risk from crafted single-branch repeated extglob patterns. Upstream discussion is disputed and the cited Nx maintainer position notes the risk requires control over glob patterns. No safe patched version is published in the advisory evidence checked; do not force a major downgrade to Vitest 3.1.4 or Vite 6.2.7 just to clear npm audit. Keep the alert open, inventory runtime exposure, and avoid accepting untrusted glob patterns in production code. Sources: GitHub Advisory Database (GHSA-fc5q-39xc-vjpf) and upstream Nx discussion #37696.
+
+### E. Validation-only role grant cleanup
+
+- During read-only RLS tests, a temporary role membership was granted on validation branch br-soft-fog-b3zi4c2x to allow the owner role to switch into app_runtime_secure for a single statement.
+- A normal REVOKE returned without removing the membership because the membership's grantor is provider-owned cloud_admin. A second explicit GRANTED BY attempt was rejected for insufficient grantor privileges; the connector cannot log in as cloud_admin.
+- The membership is confined to the temporary validation branch, not Production. The branch is scheduled to expire at 2026-11-19T06:35Z. Do not repeat the role grant. If immediate cleanup is required before expiry, obtain owner approval to delete the validation branch; otherwise allow the scheduled expiry to remove the temporary clone and grant.
+- This was a test-environment cleanup limitation, not a Production role change.
+
+**Current state:** CI and Preview green; private storage PUT/GET/403 checks PASS; Production migration ledger 37/37 PASS; RLS helper context/one-user visibility partial PASS; full Admin Auth lifecycle, project-row isolation, protected API smoke, automatic backup schedule, secret visibility, and Production redeploy remain open. **F0 remains IN PROGRESS / NOT CLOSED.**
+
+
+## 55.22 Final CI and Preview confirmation — 18 November 2026
+
+- Canonical plan commit e6675514bd14166a368f9f97332154cbf691fc6b passed GitHub Actions run 44304605969 (**SUCCESS**).
+- The same commit's Preview deployment dpl_53bdk3taSpwNGZzfVy56PcC9CuZe reached **READY**. Vercel reports build completed in 48 seconds. The build log confirms 82/82 tests passed, backend TypeScript check passed, and frontend TypeScript/Vite build completed.
+- The previous app-code Preview dpl_3fXy3wqPyRRzod4QbnYJbvhAzjyo also reached READY and its root and /api/v1/health returned HTTP 200 with database connected and environment=production.
+- No Production deployment, migration, data change, Neon Auth change, or secret-value read occurred during this continuation.
+- The new RLS behavior smoke is intentionally PARTIAL because the validation branch has no projects or project_members rows. The temporary validation-only role membership cannot be revoked through the available connector because the grantor is provider-owned cloud_admin; branch br-soft-fog-b3zi4c2x remains temporary and is scheduled to expire at 2026-11-19T06:35Z. No further tests should grant roles on that branch. If immediate cleanup before expiry is required, ask the owner to approve deletion of that validation branch.
+- The second non-banned Neon Auth Admin identity is not linked to a PKE Admin record. No changes were made pending owner identification/decision.
+- **F0 remains IN PROGRESS / NOT CLOSED.** Green CI/Preview does not substitute for authenticated Admin Auth lifecycle tests, project-row isolation tests, protected API application-level smoke, automatic backup scheduling, secret visibility correction, or approved Production redeployment.

@@ -12,6 +12,7 @@ export type StorageConfig = {
   accessKeyId?: string;
   secretAccessKey?: string;
   forcePathStyle?: boolean;
+  fetchImpl?: typeof fetch;
 };
 
 export type StorageStatus = {
@@ -71,9 +72,11 @@ export class PrivateStorageAdapter {
   private readonly signingOrigin?: string;
   private readonly region: string;
   private readonly forcePathStyle: boolean;
+  private readonly fetchImpl: typeof fetch;
 
   constructor(config: StorageConfig) {
     this.config = config;
+    this.fetchImpl = config.fetchImpl ?? fetch;
     this.region = config.region || "ap-southeast-1";
     this.forcePathStyle = config.forcePathStyle !== false; // default path-style for Neon-compatible S3
     const configured =
@@ -203,7 +206,7 @@ export class PrivateStorageAdapter {
   }
 
   private buildPresignedUrl(
-    method: "PUT" | "GET" | "DELETE",
+    method: "PUT" | "GET" | "HEAD" | "DELETE",
     objectKey: string,
     expiresInSeconds: number,
     mimeType?: string,
@@ -326,8 +329,39 @@ export class PrivateStorageAdapter {
     if (!keyCheck.ok) {
       throw new Error(keyCheck.reason);
     }
-    // Fail-closed: metadata retrieval requires a real network round-trip (HEAD/GET) to storage service.
-    throw new Error("Object metadata lookup requires storage service round-trip; not implemented (fail-closed).");
+    const { url } = this.buildPresignedUrl("HEAD", objectKey, 60);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        method: "HEAD",
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      // Never include the presigned URL or provider credentials in an error.
+      throw new Error("Storage metadata request failed before a provider response was received.");
+    }
+
+    if (response.status === 404 || response.status === 410) {
+      throw new Error("Storage object was not found.");
+    }
+    if (!response.ok) {
+      throw new Error(`Storage metadata request failed (HTTP ${response.status}).`);
+    }
+
+    const contentLength = response.headers.get("content-length");
+    const size = contentLength === null ? Number.NaN : Number(contentLength);
+    if (!Number.isSafeInteger(size) || size < 0) {
+      throw new Error("Storage provider returned an invalid object size.");
+    }
+
+    return {
+      objectKey,
+      size,
+      etag: response.headers.get("etag") || undefined,
+      lastModified: response.headers.get("last-modified") || undefined,
+      versionId: response.headers.get("x-amz-version-id") || undefined,
+    };
   }
 
   async deleteObject(objectKey: string): Promise<void> {

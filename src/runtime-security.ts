@@ -23,6 +23,27 @@ export function roleFromDatabaseUrl(connectionString: string): string {
   return decodeURIComponent(parsed.username);
 }
 
+export function normalizePostgresSslMode(connectionString: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(connectionString);
+  } catch {
+    throw new Error("DATABASE_URL must be a valid PostgreSQL connection URL.");
+  }
+  if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+    throw new Error("DATABASE_URL must use postgres:// or postgresql://.");
+  }
+
+  const mode = parsed.searchParams.get("sslmode")?.toLowerCase();
+  // pg-connection-string currently maps these aliases to verify-full, but emits
+  // a warning that future major versions will change their semantics. Make the
+  // current strict TLS behavior explicit without logging or exposing credentials.
+  if (mode && ["prefer", "require", "verify-ca"].includes(mode)) {
+    parsed.searchParams.set("sslmode", "verify-full");
+  }
+  return parsed.toString();
+}
+
 export function validateRuntimeRoleState(
   state: RuntimeRoleState,
   configuredRole: string,

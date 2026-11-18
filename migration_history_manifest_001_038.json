@@ -6,7 +6,7 @@
   "database": "neondb",
   "verified_at": "2026-11-19",
   "applied_count": 39,
-  "source_recovery_note": "Production migration_history is the authoritative evidence for applied names and hashes. Migrations 029-035 are recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migration 038 source is recovered, SHA-256 verified, and applied to Production on 2026-11-18.",
+  "source_recovery_note": "Production migration_history is the authoritative evidence for applied names and hashes. Migrations 029-035 are recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migration 039 source is recovered, SHA-256 verified, and applied to Production on 2026-11-18.",
   "entries": [
     {
       "id": 1,
@@ -39,7 +39,7 @@
     {
       "id": 5,
       "filename": "005_inventory_and_receipts.sql",
-      "sha256": "7c7c3d235ff34ac89f626a038589aefa8b2c143ce963b6967c6e2e53433f159d",
+      "sha256": "7c7c3d235ff34ac89f626a039589aefa8b2c143ce963b6967c6e2e53433f159d",
       "status": "baselined",
       "source_sha_verified": true
     },
@@ -269,7 +269,7 @@
     },
     {
       "id": 38,
-      "filename": "038_admin_managed_neon_auth_user_lifecycle.sql",
+      "filename": "039_admin_managed_neon_auth_user_lifecycle.sql",
       "sha256": "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5",
       "status": "applied",
       "source_sha_verified": true

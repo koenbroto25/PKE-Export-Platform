@@ -298,3 +298,5 @@ Owner clarified Finance is reporting-only: no bank transfer, payment instruction
 - Migration 040 adds report payload and period metadata to `report_runs`, period-order check/index, and the scoped Finance-report notification insert RLS policy.
 - Migration 040 exact SHA-256: `3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f`. Source file is on the F1 branch. It has NOT been applied to Production; isolated preparation and DML backtest are pending. Do not apply without owner approval of this exact SHA-256.
 - Regression test added for Finance-only submitter, PM/Admin notifications, and payment execution out-of-scope behavior. CI results are pending on the new source head.
+
+- CI first run after the Finance scope update: Dependency Audit PASS; Unit Tests failed only in two stale/over-specific regression assertions (old 503 wording and recipient SQL alias expectation), not in the application code. Updated both assertions to the new 410 out-of-scope contract and actual admin-recipient query. Rerun pending.

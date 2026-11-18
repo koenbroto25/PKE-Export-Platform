@@ -3343,8 +3343,8 @@ app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, re
       [periodEnd, requesterId, projectId, payload, periodStart, periodEnd],
     );
     const reportRun = reportRows[0];
-    const { rows: recipients } = await req.db.query(
-      `SELECT DISTINCT recipient_id FROM (
+    const { rows: notificationRows } = await req.db.query(
+      `WITH recipients AS (
          SELECT pm.user_id AS recipient_id
            FROM project_members pm
            JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
@@ -3354,23 +3354,17 @@ app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, re
             AND pr.is_active = true AND pr.role_code = 'pm' AND u.is_active = true
          UNION
          SELECT id AS recipient_id FROM users WHERE is_active = true AND role::text = 'admin'
-       ) recipients`,
-      [projectId],
+       )
+       INSERT INTO user_notifications
+         (id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, created_at)
+       SELECT gen_random_uuid(), gen_random_uuid(), $1::uuid, recipient_id, $2::uuid,
+         $3, $4, 'normal', 'finance_report', now()
+         FROM recipients
+       RETURNING id, event_id, recipient_user_id`,
+      [projectId, requesterId,
+       `Laporan keuangan baru — ${projectRows[0].name}`,
+       `Finance mengirim laporan periode ${periodStart} sampai ${periodEnd}. Laporan siap ditinjau.`],
     );
-    const notificationRows = [];
-    for (const recipient of recipients) {
-      const { rows: inserted } = await req.db.query(
-        `INSERT INTO user_notifications
-          (id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, created_at)
-         VALUES (gen_random_uuid(), gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid,
-           $4, $5, 'normal', 'finance_report', now())
-         RETURNING id, event_id, recipient_user_id`,
-        [projectId, recipient.recipient_id, requesterId,
-         `Laporan keuangan baru — ${projectRows[0].name}`,
-         `Finance mengirim laporan periode ${periodStart} sampai ${periodEnd}. Laporan siap ditinjau.`],
-      );
-      notificationRows.push(inserted[0]);
-    }
     return res.status(201).json({
       financialReport: reportRun,
       notificationsCreated: notificationRows.length,

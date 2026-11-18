@@ -242,3 +242,10 @@
 - Additional source fix: Drizzle declarations for Project-scoped composite-FK relations were changed to remove duplicate/competing single-column FK declarations, allowing the migration's composite constraints to represent the canonical project ownership. The previous schema declarations for projects.contract_program_id, contracts.project_id, contract_programs.project_id/contract_id, and cycle_policies.project_id/contract_program_id contained direct references that could generate implicit global single-column FKs.
 - Relevant migration source SHA-256: `2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168`.
 - **Current blockers:** DB migration ledger row 39; payment reconciliation lifecycle E2E (only direct-write blocking and full-payment CHECK have been confirmed); CI/Vitest/TypeScript run still absent from GitHub evidence. F1 remains IN PROGRESS.
+
+ 
+### F1 Production ledger and migration runner reconciliation — 2026-11-19
+- Production `public.migration_history` contains row 39: `039_project_scoped_contract_cob_cycles.sql`, SHA-256 `2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168`, status `applied`. The row was added after independently rechecking applied schema constraints and policies; Migration 039 SQL was not re-executed during ledger recording.
+- Corrected manifest row 38 to canonical filename `038_admin_managed_neon_auth_user_lifecycle.sql`; row 39 identifies Migration 039. Manifest applied_count and entries are 39.
+- Added a fail-closed, verification-only path in `scripts/migrate.mjs` for Migration 039. It checks exact approved 039 source SHA, exact 39-row DB ledger, and manifest ordering, then exits without re-running SQL. Other migration apply rules remain restricted.
+- Payment execution API remains explicitly unavailable: GET/POST/PATCH `/api/v1/payment-instructions` return 503 `PAYMENT_EXECUTION_UNAVAILABLE`. Production has instruction, verification, reconciliation tables and ledger triggers, but this repo has no HTTP verification/reconciliation routes. Do not claim end-to-end CoB paid-status lifecycle complete until that critical finance workflow is implemented and tested.

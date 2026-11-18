@@ -241,7 +241,7 @@ app.post("/api/v1/webhooks/neon-auth", async (req: express.Request, res: express
   }
 });
 
-app.get("/api/v1/admin/provisioning/status", requireAuth, requireAdmin, (_req: express.Request, res: express.Response) => {
+app.get("/api/v1/admin/provisioning/status", (req: express.Request, _res: express.Response, next: express.NextFunction) => { req.db = pool; next(); }, requireAuth, requireAdmin, (_req: express.Request, res: express.Response) => {
   const ready = process.env.NEON_AUTH_ADMIN_PROVISIONING_READY === "true"
     && process.env.NEON_AUTH_WEBHOOK_ENABLED === "true";
   res.json({ ready, reason: ready ? null : "Auth Admin provisioning and signed webhook synchronization have not both been enabled for this environment." });

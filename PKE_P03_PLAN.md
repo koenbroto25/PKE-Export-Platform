@@ -1,5 +1,5 @@
 # PKE P03 / Phase 0 Execution Plan
-**Updated:** 2026-11-18 (Admin identity reconciliation)  
+**Updated:** 2026-11-18 22:40 WIB  
 **Execution target:** close all internally controllable F0 gates by 2026-11-19 12:00 WIB. Any external-owner dependency remains explicitly BLOCKED; no false COMPLETE status.
 
 ## Current release baseline
@@ -22,14 +22,21 @@
 - [x] No account, role, session, or Auth identity was created, deactivated, deleted, or otherwise changed by Migration 038.
 - [x] Owner-approved duplicate Admin identity deletion completed on Neon Production: deleted `bugurupuji@googlemail.com` (`392ab975-c4db-4073-bb42-1ff17a0f8f04`) using Neon Auth user deletion.
 - [x] Post-delete Production verification: `neon_auth.user` contains exactly one Admin identity, `koenbroto@gmail.com` (`bdd0ac87-3c90-4759-a85b-7e10ccf5803b`); `public.users` retains the matching PKE Admin row, active and linked to that same Auth ID. No PKE user row existed for the deleted email.
+- [x] Isolated Neon validation branch `br-cold-breeze-b37rog84`: two synthetic projects and two non-Admin PKE identities created; `app_runtime_secure` verified to have `rolsuper=false` and `rolbypassrls=false`.
+- [x] RLS positive isolation: identity A sees only Project A/role A/membership A; identity B sees only Project B/role B/membership B; empty identity context sees zero rows in projects, project_roles, project_members, and users.
+- [x] RLS negative write check: cross-project membership INSERT denied by PostgreSQL RLS (`SQLSTATE 42501`). Cross-project UPDATE affects zero rows under identity A.
+- [x] Lifecycle SQL exercise on isolated branch: Admin provisioning replay returns the same pending PKE user; preprovision check passes; identity-link event returns `linked` then `already_linked`; global activation/deactivation succeeds; project membership remains active when global account is deactivated.
+- [x] Removed unsafe legacy `/api/v1/auth/revoke-session` endpoint, which previously deactivated the global PKE account instead of revoking a provider session; added a regression contract test. Session revocation remains performed through Neon Auth Admin SDK from the Admin UI.
+- [x] GitHub Actions run `44326360912` on commit `2016cb740c9ac8bbb409f54bc76713a82f6d571b`: SUCCESS; all listed unit/security tests, migration ledger/release checks, migration dry-run, and backend typecheck steps completed.
+- [x] Vercel Preview deployment `dpl_BopPpRGs5sW5s2kEbrTTrG5TDJd7` for commit `728e41a61d8785c81810a0e8fca4e8e67162b4cc`: READY.
 
 ## Remaining F0 gates — execute in parallel where safe
 | Priority | Work | Acceptance evidence | Status |
 |---|---|---|---|
-| P0 | Complete Admin User Lifecycle end-to-end wiring: authenticated webhook verification, idempotency, provisioning, identity link, global activation/deactivation, session revocation, project-role independence | Integration tests against Neon test branch, replay tests, audit trail assertions, API route checks | PARTIAL |
-| P0 | Prove RLS isolation across two real synthetic projects and two non-Admin identities | Positive own-project reads/writes; zero cross-project rows; no-context and anonymous denied; cleanup evidence | PARTIAL |
+| P0 | Complete Admin User Lifecycle end-to-end wiring: authenticated webhook verification, idempotency, provisioning, identity link, global activation/deactivation, session revocation, project-role independence | Neon branch SQL lifecycle replay and membership-independence evidence; signed webhook cryptographic unit tests; provider SDK session revoke in UI; authenticated HTTP + live Neon Auth provider integration still required | PARTIAL |
+| P0 | Prove RLS isolation across two real synthetic projects and two non-Admin identities | Isolated branch positive own-project reads, zero cross-project visibility, no-context denial, cross-project INSERT denial, zero-row UPDATE; anonymous HTTP path and cleanup remain | PARTIAL |
 | P0 | Reconcile duplicate Neon Auth Admin identity | Owner approval, exact Auth ID deletion, Production post-delete verification, retained Admin mapping | COMPLETE |
-| P0 | Restore dependency audit to non-blocking secure state without unsafe downgrade | Lockfile-resolved tree, GHSA applicability assessment, npm audit evidence, CI green | IN_PROGRESS |
+| P0 | Restore dependency audit to non-blocking secure state without unsafe downgrade | Latest Vercel build still reports 5 high severity npm audit vulnerabilities; lockfile-resolved GHSA applicability and remediation evidence missing | BLOCKED_SECURITY_AUDIT |
 | P0 | Reconcile Vercel deployment source with GitHub canonical branch; ensure migration 038 source and manifest are in the release source | Vercel project linked to intended repo/branch, Preview green, deployed commit recorded | IN_PROGRESS |
 | P1 | Fix deployment packaging so runtime/migration metadata is available without shipping excluded SQL files or weakening tests | Preview build + API health checks; migration verification in CI | PARTIAL |
 | P1 | Verify secret visibility and environment separation | Vercel settings evidence; no secret values in logs; Preview/Production scopes reviewed | BLOCKED_PLATFORM_UI |
@@ -46,10 +53,16 @@
 - Never mark a test PASS unless its command/run, target, and result are captured.
 
 ## Execution cadence
-1. **Immediately:** complete lifecycle integration and cross-project RLS test fixtures on a non-Production Neon branch; run focused tests on each change.
-2. **By 2026-11-19 06:00 WIB:** resolve Vercel source parity, dependency audit, and Preview packaging; require a new green CI run and READY Preview.
-3. **By 2026-11-19 09:00 WIB:** complete two-project/two-identity RLS and lifecycle integration tests; capture all evidence and cleanup temporary data.
+1. **Immediately:** close remaining live-provider webhook/Auth integration, anonymous HTTP/RLS checks, dependency vulnerability remediation, and release evidence. Synthetic SQL branch tests have passed.
+2. **By 2026-11-19 06:00 WIB:** resolve dependency audit and verify Vercel source parity/Preview packaging; latest Preview is READY and source commit is captured.
+3. **By 2026-11-19 09:00 WIB:** complete provider integration and anonymous-path RLS tests; capture evidence and obtain approval before deleting validation branch.
 4. **By 2026-11-19 12:00 WIB:** run final F0 acceptance review. Mark COMPLETE only if all required gates pass. Otherwise publish the exact remaining external blockers and keep F0 IN PROGRESS.
+
+## Latest execution checkpoint — 2026-11-18 22:40 WIB
+- Current source branch head: `2016cb740c9ac8bbb409f54bc76713a82f6d571b` (session-route regression test); API fix commit: `728e41a61d8785c81810a0e8fca4e8e67162b4cc`.
+- GitHub Actions run `44326360912`: SUCCESS. Vercel Preview deployment `dpl_BopPpRGs5sW5s2kEbrTTrG5TDJd7`: READY.
+- Validation branch `br-cold-breeze-b37rog84` contains synthetic PKE/RLS data and is intentionally retained as evidence; Production was not mutated by these tests.
+- F0 remains IN PROGRESS: five high npm audit findings, live Neon Auth provider/webhook integration, anonymous HTTP/RLS tests, environment-scope evidence, backup/restore evidence, and final release regression remain unproven.
 
 ## Latest Production migration ledger checkpoint
 - Latest applied migration: 038 `admin_managed_neon_auth_user_lifecycle`

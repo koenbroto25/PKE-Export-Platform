@@ -76,6 +76,18 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
     expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_delete");
   });
 
+  it("implements Finance reporting only and routes report notifications to PM and Admin", () => {
+    expect(INDEX).toContain('app.post("/api/v1/finance/reports"');
+    expect(INDEX).toContain('app.get("/api/v1/finance/reports"');
+    expect(INDEX).toContain("FINANCE_ROLE_REQUIRED");
+    expect(INDEX).toContain("pr.role_code = 'finance'");
+    expect(INDEX).toContain("pr.role_code = 'pm'");
+    expect(INDEX).toContain("recipient.role::text = 'admin'");
+    expect(INDEX).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
+    expect(INDEX).not.toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
+    expect(INDEX).toContain('"reports.create"');
+  });
+
   it("reports the payment API lifecycle as unavailable without claiming its database schema is absent", () => {
     expect(INDEX).toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
     expect(INDEX).toContain("Production payment tables and database safeguards exist");

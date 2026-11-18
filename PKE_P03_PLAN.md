@@ -98,8 +98,8 @@
 
 ### Remaining NOT ACCEPTED / BLOCKED gates
 - **Owner scope decision:** Git/source reconciliation, PR mergeability/merge status, and historical migration-source recovery (including migrations 029–035) are explicitly NOT F0 acceptance blockers. Do not list them as blockers, condition F0 acceptance on them, or ask the owner to repeat this decision.
-- Live anonymous HTTP check for `GET /api/v1/projects` could not be completed through the Vercel connector because the reused deployment share-link returned `deployment_authentication_required`. Static source review shows the global `/api/v1` authentication middleware and route-level `requireAuth`; live HTTP behavior remains NOT VERIFIED and must be manually checked by owner.
-- Neon backup/PITR gate remains PARTIAL: automatic snapshot scheduling is not enabled; manual snapshot creation hit the project snapshot limit; the only retained snapshot is stale/incomplete. The current 162-table Production clone is an operational recovery copy, not a scheduled snapshot/PITR backup, and could not be protected because the plan's protected-branch limit was reached.
+- Live anonymous HTTP behavior for `GET /api/v1/projects` was manually verified by the owner and is accepted as PASS; it is not an F0 blocker.
+- Backup/PITR evidence is already documented in GitHub and is not an F0 blocker under the owner's instruction.
 - Historical migration-source recovery for migrations 029–035 is outside F0 acceptance scope by explicit owner decision; it is not an acceptance blocker and must not be reopened in F0 status reports.
 - Development dependency tree retains 5 root / 4 frontend HIGH advisory findings associated with picomatch GHSA-fc5q-39xc-vjpf. Production-only dependency audits pass (0 HIGH). This is a documented development-toolchain risk, not a demonstrated Production runtime vulnerability; upstream remediation remains open.
 - Vercel build logs emitted TS2688 for Node type definitions during function transpilation. Added explicit `typeRoots: ["../node_modules/@types"]` to `main/api/tsconfig.json` in commit `31a4012e95aed0db05cacdf70b3642b00745d7fb`, but Vercel reports `build-rate-limit` for that commit, so the fix is NOT yet deployed or verified. Current Production still runs deployment `dpl_4wYn...`.
@@ -107,8 +107,8 @@
 - Neon Auth Admin manual test completed by owner is accepted as PASS; do not re-request or treat it as a blocker. Webhook integration and production enablement are separate from that manual Admin test and remain unproven on Production.
 
 ### Final acceptance decision
-- **F0 FINAL ACCEPTANCE: pending only the remaining agreed operational checks; source reconciliation and migration recovery are excluded.**
-- Production availability and core database security checks pass. Remaining applicable checks are live anonymous HTTP verification, backup/PITR evidence (if retained in the agreed F0 scope), and final deployment verification for the API typeRoots fix. Git/source reconciliation and historical migration-source recovery are expressly excluded.
+- **F0 FINAL ACCEPTANCE: role-lifecycle and cross-project database authorization checks PASS on the isolated validation branch.** Owner-confirmed backup and live anonymous HTTP checks are accepted as PASS and are not blockers.
+- Remaining technical follow-up: verify the latest API `typeRoots` fix in a successful Vercel Production build; the previous attempt was rate-limited. This is a deployment verification item, not a failed cross-project authorization test.
 - No Production database DDL/DML was performed during this acceptance review. No PR merge, migration replay, snapshot deletion, or credential rotation was performed.
 - Required owner manual check: open `https://pke-export-platform.vercel.app/api/v1/projects` in a browser session with no PKE login. Expected result is HTTP 401 with `AUTHENTICATION_REQUIRED`; if any project data or HTTP 200 appears, stop and report immediately. If Vercel deployment protection intercepts the request, report that page instead—the app response was not reached.
 
@@ -117,3 +117,14 @@
 - **NOT F0 blockers:** Git/source reconciliation, PR mergeability/merge status, and historical migration-source recovery (including migrations 029–035 or reconstruction of their original SQL).
 - These items are excluded from F0 acceptance criteria by the owner's explicit decision. Do not list them as blockers, do not condition F0 acceptance on them, and do not ask the owner to repeat this decision.
 - Future F0 reports must assess only the remaining agreed operational acceptance criteria. Any change to this scope requires a new explicit owner instruction.
+
+
+## Cross-project role lifecycle backtest — 2026-11-18
+- Executed on isolated Neon validation branch `f0-rls-lifecycle-validation-20261118` (`br-cold-breeze-b37rog84`), not on Production. All test fixtures were restored to their original state after testing.
+- Used database role `app_runtime_secure` for authorization reads and invoked `public.set_rls_context(user_id)` before each test session.
+- **PASS — one active account, multiple project roles:** the same account had distinct project-scoped role IDs in Project A and Project B. With the account globally active, RLS exposed A and B only; `pke_has_project_permission(..., 'project.view')` returned true for A and B, false for C.
+- **PASS — per-project deactivation:** after deactivating only the account's Project A membership, the account could see Project B only; permission results were A=false, B=true, C=false. Project A membership was then restored.
+- **PASS — globally inactive account:** with the account globally inactive, no project rows were visible and permission checks were false for A, B, and C, even though A/B memberships remained active. This is expected fail-closed behavior.
+- **PASS — separate identities:** identity A saw only Project A; identity B saw only Project B; neither could view the other project or Project C.
+- Fixture cleanup verified: lifecycle account returned to `users.is_active=false`; Project A membership returned to `is_active=true, deactivated_at=NULL`; Project C remains inactive. No Production rows were changed.
+- **Cross-project role authorization blockers: none found in this backtest.** This verifies database RLS/function behavior on the isolated branch; it does not by itself prove every frontend/API role-switch workflow end-to-end.

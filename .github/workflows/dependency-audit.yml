@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - phase0/reconcile-source-20261117
   workflow_dispatch:
 
 permissions:

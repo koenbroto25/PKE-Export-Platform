@@ -7596,7 +7596,7 @@ The audit queried catalog metadata only; no business rows were selected or chang
 | Authenticated public relation grants | 153 public relation objects with SELECT/INSERT/UPDATE/DELETE (612 privilege entries) | Unnecessary direct grants. No policy targets authenticated; no direct frontend Neon Data API use was found in inspected frontend modules. |
 | Default ACL | `neondb_owner` public-schema defaults grant authenticated table privileges and sequence USAGE; function defaults expose EXECUTE | Future objects can inherit the same unnecessary access unless defaults are corrected. |
 | Runtime role | `app_runtime_secure`: LOGIN; SUPERUSER/BYPASSRLS/CREATEDB/CREATEROLE all false; read-only SELECT connectivity succeeds | Role attributes are least-privilege; relation privileges remain intentionally used by the backend and are governed by RLS. |
-| Migration history | 36 rows: 16 baselined, 20 applied; last is applied 036 with owner-approved SHA-256 above | No 037 row; candidate 037 is not applied. |
+| Migration history | 37 rows: 16 baselined, 21 applied; 036 remains unchanged and 037 is applied with owner-approved SHA-256 `c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85` | Migration 037 recorded as row id 37; its in-migration postconditions passed. |
 
 Additional catalog-wide integrity counts returned 429 foreign keys and 280 CHECK constraints with zero unvalidated entries, 1,033 indexes with zero invalid/not-ready entries, and zero disabled non-internal public triggers. These are catalog counts, not behavioral workflow tests.
 
@@ -7623,9 +7623,13 @@ Candidate `migrations/037_restrict_security_definer_execute.sql` now covers both
 Exact current candidate:
 - Git blob SHA: `90d0a737a87f5786d8af19ed04e74574637be4c7`.
 - SHA-256: `c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85`.
-- Status: **CANDIDATE / NOT APPLIED**.
-- The hash is for the exact file currently on the recovery branch. Any subsequent edit invalidates this approval hash.
-- Production still has the catalog privileges recorded in Section 55.2. No GRANT/REVOKE, DDL, migration execution or migration-history change occurred. This exact SQL and SHA-256 require explicit owner approval before Production execution. Do not auto-apply it from build/startup.
+- Status: **APPLIED TO NEON PRODUCTION** on 18 Nov 2026 at `2026-11-18T05:58:32.719Z`.
+- Owner approval was explicit for the exact SHA-256 above; the GitHub file blob matched the previously approved candidate blob SHA `90d0a737a87f5786d8af19ed04e74574637be4c7` before execution.
+- Production target: project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`, role `neondb_owner`.
+- The migration body executed as one atomic DO statement inside the Neon transaction wrapper. The first multi-command prepared-statement attempt was rejected before execution and made no changes; the successful transaction then applied the exact approved migration body.
+- Migration history row: id `37`, filename `037_restrict_security_definer_execute.sql`, SHA-256 `c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85`, status `applied`.
+- Read-only postconditions: PUBLIC SECURITY DEFINER EXECUTE `0`; authenticated SECURITY DEFINER EXECUTE `0`; authenticated public relation privilege objects `0`; authenticated public sequence privilege objects `0`; missing `app_runtime_secure` helper EXECUTE grants `0`; unsafe function default ACL entries `0`; authenticated relation/sequence default ACL entries `0`.
+- No migration 001–036 was modified or replayed. No Production deployment, merge, Vercel promotion, business data or secret was changed.
 
 ## 55.5 Vercel, Auth, storage and recovery posture
 - Production remains on `main` SHA `625109a...`; no merge, promotion, alias change or Production redeploy occurred.
@@ -7649,7 +7653,7 @@ Exact current candidate:
 | F0.13 | PARTIAL | Private bucket and signed HEAD code; no real provider round-trip/cross-project denial; deletion fail-closed. |
 | F0.14–F0.15 | NOT VERIFIED / PARTIAL | No protected endpoint HTTP status evidence; runtime aggregation only, with log-retention limitation. |
 | F0.16 | BLOCKED | No automatic schedule or restore proof. |
-| Security ACL hardening | BLOCKED_PENDING_OWNER_APPROVAL | Migration 037 exact SQL/SHA above is prepared but not applied. |
+| Security ACL hardening | PASS — Migration 037 applied | Exact owner-approved SHA recorded in Production migration_history row 37; all seven read-only postcondition counts are zero. |
 | Dependency security | OPEN | Picomatch high-severity advisory remains without a patched release. |
 | Vercel secret visibility | BLOCKED | Eight variables flagged readable-secret; supported visibility edit unavailable to current action. |
 | Production runtime mode | PENDING_APPROVED_DEPLOYMENT | NODE_ENV variable updated, current Production deployment unchanged. |
@@ -7666,7 +7670,7 @@ Recovery-branch files changed in this finalization pass:
 - `migrations/037_restrict_security_definer_execute.sql` (candidate only; no apply)
 - This Master Plan.
 
-No changes to `main`; no Production deployment or promotion; no Neon DDL/DML/GRANT/REVOKE/migration; no Auth setting, storage object, snapshot schedule, branch or database mutation; no business/test data; no secret decryption or exposure. Migration 036 and historical migrations 001–036 remain untouched.
+No changes to `main`; no Production deployment or promotion. Neon Production was changed only by the exact owner-approved Migration 037 body and its migration_history row 37. No Auth setting, storage object, snapshot schedule, branch or database mutation beyond Migration 037; no business/test data; no secret decryption or exposure. Migration 036 and historical migrations 001–036 remain untouched.
 
 ---
 

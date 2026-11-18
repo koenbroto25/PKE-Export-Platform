@@ -1,5 +1,5 @@
 # PKE P03 / Phase 0 Execution Plan
-**Updated:** 2026-11-18 22:40 WIB  
+**Updated:** 2026-11-18 22:48 WIB  
 **Execution target:** close all internally controllable F0 gates by 2026-11-19 12:00 WIB. Any external-owner dependency remains explicitly BLOCKED; no false COMPLETE status.
 
 ## Current release baseline
@@ -33,13 +33,13 @@
 ## Remaining F0 gates — execute in parallel where safe
 | Priority | Work | Acceptance evidence | Status |
 |---|---|---|---|
-| P0 | Complete Admin User Lifecycle end-to-end wiring: authenticated webhook verification, idempotency, provisioning, identity link, global activation/deactivation, session revocation, project-role independence | Neon branch SQL lifecycle replay and membership-independence evidence; signed webhook cryptographic unit tests; provider SDK session revoke in UI; authenticated HTTP + live Neon Auth provider integration still required | PARTIAL |
+| P0 | Complete Admin User Lifecycle end-to-end wiring: authenticated webhook verification, idempotency, provisioning, identity link, global activation/deactivation, session revocation, project-role independence | SQL lifecycle/replay and membership independence pass; cryptographic signature unit tests pass; unsafe DB-only revoke route removed; live Admin SDK createUser + provider webhook callback + Auth ban/unban/revoke HTTP integration remains unproven | PARTIAL |
 | P0 | Prove RLS isolation across two real synthetic projects and two non-Admin identities | Isolated branch positive own-project reads, zero cross-project visibility, no-context denial, cross-project INSERT denial, zero-row UPDATE; anonymous HTTP path and cleanup remain | PARTIAL |
 | P0 | Reconcile duplicate Neon Auth Admin identity | Owner approval, exact Auth ID deletion, Production post-delete verification, retained Admin mapping | COMPLETE |
-| P0 | Restore dependency audit to non-blocking secure state without unsafe downgrade | Latest Vercel build still reports 5 high severity npm audit vulnerabilities; lockfile-resolved GHSA applicability and remediation evidence missing | BLOCKED_SECURITY_AUDIT |
+| P0 | Restore dependency audit to non-blocking secure state without unsafe downgrade | Production dependencies: root/frontend `npm audit --omit=dev --audit-level=high` both PASS, 0 vulnerabilities. Dev toolchain: 5 root / 4 frontend HIGH all originate from picomatch GHSA-fc5q-39xc-vjpf with no patched release; do not downgrade Vite/Vitest. Documented compensating control is dev-only exposure and no untrusted glob input; upstream patch/mitigation still OPEN | PARTIAL_UPSTREAM_ADVISORY |
 | P0 | Reconcile Vercel deployment source with GitHub canonical branch; ensure migration 038 source and manifest are in the release source | Vercel project linked to intended repo/branch, Preview green, deployed commit recorded | IN_PROGRESS |
 | P1 | Fix deployment packaging so runtime/migration metadata is available without shipping excluded SQL files or weakening tests | Preview build + API health checks; migration verification in CI | PARTIAL |
-| P1 | Verify secret visibility and environment separation | Vercel settings evidence; no secret values in logs; Preview/Production scopes reviewed | BLOCKED_PLATFORM_UI |
+| P1 | Verify secret visibility and environment separation | Vercel targets enumerated without decrypting values. Production DATABASE_URL/JWT_SECRET/AWS/GEMINI/Neon endpoint variables are encrypted; several Vercel entries carry `readable-secret` security issue flags, and Preview Neon endpoint variables are plain. Needs owner-approved reclassification/rotation and a second review; no secret values were decrypted | PARTIAL_SECURITY_REVIEW |
 | P1 | Backup/restore evidence | Supported automated backup schedule or documented tested alternative restore point | BLOCKED_PLAN_CAPABILITY |
 | P1 | Final regression suite and release evidence | GitHub Actions green, Preview READY, HTTP health 200, migration ledger 38/38, security tests pass | NOT STARTED |
 
@@ -48,6 +48,7 @@
 - Do not apply Migration 039+ without explicit approval and a verified SHA-256.
 - Do not promote Preview to Production until all P0 gates pass and source branch parity is proven.
 - Duplicate Neon Auth Admin identity `bugurupuji@googlemail.com` was deleted after explicit owner approval and verified absent. Retained Admin identity `koenbroto@gmail.com` remains active and linked; do not alter it without separate approval.
+- Production Neon Auth webhook and Admin provisioning remain disabled/fail-closed until the Preview provider callback and Admin SDK flow are proven. Never enable production provisioning based only on static tests.
 - Do not delete validation/restore-drill branches without explicit owner approval. The branches have expiry windows; record actual cleanup outcome.
 - Never expose credentials, tokens, connection strings, or raw secret values in reports or CI logs.
 - Never mark a test PASS unless its command/run, target, and result are captured.
@@ -58,11 +59,11 @@
 3. **By 2026-11-19 09:00 WIB:** complete provider integration and anonymous-path RLS tests; capture evidence and obtain approval before deleting validation branch.
 4. **By 2026-11-19 12:00 WIB:** run final F0 acceptance review. Mark COMPLETE only if all required gates pass. Otherwise publish the exact remaining external blockers and keep F0 IN PROGRESS.
 
-## Latest execution checkpoint — 2026-11-18 22:40 WIB
+## Latest execution checkpoint — 2026-11-18 22:48 WIB
 - Current source branch head: `2016cb740c9ac8bbb409f54bc76713a82f6d571b` (session-route regression test); API fix commit: `728e41a61d8785c81810a0e8fca4e8e67162b4cc`.
 - GitHub Actions run `44326360912`: SUCCESS. Vercel Preview deployment `dpl_BopPpRGs5sW5s2kEbrTTrG5TDJd7`: READY.
 - Validation branch `br-cold-breeze-b37rog84` contains synthetic PKE/RLS data and is intentionally retained as evidence; Production was not mutated by these tests.
-- F0 remains IN PROGRESS: five high npm audit findings, live Neon Auth provider/webhook integration, anonymous HTTP/RLS tests, environment-scope evidence, backup/restore evidence, and final release regression remain unproven.
+- F0 remains IN PROGRESS: production dependency audit passes, but upstream dev-toolchain GHSA has no fix; live Neon Auth provider webhook/Admin SDK integration, anonymous HTTP/RLS tests, environment secret reclassification/rotation, backup/restore evidence, and final release regression remain unproven.
 
 ## Latest Production migration ledger checkpoint
 - Latest applied migration: 038 `admin_managed_neon_auth_user_lifecycle`

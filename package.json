@@ -28,7 +28,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@neondatabase/auth": "0.7.0-beta",
     "@neondatabase/serverless": "^1.2.0",
     "@types/node": "^26.6.6",
     "bcryptjs": "^3.0.3",
@@ -52,5 +51,9 @@
     "typescript": "^7.0.2",
     "uuid": "^14.0.3",
     "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "zod": "4.6.7",
+    "vite": "8.3.8"
   }
 }

@@ -16,6 +16,7 @@ import { registerDemoApiRoutes } from "./demo/routes.js";
 import { isPositiveQuantity } from "./f1-contract-rules.js";
 import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
+import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -3126,8 +3127,32 @@ app.post("/api/v1/shipment-allocations", requireAuth, async (req: express.Reques
         WHERE reservation_id = $1::uuid AND status IN ('allocated','partially_loaded','loaded')`,
       [reservationId],
     );
-    const remaining = Number(reservation.reserved_quantity) - Number(reservation.fulfilled_quantity || 0) - Number(allocatedRows[0]?.allocated || 0);
-    if (quantity > remaining) return res.status(409).json({ error: "Allocation exceeds the unconsumed reserved quantity.", code: "RESERVATION_QUANTITY_EXCEEDED" });
+    const { rows: shipmentAllocatedRows } = await req.db.query(
+      `SELECT COALESCE(sum(allocated_quantity),0) AS allocated
+         FROM shipment_allocations
+        WHERE shipment_id = $1::uuid AND status IN ('allocated','partially_loaded','loaded')`,
+      [shipmentId],
+    );
+    const capacity = validateAllocationCapacity({
+      projectId,
+      shipmentProjectId: shipmentRows[0].project_id,
+      lotProjectId: lotRows[0].project_id,
+      reservationProjectId: reservation.project_id,
+      reservationLotId: reservation.lot_id,
+      lotId,
+      reservationShipmentId: reservation.shipment_id ?? null,
+      shipmentId,
+      reservationStatus: reservation.status,
+      reservationQuantity: Number(reservation.reserved_quantity),
+      existingReservationAllocations: Number(allocatedRows[0]?.allocated || 0),
+      shipmentQuantity: Number(shipmentRows[0].quantity),
+      existingShipmentAllocations: Number(shipmentAllocatedRows[0]?.allocated || 0),
+      allocationQuantity: quantity,
+      unitMatches: reservation.unit_code === unit.trim() && lotRows[0].unit === unit.trim(),
+    });
+    if (!capacity.ok) {
+      return res.status(409).json({ error: "Allocation violates reservation or shipment capacity.", code: capacity.code });
+    }
 
     const { rows } = await req.db.query(
       `INSERT INTO shipment_allocations
@@ -3167,19 +3192,17 @@ app.patch("/api/v1/shipment-allocations/:id", requireAuth, async (req: express.R
     if (status === "reversed" && (typeof reversalReason !== "string" || reversalReason.trim().length < 3)) {
       return res.status(400).json({ error: "A reversal reason of at least 3 characters is required.", code: "REVERSAL_REASON_REQUIRED" });
     }
-    const nextLoaded = loadedQuantity === undefined ? Number(allocation.loaded_quantity) : Number(loadedQuantity);
-    if (status === "allocated" && nextLoaded !== 0) return res.status(400).json({ error: "Allocated state requires zero loaded quantity.", code: "INVALID_ALLOCATION_TRANSITION" });
-    if (status === "partially_loaded" && !(nextLoaded > 0 && nextLoaded < Number(allocation.allocated_quantity))) {
-      return res.status(400).json({ error: "Partially loaded state requires a positive quantity below allocation quantity.", code: "INVALID_ALLOCATION_TRANSITION" });
+    const transition = validateAllocationTransition({
+      currentStatus: allocation.status,
+      nextStatus: status,
+      currentLoadedQuantity: Number(allocation.loaded_quantity),
+      nextLoadedQuantity: loadedQuantity === undefined ? undefined : Number(loadedQuantity),
+      allocatedQuantity: Number(allocation.allocated_quantity),
+      reversalReason,
+    });
+    if (!transition.ok) {
+      return res.status(400).json({ error: "Invalid shipment allocation state transition.", code: transition.code });
     }
-    if (status === "loaded" && nextLoaded !== Number(allocation.allocated_quantity)) {
-      return res.status(400).json({ error: "Loaded state requires loadedQuantity to equal allocatedQuantity.", code: "INVALID_ALLOCATION_TRANSITION" });
-    }
-    if (status === "cancelled" && nextLoaded !== 0) return res.status(400).json({ error: "An allocation with loaded quantity must be reversed, not cancelled.", code: "INVALID_ALLOCATION_TRANSITION" });
-    if (status === "reversed" && nextLoaded !== Number(allocation.loaded_quantity)) {
-      return res.status(400).json({ error: "Reversal must retain the posted loaded quantity.", code: "INVALID_ALLOCATION_TRANSITION" });
-    }
-    if (status === undefined && loadedQuantity === undefined) return res.status(400).json({ error: "No allocation state change supplied.", code: "NO_ALLOCATION_CHANGE" });
 
     const { rows } = await req.db.query(
       `UPDATE shipment_allocations

@@ -91,6 +91,11 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
+  IF NEW.is_active = true AND NEW.expires_at IS NOT NULL AND NEW.expires_at <= now() THEN
+    RAISE EXCEPTION 'An active role assignment must expire in the future'
+      USING ERRCODE = '23514';
+  END IF;
+
   IF NEW.revoked_at IS NOT NULL AND
      (NEW.is_active = true OR NEW.revoked_by IS NULL OR
       length(trim(coalesce(NEW.revoke_reason,''))) < 5) THEN

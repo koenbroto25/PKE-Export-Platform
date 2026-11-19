@@ -948,22 +948,29 @@ async function requireProjectPermission(
     return false;
   }
   const { rows: assignmentRows } = await req.db.query(
-    `SELECT pr.id AS project_role_id, pr.role_code
-       FROM public.project_members pm
+    `SELECT a.id AS project_role_assignment_id, pr.id AS project_role_id, pr.role_code
+       FROM public.project_role_assignments a
+       JOIN public.project_members pm
+         ON pm.id = a.project_member_id
+        AND pm.project_id = a.project_id
+        AND pm.user_id = a.user_id
        JOIN public.project_roles pr
-         ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+         ON pr.id = a.project_role_id AND pr.project_id = a.project_id
        JOIN public.project_role_permissions prp
-         ON prp.project_id = pm.project_id AND prp.project_role_id = pr.id
+         ON prp.project_id = a.project_id AND prp.project_role_id = pr.id
        JOIN public.permissions perm
          ON perm.id = prp.permission_id AND perm.is_active = true
-      WHERE pm.project_id = $1::uuid
-        AND pm.user_id = $2::uuid
+      WHERE a.project_id = $1::uuid
+        AND a.user_id = $2::uuid
+        AND a.is_active = true
+        AND a.revoked_at IS NULL
+        AND (a.expires_at IS NULL OR a.expires_at > now())
         AND pm.is_active = true
         AND pm.deactivated_at IS NULL
         AND (pm.expires_at IS NULL OR pm.expires_at > now())
         AND pr.is_active = true
         AND perm.code = $3::text
-      ORDER BY pr.role_code
+      ORDER BY pr.role_code, a.assigned_at DESC
       LIMIT 1`,
     [pid, principalId, permissionCode],
   );

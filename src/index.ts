@@ -2560,7 +2560,7 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
   }
   const sensitiveChange = isActive !== undefined;
   if (sensitiveChange && reason.length < 3) {
-    return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status or role changes.", code: "AUDIT_REASON_REQUIRED" });
+    return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status changes.", code: "AUDIT_REASON_REQUIRED" });
   }
 
   try {

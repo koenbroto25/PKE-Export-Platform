@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.21 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.22 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.21 (19 November 2026 — F1 latest-head Preview smoke result and runtime blocker)  
+**Revision:** 2.22 (19 November 2026 — F2.1–F2.3 owner decisions and read-only Production schema/API audit)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -8318,3 +8318,160 @@ The following are deliberately **not assumed approved** by this design:
 - An earlier explicit/manual deployment request for the then-current head returned HTTP 402 `api-deployments-free-per-day`; nevertheless the Git-connected deployment for the subsequent plan commit was created automatically and reached READY. Therefore the current F1 blocker is the API runtime 500, not inability to create a Preview for that HEAD.
 - F1 status: Migration 041 Production application and schema/privilege verification PASS; latest-head Preview READY and root smoke PASS; API health smoke FAIL. Do not close F1 until the serverless invocation failure is diagnosed, corrected, and `/api/v1/health` plus required authorized endpoint smoke pass on the then-current HEAD.
 - F0 status remains as owner-recorded: finalization is pending Vercel quota recovery and exact current F0 HEAD Preview/smoke revalidation. Do not infer F0 closure from the F1 Preview.
+
+
+---
+
+## 56.11 F2.1–F2.3 owner decisions — 19 November 2026
+
+The owner confirmed the following design decisions for the first three F2 workstreams:
+
+1. **Supplier identity = company.** A supplier is represented by one legal/business organization that may own or operate multiple PKS, KCP, integrated mill/KCP, collection points and warehouses.
+2. **Quality approval = per lot.** Quality disposition is decided against a specific inventory/production lot and the applicable buyer requirement/specification version; supplier qualification is a separate dimension.
+3. **Inventory authority = immutable movement ledger.** Every stock change is recorded as a movement; the lot balance and reservation/hold counters are controlled projections, not independent sources of truth.
+
+These decisions authorize architecture design and read-only schema/source reconciliation only. They do not authorize F2 implementation, Production DDL, data seeding, provider activation, Git merge or deployment.
+
+## 56.12 F2.1–F2.3 Production schema and API audit — read-only, 19 November 2026
+
+### 56.12.1 Audit boundary and evidence
+
+- Target inspected read-only: Neon project `purple-base-63944903`, Production branch `br-damp-shape-b3xlh4nr`, database `neondb`.
+- Git source inspected on `f1/project-scoped-cob-20261119`; PR #2 remains OPEN / DRAFT and is not merged.
+- Production migration ledger verified through row 41. Migration 041 `041_finance_notification_rls_recipient_guard.sql` is `applied` with SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- Read-only table inventory returned 153 public tables/views. The operational tables sampled for F2.1–F2.3 contain zero business rows; `product_catalog` has one reference row and `export_document_types` has eight reference rows. No test/business fixture was inserted.
+- Source evidence: `src/index.ts` blob `8b1381e352bb24f684752b193b57f03ce1086376`; `src/schema.ts` blob `556dd9df4d5e160598332b51532f18f8523f7c00`; `src/route-registry.test.ts` blob `0a056aced534ee33e0590ff568fed44af08009c9`.
+- No SQL statement that mutates schema or business data was executed. No Neon branch was created.
+
+### 56.12.2 Existing F2.1 supplier/company and facility foundation
+
+Existing tables and relationships:
+
+- `partner_organizations`: canonical legal entity with legal/trading name, organization type, country, registration identifiers, encrypted tax identifier, contact details, verification status and provenance.
+- `vendors`: supplier/vendor role adapter linked to `partner_organizations` through nullable `organization_id`.
+- `project_supplier_participation`: Project-scoped supplier participation currently links `project_id` to `vendor_id` and participation type.
+- `pks_sites`: facility master with `organization_id`, facility type, operating status, verification status, address and coordinates.
+- `facility_capacity_records`, `facility_certifications`, `facility_products`, `facility_contacts`, and `facility_operating_periods`: capacity, certification, product capability, contacts and operating evidence.
+- `production_batches`: production batch linked to facility, Project (nullable), product and variant.
+
+Architecture decision: retain `partner_organizations` as the canonical company identity; do not create another supplier/company master. Treat `vendors` as the compatibility/participation adapter until a full reference audit proves it can be safely consolidated. Treat `pks_sites.organization_id` as the facility-to-company ownership/operator relation. Preserve Project participation separately from global legal identity.
+
+Gaps/risks found:
+
+- `vendors.organization_id` is nullable and not unique; the database does not currently guarantee one vendor adapter per company.
+- `project_supplier_participation` references `vendors`, not `partner_organizations` directly. All company-to-Project authorization therefore depends on the vendor mapping being complete and unambiguous.
+- `partner_organizations` has SELECT policy for scoped partner permission plus platform-admin ALL, but no ordinary runtime INSERT/UPDATE policy. Company onboarding/maintenance is therefore not a complete partner self-service workflow.
+- `pks_sites` and `vendors` have broad member-read policies (`pke_has_any_project_access()`) rather than facility/partner-specific read scope. Confirm whether a shared directory is intended; otherwise narrow visibility before external partner onboarding.
+- No supplier, partner-organization, facility, facility-capacity, facility-certification or facility-product CRUD API route was found in `src/index.ts`.
+
+### 56.12.3 Existing F2.2 buyer, matching and quality foundation
+
+Existing tables:
+
+- Buyer side: `buyers`, `buyer_facilities`, `buyer_product_requirements`, `buyer_requirement_attributes`, and `buyer_demand_forecasts`.
+- Product/specification side: `product_catalog`, `product_variants`, `product_attributes`, `product_specifications`, and `project_product_specifications`.
+- Matching side: `matching_runs` and `matching_candidates`, including algorithm version, input snapshot, hard-filter failures, fit/quality/availability/logistics/reliability scores, explanations, freshness and source evidence.
+- Quality side: `product_quality_samples` and `product_quality_results`, including sample method, sample type, lab reference, typed result values, unit, measurement basis, method code, detection limit, uncertainty and result review status.
+
+Positive findings:
+
+- Matching and quality tables have RLS enabled and FORCE ROW LEVEL SECURITY; their policies are permission/project aware.
+- Buyer requirement attributes already support typed numeric/text/value constraints, operators, unit and measurement basis.
+- Product specifications and buyer requirements are versioned and have effective-date fields.
+- Quality results require exactly one typed result value and support review/retest states.
+
+Gaps/risks found:
+
+- `product_quality_samples.project_id` and `lot_id` are nullable. This does not enforce the owner decision that every lot quality decision must be anchored to a specific lot and Project. The sample-to-lot Project relationship is not protected by a composite foreign key.
+- Quality result rows are not, by the inspected table/trigger inventory, aggregated into a single controlled lot-level quality disposition. Do not equate a reviewed individual result with a lot approval.
+- No dedicated Certificate of Analysis (COA) aggregate/entity linked to lot + sample + buyer requirement version was found. `project_export_documents` is the Project export-document workflow and is linked to regulatory/project document requirements, not directly to a quality lot/sample. It may store a COA file only after an explicit traceability design; it is not itself a complete COA model.
+- `matching_runs` and `matching_candidates` exist, but no buyer-requirement, sample, laboratory, quality-approval, matching-run or COA API route was found in `src/index.ts`.
+- `buyers` API POST/PATCH routes exist, but the current RLS policies show ordinary SELECT plus platform-admin ALL; runtime buyer writes by non-platform-admin users are not authorized by the inspected policies. Confirm intended ownership before exposing buyer CRUD.
+
+### 56.12.4 Existing F2.3 inventory and inland-logistics foundation
+
+Existing tables:
+
+- Inventory: `inventory_lots`, `inventory_movements`, `inventory_reservations`, `inventory_holds`, `inventory_reconciliations`.
+- Logistics: `transport_legs`, `truck_trips`, `tracking_events`, `tracking_evidence`.
+- Warehouse: `warehouses`, `warehouse_zones`, `warehouse_bins`, `warehouse_reservations`, `warehouse_receipts`.
+- Shipment bridge: `shipments`, `shipment_allocations`, loading tables and shipment events.
+
+Positive database controls already present:
+
+- New `inventory_lots` must start with zero on-hand, held and reserved quantities; opening stock must be posted through a receipt/adjustment movement.
+- `inventory_movements` has a required idempotency key, project/lot/unit/actor guard, movement application trigger and immutable-history trigger. Posted/reversed/adjusted movements cannot be edited or deleted; corrections use compensating movements.
+- Movement application locks the lot row and updates lot quantity/location transactionally. It rejects negative stock and consumption of held/reserved stock.
+- Reservation and hold guard/counter triggers lock the lot, validate available quantity and maintain `reserved_quantity` / `held_quantity` projections. Reservation/hold histories are retained and terminal transitions are controlled.
+- Shipment allocation guards require a matching shipment, lot, Project, unit and reservation; constrain allocation totals and loaded quantities; and create outbound inventory issue movements when loading is recorded.
+- Warehouse receipt guard makes measured quantity and capture identity immutable, requires an independent reviewer, and requires lot, weighbridge ticket and GPS evidence before verification. A verified/partial receipt posts an inventory movement in the same database transaction.
+- Project-scoped RLS policies and database guards provide important cross-Project and state-transition protections. RLS permitting a statement is not by itself sufficient to bypass the domain triggers.
+
+Critical API/schema drift found in `src/index.ts`:
+
+1. `POST /api/v1/inventory-lots` accepts a non-zero opening quantity, but the Production trigger rejects non-zero initial lot balances. The route must create a zero-balance lot and use a controlled receipt/adjustment workflow for opening stock.
+2. `POST /api/v1/inventory-movements` omits required `idempotency_key`; the table and trigger reject a movement without it. The route also exposes a generic movement status/type payload that must be constrained to valid domain transitions.
+3. `POST /api/v1/inventory-reservations` references `unit`, `reference_id`, and `reference_type`, which are not Production columns; Production uses `unit_code`, `buyer_id`, and `shipment_id`. The route also omits required `created_by`. The database guard independently checks availability using on-hand minus held and reserved counters.
+4. `POST /api/v1/inventory-holds` references `held_quantity`, `unit`, and `idempotency_key`, which are not Production columns; Production uses `quantity`, `unit_code`, `hold_type`, and `placed_by`. The route omits required hold identity/actor fields.
+5. `POST /api/v1/shipment-allocations` references `reference_id` / `reference_type`, omits required `shipment_id`, `reservation_id`, and attempts status `active`. Production requires an initial `draft` state; active allocation transitions require a matching reservation. The route contract is not compatible with the live schema/triggers.
+6. `PATCH /api/v1/warehouse-receipts/:id` attempts to modify measured `received_quantity` / `unit`, which the Production receipt guard makes immutable. It does not supply database-managed reviewer identity/time or the GPS/weighbridge evidence needed for verification. The current route therefore cannot complete the verified/partial receipt workflow.
+7. The receipt POST route can create a pending receipt but does not accept the complete GPS evidence tuple needed for verification.
+8. No supplier/facility/product/quality/matching routes were found. Existing operational API routes are not a complete F2.1–F2.3 vertical slice.
+
+These are code/schema contract defects, not evidence that the Production tables themselves need to be recreated. Fix the API contract and transactional service layer before proposing new tables.
+
+### 56.12.5 Required reconciliation before implementation
+
+- Produce a field-by-field API DTO ↔ live Production schema ↔ trigger/policy contract for every F2.1–F2.3 write operation.
+- Resolve canonical company-to-vendor mapping and enforce a unique/explicit mapping rule only after checking all existing foreign-key references and role semantics.
+- Decide whether supplier/facility master data is a shared directory or restricted to participating Projects/partner organizations; align RLS accordingly.
+- Define lot quality disposition as a controlled, version-aware decision over sample results and the applicable buyer requirement/specification; design COA traceability to lot, sample, laboratory result set and requirement snapshot.
+- Preserve ledger authority: opening lot at zero; receipts/movements post through database-controlled functions/triggers; reservations and holds use current counter projections; allocations must reference a reservation and shipment; all operations idempotent and transactional.
+- Validate warehouse receipt review with independent checker/reviewer, timestamp, GPS, weighbridge evidence and receipt status transition.
+- Audit vehicle identity semantics: `truck_trips.vehicle_id` currently references `service_vendors`; confirm whether this is intentionally a fleet/vendor record or whether a separate vehicle identity already exists elsewhere before changing the relationship.
+- Run RLS negative tests for cross-Project and partner-to-partner reads/writes, including company, facility, buyer requirement, sample/result, matching, lot, reservation, receipt and shipment allocation.
+- Audit API error handling, route authorization, transaction wrapper, row locking, idempotency and retry semantics; remove stale route SQL that references absent columns/statuses.
+- No schema migration should be drafted until these checks establish a precise, unavoidable gap. Any later Production migration requires its exact SQL and SHA-256 to be separately approved by the owner.
+
+## 56.13 F2.1–F2.3 target architecture and delivery gates
+
+### 56.13.1 Domain architecture
+
+Retain the existing modular-monolith architecture. Use explicit domain/service boundaries over the current Production schema:
+
+- **Partner & Facility domain (F2.1):** `partner_organizations` is the company identity; `vendors` is the supplier participation adapter; `project_supplier_participation` grants Project-scoped commercial/operational participation; `pks_sites` is the facility master owned/operated by a company; capacity, certification, operating period and product capability are separate evidence records.
+- **Buyer Demand & Matching domain (F2.2):** buyer organization/facilities and buyer requirements are versioned inputs; hard filters determine eligibility; matching scores are advisory and explainable; matching candidate acceptance does not itself reserve or release stock.
+- **Quality domain (F2.2):** a sample belongs to one lot and Project; laboratory results are immutable/versioned evidence; an authorized reviewer decides the lot disposition against a specific requirement/specification version; COA is a traceable output, not an automatic synonym for raw laboratory results.
+- **Inventory Ledger domain (F2.3):** `inventory_movements` is the immutable stock journal; `inventory_lots.quantity/location` are trigger-maintained projections; reservation/hold counters are projections maintained from their own state records; `available = on_hand - reserved - held` after unit/location/status normalization.
+- **Inland Logistics domain (F2.3):** transport leg → truck trip → tracking/checkpoint evidence → pending warehouse receipt → independent receipt review → posted receipt movement. Shipment allocation is a downstream consumer of an active reservation and shipment, not an alternative stock ledger.
+
+### 56.13.2 End-to-end traceability
+
+`partner_organization → vendor adapter → Project supplier participation → facility → facility product/capacity/certification → production batch → inventory lot → quality sample/results/lot disposition/COA → stock movements/location → reservation/hold → shipment allocation → loading movement → truck trip/warehouse receipt/evidence`.
+
+The buyer-side trace is `buyer organization/facility → buyer requirement version + attribute constraints → matching run/input snapshot → candidate + hard-filter evidence → human review`. A match is advisory; allocation remains a separate permission-checked transaction.
+
+### 56.13.3 Required implementation sequence (after F0/F1 closeout)
+
+1. **F2.1-A — Canonical identity and visibility:** reconcile organization/vendor/facility ownership, participation and partner isolation; no new master table by default.
+2. **F2.1-B — Supplier/facility vertical slice:** read/create/update/submit/verify workflow, capacity/specification/certification provenance, role-aware UI and API.
+3. **F2.2-A — Buyer requirement and matching:** buyer requirement versioning, typed attributes, hard-filter rules, deterministic algorithm version/input snapshot and explainable candidate evidence.
+4. **F2.2-B — Lot quality and COA:** sample custody, lab result validation, reviewer decision, retest/rejection, requirement-version comparison and COA traceability.
+5. **F2.3-A — Inventory API reconciliation:** repair DTO/schema mismatches against the current trigger contracts; opening lot, movement, reservation and hold workflows.
+6. **F2.3-B — Warehouse and inland logistics:** complete GPS/weighbridge/reviewer receipt workflow, trip/checkpoint evidence and exception handling.
+7. **F2.3-C — Allocation and end-to-end backtest:** reservation-to-shipment allocation-to-loading movement; concurrent reservation, retry/idempotency, partial receipt, reversal, unit mismatch and cross-Project negative tests.
+
+### 56.13.4 Acceptance gates
+
+- Existing Production schema reused unless a documented gap proves a new object necessary.
+- API SQL references only columns/status values that exist in the current Production schema; contract tests compare against the live schema manifest.
+- No double counting: movement journal and trigger-maintained lot balance reconcile; reservation/hold counters reconcile to their active state rows.
+- No over-reservation under concurrency; row locks and database guards remain authoritative.
+- Posted movement, measured receipt, sample/result evidence and approved specification snapshots are not destructively overwritten.
+- Supplier company, facility, buyer, Project and partner access are tested across positive and negative authorization cases.
+- Matching is explainable and advisory; quality approval is human-authorized per lot; no AI auto-approval.
+- All mutations are transactional, idempotent, auditable and use explicit state transitions.
+- CI + exact-head Preview + authorized smoke evidence required before release; no Production deployment without owner approval.
+- F0 and F1 closeout remain prerequisites. F1 latest Preview/API runtime smoke blocker recorded in Section 56.10 remains open; F2 design does not waive it.
+
+**F2.1–F2.3 status: DESIGN + READ-ONLY AUDIT COMPLETE FOR THIS PASS; IMPLEMENTATION NOT STARTED / NOT AUTHORIZED. No Production schema/data mutation, Git merge, Vercel deployment or provider activation was performed.**

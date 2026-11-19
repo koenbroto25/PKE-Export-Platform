@@ -13,7 +13,7 @@ const ledger = readJson("migration_history_manifest_001_038.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
-if (ledger.applied_count !== 39 || ledger.entries.length !== 39) fail("Production history ledger must contain exactly 39 entries.");
+if (ledger.applied_count !== 40 || ledger.entries.length !== 40) fail("Production history ledger must contain exactly 39 entries.");
 if (ledger.project_id !== "purple-base-63944903" || ledger.branch_id !== "br-damp-shape-b3xlh4nr" || ledger.database !== "neondb") fail("history ledger target identity mismatch.");
 
 for (let i = 0; i < ledger.entries.length; i++) {
@@ -47,7 +47,7 @@ if (!applied038 || applied038.id !== 38 ||
   fail("Migration 038 must match the exact hash-verified applied Production ledger entry.");
 }
 if ((ledger.pending_migrations || []).some((m) => m.file === "038_admin_managed_neon_auth_user_lifecycle.sql" || m.file === "039_project_scoped_contract_cob_cycles.sql")) {
-  fail("Migrations 038-039 are already applied and must not remain pending.");
+  fail("Migrations 038-040 are already applied and must not remain pending.");
 }
 const expected039 = "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168";
 const applied039 = ledger.entries[38];
@@ -59,15 +59,27 @@ if (!applied039 || applied039.id !== 39 ||
   fail("Migration 039 must match the exact hash-verified applied Production ledger entry.");
 }
 
+const expected040 = "3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f";
+const applied040 = ledger.entries[39];
+if (!applied040 || applied040.id !== 40 ||
+    applied040.filename !== "040_finance_reporting_notifications.sql" ||
+    applied040.sha256 !== expected040 || applied040.status !== "applied" ||
+    applied040.source_sha_verified !== true ||
+    hashFile("migrations/040_finance_reporting_notifications.sql") !== expected040) {
+  fail("Migration 040 must match the exact hash-verified applied Production ledger entry.");
+}
+
 for (const required of ["MIGRATE_038_CONFIRM", "MIGRATION_038_APPROVED_SHA256", "MIGRATION_038_APPROVAL_REFERENCE", expected038]) {
   if (!runner.includes(required)) fail("Migration runner is missing explicit 038 approval guard: " + required);
 }
 if (!runner.includes("Production Migration 039 is already applied and ledger-verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe Migration 039 verification-only path.");
 if (!runner.includes("verifiedManifest.entries?.length !== 39")) fail("Migration runner does not require exact Production history length 001-039.");
-if (!runner.includes("Production migration_history mismatch at sequence")) fail("Migration runner is missing exact 001-039 history reconciliation.");
+if (!runner.includes("Production migration_history mismatch at sequence")) fail("Migration runner is missing exact history reconciliation.");
+if (!runner.includes("Production Migration 040 is already applied and ledger-verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe Migration 040 verification-only path.");
+if (!runner.includes("verifiedManifest.entries?.length !== 40")) fail("Migration runner does not require exact Production history length 001-040.");
 if (!runner.includes("Production history ledger:")) fail("Migration status mode does not compare the verified Production ledger.");
 if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");
 
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028, verified Production history 001-039, exact source hashes 036-039, and Migration 039 is already applied.");
+console.log("PASS: baseline 001-028, verified Production history 001-040, exact source hashes 036-040, and Migration 040 is already applied.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

@@ -3359,15 +3359,14 @@ app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, re
          (id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, created_at)
        SELECT gen_random_uuid(), gen_random_uuid(), $1::uuid, recipient_id, $2::uuid,
          $3, $4, 'normal', 'finance_report', now()
-         FROM recipients
-       RETURNING id, event_id, recipient_user_id`,
+         FROM recipients`,
       [projectId, requesterId,
        `Laporan keuangan baru — ${projectRows[0].name}`,
        `Finance mengirim laporan periode ${periodStart} sampai ${periodEnd}. Laporan siap ditinjau.`],
     );
     return res.status(201).json({
       financialReport: reportRun,
-      notificationsCreated: notificationRows.length,
+      notificationsCreated: notificationRows.rowCount ?? 0,
       notifiedRoles: ["pm", "admin"],
       paymentExecution: false,
     });

@@ -18,6 +18,8 @@ import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePaylo
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
 import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
+import { isValidCashAdvanceRequest, canDecideCashAdvance } from "./f1-cash-advance-rules.js";
+import { listCashAdvances, createCashAdvance, decideCashAdvance } from "./cash-advance-service.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -1008,6 +1010,29 @@ async function requireProjectPermission(
     [assignmentRows[0].role_code, assignmentRows[0].project_role_id, pid, permissionCode],
   );
   return true;
+}
+
+async function findExplicitProjectPermission(req: express.Request, projectId: string, permissionCodes: string[]): Promise<any | null> {
+  const principalId=req.user?.id; if(!principalId) return null;
+  const {rows}=await req.db.query(
+    `SELECT a.project_role_id,pr.role_code,perm.code AS permission_code
+       FROM public.project_role_assignments a
+       JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+       JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id
+       JOIN public.project_role_permissions prp ON prp.project_id=a.project_id AND prp.project_role_id=pr.id
+       JOIN public.permissions perm ON perm.id=prp.permission_id AND perm.is_active=true
+       JOIN public.users u ON u.id=a.user_id AND u.is_active=true
+      WHERE a.project_id=$1::uuid AND a.user_id=$2::uuid AND a.is_active=true AND a.revoked_at IS NULL
+        AND (a.expires_at IS NULL OR a.expires_at>now())
+        AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+        AND pr.is_active=true AND perm.code=ANY($3::text[])
+      ORDER BY array_position($3::text[],perm.code),a.assigned_at DESC LIMIT 1`,
+    [projectId,principalId,permissionCodes]);
+  return rows[0]??null;
+}
+async function applyExplicitProjectPermissionContext(req: express.Request,projectId: string,permission:any):Promise<void>{
+  await req.db.query("SELECT set_config('app.current_role',$1::text,true),set_config('app.current_project_role_id',$2::text,true),set_config('app.current_project_id',$3::text,true),set_config('app.current_permission_code',$4::text,true)",
+    [permission.role_code,permission.project_role_id,projectId,permission.permission_code]);
 }
 
 async function getProjectOr404(
@@ -3705,6 +3730,66 @@ app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, re
       paymentExecution: false,
     });
   } catch (error) {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+// Cash Advance requestor → independent Finance decision vertical slice.
+app.get("/api/v1/currencies",requireAuth,async(req:express.Request,res:express.Response)=>{
+  try{const {rows}=await req.db.query("SELECT id,code,name,is_functional FROM public.currencies WHERE is_active=true ORDER BY is_functional DESC,code");return res.json({currencies:rows});}
+  catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.get("/api/v1/cash-advances",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";
+  if(!projectId)return res.status(400).json({error:"projectId is required."});
+  try{
+    const permission=await findExplicitProjectPermission(req,projectId,["finance.view","finance.cash_advance.request"]);
+    if(!permission)return res.status(403).json({error:"Explicit active Project role permission required.",code:"PROJECT_PERMISSION_REQUIRED"});
+    await applyExplicitProjectPermissionContext(req,projectId,permission);
+    const decisionPermission=await findExplicitProjectPermission(req,projectId,["finance.update"]);
+    const {rows}=await listCashAdvances(req.db,projectId);
+    return res.json({cashAdvances:rows,
+      canRequest:Boolean(await findExplicitProjectPermission(req,projectId,["finance.cash_advance.request"])),
+      canApprove:decisionPermission?.role_code==="finance",
+      canViewAll:Boolean(await findExplicitProjectPermission(req,projectId,["finance.view"]))});
+  }catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.post("/api/v1/cash-advances",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const {projectId,amount,currencyId,purpose,advanceDate}=req.body??{};
+  if(typeof projectId!=="string"||!projectId||!isValidCashAdvanceRequest({amount,currencyId,purpose,advanceDate}))
+    return res.status(400).json({error:"projectId, positive amount, valid currencyId, purpose and advanceDate are required.",code:"INVALID_CASH_ADVANCE_REQUEST"});
+  try{
+    const permission=await findExplicitProjectPermission(req,projectId,["finance.cash_advance.request"]);
+    if(!permission)return res.status(403).json({error:"Cash Advance request permission is not assigned to this active Project role.",code:"CASH_ADVANCE_REQUEST_PERMISSION_REQUIRED"});
+    await applyExplicitProjectPermissionContext(req,projectId,permission);
+    const {rows:projects}=await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true",[projectId]);
+    if(!projects.length)return res.status(404).json({error:"Active Project not found."});
+    const {rows:currencies}=await req.db.query("SELECT id FROM public.currencies WHERE id=$1::uuid AND is_active=true",[currencyId]);
+    if(!currencies.length)return res.status(400).json({error:"Currency is invalid or inactive."});
+    const cashAdvance=await createCashAdvance(req.db,{projectId,requestorId:req.user.id,amount:Number(amount),currencyId,purpose:purpose.trim(),advanceDate});
+    return res.status(201).json({cashAdvance});
+  }catch(error:any){
+    if(error?.code==="42501")return res.status(403).json({error:"Database RLS/requestor guard rejected the request.",code:"CASH_ADVANCE_RLS_DENIED"});
+    if(error?.code==="23503")return res.status(400).json({error:"Invalid Project or currency reference."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+app.patch("/api/v1/cash-advances/:id/decision",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const decision=req.body?.decision;
+  if(decision!=="approved"&&decision!=="rejected")return res.status(400).json({error:"decision must be approved or rejected."});
+  try{
+    const {rows}=await req.db.query("SELECT id,project_id,requestor_id,approval_status FROM public.cash_advances WHERE id=$1::uuid",[req.params.id]);
+    if(!rows.length)return res.status(404).json({error:"Cash Advance not found in an accessible Project."});
+    const current=rows[0],permission=await findExplicitProjectPermission(req,current.project_id,["finance.update"]);
+    if(!permission||permission.role_code!=="finance")return res.status(403).json({error:"Only an explicitly assigned Project Finance role may decide Cash Advances.",code:"FINANCE_DECISION_ROLE_REQUIRED"});
+    if(!canDecideCashAdvance({actorId:req.user.id,requestorId:current.requestor_id,roleCode:permission.role_code,currentStatus:current.approval_status,decision}))
+      return res.status(409).json({error:"Maker-checker or state-transition rule rejected this decision.",code:"CASH_ADVANCE_DECISION_CONFLICT"});
+    await applyExplicitProjectPermissionContext(req,current.project_id,permission);
+    const cashAdvance=await decideCashAdvance(req.db,{id:current.id,projectId:current.project_id,actorId:req.user.id,decision});
+    if(!cashAdvance)return res.status(409).json({error:"Cash Advance changed; refresh before deciding.",code:"CASH_ADVANCE_STATE_CHANGED"});
+    return res.json({cashAdvance});
+  }catch(error:any){
+    if(error?.code==="42501")return res.status(403).json({error:"Database maker-checker/RLS guard rejected this decision.",code:"CASH_ADVANCE_RLS_DENIED"});
     return res.status(500).json(internalServerErrorPayload());
   }
 });

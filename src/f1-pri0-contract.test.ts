@@ -279,6 +279,10 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
     expect(createBlock).toContain("PM_ADMIN_DECISION_REQUIRED");
     expect(revokeBlock).toContain("PM_ADMIN_DECISION_REQUIRED");
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("PM role assignment and revocation require an explicit Platform Admin decision");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("PM appointments cannot be accepted through invitations");
+    const inviteStart = INDEX_SRC.indexOf('app.post("/api/v1/projects/:id/members/invite"');
+    const inviteEnd = INDEX_SRC.indexOf('app.patch("/api/v1/projects/:id/members/:memberId"', inviteStart);
+    expect(INDEX_SRC.slice(inviteStart, inviteEnd)).toContain("PM_ADMIN_DECISION_REQUIRED");
   });
 
   it("keeps membership lifecycle separate from role lifecycle", () => {

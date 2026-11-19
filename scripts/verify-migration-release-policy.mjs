@@ -13,7 +13,7 @@ const ledger = readJson("migration_history_manifest_001_038.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
-if (ledger.applied_count !== 40 || ledger.entries.length !== 40) fail("Production history ledger must contain exactly 40 entries.");
+if (ledger.applied_count !== 41 || ledger.entries.length !== 41) fail("Production history ledger must contain exactly 41 entries.");
 if (ledger.project_id !== "purple-base-63944903" || ledger.branch_id !== "br-damp-shape-b3xlh4nr" || ledger.database !== "neondb") fail("history ledger target identity mismatch.");
 
 for (let i = 0; i < ledger.entries.length; i++) {
@@ -71,12 +71,26 @@ if (!applied040 || applied040.id !== 40 ||
 
 
 const expected041 = "96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770";
-const pending041 = (ledger.pending_migrations || []).find((m) =>
-  (m.file === "migrations/041_finance_notification_rls_recipient_guard.sql" || m.file === "041_finance_notification_rls_recipient_guard.sql") &&
-  m.sha256 === expected041
-);
-if (!pending041 || hashFile("migrations/041_finance_notification_rls_recipient_guard.sql") !== expected041) {
-  fail("Migration 041 must be source-hash verified and remain pending until explicit Production approval.");
+const applied041 = ledger.entries[40];
+if (!applied041 || applied041.id !== 41 ||
+    applied041.filename !== "041_finance_notification_rls_recipient_guard.sql" ||
+    applied041.sha256 !== expected041 || applied041.status !== "applied" ||
+    applied041.source_sha_verified !== true ||
+    hashFile("migrations/041_finance_notification_rls_recipient_guard.sql") !== expected041) {
+  fail("Migration 041 must match the exact hash-verified applied Production ledger entry.");
+}
+
+const expectedPending = [
+  ["042_inventory_reservation_release_reason.sql", "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996"],
+  ["043_project_role_assignments_and_history.sql", "3e176c555d1f4552280e1b4af221fa11de2c62da265fac4774cbc695967139a1"],
+  ["044_project_change_delete_permission.sql", "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d"],
+];
+if ((ledger.pending_migrations || []).length !== expectedPending.length) fail("Exactly migrations 042-044 must remain pending.");
+for (const [file, sha] of expectedPending) {
+  const pending = (ledger.pending_migrations || []).find((m) =>
+    (m.file === "migrations/" + file || m.file === file) && m.sha256 === sha
+  );
+  if (!pending || hashFile("migrations/" + file) !== sha) fail("Pending migration source/hash mismatch: " + file);
 }
 
 for (const required of ["MIGRATE_038_CONFIRM", "MIGRATION_038_APPROVED_SHA256", "MIGRATION_038_APPROVAL_REFERENCE", expected038]) {
@@ -87,10 +101,16 @@ if (!runner.includes("verifiedManifest.entries?.length !== 39")) fail("Migration
 if (!runner.includes("Production migration_history mismatch at sequence")) fail("Migration runner is missing exact history reconciliation.");
 if (!runner.includes("Production Migration 040 is already applied and ledger-verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe Migration 040 verification-only path.");
 if (!runner.includes("MIGRATE_041_CONFIRM") || !runner.includes("MIGRATION_041_APPROVED_SHA256") || !runner.includes("MIGRATION_041_APPROVAL_REFERENCE") || !runner.includes(expected041)) fail("Migration runner is missing exact Migration 041 owner-approval guards.");
-if (!runner.includes("verifiedManifest.entries?.length !== 40")) fail("Migration runner does not require exact Production history length 001-040.");
+for (const [n, sha] of [["042", expectedPending[0][1]], ["043", expectedPending[1][1]], ["044", expectedPending[2][1]]]) {
+  if (!runner.includes("MIGRATE_" + n + "_CONFIRM") ||
+      !runner.includes("MIGRATION_" + n + "_APPROVED_SHA256") ||
+      !runner.includes("MIGRATION_" + n + "_APPROVAL_REFERENCE") ||
+      !runner.includes(sha)) fail("Migration runner is missing exact Migration " + n + " owner-approval guards.");
+}
+if (!runner.includes("exact036to044") || !runner.includes("verifiedManifest.entries?.length !== 41")) fail("Migration runner does not require exact Production history 001-041 before 042-044.");
 if (!runner.includes("Production history ledger:")) fail("Migration status mode does not compare the verified Production ledger.");
 if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");
 
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028, verified Production history 001-040, exact source hashes 036-040, and Migration 041 is hash-verified but pending explicit Production approval.");
+console.log("PASS: baseline 001-028, verified Production history 001-041, exact source hashes 036-041, and pending migrations 042-044 are hash-pinned with owner-approval guards.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

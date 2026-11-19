@@ -4161,11 +4161,11 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
     const before = existingRows[0] || null;
     let member;
     if (before) {
-      const { rows } = await req.db.query(
-        "UPDATE public.project_members SET is_active = true, expires_at = NULL, deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *",
-        [before.id, projectId],
-      );
-      member = rows[0];
+      if (before.is_active !== true || before.deactivated_at != null ||
+          (before.expires_at && new Date(before.expires_at).getTime() <= Date.now())) {
+        return res.status(409).json({ error: "Project membership is inactive or expired. An Admin must explicitly reactivate membership before assigning another role.", code: "MEMBERSHIP_REACTIVATION_REQUIRED" });
+      }
+      member = before;
     } else {
       const { rows } = await req.db.query(
         "INSERT INTO public.project_members (project_id, user_id, project_role_id, is_active, joined_at, updated_at) VALUES ($1::uuid, $2::uuid, NULL, true, now(), now()) RETURNING *",
@@ -4325,6 +4325,10 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     if (candidateMemberships.length > 1) return res.status(409).json({ error: "Duplicate Project membership requires reconciliation.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
     const candidateMembership = candidateMemberships[0] ?? null;
     // Existing membership and role assignments are independent; appointing PM must not replace another role.
+    if (candidateMembership && (candidateMembership.is_active !== true ||
+        (candidateMembership.expires_at && new Date(candidateMembership.expires_at).getTime() <= Date.now()))) {
+      return res.status(409).json({ error: "Project membership is inactive or expired. Admin must explicitly reactivate membership before appointing this user as PM.", code: "MEMBERSHIP_REACTIVATION_REQUIRED" });
+    }
 
     if (current && current.user_id !== userId) {
       const { rows: oldRows } = await req.db.query(
@@ -4348,14 +4352,7 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
 
     let appointed;
     if (candidateMembership) {
-      const { rows } = await req.db.query(
-        `UPDATE public.project_members
-            SET is_active = true, expires_at = NULL,
-                deactivated_at = NULL, deactivated_by = NULL, updated_at = now()
-          WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *`,
-        [candidateMembership.id, projectId],
-      );
-      appointed = rows[0];
+      appointed = candidateMembership;
     } else {
       const { rows } = await req.db.query(
         `INSERT INTO public.project_members

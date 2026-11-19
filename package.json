@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "vitest run src/runtime-security.test.ts src/storage-fx-gl.test.ts src/http-errors.test.ts src/neon-auth-webhook.test.ts src/admin-user-lifecycle.contract.test.ts src/f1-contract-program-authorization.test.ts src/runtime-readiness.test.ts src/serverless-handler.test.ts",
+    "test": "vitest run src/runtime-security.test.ts src/storage-fx-gl.test.ts src/http-errors.test.ts src/neon-auth-webhook.test.ts src/admin-user-lifecycle.contract.test.ts src/f1-contract-program-authorization.test.ts src/runtime-readiness.test.ts src/serverless-handler.test.ts src/f1-pri0-contract.test.ts",
     "test:integration": "node scripts/test-db/run-integration.mjs",
     "test:integration:preflight": "node scripts/test-db/preflight.mjs",
     "frontend:dev": "cd frontend && npm run dev",

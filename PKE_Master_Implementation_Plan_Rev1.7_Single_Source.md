@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.23 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.24 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.23 (19 November 2026 — F1 serverless runtime crash containment and Preview readiness diagnostics)  
+**Revision:** 2.24 (19 November 2026 — F1 Preview liveness/readiness smoke after crash containment)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -8505,3 +8505,28 @@ The buyer-side trace is `buyer organization/facility → buyer requirement versi
 - F1 database readiness is still BLOCKED until an owner-approved, policy-compliant Preview database target is configured. Do not use Production credentials in Preview, do not reuse the expired F0 exception, and do not create a Neon branch without explicit owner authorization.
 - F1 cannot be marked COMPLETE until a valid Preview database configuration is present and `GET /api/v1/health` returns HTTP 200, followed by the required authenticated/authorized F1 smoke tests.
 - No Neon schema/data mutation, Vercel environment-variable mutation, Git merge, or Production deployment was performed by this remediation.
+
+
+---
+
+## 56.15 F1 runtime smoke — 19 November 2026
+
+### Latest code and Preview evidence
+
+- Latest code commit at verification: `0fc41a33c48c2b9ed9d51cae79b524ada9eb47f7` on `f1/project-scoped-cob-20261119`.
+- Vercel Preview: deployment `dpl_CtqtaNw1azZL7fcqTdDgw7e7AzMU`, URL `https://pke-export-platform-oaqo1jm7m-apphubsite.vercel.app`, state READY, environment Preview, runtime Node.js 26.
+- Frontend root smoke: HTTP 200.
+- `GET /api/v1/health/live`: HTTP 200, body `{"status":"alive"}`.
+- `GET /api/v1/health`: HTTP 503 Service Unavailable with code `RUNTIME_ENV_MISSING` and missing variable names `DATABASE_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`. This is the intended fail-closed readiness response; no secrets are returned.
+- Runtime logs for the new deployment show the serverless process loaded and remained alive. No process exit status 1 and no `FUNCTION_INVOCATION_FAILED` occurred for the liveness/readiness smoke. The 503 is an environment readiness blocker, not a function crash.
+- GitHub Unit Tests run `44473403788`: SUCCESS. GitHub Dependency Audit Evidence run `44473403866`: SUCCESS. Vercel build reached READY.
+- The first code commit's test run failed because the serverless-handler unit test imported the real runtime module and triggered its local fail-closed startup. The test was corrected to mock the runtime module; the latest commit's Unit Tests pass. The failed run is retained as history, not accepted evidence.
+
+### F1 closeout decision
+
+- **Resolved:** the original Vercel serverless HTTP 500 / process-exit failure caused by missing Preview environment variables. The handler now returns controlled readiness status and keeps liveness available.
+- **Still blocked:** F1 database readiness and authenticated/authorized endpoint smoke, because the F1 Preview branch has no permitted Preview database configuration.
+- The existing preflight policy expressly denies Production database access from Preview and only allowed the temporary F0 validation exception for the F0 branch; that exception is expired and not valid for F1. Do not copy Production credentials into Preview or bypass the preflight.
+- No new Neon branch, alternate DB, mock Production data, Neon schema/data mutation, Vercel environment-variable mutation, Production deployment, or Git merge was performed.
+- F1 remains OPEN / DRAFT and NOT COMPLETE. To close it, the owner must authorize a policy-compliant F1 Preview database target or explicitly revise the Preview database policy. Then provision the required Preview environment variables, obtain `GET /api/v1/health` HTTP 200, and run authenticated/authorized F1 smoke tests on the exact latest commit.
+- This section supersedes the earlier runtime-500 failure status in Section 56.10 for the latest code/Preview commit; the database-readiness blocker remains active.

@@ -255,6 +255,8 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).not.toContain("app.migration_context");
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("pke_is_platform_admin()");
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("pg_advisory_xact_lock");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("IF TG_OP = 'INSERT' OR NEW.is_active = true THEN");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("Revocation/expiry must remain possible after membership or role deactivation.");
   });
 
   it("backfills every legacy membership role before installing runtime assignment guards", () => {

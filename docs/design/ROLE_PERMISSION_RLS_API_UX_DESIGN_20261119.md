@@ -175,3 +175,26 @@ Migration numbering follows actual repo manifest and Production migration histor
 5. Validate PKE cargo classification/safety profile and current regulatory source with competent authorities before codifying cargo-specific safety rules.
 
 **Approval boundary:** This is a design artifact only. Each implementation package must provide exact SQL/code artifacts, non-mutating test evidence and SHA-256; explicit owner approval is required before Production DDL or role/permission DML. Approval of this design does not authorize Production changes.
+
+## 13. Additional audit finding — audit role identity is currently global, not Project-role-specific
+
+The request-scoped transaction middleware in `src/index.ts` sets:
+- `app.current_user_id = principal.id`
+- `app.current_role = principal.role`
+
+Here `principal.role` is resolved by `src/auth.ts` from the global `users.role` enum, not from the active Project role assignment. Several database audit triggers read `current_setting('app.current_role')`; the Project member role-change/revoke API also writes `req.user.role` into `audit_events.actor_role`.
+
+Consequences:
+- A user who is PM in Project Alpha and Finance in Project Beta can be attributed to their global account role rather than the exact Project role/assignment that authorized a specific action.
+- After multiple role assignments are introduced, audit records would still not reliably show which assignment granted the permission.
+- This violates the approved requirement that permission and audit identities remain separate for each role.
+
+Required design correction:
+1. Keep the global account identity and platform-admin status separate from Project role assignments.
+2. Authorization should return the exact active role-assignment ID and permission code that satisfied the check.
+3. Before a Project-scoped mutation, trusted server middleware sets transaction-local context for Project ID, selected role-assignment ID, Project role code and permission code. Do not accept these values from request body/headers.
+4. Database audit triggers validate the assignment against the current user, Project, active/expiry state and permission; then record the assignment ID and role code. Where multiple roles grant the same permission, use a deterministic selection rule and record the selected grant source.
+5. For read-all requests that union multiple roles, audit the user + Project + read-all capability; do not invent one role as the source if no single assignment is selected.
+6. Role grant/revoke events record grantor, target user, exact role assignment, reason, before/after state and timestamp; audit records remain append-only.
+
+This is a design-level finding. No transaction middleware, trigger or audit schema was changed.

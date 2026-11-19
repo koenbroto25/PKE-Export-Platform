@@ -15,6 +15,7 @@ import { detectManualTrialMode } from "./demo/mode.js";
 import { registerDemoApiRoutes } from "./demo/routes.js";
 import { isPositiveQuantity } from "./f1-contract-rules.js";
 import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
+import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -1003,38 +1004,9 @@ async function getProjectOr404(
 }
 
 function defaultPermissionsForRole(roleCode: string): string[] {
-  const base: string[] = ["project.view"];
-  const byRole: Record<string, string[]> = {
-    admin: [
-      "project.view", "project.members.view", "project.members.invite", "project.members.manage",
-      "project.roles.view", "project.roles.manage", "project.configuration.view",
-      "project.configuration.manage", "documents.view", "documents.create", "workflow.view",
-      "approvals.view", "notifications.view", "notifications.create", "reports.view"
-    ],
-    pm: [
-      "project.view", "project.update", "project.members.view", "project.configuration.view", "project.configuration.manage",
-      "contract.view", "manage_contract_programs", "shipping.view", "finance.view", "finance.create", "finance.update",
-      "documents.view", "documents.create", "workflow.view", "workflow.update", "approvals.view", "approvals.create",
-      "notifications.view", "notifications.create", "reports.view"
-    ],
-    checker: [
-      "project.view", "documents.view", "workflow.view", "approvals.view",
-      "notifications.view", "reports.view"
-    ],
-    warehouse: [
-      "project.view", "documents.view", "workflow.view", "notifications.view", "reports.view"
-    ],
-    finance: [
-      "project.view", "documents.view", "reports.view", "reports.create", "finance.view"
-    ],
-    buyer: [
-      "project.view", "documents.view", "reports.view", "shipment.view"
-    ],
-    supplier: [
-      "project.view", "documents.view", "reports.view", "shipment.view"
-    ]
-  };
-  return [...new Set([...base, ...(byRole[roleCode] || [])])];
+  // The source-controlled canonical catalogue is the only permission template.
+  // Legacy "admin" is intentionally not aliased to Project Admin.
+  return [...(getCanonicalRoleTemplate(roleCode)?.permissionCodes ?? [])];
 }
 
 // ============================================
@@ -1191,45 +1163,36 @@ app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Requ
          ON CONFLICT (project_id) DO NOTHING`,
         [projectId, JSON.stringify(defaultConfiguration), userId]
       );
-      const { rows: roleTemplates } = await dbClient.query(
-        "SELECT id, name, description FROM role_catalog WHERE is_active = true ORDER BY name"
+      // New Projects start with only the PM appointment slot. Platform Admin
+      // appoints the PM explicitly; operational templates are activated later
+      // by that PM and activation never creates user membership.
+      const pmTemplate = getCanonicalRoleTemplate("pm");
+      if (!pmTemplate) throw Object.assign(new Error("Canonical PM template is missing."), { status: 500 });
+      const { rows: pmRoleRows } = await dbClient.query(
+        `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
+         VALUES ($1::uuid, 'pm', $2::text, $3::text, true, $4::uuid, now(), now())
+         RETURNING id`,
+        [projectId, pmTemplate.label, pmTemplate.restrictions.join(" "), userId],
       );
-      const createdRoles: any[] = [];
-      for (const tmpl of roleTemplates) {
-        const { rows: roleRows } = await dbClient.query(
-          `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
-           VALUES ($1::uuid, $2::text, $3::text, $4::text, true, $5::uuid, now(), now())
-           RETURNING id`,
-          [projectId, tmpl.name, tmpl.name, tmpl.description || null, userId]
-        );
-        const projectRoleId = roleRows[0].id;
-        createdRoles.push({ projectRoleId, catalogRoleId: tmpl.id, roleCode: tmpl.name, name: tmpl.name });
-        const defaultPerms = defaultPermissionsForRole(tmpl.name);
-        for (const permCode of defaultPerms) {
-          const { rows: permRows } = await dbClient.query(
-            "SELECT id FROM permissions WHERE code = $1::text AND is_active = true LIMIT 1",
-            [permCode]
-          );
-          if (permRows.length > 0) {
-            await dbClient.query(
-              `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-               VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
-               ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
-              [projectId, projectRoleId, permRows[0].id, userId]
-            );
-          }
-        }
+      const pmRoleId = pmRoleRows[0].id;
+      const { rows: permissionRows } = await dbClient.query(
+        "SELECT id, code FROM permissions WHERE code = ANY($1::text[]) AND is_active = true",
+        [pmTemplate.permissionCodes],
+      );
+      const foundCodes = new Set(permissionRows.map((row: any) => row.code));
+      const missingCodes = pmTemplate.permissionCodes.filter((code) => !foundCodes.has(code));
+      if (missingCodes.length > 0) {
+        throw Object.assign(new Error(`Canonical PM permissions are missing: ${missingCodes.join(", ")}`), { status: 409 });
       }
-      const adminRole = createdRoles.find((r: any) => r.roleCode === "admin");
-      if (adminRole) {
-        // role_id -> role_catalog.id, project_role_id -> project_roles.id (no created_at column in project_members)
+      for (const permission of permissionRows) {
         await dbClient.query(
-          `INSERT INTO project_members (project_id, user_id, project_role_id, role_id, joined_at, is_active, updated_at)
-           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now(), true, now())
-           ON CONFLICT (project_id, user_id) DO NOTHING`,
-          [projectId, userId, adminRole.projectRoleId, adminRole.catalogRoleId || null]
+          `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
+           ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+          [projectId, pmRoleId, permission.id, userId],
         );
       }
+      const createdRoles = [{ projectRoleId: pmRoleId, roleCode: "pm", name: pmTemplate.label, awaitingAppointment: true }];
       await dbClient.query("RELEASE SAVEPOINT project_create");
       res.status(201).json({ project, roles: createdRoles });
       return;
@@ -4181,6 +4144,66 @@ app.post("/api/v1/admin/users/:id/password-reset", requireAuth, requireAdmin, as
   } catch (error) {
     try { await req.db.query(`INSERT INTO approval_events (entity_type, entity_id, action, approved_by, status, created_at, updated_at) VALUES ('user', $1::uuid, 'password_reset_requested', $2::uuid, 'failed', now(), now())`, [targetId, actorId]); } catch {}
     return res.status(500).json({ error: "Failed to process password reset request.", code: "RESET_REQUEST_ERROR" });
+  }
+});
+
+app.get("/api/v1/role-templates", requireAuth, async (_req: express.Request, res: express.Response) => {
+  res.json({
+    version: 1,
+    templates: listProjectRoleTemplates(),
+    note: "Template activation does not assign a user. Platform Admin appoints the PM; the appointed PM activates Project workstream templates.",
+  });
+});
+
+app.post("/api/v1/projects/:id/role-templates/:roleCode/activate", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id: projectId, roleCode } = req.params;
+  const template = getCanonicalRoleTemplate(roleCode);
+  if (!template || template.scope !== "project") {
+    return res.status(404).json({ error: "Canonical Project role template not found.", code: "ROLE_TEMPLATE_NOT_FOUND" });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "project.roles.manage"))) return;
+  try {
+    const { rows: permissionRows } = await req.db.query(
+      "SELECT id, code FROM public.permissions WHERE code = ANY($1::text[]) AND is_active = true",
+      [template.permissionCodes],
+    );
+    const found = new Set(permissionRows.map((row: any) => row.code));
+    const missing = template.permissionCodes.filter((code) => !found.has(code));
+    if (missing.length > 0) {
+      return res.status(503).json({
+        error: "Role template cannot be activated until every canonical permission exists and is active.",
+        code: "ROLE_TEMPLATE_PERMISSION_CATALOG_INCOMPLETE",
+        missingPermissionCodes: missing,
+      });
+    }
+    const { rows: roleRows } = await req.db.query(
+      `INSERT INTO public.project_roles
+         (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
+       VALUES ($1::uuid, $2::text, $3::text, $4::text, true, $5::uuid, now(), now())
+       ON CONFLICT (project_id, role_code)
+       DO UPDATE SET is_active = true, name = EXCLUDED.name, description = EXCLUDED.description, updated_at = now()
+       RETURNING *`,
+      [projectId, template.code, template.label, template.restrictions.join(" "), req.user?.id],
+    );
+    const projectRole = roleRows[0];
+    await req.db.query(
+      `INSERT INTO public.project_role_permissions
+         (project_id, project_role_id, permission_id, granted_by, granted_at)
+       SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+         FROM public.permissions p
+        WHERE p.code = ANY($4::text[]) AND p.is_active = true
+       ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+      [projectId, projectRole.id, req.user?.id, template.permissionCodes],
+    );
+    return res.status(200).json({
+      role: projectRole,
+      activated: true,
+      assignedUsers: 0,
+      templateVersion: template.templateVersion,
+      permissionCodes: template.permissionCodes,
+    });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

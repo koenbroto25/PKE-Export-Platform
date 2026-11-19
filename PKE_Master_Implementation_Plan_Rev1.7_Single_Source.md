@@ -9219,3 +9219,60 @@ All three hashes are pinned in the migration runner, release-policy verifier, an
 4. Immediately run authenticated DB integration/backtest and F0/F1 UAT on the migrated Production schema, with only temporary namespaced QA data inside verified transactions and cleanup evidence. Never alter pre-existing owner fixtures or choose PM assignments on the owner's behalf.
 
 **Status:** Code/static backtest PASS. Live database integration and Production release remain blocked by backup and exact owner-approval gates.
+
+
+---
+
+## 56.28 — Owner-directed F1 closeout waiver, Production migration 042–044 and PRI-1 transition (20 November 2026)
+
+### 56.28.1 Owner decisions and scope
+- Owner confirms successful application login and explicitly waives the separate Neon Auth authenticated-HTTP UAT for this checkpoint. This is an owner waiver, not a claim that a bearer-token HTTP test was executed.
+- Owner instructs to skip Vercel deployment. No Preview/Production deployment, promotion, environment-variable edit or Vercel configuration mutation was performed.
+- The owner-directed waiver applies only to the separate Neon Auth HTTP test and Vercel deployment for this checkpoint. It does not waive data-integrity, permission, accounting audit, storage integrity, or non-authenticated domain workflow requirements.
+- PM appointment, handover, replacement and duplicate-PM resolution remain Admin decisions outside application automation. No PM was appointed, revoked, selected or changed in this execution.
+
+### 56.28.2 Production migrations 042–044 — FACT: VERIFIED
+Target: Neon project purple-base-63944903, branch br-damp-shape-b3xlh4nr (production), database neondb.
+- Before application, a Production clone was created as pre-apply restore point br-restless-sky-b38dsjol. Read-only verification on that clone showed migration ledger 41/41 and absence of all three pending schema objects.
+- Neon manual snapshot creation was unavailable because the project snapshot limit was reached. The retained pre-apply clone is the recovery point for this migration batch; it is not a substitute for a provider-native snapshot/PITR guarantee.
+- Re-fetched the exact migration source files from the existing F1 GitHub working branch and applied the 042–044 package directly to Production in one PostgreSQL transaction. The SQL parser preserved comments, quoted strings and dollar-quoted PL/pgSQL bodies. No semicolon-naive statement splitting was used.
+- 53 migration SQL statements plus three migration_history inserts (56 total) executed and committed in the same transaction.
+- Production ledger now contains 44 rows, ending at 044. The three exact approved SHA-256 values are:
+  - 042: 4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996
+  - 043: 15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086
+  - 044: 618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d
+- Post-apply verification: inventory_reservations.release_reason exists; project_role_assignments and project_role_assignment_events exist; 24 legacy role assignments and 24 backfill events exist; project.change.delete exists but is not granted to any Project role.
+- Runtime privilege verification as app_runtime_secure: SELECT/INSERT/UPDATE allowed on assignment table; DELETE denied; UPDATE/DELETE denied on append-only event table. Assignment RLS policies target app_runtime_secure. Permission resolver functions remain SECURITY DEFINER.
+- Existing PM records were not changed. Any duplicate active PM appointments remain for Admin resolution.
+
+### 56.28.3 CI and validation cleanup
+- GitHub Actions Unit Tests run 44599494672: SUCCESS. Steps include offline security/unit tests, Production migration ledger/release gates, migration runner dry-run without a database connection, backend API typecheck, frontend typecheck and frontend build.
+- Dependency Audit Evidence run 44599494504: SUCCESS.
+- These workflow results establish repository CI and release-policy checks; they are not authenticated HTTP UAT or live browser workflow evidence.
+- Owner waived the separate Neon Auth HTTP test. Deleted validation branch f1-validation-20261119 (br-noisy-fog-b379k1uu) and verified it no longer appears, including deleted-branch lookup.
+- Retained pre-apply recovery branch pre-f1-042-044-production-backup-20261120 (br-restless-sky-b38dsjol). Do not delete or repurpose it until the next release checkpoint has a verified recovery replacement.
+- No synthetic fixture DML was performed in this execution. No Production Auth user, credential, session, PM assignment, financial record, storage object or business transaction was changed.
+
+### 56.28.4 F1 PRI-1 — next execution wave, read-only baseline
+A targeted read-only Production inspection begins the next F1 / PRI-1 wave (WP-03, WP-07, WP-11, WP-12, WP-13):
+- cash_advances INSERT RLS currently requires finance.create, while pke_cash_advance_guard() requires the authenticated requestor_id to equal pke_current_user_id(), and new requests must start draft/pending with zero disbursement/settlement balances. The current SELECT policy requires finance.view and does not include a requestor-own read predicate. A dedicated requestor-own read/create path is therefore not yet evidenced.
+- The cash_advances database guard already enforces that approval/rejection requires finance.update and a different actor from the requestor. Direct disbursement/balance mutation remains blocked unless performed by the controlled payment-reconciliation path.
+- Current financial audit triggers for cash_advances, payment_obligations, ap_invoices and ar_invoices are AFTER UPDATE triggers. The shared pke_financial_audit_event() function records state_changed events but does not currently establish creation events for those four entities.
+- AP/AR INSERT RLS policies require finance.create. AP/AR financial guards keep new invoices unpaid/unverified and make verified/approved commercial identity immutable. Payment balances remain reconciliation-trigger controlled.
+- Source inspection of src/index.ts found no direct cash_advances, ap_invoices or ar_invoices SQL/API implementation. Treat these as incomplete workflow surfaces; do not invent a success path or map invoice creation to payment execution.
+- No SQL, policy, trigger, grant, role, business row or API source was changed during this read-only baseline.
+
+### 56.28.5 Current disposition and next tasks
+- F1 / PRI-0 database migration and code/CI acceptance: PASS.
+- Separate Neon Auth authenticated HTTP UAT: OWNER-WAIVED for this checkpoint; not run and not reported as PASS.
+- Vercel deployment/latest-head Preview: OWNER-WAIVED for this checkpoint; not run.
+- F1 / PRI-1 remains OPEN. Execute in this order:
+  1. Implement requestor-own cash advance create/read plus separate Finance approval, preserving the current guard and reconciliation-only disbursement boundary. Define exact permission semantics and update API + frontend + tests.
+  2. Add immutable financial creation audit events for cash advances, payment obligations, AP invoices and AR invoices; use stable created actions, actor/Project/permission context, snapshots, and idempotency/no-duplicate assertions. Review whether trigger function changes can be additive and backward compatible.
+  3. Reconcile shipment allocation-to-loading-to-inventory issue against Production triggers now that migration 042 is applied; run only safe read-only and non-persisting contract tests unless a real approved operation exists. Do not insert synthetic Production business records.
+  4. Keep document upload/report completion disabled or queued until a real private object-storage artifact exists and checksum/metadata are verified. Do not fabricate a completed report or document.
+  5. Run the 36 permission assertions, expanded RLS matrix, frontend contract tests and complete CI; keep live authenticated HTTP UAT marked OWNER-WAIVED, not PASS.
+- Any required new Production migration (045+) must be prepared as an exact artifact with SHA-256, read-only preflight, lock/impact review, rollback/recovery and then separately approved by the owner before application. Migration 042–044 approval does not authorize 045+.
+- F2 remains design-only. Under canonical Section 56.20, F2 implementation does not start until F0/F1 exit gates are independently closed or explicitly waived by the owner. Current F1 PRI-1 items remain open, so the next active work is F1 / PRI-1, not F2.
+
+**Disposition:** F1 / PRI-0 database schema and code/CI gate accepted for continuation under the owner's explicit Neon Auth HTTP and Vercel waivers. F1 overall remains IN PROGRESS pending PRI-1 functional work. F0 retains its separate acceptance register; no claim of Application Complete or Business Production Ready is made.

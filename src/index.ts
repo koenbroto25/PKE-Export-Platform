@@ -850,7 +850,7 @@ app.get("/api/v1/projects/:id", requireAuth, async (req: express.Request, res: e
 // Project operating profile (module configuration)
 app.get("/api/v1/projects/:projectId/operating-profile", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
-  if (!(await requireProjectPermission(req, res, projectId, "project.configuration.view"))) return;
+  if (!(await requireProjectPermission(req, res, projectId, "operations.view"))) return;
   try {
     const { rows } = await req.db.query("SELECT * FROM project_operating_profiles WHERE project_id = $1::uuid", [projectId]);
     if (rows.length === 0) return res.status(404).json({ error: "Operating profile not found" });
@@ -1475,7 +1475,7 @@ app.patch("/api/v1/documents/:id", requireAuth, async (req: express.Request, res
     );
     if (existingRows.length === 0) return res.status(404).json({ error: "Not found" });
     const projectId = existingRows[0].project_id;
-    if (!(await requireProjectPermission(req, res, projectId, "documents.review"))) return;
+    if (!(await requireProjectPermission(req, res, projectId, "documents.update"))) return;
     const reviewerId = req.user?.id || null;
     const { rows } = await req.db.query(
       `UPDATE project_export_documents
@@ -1776,7 +1776,7 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
     if (projectId) {
       if (typeof projectId !== "string") return res.status(400).json({ error: "Invalid projectId" });
       scopedProjectId = projectId;
-      if (!(await requireProjectPermission(req, res, scopedProjectId, "notifications.create"))) return;
+      if (!(await requireProjectPermission(req, res, scopedProjectId, "project.members.manage"))) return;
       if (recipientId !== senderId) {
         const { rows: memberRows } = await req.db.query(
           `SELECT 1 FROM project_members WHERE project_id = $1::uuid AND user_id = $2::uuid AND is_active = true LIMIT 1`,
@@ -1952,7 +1952,7 @@ app.post("/api/v1/reports/schedules", requireAuth, async (req: express.Request, 
   const freq = String(frequency).toLowerCase();
   const allowedFreq = new Set(["daily", "weekly", "monthly"]);
   if (!allowedFreq.has(freq)) return res.status(400).json({ error: "Unsupported frequency. Allowed: daily, weekly, monthly" });
-  if (projectId && !(await requireProjectPermission(req, res, String(projectId), "reports.manage"))) return;
+  if (projectId && !(await requireProjectPermission(req, res, String(projectId), "reports.create"))) return;
   try {
     // Best-effort next execution: compute in UTC anchored to provided execution time; timezone stored for display/consistency.
     // Full timezone-aware recurrence requires calendar-aware scheduling; current implementation advances by frequency interval.
@@ -3878,7 +3878,7 @@ app.patch("/api/v1/project-export-documents/:id", requireAuth, async (req: expre
       [req.params.id],
     );
     if (existingRows.length === 0) return res.status(404).json({ error: "Not found" });
-    if (!(await requireProjectPermission(req, res, existingRows[0].project_id, "documents.review"))) return;
+    if (!(await requireProjectPermission(req, res, existingRows[0].project_id, "documents.update"))) return;
     const reviewerId = req.user?.id || null;
     const { rows } = await req.db.query(
       `UPDATE project_export_documents

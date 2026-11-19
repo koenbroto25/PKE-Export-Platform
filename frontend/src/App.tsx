@@ -1091,6 +1091,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   const [memberAddUserId, setMemberAddUserId] = useState('');
   const [memberAddRoleId, setMemberAddRoleId] = useState('');
   const [memberAddReason, setMemberAddReason] = useState('');
+  const [memberAddExpiresAt, setMemberAddExpiresAt] = useState('');
   const [memberAddBusy, setMemberAddBusy] = useState(false);
   const [pmAppointUserId, setPmAppointUserId] = useState('');
   const [pmAppointReason, setPmAppointReason] = useState('');
@@ -1212,8 +1213,10 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
         userId: memberAddUserId,
         projectRoleId: memberAddRoleId,
         reason: memberAddReason.trim(),
+        ...(memberAddExpiresAt ? { expiresAt: new Date(memberAddExpiresAt).toISOString() } : {}),
       });
       setMemberAddReason('');
+      setMemberAddExpiresAt('');
       onNotice('success', 'Role berhasil ditambahkan pada proyek ini. Role lain dan membership proyek lain tidak berubah.');
       projectDetail.refresh();
     } catch (e) {
@@ -1351,6 +1354,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
             {(projectDetail.data?.roles || []).filter(role => role.is_active && role.role_code !== 'pm').map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}
           </select></FormField>
           <FormField label="Alasan penetapan akses"><input value={memberAddReason} onChange={e => setMemberAddReason(e.target.value)} minLength={5} maxLength={500} required placeholder="Dasar pemberian role pada proyek ini" /></FormField>
+          <FormField label="Masa berlaku role (opsional)"><input type="datetime-local" value={memberAddExpiresAt} onChange={e => setMemberAddExpiresAt(e.target.value)} min={new Date(Date.now() + 60_000).toISOString().slice(0,16)} /></FormField>
           <div className="form-actions"><button className="primary-button" disabled={memberAddBusy || projectDetail.loading || !users.data?.users?.length}>{memberAddBusy ? 'Menyimpan…' : 'Tambahkan ke proyek'}</button></div>
         </form>
         <div className="panel-subsection">

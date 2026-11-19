@@ -3150,7 +3150,7 @@ app.post("/api/v1/shipment-allocations", requireAuth, async (req: express.Reques
       allocationQuantity: quantity,
       unitMatches: reservation.unit_code === unit.trim() && lotRows[0].unit === unit.trim(),
     });
-    if (!capacity.ok) {
+    if (capacity.ok === false) {
       return res.status(409).json({ error: "Allocation violates reservation or shipment capacity.", code: capacity.code });
     }
 
@@ -3200,7 +3200,7 @@ app.patch("/api/v1/shipment-allocations/:id", requireAuth, async (req: express.R
       allocatedQuantity: Number(allocation.allocated_quantity),
       reversalReason,
     });
-    if (!transition.ok) {
+    if (transition.ok === false) {
       return res.status(400).json({ error: "Invalid shipment allocation state transition.", code: transition.code });
     }
 

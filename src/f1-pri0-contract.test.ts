@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { CANONICAL_ROLE_TEMPLATES, getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
+import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
 
 const INDEX_SRC = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 
@@ -80,5 +81,104 @@ describe("F1 / PRI-0 inventory API contract", () => {
   it("does not mutate reservation fulfillment counters from the API", () => {
     expect(INDEX_SRC).not.toMatch(/UPDATE inventory_reservations\s+SET fulfilled_quantity/i);
     expect(INDEX_SRC).toContain("ALLOCATION_TRANSITION_REJECTED");
+  });
+});
+
+describe("F1 / PRI-0 inventory mock backtest", () => {
+  const capacityBase = {
+    projectId: "project-a",
+    shipmentProjectId: "project-a",
+    lotProjectId: "project-a",
+    reservationProjectId: "project-a",
+    reservationLotId: "lot-a",
+    lotId: "lot-a",
+    reservationShipmentId: "shipment-a",
+    shipmentId: "shipment-a",
+    reservationStatus: "active",
+    reservationQuantity: 100,
+    existingReservationAllocations: 20,
+    shipmentQuantity: 80,
+    existingShipmentAllocations: 10,
+    allocationQuantity: 30,
+    unitMatches: true,
+  } as const;
+
+  it("accepts allocation when Project, shipment, lot, reservation, unit and both capacities match", () => {
+    expect(validateAllocationCapacity({ ...capacityBase })).toEqual({ ok: true });
+  });
+
+  it("rejects reservation over-allocation without double-subtracting fulfilled quantity", () => {
+    expect(validateAllocationCapacity({ ...capacityBase, existingReservationAllocations: 80 }).code)
+      .toBe("RESERVATION_QUANTITY_EXCEEDED");
+    // Fulfilled quantity is intentionally not part of the allocation capacity formula:
+    // loaded allocations are already counted in existingReservationAllocations.
+  });
+
+  it("rejects shipment over-allocation", () => {
+    expect(validateAllocationCapacity({ ...capacityBase, existingShipmentAllocations: 60 }).code)
+      .toBe("SHIPMENT_QUANTITY_EXCEEDED");
+  });
+
+  it("rejects cross-Project shipment/lot/reservation combinations", () => {
+    expect(validateAllocationCapacity({ ...capacityBase, shipmentProjectId: "project-b" }).code)
+      .toBe("PROJECT_SCOPE_MISMATCH");
+    expect(validateAllocationCapacity({ ...capacityBase, reservationLotId: "lot-b" }).code)
+      .toBe("RESERVATION_SCOPE_MISMATCH");
+  });
+
+  it("rejects inactive reservations and unit mismatches", () => {
+    expect(validateAllocationCapacity({ ...capacityBase, reservationStatus: "released" }).code)
+      .toBe("RESERVATION_NOT_ACTIVE");
+    expect(validateAllocationCapacity({ ...capacityBase, unitMatches: false }).code)
+      .toBe("UNIT_MISMATCH");
+  });
+
+  it("permits only valid draft-to-load and reversal transitions", () => {
+    expect(validateAllocationTransition({
+      currentStatus: "draft", nextStatus: "allocated",
+      currentLoadedQuantity: 0, allocatedQuantity: 30,
+    })).toEqual({ ok: true });
+    expect(validateAllocationTransition({
+      currentStatus: "allocated", nextStatus: "partially_loaded",
+      currentLoadedQuantity: 0, nextLoadedQuantity: 10, allocatedQuantity: 30,
+    })).toEqual({ ok: true });
+    expect(validateAllocationTransition({
+      currentStatus: "partially_loaded", nextStatus: "loaded",
+      currentLoadedQuantity: 10, nextLoadedQuantity: 30, allocatedQuantity: 30,
+    })).toEqual({ ok: true });
+    expect(validateAllocationTransition({
+      currentStatus: "loaded", nextStatus: "reversed",
+      currentLoadedQuantity: 30, allocatedQuantity: 30, reversalReason: "Duplicate shipment entry",
+    })).toEqual({ ok: true });
+  });
+
+  it("rejects invalid state jumps, missing reversal reason and loaded quantity changes without state", () => {
+    expect(validateAllocationTransition({
+      currentStatus: "draft", nextStatus: "loaded",
+      currentLoadedQuantity: 0, nextLoadedQuantity: 30, allocatedQuantity: 30,
+    }).code).toBe("INVALID_ALLOCATION_TRANSITION");
+    expect(validateAllocationTransition({
+      currentStatus: "loaded", nextStatus: "cancelled",
+      currentLoadedQuantity: 30, allocatedQuantity: 30,
+    }).code).toBe("INVALID_ALLOCATION_TRANSITION");
+    expect(validateAllocationTransition({
+      currentStatus: "partially_loaded", nextStatus: "reversed",
+      currentLoadedQuantity: 10, allocatedQuantity: 30,
+    }).code).toBe("REVERSAL_REASON_REQUIRED");
+    expect(validateAllocationTransition({
+      currentStatus: "allocated", nextLoadedQuantity: 5,
+      currentLoadedQuantity: 0, allocatedQuantity: 30,
+    }).code).toBe("STATUS_REQUIRED_FOR_LOADING");
+  });
+
+  it("rejects non-positive, non-finite and over-allocated loaded quantities", () => {
+    expect(validateAllocationTransition({
+      currentStatus: "allocated", nextStatus: "partially_loaded",
+      currentLoadedQuantity: 0, nextLoadedQuantity: 0, allocatedQuantity: 30,
+    }).code).toBe("INVALID_ALLOCATION_TRANSITION");
+    expect(validateAllocationTransition({
+      currentStatus: "allocated", nextStatus: "loaded",
+      currentLoadedQuantity: 0, nextLoadedQuantity: 31, allocatedQuantity: 30,
+    }).code).toBe("INVALID_LOADED_QUANTITY");
   });
 });

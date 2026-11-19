@@ -283,14 +283,14 @@ async function main() {
               verifiedManifest.entries[40]?.status !== "applied") {
             fail("Verified Production migration manifest 001-041 is required before 042-044.");
           }
-          for (const [file, sha] of expectedNew) {
+          for (const [file, sha, confirmEnv, hashEnv, referenceEnv] of expectedNew) {
             const pending = verifiedManifest.pending_migrations?.find((m) =>
               (m.file === "migrations/" + file || m.file === file) && m.sha256 === sha
             );
             if (!pending) fail("Exact pending manifest entry is missing for " + file + ".");
-            if (process.env[pending[2]] !== "1") fail(file + " requires " + pending[2] + "=1 after explicit owner approval.");
-            if (process.env[pending[3]] !== sha) fail(file + " approved SHA-256 is absent or mismatched.");
-            if (!process.env[pending[4]] || !process.env[pending[4]].trim()) fail(file + " requires an explicit owner approval reference.");
+            if (process.env[confirmEnv] !== "1") fail(file + " requires " + confirmEnv + "=1 after explicit owner approval.");
+            if (process.env[hashEnv] !== sha) fail(file + " approved SHA-256 is absent or mismatched.");
+            if (!process.env[referenceEnv] || !process.env[referenceEnv].trim()) fail(file + " requires an explicit owner approval reference.");
           }
 
           const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");

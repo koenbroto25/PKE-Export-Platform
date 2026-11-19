@@ -8790,3 +8790,11 @@ Once backup gates pass and owner approval for the exact SQL/hash is present:
 - 2026-11-19: Listed snapshots and attempted a fresh snapshot; Neon rejected it because the snapshot limit is exceeded. Existing 15 November snapshot preserved.
 - 2026-11-19: No full DB export/dump verified. No Production DDL/DML executed.
 - Binding status: **NO NEW BRANCHES; NEON PRODUCTION ONLY; BACKUP-FIRST; CURRENTLY BLOCKED ON FRESH BACKUP CAPACITY.**
+
+
+### 56.19.8 GitHub migration archive manifest — partial inventory recorded
+- 2026-11-19: Created `docs/backup/GITHUB_MIGRATION_ARCHIVE_MANIFEST_20261119.md` on the already-existing `f1/project-scoped-cob-20261119` branch.
+- Manifest commit: `396b705f8d3e083e71f46a8a4e39acebd7891ebc`.
+- Inventory: 37 numbered SQL migration files found in the repository `migrations/` directory; gaps 029, 030, 031, 032 and 035 remain to be reconciled against nested/legacy migration locations and the live migration ledger.
+- The manifest records Git blob SHA identifiers, not file-content SHA-256 values. It is an inventory, not a claim of complete backup or full database export.
+- Existing migration files were not altered. No new branch was created.

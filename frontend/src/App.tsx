@@ -1211,12 +1211,35 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
         reason: memberAddReason.trim(),
       });
       setMemberAddReason('');
-      onNotice('success', 'Akun berhasil ditambahkan atau diaktifkan pada proyek ini. Role di proyek lain tidak berubah.');
+      onNotice('success', 'Role berhasil ditambahkan pada proyek ini. Role lain dan membership proyek lain tidak berubah.');
       projectDetail.refresh();
     } catch (e) {
       onNotice('error', e instanceof Error ? e.message : 'Penetapan role proyek gagal.');
     } finally {
       setMemberAddBusy(false);
+    }
+  };
+
+  const revokeRoleAssignment = async (member: AnyRecord, assignment: AnyRecord) => {
+    if (!selectedProjectId || !member.user_id || !assignment.id) return;
+    const reason = window.prompt(`Alasan menonaktifkan role ${assignment.roleCode || assignment.roleName} untuk ${member.email || member.user_id}:`);
+    if (!reason || reason.trim().length < 5) {
+      onNotice('info', 'Perubahan dibatalkan. Alasan minimal 5 karakter wajib dicatat.');
+      return;
+    }
+    setMembershipBusyId(String(member.id));
+    try {
+      if (assignment.roleCode === 'pm') {
+        await post(`/admin/projects/${selectedProjectId}/pm-appointment/${member.user_id}/deactivate`, { reason: reason.trim() });
+      } else {
+        await post(`/projects/${selectedProjectId}/role-assignments/${assignment.id}/revoke`, { reason: reason.trim() });
+      }
+      onNotice('success', `Role ${assignment.roleCode || assignment.roleName} berhasil dinonaktifkan. Keanggotaan dan role lain tetap dipertahankan.`);
+      projectDetail.refresh();
+    } catch (e) {
+      onNotice('error', e instanceof Error ? e.message : 'Penonaktifan role gagal.');
+    } finally {
+      setMembershipBusyId('');
     }
   };
 
@@ -1238,8 +1261,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
 
   const updateMembership = async (member: AnyRecord, changes: AnyRecord) => {
     if (!selectedProjectId || !member.id) return;
-    const action = changes.isActive === false ? 'menonaktifkan keanggotaan' :
-      changes.isActive === true ? 'mengaktifkan kembali keanggotaan' : 'mengubah role proyek';
+    const action = changes.isActive === false ? 'menonaktifkan keanggotaan' : 'mengaktifkan kembali keanggotaan';
     const reason = window.prompt(`Alasan ${action} untuk ${member.email || member.user_id}:`);
     if (!reason || reason.trim().length < 3) {
       onNotice('info', 'Perubahan dibatalkan. Alasan minimal 3 karakter wajib dicatat.');
@@ -1307,14 +1329,18 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
         </form>
         {projectDetail.loading ? <Loading /> : projectDetail.error ? <ErrorState message={projectDetail.error} retry={projectDetail.refresh} /> : <DataTable rows={projectDetail.data?.members || []} columns={[
           { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
-          { key: 'role', label: 'Role proyek', render: r => <select aria-label={`Role proyek untuk ${r.email || r.user_id}`} value={r.project_role_id || ''} disabled={membershipBusyId === String(r.id)} onChange={e => updateMembership(r, { projectRoleId: e.target.value })}>{(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}</select> },
-          { key: 'is_active', label: 'Status proyek', render: r => <StatusPill value={r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'active' : 'inactive'} /> },
-          { key: 'action', label: 'Aksi', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => {
+          { key: 'role_assignments', label: 'Role assignments', render: r => <div className="stacked-cell">{(r.role_assignments || []).length ? (r.role_assignments || []).map((a: AnyRecord) => {
+            const expired = !!a.expiresAt && new Date(a.expiresAt).getTime() <= Date.now();
+            const active = a.isActive === true && !a.revokedAt && !expired && r.is_active === true && !r.deactivated_at;
+            return <div key={a.id} className="inline-actions"><span>{a.roleName || a.roleCode} <StatusPill value={active ? 'active' : a.revokedAt ? 'revoked' : expired ? 'expired' : 'inactive'} /></span>{active && <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => revokeRoleAssignment(r, a)}>Nonaktifkan role</ActionButton>}</div>;
+          }) : <span className="muted">Belum ada role</span>}</div> },
+          { key: 'is_active', label: 'Status membership', render: r => <StatusPill value={r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'active' : 'inactive'} /> },
+          { key: 'action', label: 'Membership', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => {
             const currentlyActive = r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now());
             updateMembership(r, currentlyActive
               ? { isActive: false }
               : { isActive: true, ...(r.expires_at && new Date(r.expires_at).getTime() <= Date.now() ? { expiresAt: null } : {}) });
-          }}>{membershipBusyId === String(r.id) ? 'Memproses…' : r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'Nonaktifkan proyek ini' : 'Aktifkan proyek ini'}</ActionButton> }
+          }}>{membershipBusyId === String(r.id) ? 'Memproses…' : r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'Nonaktifkan membership' : 'Aktifkan membership'}</ActionButton> }
         ]} emptyTitle="Belum ada anggota" emptyText="Belum ada keanggotaan untuk proyek ini." />}
       </>}
     </Card>
@@ -1434,7 +1460,12 @@ function ProjectMembersPage({ onNotice }: { onNotice: (kind: 'success' | 'error'
   const members = useLoad<{ members?: AnyRecord[] }>(() => id ? get(`/projects/${id}/members`) : Promise.resolve({}), [id]);
   return <>
     <PageTitle eyebrow="PROJECT MEMBERS" title="Anggota proyek" subtitle="Anggota yang terdaftar pada proyek ini." actions={<ActionButton variant="secondary" onClick={() => navigate(`/projects/${id}`)}><ArrowLeft size={16} /> Kembali</ActionButton>} />
-    {members.loading ? <Loading /> : members.error ? <ErrorState message={members.error} retry={members.refresh} /> : <Card><DataTable rows={members.data?.members || []} columns={[{ key: 'name', label: 'Nama', render: r => <strong>{r.name || r.email}</strong> }, { key: 'email', label: 'Email' }, { key: 'role_code', label: 'Role', render: r => r.role_code || r.role_name || '—' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} /></Card>}
+    {members.loading ? <Loading /> : members.error ? <ErrorState message={members.error} retry={members.refresh} /> : <Card><DataTable rows={members.data?.members || []} columns={[
+      { key: 'name', label: 'Nama', render: r => <strong>{r.name || r.email}</strong> },
+      { key: 'email', label: 'Email' },
+      { key: 'role_assignments', label: 'Role', render: r => (r.role_assignments || []).filter((a: AnyRecord) => a.isActive && !a.revokedAt && (!a.expiresAt || new Date(a.expiresAt).getTime() > Date.now())).map((a: AnyRecord) => a.roleCode).join(', ') || '—' },
+      { key: 'is_active', label: 'Membership', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }
+    ]} /></Card>}
   </>;
 }
 

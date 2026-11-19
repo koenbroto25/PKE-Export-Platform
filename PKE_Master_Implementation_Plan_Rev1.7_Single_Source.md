@@ -8975,3 +8975,48 @@ The following must all pass before F1 / PRI-0 can be marked complete:
 - Vercel latest-head Preview is the only external quota exception currently waived for this work wave; do not infer deployment acceptance or promote Production from this waiver.
 
 **No new branch. No unapproved Production write. No merge or deployment. No fabricated business data.**
+
+
+---
+
+## 56.22 Execution checkpoint — parallel F0/F1 acceleration (19 November 2026)
+
+**Execution mode:** parallel workstreams; no new GitHub branch and no new Neon branch. Existing working branch remains `f1/project-scoped-cob-20261119`. Production target remains Neon project `purple-base-63944903`, branch `production` / `br-damp-shape-b3xlh4nr`, database `neondb`.
+
+### 56.22.1 Owner decision boundary — Project Manager
+
+The owner/Admin explicitly confirmed that appointment and deactivation of a Project Manager are administrative decisions made outside the application. The application must only record and enforce the Admin's decision; it must never choose which existing PM remains active or resolve business negotiations. One person may remain PM across multiple Projects. If a Project has conflicting active PM assignments, Admin resolves it by explicitly deactivating the assignment(s) selected by Admin. The system then enforces one active PM per Project for subsequent assignments. PM deactivation must revoke only the PM role assignment and preserve the user's Project membership and any other role assignments.
+
+### 56.22.2 Verified Production baseline (read-only)
+
+- Production migration ledger latest applied: 041, SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- Migration 042 is present in the working branch but not applied to Production; `inventory_reservations.release_reason` is absent.
+- `project_members` currently stores a single legacy `project_role_id`; the database permission helper also resolves permissions from that single field.
+- `project.change.delete` is absent from `public.permissions`, while the existing `pke_project_change_requests_delete` RLS policy references it. No role grant is to be created automatically.
+- Five PM-related membership rows were inspected, including two active PMs in the Alpha QA fixture Project. The Beta fixture contains an active PM plus an expired PM membership. These are persistent QA fixtures, not business records. No PM was deactivated or otherwise modified during this checkpoint.
+- Only one Neon snapshot is currently listed: `PKE-target-pre-migration-20261115`, dated 15 November 2026. It is not a fresh backup for this execution. No durable full export/restore package has yet been verified in GitHub. Production migration remains blocked by backup gate and explicit SQL/hash approval.
+
+### 56.22.3 Changes prepared on existing F1 working branch
+
+1. `migrations/043_project_role_assignments_and_history.sql` — creates independent Project role assignments and append-only assignment event history; preserves legacy membership rows and backfills their role assignments; updates `pke_has_project_permission(uuid,text)` to resolve permissions from active, unexpired assignments; adds RLS and least-privilege grants; enforces one active PM for subsequent assignments while leaving existing duplicate PM decisions to Admin. Existing role assignment identity is immutable; revocation requires Admin actor and reason. SHA-256: `cf49b417b0a16b38e594c21a5eb30ae07e19e9a1d0769faaf65ca92e9e15650b`.
+2. `migrations/044_project_change_delete_permission.sql` — restores the missing active permission row but deliberately grants it to no global or Project role. SHA-256: `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d`.
+3. Existing `migrations/042_inventory_reservation_release_reason.sql` re-fetched and SHA-256 re-verified: `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`.
+4. `src/index.ts`: permission attribution now resolves the specific active Project role assignment; added independent role-assignment creation/revocation API; member listing now exposes multiple role assignments; PM appointment writes a distinct PM assignment instead of overwriting the member's legacy role; added explicit Admin PM deactivation endpoint that revokes only PM assignment and preserves membership/other roles.
+5. `src/schema.ts`: added Drizzle models for `project_role_assignments` and `project_role_assignment_events`.
+
+### 56.22.4 Current validation and limitations
+
+- GitHub changes are committed to the existing F1 working branch; no new branch was created.
+- These changes are prepared code/migrations, not Production deployment. No Production DDL/DML, PM fixture mutation, merge, Vercel environment change, or deployment was performed.
+- TypeScript/build/test and database migration dry-run validation have not yet been run for these latest commits. The migration SQL must be validated against the exact Production schema and reviewed for RLS/trigger interactions before owner approval.
+- F1 remains NOT READY until the backup archive/recovery gate, migration archive reconciliation (including legacy 029–032 and 035), integration/backtest, and final security/UAT evidence are complete.
+- Vercel quota remains an explicitly skippable deployment constraint; it does not block code, migration preparation, or offline/backtest work.
+
+### 56.22.5 Next parallel execution order
+
+A. Validate migrations 042–044 as a single ordered package on the existing approved workflow without creating a new Neon branch; do not apply to Production before the backup and owner approval gates.
+B. Finish API/UI lifecycle integration for multi-role assignment, expiry, revoke, PM Admin deactivation, and audit attribution; remove remaining runtime dependencies on `project_members.project_role_id` where the new assignment model is authoritative.
+C. Add regression tests for multi-role permissions, cross-Project isolation, independent expiry/revocation, Admin PM deactivation, PM conflict handling, and legacy backfill.
+D. Reconcile the complete migration archive and produce a recoverable, durably stored Production backup package with checksum and restore evidence.
+E. Run integrated F0/F1 backtest with temporary QA fixtures only where explicitly authorized; clean up only fixtures created by that test run, never pre-existing owner fixtures.
+F. Refresh this single Master Plan with evidence and blockers before any Production execution request.

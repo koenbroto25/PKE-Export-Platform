@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { CANONICAL_ROLE_TEMPLATES, getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
+import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
 
 const INDEX_SRC = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 const ROLE_ASSIGNMENT_MIGRATION_SRC = readFileSync(new URL("../migrations/043_project_role_assignments_and_history.sql", import.meta.url), "utf8");
@@ -299,5 +300,65 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("CREATE OR REPLACE FUNCTION public.pke_can_receive_finance_report_notification");
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("CREATE OR REPLACE FUNCTION public.accept_pke_project_invitation");
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("FROM public.project_role_assignments a");
+  });
+});
+
+
+describe("F1 / PRI-0 multi-role behavioral backtest", () => {
+  const now = Date.parse("2026-11-19T12:00:00.000Z");
+  const membership = {
+    id: "membership-a", project_id: "project-a", user_id: "user-a",
+    is_active: true, deactivated_at: null, expires_at: null, project_is_active: true,
+  };
+
+  it("allows concurrent distinct role assignments for one Project membership", () => {
+    const finance = {
+      project_id: "project-a", project_member_id: "membership-a", user_id: "user-a",
+      is_active: true, revoked_at: null, expires_at: null, role_is_active: true,
+    };
+    const warehouse = { ...finance, role_is_active: true };
+    expect(isEffectiveProjectRoleAssignment(finance, membership, now)).toBe(true);
+    expect(isEffectiveProjectRoleAssignment(warehouse, membership, now)).toBe(true);
+  });
+
+  it("expires and revokes one role without deactivating another role or the membership", () => {
+    const activeFinance = { project_id: "project-a", project_member_id: "membership-a", user_id: "user-a", is_active: true, revoked_at: null, expires_at: null };
+    const expiredWarehouse = { ...activeFinance, expires_at: "2026-11-19T11:59:59.000Z" };
+    const revokedChecker = { ...activeFinance, revoked_at: "2026-11-19T11:00:00.000Z" };
+    expect(isEffectiveProjectRoleAssignment(activeFinance, membership, now)).toBe(true);
+    expect(isEffectiveProjectRoleAssignment(expiredWarehouse, membership, now)).toBe(false);
+    expect(isEffectiveProjectRoleAssignment(revokedChecker, membership, now)).toBe(false);
+    expect(membership.is_active).toBe(true);
+  });
+
+  it("denies every role when the membership or Project is inactive/expired", () => {
+    const assignment = { project_id: "project-a", project_member_id: "membership-a", user_id: "user-a", is_active: true, revoked_at: null, expires_at: null };
+    expect(isEffectiveProjectRoleAssignment(assignment, { ...membership, is_active: false }, now)).toBe(false);
+    expect(isEffectiveProjectRoleAssignment(assignment, { ...membership, expires_at: "2026-11-19T11:59:00.000Z" }, now)).toBe(false);
+    expect(isEffectiveProjectRoleAssignment(assignment, { ...membership, project_is_active: false }, now)).toBe(false);
+  });
+
+  it("rejects cross-Project or cross-user assignment context", () => {
+    const assignment = { project_id: "project-b", project_member_id: "membership-a", user_id: "user-a", is_active: true, revoked_at: null };
+    expect(isEffectiveProjectRoleAssignment(assignment, membership, now)).toBe(false);
+    expect(isEffectiveProjectRoleAssignment({ ...assignment, project_id: "project-a", user_id: "user-b" }, membership, now)).toBe(false);
+  });
+
+  it("requires future expiry and accepts an open-ended assignment", () => {
+    expect(validateRoleAssignmentExpiry(null, now)).toEqual({ ok: true, value: null });
+    expect(validateRoleAssignmentExpiry("not-a-date", now)).toEqual({ ok: false, code: "INVALID_ROLE_EXPIRY" });
+    expect(validateRoleAssignmentExpiry("2026-11-19T12:00:00.000Z", now)).toEqual({ ok: false, code: "ROLE_EXPIRY_MUST_BE_FUTURE" });
+    expect(validateRoleAssignmentExpiry("2026-11-20T12:00:00.000Z", now)).toEqual({ ok: true, value: "2026-11-20T12:00:00.000Z" });
+  });
+
+  it("does not choose among duplicate PMs and requires explicit Admin handover identity", () => {
+    expect(evaluatePmAppointment([{ user_id: "pm-a" }, { user_id: "pm-b" }], "pm-c", "pm-a"))
+      .toEqual({ ok: false, code: "MULTIPLE_ACTIVE_PM_ASSIGNMENTS" });
+    expect(evaluatePmAppointment([{ user_id: "pm-a" }], "pm-b", null))
+      .toEqual({ ok: false, code: "PM_HANDOVER_CONFIRMATION_REQUIRED" });
+    expect(evaluatePmAppointment([{ user_id: "pm-a" }], "pm-b", "pm-a"))
+      .toEqual({ ok: true, idempotent: false, handoverFromUserId: "pm-a" });
+    expect(evaluatePmAppointment([{ user_id: "pm-a" }], "pm-a", null))
+      .toEqual({ ok: true, idempotent: true, handoverFromUserId: null });
   });
 });

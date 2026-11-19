@@ -56,3 +56,55 @@ Migration 043 source review confirms the intended design is represented in SQL: 
 3. Seed only synthetic records on that isolated branch and test the legacy backfill, role lifecycle, PM handover/rejection, multi-Project isolation, permission resolution, append-only audit, inventory release reason, and change-request permission behavior.
 4. Run authenticated API integration tests against that isolated schema, then rerun the full suite and capture exact run IDs.
 5. Reconcile source/manifest checksums and update the PR evidence. Keep Production migrations pending until separate explicit approval of the exact SQL and SHA-256 values.
+
+
+---
+
+## Validation backtest addendum — 2026-11-19
+
+### Isolated PostgreSQL migration execution
+- Created Neon validation branch `f1-validation-20261119` (`br-noisy-fog-b379k1uu`) as a child of Production branch `br-damp-shape-b3xlh4nr`. Production itself was not modified.
+- Executed migrations 042, 043, and 044 together in one transaction on the validation branch: 53 migration statements plus 3 migration-history ledger inserts (56 statements total).
+- SQL statement parsing preserved quoted strings, comments, and dollar-quoted PL/pgSQL bodies; 8 function bodies were passed intact. The semicolon-naive Neon migration-preparation helper was not used.
+- Transaction committed successfully. Validation ledger now contains 44 rows, ending at 044.
+
+### Backfill and schema assertions
+- The cloned baseline contained 24 legacy Project memberships with a role.
+- Migration 043 backfilled all 24 into 24 independent role assignments and 24 `legacy_backfill` event records; missing backfills: 0.
+- Existing inactive/deactivated and expired membership states were preserved. One legacy PM assignment was preserved as revoked/inactive.
+- Existing duplicate PM fixture state was deliberately preserved: Alpha has two effective active PM assignments. No appointment was selected, revoked, or replaced by this validation. The Admin PM workflow must reject further appointment until Admin resolves the duplicate.
+- Inventory release-reason column exists after 042.
+- Permission `project.change.delete` exists after 044 and is not granted to any Project role.
+
+### Live database behavior checks on the validation branch
+All checks below executed against PostgreSQL, not mocked TypeScript functions:
+- Multiple independent roles for one user in one Project: PASS.
+- Same user’s Finance role permissions in two separate Projects: PASS.
+- Permission query against an unrelated Project ID: denied (no cross-Project leakage).
+- Active assignment with past expiry: rejected with check violation.
+- Assignment against inactive membership: rejected with check violation.
+- PM assignment attempt under non-Admin actor context: rejected with insufficient privilege.
+- PM appointment under Admin actor context while duplicate active PMs exist: rejected with unique violation.
+- Assignment event UPDATE and DELETE: rejected; append-only history preserved.
+- Mutation of an already revoked assignment: rejected.
+- `project.change.delete` has no role grant.
+- Runtime-role RLS checks using `app_runtime_secure`: a Viewer without `project.members.view` saw 0 assignments and 0 events; a Project Admin with the permission saw the Project's 19 assignments and 19 events. PM membership visibility/manage remains governed by its explicit role grants; this migration does not grant PM membership-management permissions.
+
+### API/source revision and verification status
+- Reviewed API request-scoped transaction middleware: it binds `app.current_user_id` and `app.current_role` before route handlers and uses the same PostgreSQL client through commit/rollback.
+- Reviewed role endpoints: ordinary role assignment and revocation require Project permissions and explicitly reject PM changes; PM appointment/deactivation routes require `requireAuth` and `requireAdmin`, require a reason, and reject ambiguous duplicate active PMs or unconfirmed handovers.
+- Added `src/f1-role-assignment-rules.test.ts` covering assignment effectiveness, expiry validation, PM idempotency, exact handover confirmation, duplicate-PM rejection, and route guard contracts.
+- Added the new test file to the root `npm test` script in `package.json`.
+- Latest commits: test file `dc717bbfdc5a22e6a9c0fb7c3aaf5db0f6699fc7`; package script `a06b0a8dc65cbb335f244f4480c9f66fbf6198e4`.
+- No GitHub Actions run was returned for the latest commit at the time of this addendum. Therefore the newly added Vitest suite and full workflow are **pending CI execution**, not reported as passing.
+- The migration runner's pinned host was checked against Neon endpoint inventory: `EXPECTED_HOST` matches the current Production read-write endpoint host for `br-damp-shape-b3xlh4nr`. The runner submits complete migration SQL via `client.query(sql)`; it does not split PL/pgSQL on semicolons. The earlier target-host/splitter concern is cleared by this verification.
+
+### Updated acceptance decision
+- Migrations 042–044 on isolated PostgreSQL validation branch: PASS.
+- Backfill preservation and database behavior checks listed above: PASS.
+- Runtime RLS checks under `app_runtime_secure`: PARTIAL PASS; tested Viewer denial and Project Admin visibility. Broader role matrix still needs API-level coverage.
+- New role-assignment unit tests: ADDED; CI result PENDING.
+- Authenticated HTTP API UAT against the validation schema: NOT RUN. The code was source-reviewed, but no live authenticated HTTP request was made.
+- Production migration application: NOT APPROVED / NOT PERFORMED.
+- F1 final acceptance: NOT COMPLETE until CI passes and authenticated API UAT is recorded. Vercel remains excluded by instruction.
+- The validation branch contains one synthetic multi-role assignment created for the live test. It is isolated from Production and retained as evidence; branch deletion requires a separate explicit instruction.

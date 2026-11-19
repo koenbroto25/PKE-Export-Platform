@@ -4272,7 +4272,7 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
             reason, before_snapshot, after_snapshot, metadata, outcome)
          VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.unappointed', 'project_pm_appointment',
                  $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
-        [req.user?.id, current.id, projectId, reason, JSON.stringify(current),
+        [req.user?.id, current.assignment_id, projectId, reason, JSON.stringify(current),
          JSON.stringify({ is_active: false, revoked_at: oldRows[0]?.revoked_at, revoked_by: oldRows[0]?.revoked_by }),
          JSON.stringify({ previousPmUserId: current.user_id, nextPmUserId: userId })],
       );
@@ -4323,6 +4323,56 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
   } catch (error: any) {
     if (error?.code === "23505") return res.status(409).json({ error: "PM appointment conflicts with an existing Project membership.", code: "PM_APPOINTMENT_CONFLICT" });
     logger.error("Project PM appointment failed:", { code: error?.code || "UNKNOWN" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const userId = req.params.userId as string;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || reason.length < 5) {
+    return res.status(400).json({ error: "Valid Project, PM user, and administrative reason are required.", code: "INVALID_PM_DEACTIVATION_INPUT" });
+  }
+  try {
+    await req.db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':pm-appointment', 0))", [projectId]);
+    const { rows: beforeRows } = await req.db.query(
+      `SELECT a.*, pr.role_code
+         FROM public.project_role_assignments a
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+        WHERE a.project_id = $1::uuid AND a.user_id = $2::uuid
+          AND pr.role_code = 'pm' AND a.is_active = true AND a.revoked_at IS NULL
+        FOR UPDATE OF a`,
+      [projectId, userId],
+    );
+    if (beforeRows.length === 0) return res.status(404).json({ error: "No active PM assignment found for this user in the Project.", code: "ACTIVE_PM_ASSIGNMENT_NOT_FOUND" });
+    const revoked = [];
+    for (const before of beforeRows) {
+      const { rows } = await req.db.query(
+        `UPDATE public.project_role_assignments
+            SET is_active = false, revoked_at = now(), revoked_by = $3::uuid,
+                revoke_reason = $4::text, updated_at = now()
+          WHERE id = $2::uuid AND project_id = $1::uuid AND revoked_at IS NULL
+          RETURNING *`,
+        [projectId, before.id, req.user?.id ?? null, reason],
+      );
+      if (rows[0]) {
+        revoked.push(rows[0]);
+        await req.db.query(
+          `INSERT INTO public.audit_events
+             (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+              reason, before_snapshot, after_snapshot, metadata, outcome)
+           VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.deactivated', 'project_pm_assignment',
+                   $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
+          [req.user?.id, before.id, projectId, reason, JSON.stringify(before), JSON.stringify(rows[0]),
+           JSON.stringify({ pmUserId: userId, adminDecision: true })],
+        );
+      }
+    }
+    return res.json({ ok: true, deactivatedAssignments: revoked.length, assignments: revoked, membershipPreserved: true });
+  } catch (error: any) {
+    logger.error("Admin PM deactivation failed:", { code: error?.code || "UNKNOWN" });
     return res.status(500).json(internalServerErrorPayload());
   }
 });

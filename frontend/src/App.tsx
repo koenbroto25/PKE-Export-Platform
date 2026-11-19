@@ -11,24 +11,24 @@ import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
 
 type AnyRecord = Record<string, any>;
-type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'payment-instructions' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
+type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 
 const roleAccess: Record<string, string[]> = {
-  admin: ['dashboard','projects','contracts','operations','finance','compliance','journal-entries','shipment-allocations','payment-instructions','reports','notifications','access','buyer','supplier','transporter','warehouse','funder'],
-  pm: ['dashboard','projects','contracts','operations','finance','compliance','shipment-allocations','reports','notifications','buyer','supplier','transporter','warehouse'],
-  field_manager: ['dashboard','operations','shipment-allocations','reports','notifications','transporter','warehouse'],
-  procurement: ['dashboard','projects','contracts','operations','supplier','reports','notifications'],
-  checker: ['dashboard','operations','shipment-allocations','reports','notifications','warehouse'],
-  warehouse_manager: ['dashboard','operations','shipment-allocations','inventory-lots','reports','notifications','warehouse'],
-  packing_supervisor: ['dashboard','operations','shipment-allocations','reports','notifications','warehouse'],
-  loading_manager: ['dashboard','operations','shipment-allocations','reports','notifications','transporter','warehouse'],
-  document_officer: ['dashboard','compliance','reports','notifications','access'],
-  finance: ['dashboard','finance','reports','notifications','journal-entries','shipment-allocations'],
-  cashier: ['dashboard','finance','reports','notifications','payment-instructions'],
-  accounting: ['dashboard','finance','reports','notifications','journal-entries'],
+  admin: ['dashboard','projects','contracts','operations','finance','compliance','journal-entries','shipment-allocations','cash-advances','payment-instructions','reports','notifications','access','buyer','supplier','transporter','warehouse','funder'],
+  pm: ['dashboard','projects','contracts','operations','finance','compliance','shipment-allocations','cash-advances','reports','notifications','buyer','supplier','transporter','warehouse'],
+  field_manager: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','transporter','warehouse'],
+  procurement: ['dashboard','projects','contracts','operations','supplier','cash-advances','reports','notifications'],
+  checker: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','warehouse'],
+  warehouse_manager: ['dashboard','operations','shipment-allocations','cash-advances','inventory-lots','reports','notifications','warehouse'],
+  packing_supervisor: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','warehouse'],
+  loading_manager: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','transporter','warehouse'],
+  document_officer: ['dashboard','compliance','cash-advances','reports','notifications','access'],
+  finance: ['dashboard','finance','cash-advances','reports','notifications','journal-entries','shipment-allocations'],
+  cashier: ['dashboard','finance','cash-advances','reports','notifications','payment-instructions'],
+  accounting: ['dashboard','finance','cash-advances','reports','notifications','journal-entries'],
   funder: ['dashboard','projects','finance','reports','notifications','funder'],
   buyer: ['dashboard','reports','notifications','buyer'],
   supplier: ['dashboard','projects','contracts','reports','notifications','supplier'],
@@ -46,6 +46,7 @@ const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDa
   { to: '/compliance', key: 'compliance', label: 'Dokumen & Compliance', icon: ShieldCheck, group: 'Kontrol' },
   { to: '/journal-entries', key: 'journal-entries', label: 'Jurnal Umum', icon: BookOpen, group: 'Kontrol' },
   { to: '/shipment-allocations', key: 'shipment-allocations', label: 'Alokasi Pengiriman', icon: Ship, group: 'Eksekusi' },
+  { to: '/cash-advances', key: 'cash-advances', label: 'Uang Muka Operasional', icon: Wallet, group: 'Kontrol' },
   { to: '/payment-instructions', key: 'payment-instructions', label: 'Instruksi Pembayaran', icon: FileText, group: 'Kontrol' },
   { to: '/reports', key: 'reports', label: 'Laporan', icon: TrendingUp, group: 'Kontrol' },
   { to: '/notifications', key: 'notifications', label: 'Notifikasi', icon: Bell, group: 'Sistem' },
@@ -190,6 +191,7 @@ function App() {
             <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={activeUser}><NotificationsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={activeUser}><AccessPage onNotice={notify} /></RoleGuard>} />
             <Route path="/shipment-allocations" element={<RoleGuard allowedKeys={['operations']} activeUser={activeUser}><ShipmentAllocationPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/cash-advances" element={<RoleGuard allowedKeys={["cash-advances"]} activeUser={activeUser}><CashAdvancesPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/payment-instructions" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><PaymentInstructionsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/buyer" element={<RoleGuard allowedKeys={['buyer']} activeUser={activeUser}><BuyerWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/supplier" element={<RoleGuard allowedKeys={['supplier']} activeUser={activeUser}><SupplierWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
@@ -815,6 +817,95 @@ function ShipmentAllocationPage({ projectId, onNotice }: { projectId: string; on
       { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
       { key: 'actions', label: 'Aksi', render: r => r.status === 'active' ? <button className="text-button" onClick={() => reverse(r.id)}>Batalkan</button> : <span className="muted">—</span> },
     ]} />}</Card>
+  </>;
+}
+
+function CashAdvancesPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const advances = useLoad<{ cashAdvances?: AnyRecord[]; canRequest?: boolean; canApprove?: boolean; canViewAll?: boolean }>(
+    () => projectId ? get(`/cash-advances?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ cashAdvances: [], canRequest: false, canApprove: false, canViewAll: false }),
+    [projectId],
+  );
+  const currencies = useLoad<{ currencies?: AnyRecord[] }>(() => get('/currencies'), []);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ amount: '', currencyId: '', purpose: '', advanceDate: new Date().toISOString().slice(0, 10) });
+  useEffect(() => {
+    const functional = currencies.data?.currencies?.find(c => c.is_functional);
+    if (functional && !form.currencyId) setForm(v => ({ ...v, currencyId: functional.id }));
+  }, [currencies.data, form.currencyId]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!projectId) return onNotice('error', 'Pilih Project terlebih dahulu.');
+    setBusy(true);
+    try {
+      await post('/cash-advances', { projectId, amount: Number(form.amount), currencyId: form.currencyId, purpose: form.purpose, advanceDate: form.advanceDate });
+      onNotice('success', 'Cash Advance berhasil diajukan sebagai draft.');
+      setOpen(false);
+      setForm(v => ({ ...v, amount: '', purpose: '' }));
+      advances.refresh();
+    } catch (error) {
+      onNotice('error', error instanceof Error ? error.message : 'Cash Advance tidak dapat diajukan.');
+    } finally { setBusy(false); }
+  };
+
+  const decide = async (row: AnyRecord, decision: 'approved' | 'rejected') => {
+    setBusy(true);
+    try {
+      await patch(`/cash-advances/${row.id}/decision`, { decision });
+      onNotice('success', decision === 'approved' ? 'Cash Advance disetujui.' : 'Cash Advance ditolak.');
+      advances.refresh();
+    } catch (error) {
+      onNotice('error', error instanceof Error ? error.message : 'Keputusan Finance gagal disimpan.');
+    } finally { setBusy(false); }
+  };
+
+  return <>
+    <PageTitle eyebrow="P07 FINANCE · CASH ADVANCE" title="Uang Muka Operasional"
+      subtitle="Pengajuan dibuat oleh pemohon; keputusan hanya oleh Finance Project yang berbeda dari pemohon."
+      actions={advances.data?.canRequest ? <ActionButton onClick={() => setOpen(v => !v)}><Plus size={15} /> Ajukan Cash Advance</ActionButton> : undefined} />
+    {!projectId && <div className="inline-warning"><CircleAlert size={17} /> Pilih Project pada bagian atas untuk melihat atau mengajukan Cash Advance.</div>}
+    {projectId && advances.error && <ErrorState message={advances.error} retry={advances.refresh} />}
+    {projectId && advances.data && <div className="metric-grid three">
+      <Metric label="Permohonan terlihat" value={number(advances.data.cashAdvances?.length || 0, 0)} icon={FileText} tone="blue" />
+      <Metric label="Menunggu keputusan" value={number((advances.data.cashAdvances || []).filter(row => ['draft', 'pending'].includes(row.approval_status)).length, 0)} icon={Clock3} tone="amber" />
+      <Metric label="Akses" value={advances.data.canViewAll ? 'Finance' : 'Pemohon'} foot={advances.data.canViewAll ? 'Daftar Project' : 'Permohonan sendiri'} icon={ShieldCheck} tone="slate" />
+    </div>}
+    {open && advances.data?.canRequest && <Card className="form-panel">
+      <PanelHeading title="Ajukan uang muka" description="Identitas pemohon berasal dari akun aktif. Status pencairan dan saldo tidak dapat diubah dari formulir ini."
+        action={<button className="icon-button" onClick={() => setOpen(false)}><X size={18} /></button>} />
+      <form className="form-grid" onSubmit={submit}>
+        <FormField label="Jumlah"><input type="number" min="0.01" step="0.01" required value={form.amount} onChange={e => setForm(v => ({ ...v, amount: e.target.value }))} /></FormField>
+        <FormField label="Mata uang"><select required value={form.currencyId} onChange={e => setForm(v => ({ ...v, currencyId: e.target.value }))}>
+          <option value="">Pilih mata uang</option>
+          {(currencies.data?.currencies || []).map(currency => <option key={currency.id} value={currency.id}>{currency.code} — {currency.name}</option>)}
+        </select></FormField>
+        <FormField label="Tanggal pengajuan"><input type="date" required value={form.advanceDate} onChange={e => setForm(v => ({ ...v, advanceDate: e.target.value }))} /></FormField>
+        <FormField label="Tujuan penggunaan"><textarea required minLength={3} maxLength={4000} value={form.purpose} onChange={e => setForm(v => ({ ...v, purpose: e.target.value }))} /></FormField>
+        <div className="form-actions"><ActionButton variant="secondary" onClick={() => setOpen(false)}>Batal</ActionButton>
+          <button className="primary-button" disabled={busy || !form.currencyId}>{busy ? 'Mengirim…' : 'Kirim Permohonan'}</button></div>
+      </form>
+    </Card>}
+    <Card>
+      <PanelHeading title="Permohonan Cash Advance"
+        description={advances.data?.canViewAll ? "Daftar permohonan Project; Finance dapat memberi keputusan independen." : "Hanya permohonan yang dibuat oleh akun ini yang ditampilkan."}
+        action={<button className="icon-button" onClick={advances.refresh}><RefreshCw size={16} /></button>} />
+      {advances.loading ? <Loading /> : advances.error ? <ErrorState message={advances.error} retry={advances.refresh} /> :
+        !projectId ? <div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Project belum dipilih</div></div> :
+        <DataTable rows={advances.data?.cashAdvances || []} columns={[
+          { key: 'created_at', label: 'Diajukan', render: row => dateTime(row.created_at) },
+          { key: 'requestor_email', label: 'Pemohon', render: row => row.requestor_email || shortId(row.requestor_id) },
+          { key: 'amount', label: 'Jumlah', render: row => `${row.currency_code || '—'} ${number(row.amount)}` },
+          { key: 'purpose', label: 'Tujuan', render: row => row.purpose },
+          { key: 'approval_status', label: 'Persetujuan', render: row => <StatusPill value={row.approval_status} /> },
+          { key: 'disbursement_status', label: 'Pencairan', render: row => <StatusPill value={row.disbursement_status} /> },
+          { key: 'actions', label: 'Aksi', render: row => advances.data?.canApprove && ['draft', 'pending'].includes(row.approval_status)
+            ? <div className="table-actions"><button className="text-button" disabled={busy || row.requestor_id === undefined} onClick={() => decide(row, 'approved')}>Setujui</button>
+              <button className="text-button danger" disabled={busy} onClick={() => decide(row, 'rejected')}>Tolak</button></div>
+            : <span className="muted">—</span> },
+        ]} />}
+    </Card>
+    <div className="inline-warning"><ShieldCheck size={16} /> Persetujuan bukan pencairan. Pencairan, saldo, refund, dan settlement hanya berubah melalui workflow rekonsiliasi terkontrol.</div>
   </>;
 }
 

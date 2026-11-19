@@ -9345,3 +9345,10 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Proposed RLS/audit migration 045 is prepared as an exact source artifact. It removes the platform-wide cash_advance RLS bypass, limits INSERT/SELECT/UPDATE to requestor-own and independent Finance access, and adds immutable INSERT audit events for cash_advances, payment_obligations, ap_invoices, and ar_invoices.
 - **Production boundary:** migration 045 is NOT applied; no Production DDL/DML, role grant, PM appointment, or synthetic business data was performed. Migration SHA must be separately approved by owner. The permanent single-Neon-branch rule was followed; no temporary branch was created.
 - CI and frontend wiring remain pending; no E2E/RLS runtime PASS is claimed.
+
+
+## 56.32 — F1 / PRI-1 Cash Advance UI integration — 2026-11-20
+
+- Added dedicated `/cash-advances` navigation and page for internal Project users. The page reads the selected Project, shows requestor-own rows or Finance-visible rows as determined by API/RLS, and only displays request/decision actions returned as permitted by the API.
+- Request form uses active currencies and does not accept a requestor identity. Finance can approve/reject only when the API confirms an explicit Finance Project role and independent actor. No UI action can disburse, refund, settle, or edit ledger balances.
+- The UI source now calls the new service API; integration is source-complete pending frontend typecheck/build and CI. Migration 045 remains unapplied pending exact owner approval.

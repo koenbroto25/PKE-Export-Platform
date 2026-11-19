@@ -410,3 +410,33 @@ Latest F1 source commit at the time of this checkpoint: `c0984cfec18fca204350faa
 - Applying Migration 041 to Production is the remaining database blocker for the revised Finance notification endpoint. It requires explicit owner approval of this exact SQL/hash before Production DDL is executed.
 - Payment execution remains explicitly OUT OF SCOPE and is not an F1 blocker.
 - F1 status: **IMPLEMENTATION AND ISOLATED BACKTEST PASS; PRODUCTION MIGRATION 041 APPROVAL AND LATEST-HEAD VERCEL DEPLOY LIMIT REMAIN. Do not mark F1 COMPLETE until Migration 041 is approved/applied and a latest-head Preview smoke can be completed when Vercel quota permits.**
+
+
+## F1 authoritative checkpoint — 2026-11-19 (latest verification)
+This section supersedes older F1 checkpoints above where their status differs.
+
+### Current source and CI
+- PR #2 remains OPEN / DRAFT / mergeable; current PR head is `8ada2d58ac9e33aba4a5b5922f8217f468d83e37` on `f1/project-scoped-cob-20261119`.
+- Unit Tests run `44434738685`: SUCCESS (job `unit` completed successfully).
+- Dependency Audit run `44434738849`: SUCCESS (job `audit` completed successfully).
+- The PR description has been corrected to reflect the actual Production ledger, isolated mock-data backtest, reporting-only Finance scope, and remaining acceptance gates.
+
+### Neon Production read-only verification
+- Production branch `br-damp-shape-b3xlh4nr`; latest ledger rows 36–40 were read directly.
+- Ledger row 40 is `040_finance_reporting_notifications.sql`, SHA-256 `3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f`, status `applied`.
+- Ledger row 39 is `039_project_scoped_contract_cob_cycles.sql`, SHA-256 `2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168`, status `applied`.
+- Read-only catalog query confirms `public.pke_submit_finance_report_notifications` is absent from Production; Migration 041 has not been applied. No Production DDL/DML was executed in this checkpoint.
+
+### Vercel source-parity check
+- Preview deployment `dpl_3EAa6NbpV6mU2gmbsxZdWFBjt4cn`, commit `41b3236147767390c69566a32592981286bc86e3`, reached READY; its root page returned HTTP 200.
+- GitHub comparison confirms the current PR head is eight commits ahead of that deployed commit. Those intervening commits include changes to Migration 041, `scripts/migrate.mjs`, `scripts/verify-migration-release-policy.mjs`, `src/index.ts`, and regression tests. Therefore this Preview is NOT latest-head evidence.
+- Latest-head Vercel check remains blocked by account quota `api-deployments-free-per-day`; no Production deployment or promotion was attempted.
+
+### F1 acceptance status
+- PASS: PM-owned Project-scoped contract/program/cycle authorization and shipment CoB constraints.
+- PASS: isolated synthetic dataset backtest, remediation, second backtest, rollback check, and cleanup. Test branch `br-square-darkness-b3g97o4p` was deleted; mock fixtures were not written to Production.
+- PASS: current PR-head Unit Tests and Dependency Audit.
+- PENDING OWNER APPROVAL: Migration 041 exact SQL SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`. Do not apply until the owner explicitly approves this exact hash.
+- BLOCKED EXTERNAL: latest-head Vercel Preview build/smoke due account deployment quota. The older READY Preview is not a substitute.
+- Finance remains reporting-only; payment execution is OUT OF SCOPE and must not be reopened as an F1 blocker.
+- F1 remains IN PROGRESS. Do not mark COMPLETE, merge, or promote to Production until Migration 041 approval/application and latest-head Preview smoke evidence are complete.

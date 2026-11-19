@@ -9352,3 +9352,5 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Added dedicated `/cash-advances` navigation and page for internal Project users. The page reads the selected Project, shows requestor-own rows or Finance-visible rows as determined by API/RLS, and only displays request/decision actions returned as permitted by the API.
 - Request form uses active currencies and does not accept a requestor identity. Finance can approve/reject only when the API confirms an explicit Finance Project role and independent actor. No UI action can disburse, refund, settle, or edit ledger balances.
 - The UI source now calls the new service API; integration is source-complete pending frontend typecheck/build and CI. Migration 045 remains unapplied pending exact owner approval.
+
+- Migration 045 audit capture uses a separate INSERT-only SECURITY DEFINER trigger function; the existing financial UPDATE audit function is deliberately left unchanged so payment-instruction/evidence/reconciliation audit cases are preserved.

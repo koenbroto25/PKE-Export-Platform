@@ -118,6 +118,37 @@ export const project_role_permissions = pgTable("project_role_permissions", {
   granted_at: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const project_role_assignments = pgTable("project_role_assignments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  project_id: uuid("project_id").notNull().references(() => projects.id),
+  project_member_id: uuid("project_member_id").notNull().references(() => project_members.id),
+  user_id: uuid("user_id").notNull().references(() => users.id),
+  project_role_id: uuid("project_role_id").notNull().references(() => project_roles.id),
+  is_active: boolean("is_active").notNull().default(true),
+  assigned_at: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+  assigned_by: uuid("assigned_by").references(() => users.id),
+  expires_at: timestamp("expires_at", { withTimezone: true }),
+  revoked_at: timestamp("revoked_at", { withTimezone: true }),
+  revoked_by: uuid("revoked_by").references(() => users.id),
+  revoke_reason: text("revoke_reason"),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const project_role_assignment_events = pgTable("project_role_assignment_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  assignment_id: uuid("assignment_id").notNull().references(() => project_role_assignments.id),
+  project_id: uuid("project_id").notNull().references(() => projects.id),
+  user_id: uuid("user_id").notNull().references(() => users.id),
+  project_role_id: uuid("project_role_id").notNull().references(() => project_roles.id),
+  event_type: text("event_type").notNull(),
+  actor_user_id: uuid("actor_user_id").references(() => users.id),
+  reason: text("reason"),
+  before_snapshot: jsonb("before_snapshot"),
+  after_snapshot: jsonb("after_snapshot").notNull(),
+  occurred_at: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const buyers = pgTable("buyers", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),

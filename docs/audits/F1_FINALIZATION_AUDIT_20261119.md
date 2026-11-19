@@ -108,3 +108,42 @@ All checks below executed against PostgreSQL, not mocked TypeScript functions:
 - Production migration application: NOT APPROVED / NOT PERFORMED.
 - F1 final acceptance: NOT COMPLETE until CI passes and authenticated API UAT is recorded. Vercel remains excluded by instruction.
 - The validation branch contains one synthetic multi-role assignment created for the live test. It is isolated from Production and retained as evidence; branch deletion requires a separate explicit instruction.
+
+
+## Second validation and CI closure — 2026-11-19
+
+### Expanded runtime-role PostgreSQL tests
+Additional tests were executed as `app_runtime_secure` on the same isolated validation branch:
+- Project Admin with `project.members.manage` successfully inserted a non-PM assignment and revoked it with a reason. The database wrote both `assigned` and `revoked` events.
+- Runtime role has no DELETE privilege on assignments and no UPDATE privilege on event history.
+- Project Admin RLS visibility: 19 assignments and 19 events in Alpha; Viewer without `project.members.view`: 0 assignments and 0 events.
+- Active PM in Beta has `project.view`; deactivated and expired PM identities are denied.
+- Finance notification recipient guard: active PM and active platform Admin accepted; inactive and expired PM recipients rejected.
+- Active assignment on inactive role template: rejected.
+- Active assignment on expired membership: rejected.
+- Project Admin (non-platform Admin) PM appointment: rejected.
+- These are database-level checks on the validation branch. No real PM appointment or handover was made.
+
+### Latest GitHub CI evidence
+- Corrected test commit: `4458d83d7e4f0cf40da526f8dd2c5e12a1c72601`.
+- Unit Tests run `44543952621`: SUCCESS. Vitest: 10 test files, 141/141 tests passed. Production migration release-policy verification, migration runner dry-run, backend API typecheck, frontend typecheck, and frontend build all passed.
+- Dependency Audit Evidence run `44543952737`: SUCCESS.
+- The immediately preceding Unit Tests run failed only because the newly added source-contract test looked for a PM error-code literal in `src/index.ts` instead of the dedicated helper. The assertion was corrected; the latest complete workflow is green.
+- The successful workflow did not apply migrations to Production and did not run authenticated HTTP integration against the validation branch.
+
+### Final validation-branch state after tests
+- Migration ledger: 44/44.
+- Assignments: 26 total (24 original legacy backfills plus 2 synthetic validation assignments); 24 active and 2 revoked.
+- Events: 27 total (24 legacy backfill events, plus 2 assignment events and 1 revocation event).
+- The two pre-existing active PM assignments in Alpha remain untouched and are still deliberately unresolved for Admin decision.
+- One synthetic inactive QA role template and the test assignments/events remain on this isolated validation branch.
+- Production was rechecked read-only after all tests: migration ledger remains 41/41; role-assignment table absent; release_reason column absent; `project.change.delete` permission absent. No Production mutation occurred.
+
+### Acceptance status after second validation
+- Isolated PostgreSQL migrations 042–044: PASS.
+- Legacy backfill, role assignment lifecycle, project isolation, RLS, append-only events, Finance recipient filtering, inactive/expired-state rejection: PASS for the tested scenarios.
+- Root Unit Tests, release-policy check, migration dry-run, backend/frontend typecheck and frontend build: PASS (141/141 tests).
+- Dependency Audit: PASS.
+- Authenticated HTTP UAT against the validation schema: STILL NOT RUN. API routes were source-reviewed and statically regression-tested; no real HTTP request with a signed Neon Auth identity was executed.
+- Production migrations 042–044: NOT APPLIED; separate explicit owner approval of exact hashes is still required.
+- F1 acceptance remains **NOT COMPLETE** until authenticated HTTP UAT is completed or explicitly excluded by the owner. Vercel/deployment remains excluded by instruction.

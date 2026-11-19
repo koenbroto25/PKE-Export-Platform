@@ -4223,15 +4223,18 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     const pmRoleId = pmRoleRows[0].id;
 
     const { rows: currentRows } = await req.db.query(
-      `SELECT pm.id, pm.user_id, pm.project_role_id, pm.is_active, pm.expires_at,
-              u.email, pr.role_code
-         FROM public.project_members pm
-         JOIN public.project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
-         JOIN public.users u ON u.id = pm.user_id
-        WHERE pm.project_id = $1::uuid AND pr.role_code = 'pm'
+      `SELECT pm.id AS member_id, a.id AS assignment_id, a.user_id,
+              a.project_role_id, a.is_active, a.expires_at, u.email, pr.role_code
+         FROM public.project_role_assignments a
+         JOIN public.project_members pm ON pm.id = a.project_member_id
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+         JOIN public.users u ON u.id = a.user_id
+        WHERE a.project_id = $1::uuid AND pr.role_code = 'pm'
+          AND a.is_active = true AND a.revoked_at IS NULL
+          AND (a.expires_at IS NULL OR a.expires_at > now())
           AND pm.is_active = true AND pm.deactivated_at IS NULL
           AND (pm.expires_at IS NULL OR pm.expires_at > now())
-        FOR UPDATE OF pm`,
+        FOR UPDATE OF a, pm`,
       [projectId],
     );
     if (currentRows.length > 1) return res.status(409).json({ error: "More than one active PM exists; reconcile appointments before continuing.", code: "MULTIPLE_ACTIVE_PM_ASSIGNMENTS" });
@@ -4253,20 +4256,15 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     );
     if (candidateMemberships.length > 1) return res.status(409).json({ error: "Duplicate Project membership requires reconciliation.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
     const candidateMembership = candidateMemberships[0] ?? null;
-    if (candidateMembership && candidateMembership.project_role_id && candidateMembership.project_role_id !== pmRoleId) {
-      return res.status(409).json({
-        error: "This user already has another Project role. Independent multi-role assignments require the approved role-assignment schema migration; no existing role was replaced.",
-        code: "MULTI_ROLE_SCHEMA_PENDING",
-      });
-    }
+    // Existing membership and role assignments are independent; appointing PM must not replace another role.
 
     if (current && current.user_id !== userId) {
       const { rows: oldRows } = await req.db.query(
-        `UPDATE public.project_members
-            SET is_active = false, deactivated_at = now(), deactivated_by = $2::uuid,
-                updated_at = now()
-          WHERE id = $1::uuid RETURNING *`,
-        [current.id, req.user?.id],
+        `UPDATE public.project_role_assignments
+            SET is_active = false, revoked_at = now(), revoked_by = $2::uuid,
+                revoke_reason = $3::text, updated_at = now()
+          WHERE id = $1::uuid AND revoked_at IS NULL RETURNING *`,
+        [current.assignment_id, req.user?.id, reason],
       );
       await req.db.query(
         `INSERT INTO public.audit_events
@@ -4275,7 +4273,7 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
          VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.unappointed', 'project_pm_appointment',
                  $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
         [req.user?.id, current.id, projectId, reason, JSON.stringify(current),
-         JSON.stringify({ is_active: false, deactivated_at: oldRows[0]?.deactivated_at }),
+         JSON.stringify({ is_active: false, revoked_at: oldRows[0]?.revoked_at, revoked_by: oldRows[0]?.revoked_by }),
          JSON.stringify({ previousPmUserId: current.user_id, nextPmUserId: userId })],
       );
     }
@@ -4284,21 +4282,29 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     if (candidateMembership) {
       const { rows } = await req.db.query(
         `UPDATE public.project_members
-            SET project_role_id = $3::uuid, is_active = true, expires_at = NULL,
+            SET is_active = true, expires_at = NULL,
                 deactivated_at = NULL, deactivated_by = NULL, updated_at = now()
           WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *`,
-        [candidateMembership.id, projectId, pmRoleId],
+        [candidateMembership.id, projectId],
       );
       appointed = rows[0];
     } else {
       const { rows } = await req.db.query(
         `INSERT INTO public.project_members
            (project_id, user_id, project_role_id, is_active, joined_at, updated_at)
-         VALUES ($1::uuid, $2::uuid, $3::uuid, true, now(), now()) RETURNING *`,
-        [projectId, userId, pmRoleId],
+         VALUES ($1::uuid, $2::uuid, NULL, true, now(), now()) RETURNING *`,
+        [projectId, userId],
       );
       appointed = rows[0];
     }
+    const { rows: assignmentResult } = await req.db.query(
+      `INSERT INTO public.project_role_assignments
+         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, true, now(), $5::uuid)
+       RETURNING *`,
+      [projectId, appointed.id, userId, pmRoleId, req.user?.id],
+    );
+    const pmAssignment = assignmentResult[0];
     await req.db.query(
       `INSERT INTO public.audit_events
          (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
@@ -4307,7 +4313,7 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
                $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
       [req.user?.id, appointed.id, projectId, reason,
        candidateMembership ? JSON.stringify(candidateMembership) : null,
-       JSON.stringify({ userId, projectRoleId: pmRoleId, isActive: true }),
+       JSON.stringify({ userId, projectRoleId: pmRoleId, assignmentId: pmAssignment.id, isActive: true }),
        JSON.stringify({ email: userRows[0].email, handoverFromUserId: current?.user_id ?? null })],
     );
     return res.status(current ? 200 : 201).json({

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.27 — Unified F-Phase / Priority / Work-Package Governance
+# Master Implementation Plan Rev2.28 — F1 PRI-0 Audit & Remediation
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.27 (19 November 2026 — unified F0–F2 release phases, PRI-0/PRI-1 execution priorities and WP-01–WP-18 work packages; see §56.20)  
+**Revision:** 2.28 (19 November 2026 — F1/PRI-0 code remediation, role catalogue and inventory contract backtest; see §§56.20–56.21)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -8898,3 +8898,76 @@ This crosswalk normalizes existing evidence. It does not silently change previou
 - **Domain decomposition:** WP-01–WP-18 (historically P01–P18) remains the stable work-package catalogue.
 
 **Canonical planning rule:** F# answers “which release outcome”; PRI-# answers “how urgent”; WP-## answers “which domain”. These dimensions are mandatory together and must never be conflated.
+
+
+## 56.21 — F1 / PRI-0 comprehensive audit, remediation and backtest checkpoint (19 November 2026)
+
+**Status: PARTIALLY REMEDIATED — NOT CLOSED.** This checkpoint records code and test changes on the existing GitHub branch `f1/project-scoped-cob-20261119`. It does not authorize or record any Neon Production DDL/DML, merge, or deployment. The no-new-branch rule in §56.19 remains absolute.
+
+### 56.21.1 Work completed on the existing F1 branch
+
+| F1 / PRI-0 work item | Work packages | Change and evidence | Status |
+|---|---|---|---|
+| Canonical Project role templates | WP-01, WP-03, WP-10, WP-13 | Added `src/role-catalogue.ts` with 34 centrally governed templates, scope/domain/classification, assignment mode, restrictions and legacy aliases. Platform Admin is explicitly distinct from Project Admin; payment execution permissions are excluded from all default templates. | CODE IMPLEMENTED; runtime/DB UAT pending |
+| PM-first Project setup | WP-01, WP-03, WP-13 | New Project creation provisions only a PM role slot; it no longer auto-activates every legacy role or silently gives the creator Project Admin. Platform Admin explicitly appoints PM. | CODE IMPLEMENTED; regression/backward-compatibility UAT pending |
+| PM appointment and handover | WP-01, WP-03, WP-13 | Added `POST /api/v1/admin/projects/:projectId/pm-appointment`; enforces one active PM, explicit `replaceUserId` for handover, active PKE + linked Neon Auth identity, audit reason and audit events. A PM may be appointed to multiple Projects. | CODE IMPLEMENTED; database/API backtest pending |
+| Template activation separate from assignment | WP-01, WP-03, WP-10 | Added `GET /api/v1/role-templates` and `POST /api/v1/projects/:id/role-templates/:roleCode/activate`. Only canonical templates are accepted; missing/inactive permissions return 503; activation returns `assignedUsers: 0`. | CODE IMPLEMENTED; permission ceiling and browser UAT pending |
+| Project role overwrite prevention | WP-03, WP-13 | Admin assignment and member PATCH now fail closed with `MULTI_ROLE_SCHEMA_PENDING` rather than silently replacing an active role. PM appointment uses its dedicated workflow. | GUARD IMPLEMENTED; multi-role schema remains open |
+| Audit actor attribution | WP-03, WP-13 | Successful `requireProjectPermission` now resolves the active Project role that actually grants the permission and sets transaction-local `app.current_role`, Project role ID, Project ID and permission context. Platform Admin is labelled `platform_admin`, not Project Admin. | CODE IMPLEMENTED; trigger/API verification pending |
+| Reservation API/schema alignment | WP-02, WP-04, WP-06, WP-12 | Reservation API now uses Production columns `unit_code`, `buyer_id`, `shipment_id`, `created_by`; adds Project permission scope, lot/unit/shipment validation, idempotency replay handling and reasoned release/expiry routes. | CODE IMPLEMENTED; BLOCKED by unapplied Migration 042 |
+| Shipment allocation alignment | WP-02, WP-04, WP-06, WP-12 | Allocation API now requires shipment + reservation + lot, inserts `draft`, follows DB states `allocated / partially_loaded / loaded / cancelled / reversed`, and leaves reservation fulfillment counters to DB triggers. Capacity validation covers both reservation and shipment. | CODE IMPLEMENTED; DB/API backtest pending |
+| Inventory mock state-machine backtest | WP-06, WP-12, WP-13 | Added pure rule module `src/f1-pri0-inventory-rules.ts` and included it in `src/f1-pri0-contract.test.ts`: positive/negative Project scope, unit, active reservation, reservation capacity, shipment capacity, legal state transitions, loaded quantity and reversal reason. | SOURCE TESTS ADDED; latest CI rerun pending |
+| API permission dictionary reconciliation | WP-03, WP-12, WP-13 | Read-only comparison found all permission literals currently used by API source resolve to active Production permissions after replacing stale `documents.review`, `notifications.create`, `project.configuration.view` and `reports.manage` checks with their current policy-aligned permissions. All 34 role-template permission codes also exist and are active in Production. | API/TEMPLATE CATALOGUE PASS; RLS exception below remains |
+| RLS permission catalogue | WP-02, WP-03, WP-12 | Read-only Production policy audit found `pke_project_change_requests_delete` still references absent permission `project.change.delete`. This remains deny-by-default and must be reconciled by an approved migration (seed the permission with no default grant, or remove the unused DELETE policy). | OPEN PRI-0 CATALOGUE GAP |
+
+### 56.21.2 Exact code and test commits
+
+All commits below are on the existing branch `f1/project-scoped-cob-20261119`; no GitHub or Neon branch was created:
+
+- `86752df340469d2337fb8f4e3afdee87b87e6374` — reservation and shipment allocation API contract correction.
+- `35fbcfdd0d8fcbf882830c0b82973b9ddca6c5d6` — initial canonical 34-role catalogue.
+- `50fae172baf248f45a7c4a278f0ec68de3030a8d` — PM-first Project setup and role template activation.
+- `1a7cefc1b73d5303fab7ccd22a4b5a0bf3493a49` — audited PM appointment and handover.
+- `9666c9d607f162a34a61d5f3bf43c64a3e2c09ed` — canonical template-only activation and role overwrite guard.
+- `e9b9128d90ed56a18a6708c44826d927b180d0f7` — prevent member PATCH role replacement.
+- `9f8a4779a53fcb270553debab03df25ec1571c83` — align API permission checks with active Production policy catalog.
+- `45cb33bc16b0ac702f214b46ab68355963704983` — strict TypeScript route-parameter normalization.
+- `1505805714188691471853faec567434ebb4c043` — reservation/shipment capacity and allocation state-machine integration.
+- `cc84f7771c7728d4077928a468b911ed3ce5200b` — expanded mock inventory state-machine tests.
+
+Supporting catalogue/test commits include `d3eb4560e6cf2f812f30d3a8fea3cdff09ef862b`, `1317753cae01ff6806cbe06c0bf31fa05e323721`, `bf9bf5be79ffa2be312cba5d6927f4cc879fc760`, `961b428c78d516208c0730a4f61328f1b0bcebec` and `39667cba8a38061eacb5e97fa65a09228ecd106d`.
+
+### 56.21.3 CI, backtest and Vercel evidence
+
+- First CI run on commit `e9b9128d90ed56a18a6708c44826d927b180d0f7`: 108 tests passed and one legacy source assertion failed because it still expected PM permissions in the removed inline map. The assertion was revised to read the canonical PM template.
+- CI on commit `9f8a4779a53fcb270553debab03df25ec1571c83`: offline security/unit tests PASS; Production migration-ledger verifier PASS; migration runner dry-run PASS; backend TypeScript check FAIL with two Express `string | string[]` route-parameter errors.
+- TypeScript route parameter normalization was committed in `45cb33bc16b0ac702f214b46ab68355963704983`. Subsequent inventory rule/test additions are in `1505805714188691471853faec567434ebb4c043` and `cc84f7771c7728d4077928a468b911ed3ce5200b`. Their final CI result must be recorded after the next GitHub Actions run; do not infer success from the prior run.
+- Vercel status on the PR head is FAILURE solely because the account has exceeded the free daily deployment limit (`api-deployments-free-per-day`, build-rate-limit). Per the current owner instruction this one external deployment blocker is skipped for this work wave. No deployment, promotion, environment change or merge was attempted.
+- The mock inventory tests are pure deterministic state-machine tests; they are not a substitute for authenticated HTTP/UI tests or PostgreSQL trigger/RLS DML backtests.
+
+### 56.21.4 Production facts and non-negotiable blockers
+
+1. Neon Production remains project `purple-base-63944903`, branch `production` / ID `br-damp-shape-b3xlh4nr`, database `neondb`. Latest verified migration is 041, SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+2. Migration 042 `migrations/042_inventory_reservation_release_reason.sql` is prepared only; SHA-256 `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`. It is NOT applied. Production trigger functions reference `NEW.release_reason`, but the column is absent. Reservation create/release/expiry therefore cannot be certified until the schema is repaired.
+3. The last known snapshot is `PKE-target-pre-migration-20261115`, created 15 November 2026, source Production branch ID `br-damp-shape-b3xlh4nr`, full size 32,161,792 bytes. A fresh snapshot request was rejected by Neon with `snapshots limit exceeded`. No verified full export exists. Do not delete old snapshots or create a new branch to evade this.
+4. No Production DDL/DML has been performed during this checkpoint. Do not apply Migration 042 or a new RBAC/multi-role migration until a fresh recoverable full backup/export is verified, the complete ordered migration archive/manifest is reconciled (including the known legacy/nested files for 029–032 and 035), and the exact SQL plus SHA-256 receives explicit owner approval.
+5. Production `project_members` still stores only one `project_role_id` per user/Project. This checkpoint intentionally blocks role replacement; it does not implement independent multi-role assignment, per-role expiry/revocation, or separate assignment history. A normalized child assignment table and PM appointment persistence/history remain a schema migration blocker.
+6. PM currently receives a defined set of domain read permissions, not a proven universal Project-wide SELECT-only grant. The dedicated PM read-all permission/RLS policy coverage must be designed and backtested before claiming the owner-approved read-all rule complete.
+7. `project.change.delete` is referenced by one Production RLS policy but absent from `public.permissions`. It is deny-by-default; reconcile it with an approved migration and verify no unintended delete grant.
+8. No authenticated multi-role HTTP/UI UAT, PostgreSQL reservation/trigger backtest, shipment allocation DB lifecycle backtest, or browser role-portal acceptance was performed. No mock business data was inserted into Production.
+
+### 56.21.5 Current disposition and exit criteria
+
+**F1 / PRI-0 / WP-01 + WP-03 + WP-06 + WP-12 + WP-13 remains OPEN.** Code-side controls and deterministic mock state-machine tests are materially improved, but this is not a phase completion record.
+
+The following must all pass before F1 / PRI-0 can be marked complete:
+
+- Latest-head GitHub Unit Tests, dependency audit, migration verifier/dry-run and backend TypeScript check all PASS.
+- Fresh full Production backup/export is created and its completeness, source identity and recoverability are verified without deleting prior snapshots or creating a branch.
+- Migration archive is complete, ordered and SHA-256 verified; Migration 042 and the RBAC/multi-role schema candidate are reviewed as exact SQL artifacts.
+- Explicit owner approval is obtained for each exact Production SQL + SHA-256 before direct application to Neon Production.
+- Production schema/trigger/RLS audit passes after migration; reservation create/release/expiry and shipment allocation/load/reversal are tested with authorized synthetic fixtures and complete cleanup.
+- Multi-role assignment, per-role expiry/revoke, one-active-PM handover/history, PM SELECT-only read-all scope, Project role ceilings, Internal Auditor read-only SoD, Master of Loading boundaries and PKS legal identity protections pass positive and negative API/database tests.
+- Vercel latest-head Preview is the only external quota exception currently waived for this work wave; do not infer deployment acceptance or promote Production from this waiver.
+
+**No new branch. No unapproved Production write. No merge or deployment. No fabricated business data.**

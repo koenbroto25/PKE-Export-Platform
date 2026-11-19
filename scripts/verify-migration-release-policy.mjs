@@ -82,7 +82,7 @@ if (!applied041 || applied041.id !== 41 ||
 
 const expectedPending = [
   ["042_inventory_reservation_release_reason.sql", "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996"],
-  ["043_project_role_assignments_and_history.sql", "7887fd35e024b61ff19c08c7d9a59beb3bcab58802d92edbd7f6665883a2b565"],
+  ["043_project_role_assignments_and_history.sql", "15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086"],
   ["044_project_change_delete_permission.sql", "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d"],
 ];
 if ((ledger.pending_migrations || []).length !== expectedPending.length) fail("Exactly migrations 042-044 must remain pending.");

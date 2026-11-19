@@ -211,6 +211,12 @@ async function main() {
       const approved040Sha = "3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f";
       const approved041 = "041_finance_notification_rls_recipient_guard.sql";
       const approved041Sha = "96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770";
+      const approved042 = "042_inventory_reservation_release_reason.sql";
+      const approved042Sha = "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996";
+      const approved043 = "043_project_role_assignments_and_history.sql";
+      const approved043Sha = "3e176c555d1f4552280e1b4af221fa11de2c62da265fac4774cbc695967139a1";
+      const approved044 = "044_project_change_delete_permission.sql";
+      const approved044Sha = "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -253,8 +259,69 @@ async function main() {
         const exact036to039 = newFiles.length === 4 && [approved036, approved037, approved038, approved039].every((f) => newFiles.includes(f));
         const exact036to040 = newFiles.length === 5 && [approved036, approved037, approved038, approved039, approved040].every((f) => newFiles.includes(f));
         const exact036to041 = newFiles.length === 6 && [approved036, approved037, approved038, approved039, approved040, approved041].every((f) => newFiles.includes(f));
-        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
-          fail("Apply is restricted to the pinned 036-040 verification paths or the separately owner-approved Migration 041 path.");
+        const exact036to044 = newFiles.length === 9 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044].every((f) => newFiles.includes(f));
+        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
+          fail("Apply is restricted to exact pinned migration sequences; 042-044 require separate exact owner approval and a verified 001-041 Production ledger.");
+        }
+
+        if (exact036to044) {
+          const expectedNew = [
+            [approved042, approved042Sha, "MIGRATE_042_CONFIRM", "MIGRATION_042_APPROVED_SHA256", "MIGRATION_042_APPROVAL_REFERENCE"],
+            [approved043, approved043Sha, "MIGRATE_043_CONFIRM", "MIGRATION_043_APPROVED_SHA256", "MIGRATION_043_APPROVAL_REFERENCE"],
+            [approved044, approved044Sha, "MIGRATE_044_CONFIRM", "MIGRATION_044_APPROVED_SHA256", "MIGRATION_044_APPROVAL_REFERENCE"],
+          ];
+          for (const [file, sha] of [[approved042, approved042Sha], [approved043, approved043Sha], [approved044, approved044Sha]]) {
+            if (sha256File(path.join(migrationsDir, file)) !== sha) fail(file + " checksum mismatch; refusing.");
+          }
+
+          const verifiedManifest = productionHistoryManifest;
+          if (!verifiedManifest || verifiedManifest.applied_count !== 41 ||
+              verifiedManifest.entries?.length !== 41 ||
+              verifiedManifest.entries[40]?.id !== 41 ||
+              verifiedManifest.entries[40]?.filename !== approved041 ||
+              verifiedManifest.entries[40]?.sha256 !== approved041Sha ||
+              verifiedManifest.entries[40]?.status !== "applied") {
+            fail("Verified Production migration manifest 001-041 is required before 042-044.");
+          }
+          for (const [file, sha] of expectedNew) {
+            const pending = verifiedManifest.pending_migrations?.find((m) =>
+              (m.file === "migrations/" + file || m.file === file) && m.sha256 === sha
+            );
+            if (!pending) fail("Exact pending manifest entry is missing for " + file + ".");
+            if (process.env[pending[2]] !== "1") fail(file + " requires " + pending[2] + "=1 after explicit owner approval.");
+            if (process.env[pending[3]] !== sha) fail(file + " approved SHA-256 is absent or mismatched.");
+            if (!process.env[pending[4]] || !process.env[pending[4]].trim()) fail(file + " requires an explicit owner approval reference.");
+          }
+
+          const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          if (history.rows.length !== 41) fail("Migration 042-044 requires exactly 41 prior Production history rows.");
+          for (let i = 0; i < verifiedManifest.entries.length; i++) {
+            const expected = verifiedManifest.entries[i], actual = history.rows[i];
+            if (Number(actual.id) !== i + 1 || actual.filename !== expected.filename ||
+                actual.sha256 !== expected.sha256 || actual.status !== expected.status) {
+              fail("Production migration_history mismatch at sequence " + (i + 1) + "; refusing 042-044.");
+            }
+          }
+
+          for (const [file, sha] of [[approved042, approved042Sha], [approved043, approved043Sha], [approved044, approved044Sha]]) {
+            const existing = await client.query("SELECT filename FROM public.migration_history WHERE filename = $1", [file]);
+            if (existing.rows.length > 0) fail(file + " already exists in Production migration_history; refusing replay.");
+            const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+            await client.query("BEGIN");
+            try {
+              await client.query(sql);
+              await client.query(
+                "INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, 'applied')",
+                [file, sha]
+              );
+              await client.query("COMMIT");
+              console.log("Applied explicitly owner-approved " + file + "; SQL and history row committed atomically.");
+            } catch (error) {
+              await client.query("ROLLBACK");
+              fail(file + " apply failed and transaction rolled back: " + (error?.message || "unknown error"));
+            }
+          }
+          return;
         }
 
         if (newFiles.length === 4 && newFiles.includes(approved039) &&

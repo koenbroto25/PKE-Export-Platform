@@ -19,7 +19,7 @@ describe("Production migration ledger 001-044", () => {
     expect(manifest.pending_migrations).toEqual([]);
     manifest.entries.forEach((entry: any, index: number) => {
       expect(entry.id).toBe(index + 1);
-      expect(entry.status).toBe(index < 28 ? "baselined" : "applied");
+      expect(entry.status).toBe(index < 16 ? "baselined" : "applied");
       expect(entry.sha256).toMatch(/^[a-f0-9]{64}$/);
     });
   });

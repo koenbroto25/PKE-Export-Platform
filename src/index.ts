@@ -2449,6 +2449,13 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
     if (beforeRows.length === 0) return res.status(404).json({ error: "Member not found.", code: "MEMBER_NOT_FOUND" });
     const before = beforeRows[0];
 
+    if (projectRoleId !== undefined && projectRoleId !== before.project_role_id) {
+      return res.status(409).json({
+        error: "An existing Project membership cannot be repointed to another role. Use a separate role assignment; multi-role persistence is pending its approved schema migration.",
+        code: "MULTI_ROLE_SCHEMA_PENDING",
+      });
+    }
+
     if (projectRoleId !== undefined) {
       const { rows: roleRows } = await req.db.query(
         "SELECT id FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true LIMIT 1",

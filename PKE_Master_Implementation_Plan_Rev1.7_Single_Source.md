@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.26 — P0 Role Baseline & Remediation Kickoff
+# Master Implementation Plan Rev2.27 — Unified F-Phase / Priority / Work-Package Governance
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.26 (19 November 2026 — P0 role baseline sequencing and reservation trigger/schema remediation artifact prepared)  
+**Revision:** 2.27 (19 November 2026 — unified F0–F2 release phases, PRI-0/PRI-1 execution priorities and WP-01–WP-18 work packages; see §56.20)  
 
 **Tanggal dokumen:** 19 November 2026  
 

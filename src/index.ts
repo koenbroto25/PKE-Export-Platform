@@ -937,6 +937,54 @@ async function requireProjectPermission(
     res.status(403).json({ error: "Forbidden - project permission required", code: "PROJECT_PERMISSION_REQUIRED" });
     return false;
   }
+
+  // Attribute subsequent DB audit events to the exact active Project role that
+  // supplied this permission, never to the user's global account role.
+  const principalId = req.user?.id;
+  if (!principalId) {
+    res.status(401).json({ error: "Authenticated principal required", code: "AUTHENTICATION_REQUIRED" });
+    return false;
+  }
+  const { rows: assignmentRows } = await req.db.query(
+    `SELECT pr.id AS project_role_id, pr.role_code
+       FROM public.project_members pm
+       JOIN public.project_roles pr
+         ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+       JOIN public.project_role_permissions prp
+         ON prp.project_id = pm.project_id AND prp.project_role_id = pr.id
+       JOIN public.permissions perm
+         ON perm.id = prp.permission_id AND perm.is_active = true
+      WHERE pm.project_id = $1::uuid
+        AND pm.user_id = $2::uuid
+        AND pm.is_active = true
+        AND pm.deactivated_at IS NULL
+        AND (pm.expires_at IS NULL OR pm.expires_at > now())
+        AND pr.is_active = true
+        AND perm.code = $3::text
+      ORDER BY pr.role_code
+      LIMIT 1`,
+    [pid, principalId, permissionCode],
+  );
+
+  if (assignmentRows.length === 0) {
+    // A DB helper allow without a concrete active role assignment is not
+    // sufficient attribution evidence. Platform Admin is the only explicit
+    // global exception and remains distinguishable from Project Admin.
+    if (req.user?.isAdmin === true) {
+      await req.db.query(
+        "SELECT set_config('app.current_role', 'platform_admin', true), set_config('app.current_project_role_id', '', true), set_config('app.current_project_id', $1::text, true), set_config('app.current_permission_code', $2::text, true)",
+        [pid, permissionCode],
+      );
+      return true;
+    }
+    res.status(403).json({ error: "No active Project role assignment grants this permission.", code: "PROJECT_ROLE_ASSIGNMENT_REQUIRED" });
+    return false;
+  }
+
+  await req.db.query(
+    "SELECT set_config('app.current_role', $1::text, true), set_config('app.current_project_role_id', $2::text, true), set_config('app.current_project_id', $3::text, true), set_config('app.current_permission_code', $4::text, true)",
+    [assignmentRows[0].role_code, assignmentRows[0].project_role_id, pid, permissionCode],
+  );
   return true;
 }
 
@@ -2835,45 +2883,153 @@ app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request
 // Inventory reservations (P06)
 // ============================================
 app.get("/api/v1/inventory-reservations", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter is required.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM inventory_reservations ORDER BY created_at DESC LIMIT 100");
+    const { rows } = await req.db.query(
+      "SELECT * FROM inventory_reservations WHERE project_id = $1::uuid ORDER BY created_at DESC LIMIT 100",
+      [projectId],
+    );
     res.json({ inventoryReservations: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load inventory reservations" });
+  } catch {
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.post("/api/v1/inventory-reservations", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId, lotId, reservedQuantity, unit, referenceId, referenceType, idempotencyKey } = req.body ?? {};
+  const { projectId, lotId, reservedQuantity, unitCode, buyerId, shipmentId, expiresAt, idempotencyKey } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || reservedQuantity === undefined || !unit || !idempotencyKey) {
-    return res.status(400).json({ error: "projectId, lotId, reservedQuantity, unit, idempotencyKey required" });
+  const quantity = Number(reservedQuantity);
+  if (!projectId || !lotId || !actorId || !Number.isFinite(quantity) || quantity <= 0 ||
+      typeof unitCode !== "string" || !unitCode.trim() ||
+      typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    return res.status(400).json({
+      error: "Required fields: projectId, lotId, reservedQuantity (>0), unitCode, idempotencyKey.",
+      code: "INVALID_RESERVATION_INPUT",
+    });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.reserve"))) return;
+
   try {
-    // Idempotency: reject duplicate reservation key
     const { rows: existing } = await req.db.query(
-      "SELECT id FROM inventory_reservations WHERE idempotency_key = $1::text LIMIT 1",
-      [idempotencyKey],
+      "SELECT * FROM inventory_reservations WHERE idempotency_key = $1::text LIMIT 1",
+      [idempotencyKey.trim()],
     );
     if (existing.length > 0) {
-      return res.status(409).json({ error: "Reservation with this idempotency key already exists" });
+      const prior = existing[0];
+      const sameRequest = prior.project_id === projectId && prior.lot_id === lotId &&
+        Number(prior.reserved_quantity) === quantity && prior.unit_code === unitCode.trim() &&
+        (prior.buyer_id ?? null) === (buyerId ?? null) && (prior.shipment_id ?? null) === (shipmentId ?? null);
+      if (!sameRequest) return res.status(409).json({ error: "Idempotency key was already used for a different reservation.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+      return res.status(200).json({ inventoryReservation: prior, idempotentReplay: true });
     }
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, quantity FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
-    if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
-    if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
-    const availableQty = Number(lotRows[0].quantity);
-    const reserveQty = Number(reservedQuantity);
-    if (reserveQty > availableQty) {
-      return res.status(400).json({ error: "Insufficient available stock for reservation" });
+
+    const { rows: lotRows } = await req.db.query(
+      "SELECT id, project_id, unit, quantity, held_quantity, reserved_quantity FROM inventory_lots WHERE id = $1::uuid FOR UPDATE",
+      [lotId],
+    );
+    if (lotRows.length !== 1) return res.status(404).json({ error: "Inventory lot not found.", code: "INVENTORY_LOT_NOT_FOUND" });
+    const lot = lotRows[0];
+    if (lot.project_id !== projectId) return res.status(403).json({ error: "Inventory lot belongs to another Project.", code: "PROJECT_SCOPE_MISMATCH" });
+    if (lot.unit !== unitCode.trim()) return res.status(400).json({ error: "Reservation unit must match the inventory lot unit.", code: "UNIT_MISMATCH" });
+
+    if (buyerId) {
+      const { rows: buyerRows } = await req.db.query(
+        "SELECT 1 FROM buyers WHERE id = $1::uuid LIMIT 1",
+        [buyerId],
+      );
+      if (buyerRows.length !== 1) return res.status(400).json({ error: "Invalid buyerId.", code: "INVALID_BUYER" });
     }
+    if (shipmentId) {
+      const { rows: shipmentRows } = await req.db.query(
+        "SELECT 1 FROM shipments WHERE id = $1::uuid AND project_id = $2::uuid LIMIT 1",
+        [shipmentId, projectId],
+      );
+      if (shipmentRows.length !== 1) return res.status(400).json({ error: "Shipment must belong to the selected Project.", code: "INVALID_SHIPMENT" });
+    }
+
+    // The database trigger locks the lot and rechecks available quantity atomically.
     const { rows } = await req.db.query(
-      `INSERT INTO inventory_reservations (project_id, lot_id, reserved_quantity, unit, reference_id, reference_type, idempotency_key, status, fulfilled_quantity, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6, $7::text, 'active', 0, now(), now()) RETURNING *`,
-      [projectId, lotId, reserveQty, unit, referenceId || null, referenceType || null, idempotencyKey],
+      `INSERT INTO inventory_reservations
+         (project_id, lot_id, buyer_id, shipment_id, reserved_quantity, unit_code,
+          status, expires_at, created_by, idempotency_key, fulfilled_quantity, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::numeric, $6::text,
+               'active', $7::timestamptz, $8::uuid, $9::text, 0, now(), now())
+       RETURNING *`,
+      [projectId, lotId, buyerId || null, shipmentId || null, quantity, unitCode.trim(), expiresAt || null, actorId, idempotencyKey.trim()],
     );
     res.status(201).json({ inventoryReservation: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create inventory reservation" });
+  } catch (error: any) {
+    if (error?.code === "23514") return res.status(409).json({ error: "Reservation rejected by inventory integrity guard.", code: "RESERVATION_INTEGRITY_REJECTED" });
+    if (error?.code === "42703" && /release_reason/.test(String(error?.message || ""))) {
+      return res.status(503).json({ error: "Reservation release schema migration is pending.", code: "RESERVATION_SCHEMA_MIGRATION_PENDING" });
+    }
+    res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/inventory-reservations/:id/release", requireAuth, async (req: express.Request, res: express.Response) => {
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 3) return res.status(400).json({ error: "A release reason of at least 3 characters is required.", code: "RELEASE_REASON_REQUIRED" });
+  const actorId = req.user?.id;
+  try {
+    const { rows: currentRows } = await req.db.query(
+      "SELECT id, project_id, status FROM inventory_reservations WHERE id = $1::uuid FOR UPDATE",
+      [req.params.id],
+    );
+    if (currentRows.length !== 1) return res.status(404).json({ error: "Reservation not found.", code: "RESERVATION_NOT_FOUND" });
+    const current = currentRows[0];
+    if (!(await requireProjectPermission(req, res, current.project_id, "inventory.reserve"))) return;
+    if (!["active", "partially_fulfilled"].includes(current.status)) {
+      return res.status(409).json({ error: "Only active or partially fulfilled reservations can be released.", code: "RESERVATION_NOT_RELEASABLE" });
+    }
+    const { rows } = await req.db.query(
+      `UPDATE inventory_reservations
+          SET status = 'released', released_by = $2::uuid, released_at = now(),
+              release_reason = $3::text, updated_at = now()
+        WHERE id = $1::uuid
+        RETURNING *`,
+      [req.params.id, actorId, reason],
+    );
+    res.json({ inventoryReservation: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42703" && /release_reason/.test(String(error?.message || ""))) {
+      return res.status(503).json({ error: "Reservation release is blocked until the approved schema migration is applied.", code: "RESERVATION_SCHEMA_MIGRATION_PENDING" });
+    }
+    if (error?.code === "55000" || error?.code === "42501") return res.status(409).json({ error: "Reservation release rejected by the database guard.", code: "RESERVATION_RELEASE_REJECTED" });
+    res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/inventory-reservations/:id/expire", requireAuth, async (req: express.Request, res: express.Response) => {
+  const actorId = req.user?.id;
+  try {
+    const { rows: currentRows } = await req.db.query(
+      "SELECT id, project_id, status, expires_at FROM inventory_reservations WHERE id = $1::uuid FOR UPDATE",
+      [req.params.id],
+    );
+    if (currentRows.length !== 1) return res.status(404).json({ error: "Reservation not found.", code: "RESERVATION_NOT_FOUND" });
+    const current = currentRows[0];
+    if (!(await requireProjectPermission(req, res, current.project_id, "inventory.reserve"))) return;
+    if (!["active", "partially_fulfilled"].includes(current.status) || !current.expires_at || new Date(current.expires_at).getTime() > Date.now()) {
+      return res.status(409).json({ error: "Only an active reservation whose expiry timestamp has passed can expire.", code: "RESERVATION_NOT_EXPIRED" });
+    }
+    const { rows } = await req.db.query(
+      `UPDATE inventory_reservations
+          SET status = 'expired', released_by = $2::uuid, released_at = now(),
+              release_reason = $3::text, updated_at = now()
+        WHERE id = $1::uuid
+        RETURNING *`,
+      [req.params.id, actorId, "Expired at configured reservation expiry timestamp"],
+    );
+    res.json({ inventoryReservation: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42703" && /release_reason/.test(String(error?.message || ""))) {
+      return res.status(503).json({ error: "Reservation expiry is blocked until the approved schema migration is applied.", code: "RESERVATION_SCHEMA_MIGRATION_PENDING" });
+    }
+    if (error?.code === "55000" || error?.code === "42501") return res.status(409).json({ error: "Reservation expiry rejected by the database guard.", code: "RESERVATION_EXPIRY_REJECTED" });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2919,103 +3075,152 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
 // Shipment allocations (P06)
 // ============================================
 app.get("/api/v1/shipment-allocations", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter is required.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, projectId, "shipping.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM shipment_allocations ORDER BY created_at DESC LIMIT 100");
+    const { rows } = await req.db.query(
+      "SELECT * FROM shipment_allocations WHERE project_id = $1::uuid ORDER BY created_at DESC LIMIT 100",
+      [projectId],
+    );
     res.json({ shipmentAllocations: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load shipment allocations" });
+  } catch {
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.post("/api/v1/shipment-allocations", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId, lotId, allocatedQuantity, unit, referenceId, referenceType, idempotencyKey } = req.body ?? {};
+  const { projectId, shipmentId, lotId, reservationId, allocatedQuantity, unit, idempotencyKey } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || allocatedQuantity === undefined || !unit || !idempotencyKey || !actorId) {
-    return res.status(400).json({ error: "projectId, lotId, allocatedQuantity, unit, idempotencyKey required" });
+  const quantity = Number(allocatedQuantity);
+  if (!projectId || !shipmentId || !lotId || !reservationId || !actorId ||
+      !Number.isFinite(quantity) || quantity <= 0 ||
+      typeof unit !== "string" || !unit.trim() ||
+      typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    return res.status(400).json({
+      error: "Required fields: projectId, shipmentId, lotId, reservationId, allocatedQuantity (>0), unit, idempotencyKey.",
+      code: "INVALID_ALLOCATION_INPUT",
+    });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "shipping.update"))) return;
   try {
-    // Idempotency: reject duplicate allocation key
     const { rows: existing } = await req.db.query(
-      "SELECT id FROM shipment_allocations WHERE idempotency_key = $1::text LIMIT 1",
-      [idempotencyKey],
+      "SELECT * FROM shipment_allocations WHERE idempotency_key = $1::text LIMIT 1",
+      [idempotencyKey.trim()],
     );
     if (existing.length > 0) {
-      return res.status(409).json({ error: "Allocation with this idempotency key already exists" });
+      const prior = existing[0];
+      const sameRequest = prior.project_id === projectId && prior.shipment_id === shipmentId &&
+        prior.lot_id === lotId && prior.reservation_id === reservationId &&
+        Number(prior.allocated_quantity) === quantity && prior.unit === unit.trim();
+      if (!sameRequest) return res.status(409).json({ error: "Idempotency key was already used for a different allocation.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+      return res.status(200).json({ shipmentAllocation: prior, idempotentReplay: true });
     }
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, quantity FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
-    if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
-    if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
+
+    const { rows: shipmentRows } = await req.db.query(
+      "SELECT id, project_id, quantity FROM shipments WHERE id = $1::uuid AND project_id = $2::uuid FOR UPDATE",
+      [shipmentId, projectId],
+    );
+    if (shipmentRows.length !== 1) return res.status(400).json({ error: "Shipment does not belong to the selected Project.", code: "INVALID_SHIPMENT" });
+    const { rows: lotRows } = await req.db.query(
+      "SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid AND project_id = $2::uuid FOR UPDATE",
+      [lotId, projectId],
+    );
+    if (lotRows.length !== 1) return res.status(400).json({ error: "Inventory lot does not belong to the selected Project.", code: "INVALID_INVENTORY_LOT" });
+    if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Allocation unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
+
     const { rows: reservationRows } = await req.db.query(
-      `SELECT reserved_quantity, COALESCE(fulfilled_quantity, 0) AS fulfilled_quantity FROM inventory_reservations WHERE lot_id = $1::uuid AND status = 'active'`,
-      [lotId],
+      `SELECT id, project_id, lot_id, shipment_id, reserved_quantity, fulfilled_quantity, unit_code, status
+         FROM inventory_reservations
+        WHERE id = $1::uuid AND project_id = $2::uuid
+        FOR UPDATE`,
+      [reservationId, projectId],
     );
-    const reservedTotal = reservationRows.reduce((sum: number, r: any) => sum + Number(r.reserved_quantity || 0), 0);
-    const fulfilledTotal = reservationRows.reduce((sum: number, r: any) => sum + Number(r.fulfilled_quantity || 0), 0);
-    const availableForAllocation = reservedTotal - fulfilledTotal;
-    const allocQty = Number(allocatedQuantity);
-    if (allocQty > availableForAllocation) {
-      return res.status(400).json({ error: "Allocation exceeds available reserved quantity" });
+    if (reservationRows.length !== 1) return res.status(400).json({ error: "Reservation does not belong to the selected Project.", code: "INVALID_RESERVATION" });
+    const reservation = reservationRows[0];
+    if (reservation.lot_id !== lotId || (reservation.shipment_id && reservation.shipment_id !== shipmentId) ||
+        !["active", "partially_fulfilled"].includes(reservation.status) ||
+        reservation.unit_code !== unit.trim()) {
+      return res.status(409).json({ error: "Reservation must be active and match Project, shipment, lot and unit.", code: "RESERVATION_SCOPE_OR_STATE_MISMATCH" });
     }
+
+    const { rows: allocatedRows } = await req.db.query(
+      `SELECT COALESCE(sum(allocated_quantity),0) AS allocated
+         FROM shipment_allocations
+        WHERE reservation_id = $1::uuid AND status IN ('allocated','partially_loaded','loaded')`,
+      [reservationId],
+    );
+    const remaining = Number(reservation.reserved_quantity) - Number(reservation.fulfilled_quantity || 0) - Number(allocatedRows[0]?.allocated || 0);
+    if (quantity > remaining) return res.status(409).json({ error: "Allocation exceeds the unconsumed reserved quantity.", code: "RESERVATION_QUANTITY_EXCEEDED" });
+
     const { rows } = await req.db.query(
-      `INSERT INTO shipment_allocations (project_id, lot_id, allocated_quantity, unit, reference_id, reference_type, idempotency_key, status, reversal_reason, created_by, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6, $7::text, 'active', NULL, $8::uuid, now(), now()) RETURNING *`,
-      [projectId, lotId, allocQty, unit, referenceId || null, referenceType || null, idempotencyKey, actorId],
+      `INSERT INTO shipment_allocations
+         (shipment_id, lot_id, project_id, reservation_id, allocated_quantity, unit,
+          status, loaded_quantity, idempotency_key, created_by, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::numeric, $6::text,
+               'draft', 0, $7::text, $8::uuid, now(), now())
+       RETURNING *`,
+      [shipmentId, lotId, projectId, reservationId, quantity, unit.trim(), idempotencyKey.trim(), actorId],
     );
-    // Update reservation fulfilled quantity
-    if (reservationRows.length > 0) {
-      const newFulfilled = fulfilledTotal + allocQty;
-      await req.db.query(
-        `UPDATE inventory_reservations SET fulfilled_quantity = $1, updated_at = now() WHERE lot_id = $2::uuid AND status = 'active'`,
-        [newFulfilled, lotId],
-      );
-    }
     res.status(201).json({ shipmentAllocation: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create shipment allocation" });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "An allocation already exists for this shipment and lot.", code: "ALLOCATION_ALREADY_EXISTS" });
+    if (error?.code === "23514" || error?.code === "55000") return res.status(409).json({ error: "Allocation rejected by the database integrity guard.", code: "ALLOCATION_INTEGRITY_REJECTED" });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.patch("/api/v1/shipment-allocations/:id", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { status, reversalReason } = req.body ?? {};
-  const allowedStatuses = new Set(["active", "reversed", "completed"]);
+  const { status, loadedQuantity, reversalReason } = req.body ?? {};
+  const allowedStatuses = new Set(["allocated", "partially_loaded", "loaded", "cancelled", "reversed"]);
   if (status !== undefined && (typeof status !== "string" || !allowedStatuses.has(status))) {
-    return res.status(400).json({ error: "Invalid status" });
+    return res.status(400).json({ error: "Invalid shipment allocation status.", code: "INVALID_ALLOCATION_STATUS" });
+  }
+  if (loadedQuantity !== undefined && (!Number.isFinite(Number(loadedQuantity)) || Number(loadedQuantity) < 0)) {
+    return res.status(400).json({ error: "loadedQuantity must be a non-negative number.", code: "INVALID_LOADED_QUANTITY" });
   }
   try {
-    const { rows: allocRows } = await req.db.query(
-      "SELECT id, lot_id, allocated_quantity, status, reversal_reason, created_by FROM shipment_allocations WHERE id = $1::uuid",
+    const { rows: allocationRows } = await req.db.query(
+      "SELECT id, project_id, shipment_id, reservation_id, allocated_quantity, loaded_quantity, status FROM shipment_allocations WHERE id = $1::uuid FOR UPDATE",
       [req.params.id],
     );
-    if (allocRows.length === 0) return res.status(404).json({ error: "Shipment allocation not found" });
-    const alloc = allocRows[0];
-    if (alloc.status === "reversed") {
-      return res.status(400).json({ error: "Cannot modify a reversed allocation" });
+    if (allocationRows.length !== 1) return res.status(404).json({ error: "Shipment allocation not found.", code: "ALLOCATION_NOT_FOUND" });
+    const allocation = allocationRows[0];
+    if (!(await requireProjectPermission(req, res, allocation.project_id, "shipping.update"))) return;
+
+    if (status === "reversed" && (typeof reversalReason !== "string" || reversalReason.trim().length < 3)) {
+      return res.status(400).json({ error: "A reversal reason of at least 3 characters is required.", code: "REVERSAL_REASON_REQUIRED" });
     }
-    const updates: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
-    if (reversalReason !== undefined) { updates.push(`reversal_reason = $${idx++}`); values.push(reversalReason); }
-    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
-    values.push(req.params.id);
+    const nextLoaded = loadedQuantity === undefined ? Number(allocation.loaded_quantity) : Number(loadedQuantity);
+    if (status === "allocated" && nextLoaded !== 0) return res.status(400).json({ error: "Allocated state requires zero loaded quantity.", code: "INVALID_ALLOCATION_TRANSITION" });
+    if (status === "partially_loaded" && !(nextLoaded > 0 && nextLoaded < Number(allocation.allocated_quantity))) {
+      return res.status(400).json({ error: "Partially loaded state requires a positive quantity below allocation quantity.", code: "INVALID_ALLOCATION_TRANSITION" });
+    }
+    if (status === "loaded" && nextLoaded !== Number(allocation.allocated_quantity)) {
+      return res.status(400).json({ error: "Loaded state requires loadedQuantity to equal allocatedQuantity.", code: "INVALID_ALLOCATION_TRANSITION" });
+    }
+    if (status === "cancelled" && nextLoaded !== 0) return res.status(400).json({ error: "An allocation with loaded quantity must be reversed, not cancelled.", code: "INVALID_ALLOCATION_TRANSITION" });
+    if (status === "reversed" && nextLoaded !== Number(allocation.loaded_quantity)) {
+      return res.status(400).json({ error: "Reversal must retain the posted loaded quantity.", code: "INVALID_ALLOCATION_TRANSITION" });
+    }
+    if (status === undefined && loadedQuantity === undefined) return res.status(400).json({ error: "No allocation state change supplied.", code: "NO_ALLOCATION_CHANGE" });
+
     const { rows } = await req.db.query(
-      `UPDATE shipment_allocations SET ${updates.join(", ")}, updated_at = now() WHERE id = $${idx} RETURNING *`,
-      values,
+      `UPDATE shipment_allocations
+          SET status = COALESCE($2::text, status),
+              loaded_quantity = COALESCE($3::numeric, loaded_quantity),
+              reversal_reason = CASE WHEN $2::text = 'reversed' THEN $4::text ELSE reversal_reason END,
+              updated_at = now()
+        WHERE id = $1::uuid
+        RETURNING *`,
+      [req.params.id, status ?? null, loadedQuantity === undefined ? null : Number(loadedQuantity), reversalReason?.trim() || null],
     );
-
-    // If reversing, restore reservation fulfilled quantity
-    if (status === "reversed") {
-      await req.db.query(
-        `UPDATE inventory_reservations
-         SET fulfilled_quantity = GREATEST(COALESCE(fulfilled_quantity, 0) - $1, 0), updated_at = now()
-         WHERE lot_id = $2::uuid AND status = 'active'`,
-        [Number(alloc.allocated_quantity || 0), alloc.lot_id],
-      );
-    }
-
     res.json({ shipmentAllocation: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to update shipment allocation" });
+  } catch (error: any) {
+    if (error?.code === "23514" || error?.code === "55000" || error?.code === "42501") {
+      return res.status(409).json({ error: "Allocation state transition rejected by the database guard.", code: "ALLOCATION_TRANSITION_REJECTED" });
+    }
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 

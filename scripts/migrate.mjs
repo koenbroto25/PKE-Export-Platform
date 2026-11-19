@@ -207,6 +207,8 @@ async function main() {
       const approved038Sha = "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5";
       const approved039 = "039_project_scoped_contract_cob_cycles.sql";
       const approved039Sha = "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168";
+      const approved040 = "040_finance_reporting_notifications.sql";
+      const approved040Sha = "3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -245,13 +247,11 @@ async function main() {
           return;
         }
 
-        if (
-          newFiles.length !== 3 ||
-          !newFiles.includes(approved036) ||
-          !newFiles.includes(approved037) ||
-          !newFiles.includes(approved038)
-        ) {
-          fail("Apply is restricted to the exact approved 036-only historical path or the explicit 038 release path (036, 037, 038 files present).");
+        const exact036to038 = newFiles.length === 3 && [approved036, approved037, approved038].every((f) => newFiles.includes(f));
+        const exact036to039 = newFiles.length === 4 && [approved036, approved037, approved038, approved039].every((f) => newFiles.includes(f));
+        const exact036to040 = newFiles.length === 5 && [approved036, approved037, approved038, approved039, approved040].every((f) => newFiles.includes(f));
+        if (!exact036to038 && !exact036to039 && !exact036to040 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
+          fail("Apply is restricted to the pinned, already-applied verification paths 036-040; no SQL re-execution is permitted.");
         }
 
         if (newFiles.length === 4 && newFiles.includes(approved039) &&
@@ -281,6 +281,37 @@ async function main() {
             fail("Production Migration 039 is not byte-for-byte verified; refusing.");
           }
           console.log("Production Migration 039 is already applied and ledger-verified; no SQL re-execution performed.");
+          return;
+        }
+
+        if (newFiles.length === 5 && newFiles.includes(approved040)) {
+          if (sha256File(path.join(migrationsDir, approved040)) !== approved040Sha) fail("040 checksum mismatch; refusing.");
+          const verifiedManifest = productionHistoryManifest;
+          if (!verifiedManifest || verifiedManifest.applied_count !== 40 ||
+              verifiedManifest.entries?.length !== 40 ||
+              verifiedManifest.entries[37]?.filename !== approved038 ||
+              verifiedManifest.entries[37]?.sha256 !== approved038Sha ||
+              verifiedManifest.entries[38]?.filename !== approved039 ||
+              verifiedManifest.entries[38]?.sha256 !== approved039Sha ||
+              verifiedManifest.entries[39]?.filename !== approved040 ||
+              verifiedManifest.entries[39]?.sha256 !== approved040Sha) {
+            fail("Verified Production migration manifest 001-040 missing or inconsistent.");
+          }
+          const history040 = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          if (history040.rows.length !== 40) fail("Production migration history is not exactly 40 rows.");
+          for (let i = 0; i < verifiedManifest.entries.length; i++) {
+            const expected = verifiedManifest.entries[i], actual = history040.rows[i];
+            if (Number(actual.id) !== i + 1 || actual.filename !== expected.filename ||
+                actual.sha256 !== expected.sha256 || actual.status !== expected.status) {
+              fail("Production migration_history mismatch at sequence " + (i + 1) + ".");
+            }
+          }
+          if (history040.rows[39].filename !== approved040 ||
+              history040.rows[39].sha256 !== approved040Sha ||
+              sha256File(path.join(migrationsDir, approved040)) !== approved040Sha) {
+            fail("Production Migration 040 is not byte-for-byte verified; refusing.");
+          }
+          console.log("Production Migration 040 is already applied and ledger-verified; no SQL re-execution performed.");
           return;
         }
 

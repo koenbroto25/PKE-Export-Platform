@@ -36,6 +36,10 @@ CREATE INDEX IF NOT EXISTS idx_project_role_assignments_role_active
   ON public.project_role_assignments(project_role_id, project_id)
   WHERE is_active = true AND revoked_at IS NULL;
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_role_assignments_member_role_active
+  ON public.project_role_assignments(project_member_id, project_role_id)
+  WHERE is_active = true AND revoked_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS public.project_role_assignment_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   assignment_id uuid NOT NULL REFERENCES public.project_role_assignments(id) ON DELETE RESTRICT,
@@ -97,6 +101,25 @@ BEGIN
       length(trim(coalesce(NEW.revoke_reason,''))) < 5) THEN
     RAISE EXCEPTION 'Revoked assignments require inactive state, Admin actor, and reason'
       USING ERRCODE = '23514';
+  END IF;
+
+  IF v_role.role_code = 'pm' AND NEW.is_active = true AND NEW.revoked_at IS NULL
+     AND (NEW.expires_at IS NULL OR NEW.expires_at > now())
+     AND EXISTS (
+       SELECT 1
+         FROM public.project_role_assignments other_assignment
+         JOIN public.project_roles other_role
+           ON other_role.id = other_assignment.project_role_id
+          AND other_role.project_id = other_assignment.project_id
+        WHERE other_assignment.project_id = NEW.project_id
+          AND other_assignment.id <> NEW.id
+          AND other_role.role_code = 'pm'
+          AND other_assignment.is_active = true
+          AND other_assignment.revoked_at IS NULL
+          AND (other_assignment.expires_at IS NULL OR other_assignment.expires_at > now())
+     ) THEN
+    RAISE EXCEPTION 'Only one active PM assignment is allowed per Project; Admin must resolve the existing appointment'
+      USING ERRCODE = '23505';
   END IF;
 
   IF TG_OP = 'UPDATE' THEN

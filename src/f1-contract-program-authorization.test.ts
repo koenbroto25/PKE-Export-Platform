@@ -8,6 +8,9 @@ const MIGRATION_PATH = fileURLToPath(new URL("../migrations/039_project_scoped_c
 // Deployment packaging intentionally excludes *.sql. These source-policy assertions run in repository CI.
 const HAS_MIGRATION_SOURCE = existsSync(MIGRATION_PATH);
 const MIGRATION = HAS_MIGRATION_SOURCE ? readFileSync(MIGRATION_PATH, "utf8") : "";
+const MIGRATION_041_PATH = fileURLToPath(new URL("../migrations/041_finance_notification_rls_recipient_guard.sql", import.meta.url));
+const HAS_MIGRATION_041_SOURCE = existsSync(MIGRATION_041_PATH);
+const MIGRATION_041 = HAS_MIGRATION_041_SOURCE ? readFileSync(MIGRATION_041_PATH, "utf8") : "";
 
 describe("F1 Project Manager ownership and shipment Cash on Board", () => {
   it("requires PM project permission for contract, cycle, and CoB business writes", () => {
@@ -86,6 +89,21 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
     expect(INDEX).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
     expect(INDEX).not.toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
     expect(INDEX).toContain('"reports.create"');
+  });
+
+
+  it.skipIf(!HAS_MIGRATION_041_SOURCE)("uses a narrowly scoped definer for Finance notification recipients and avoids RETURNING visibility conflicts", () => {
+    expect(MIGRATION_041).toContain("SECURITY DEFINER");
+    expect(MIGRATION_041).toContain("pke_submit_finance_report_notifications");
+    expect(MIGRATION_041).toContain("REVOKE ALL ON FUNCTION public.pke_submit_finance_report_notifications");
+    expect(MIGRATION_041).toContain("GRANT EXECUTE ON FUNCTION public.pke_submit_finance_report_notifications");
+    expect(MIGRATION_041).toContain("p_actor_id <> public.pke_current_user_id()");
+    expect(MIGRATION_041).toContain("pr.role_code = 'finance'");
+    expect(MIGRATION_041).toContain("pr.role_code = 'pm'");
+    expect(MIGRATION_041).toContain("recipient.role::text = 'admin'");
+    const financeRoute = INDEX.slice(INDEX.indexOf('app.post("/api/v1/finance/reports"'));
+    expect(financeRoute).toContain("pke_submit_finance_report_notifications");
+    expect(financeRoute).not.toContain("RETURNING id, event_id, recipient_user_id");
   });
 
   it("keeps payment execution explicitly outside the reporting-only Finance scope", () => {

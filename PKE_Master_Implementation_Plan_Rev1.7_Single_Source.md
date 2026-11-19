@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.22 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.23 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.22 (19 November 2026 — F2.1–F2.3 owner decisions and read-only Production schema/API audit)  
+**Revision:** 2.23 (19 November 2026 — F1 serverless runtime crash containment and Preview readiness diagnostics)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -8475,3 +8475,33 @@ The buyer-side trace is `buyer organization/facility → buyer requirement versi
 - F0 and F1 closeout remain prerequisites. F1 latest Preview/API runtime smoke blocker recorded in Section 56.10 remains open; F2 design does not waive it.
 
 **F2.1–F2.3 status: DESIGN + READ-ONLY AUDIT COMPLETE FOR THIS PASS; IMPLEMENTATION NOT STARTED / NOT AUTHORIZED. No Production schema/data mutation, Git merge, Vercel deployment or provider activation was performed.**
+
+
+---
+
+## 56.14 F1 Preview runtime 500 — root cause and safe remediation, 19 November 2026
+
+### Root cause proven from Vercel runtime evidence
+
+- Reproduced on latest Preview deployment `dpl_AS5ac7jsUz1ui9pRYFVsDc6MpLvu`, commit `35cdceeea50ff5bdf49e9d2bbc36bd09bedd9669`, route `GET /api/v1/health`.
+- Vercel returned HTTP 500 / `FUNCTION_INVOCATION_FAILED`; the exact runtime log states: `Missing required environment variables: DATABASE_URL, NEON_AUTH_BASE_URL, NEON_AUTH_JWKS_URL`, followed by Node.js process exit status 1.
+- Vercel project environment inspection confirmed no Preview environment variables scoped to `f1/project-scoped-cob-20261119`. Existing Production variables are Production-only. The only branch-scoped Preview variables found were for the expiring F0 validation branch and are not valid for F1.
+- `scripts/test-db/preflight.mjs` intentionally rejects Production database access from Vercel Preview and allows only the named F0 validation branch for the F0 Git branch until its expiry. This fail-closed policy must not be bypassed by copying Production credentials into F1 Preview.
+- Existing Neon validation branches inspected are older than migrations 039–041; none is a valid F1 Preview target. No new Neon branch was created and no alternate DB or Production data was used.
+
+### Code remediation
+
+- Serverless startup configuration errors no longer call `process.exit(1)`; the function process remains alive and reports a safe readiness failure.
+- Local/non-serverless startup remains fail-closed and still exits on invalid/missing required configuration.
+- Added `GET /api/v1/health/live` as a process liveness endpoint independent of database readiness.
+- `GET /api/v1/health` remains a database readiness check and returns HTTP 503 with a non-secret diagnostic code and missing variable names when runtime configuration/database is unavailable.
+- Vercel API handler catches readiness failures and returns controlled HTTP 503 JSON instead of an unhandled function crash.
+- No credentials, connection strings, JWTs, or raw exception messages are included in readiness responses.
+- Unit tests cover missing-env reporting, serverless detection, liveness, readiness failure handling, and the ready path.
+
+### Acceptance boundary
+
+- The specific serverless process-crash condition is remediated in code; expected behavior with the current unconfigured F1 Preview is liveness HTTP 200 and readiness HTTP 503, not HTTP 500.
+- F1 database readiness is still BLOCKED until an owner-approved, policy-compliant Preview database target is configured. Do not use Production credentials in Preview, do not reuse the expired F0 exception, and do not create a Neon branch without explicit owner authorization.
+- F1 cannot be marked COMPLETE until a valid Preview database configuration is present and `GET /api/v1/health` returns HTTP 200, followed by the required authenticated/authorized F1 smoke tests.
+- No Neon schema/data mutation, Vercel environment-variable mutation, Git merge, or Production deployment was performed by this remediation.

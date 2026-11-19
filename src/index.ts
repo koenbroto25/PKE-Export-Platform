@@ -14,6 +14,7 @@ import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mj
 import { detectManualTrialMode } from "./demo/mode.js";
 import { registerDemoApiRoutes } from "./demo/routes.js";
 import { isPositiveQuantity } from "./f1-contract-rules.js";
+import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -108,25 +109,35 @@ app.use((req, res, next) => {
 const isProduction = process.env.NODE_ENV === "production";
 let configuredDatabaseRole = "";
 let pool!: Pool;
+let runtimeStartupFailure: RuntimeStartupFailure | null = null;
+
+function recordRuntimeStartupFailure(code: string, message: string, missingEnvironmentVariables: string[] = []): void {
+  logger.error(message);
+  runtimeStartupFailure = { code, missingEnvironmentVariables: [...missingEnvironmentVariables] };
+  if (!isServerlessRuntime(process.env)) process.exit(1);
+}
 
 if (!manualTrialMode.enabled) {
-  // ============================================
-  // Environment validation (production / non-demo only)
-  // ============================================
-  const requiredEnv = ["DATABASE_URL", "NODE_ENV", "NEON_AUTH_BASE_URL", "NEON_AUTH_JWKS_URL"];
-  const missingEnv = requiredEnv.filter((key) => !process.env[key]);
-  if (missingEnv.length > 0) {
-    logger.error(`Missing required environment variables: ${missingEnv.join(", ")}`);
-    process.exit(1);
+  // Fail closed for local/server deployments. In Vercel serverless, retain the
+  // process and expose an explicit 503 readiness response instead of process.exit(1).
+  const envState = inspectRuntimeEnvironment(process.env);
+  if (!envState.ready) {
+    recordRuntimeStartupFailure(
+      "RUNTIME_ENV_MISSING",
+      `Missing required environment variables: ${envState.missingEnvironmentVariables.join(", ")}`,
+      envState.missingEnvironmentVariables,
+    );
   }
 
-  try {
-    configuredDatabaseRole = roleFromDatabaseUrl(process.env.DATABASE_URL || "");
-  } catch {
-    logger.error("DATABASE_URL is invalid. API startup cancelled.");
-    process.exit(1);
+  if (!runtimeStartupFailure) {
+    try {
+      configuredDatabaseRole = roleFromDatabaseUrl(process.env.DATABASE_URL || "");
+    } catch {
+      recordRuntimeStartupFailure("DATABASE_URL_INVALID", "DATABASE_URL is invalid. API startup cancelled.");
+    }
   }
-  if (process.env.NODE_ENV !== "test") {
+
+  if (!runtimeStartupFailure && process.env.NODE_ENV !== "test") {
     const dbPreflight = validateSingleBranchDatabaseUrl(process.env.DATABASE_URL || "", process.env);
     if (!dbPreflight.ok) {
       // Log validator codes only. Never log DATABASE_URL, credentials, or raw validator messages.
@@ -140,39 +151,45 @@ if (!manualTrialMode.enabled) {
         logger.error(`DATABASE_URL preflight failed: code=${code}`);
       }
 
-      logger.error(
-        `DATABASE_URL failed mandated single-branch preflight (${problemCodes.length} diagnostic code(s)). API startup cancelled.`
+      recordRuntimeStartupFailure(
+        "DATABASE_URL_PREFLIGHT_FAILED",
+        `DATABASE_URL failed mandated single-branch preflight (${problemCodes.length} diagnostic code(s)). API startup cancelled.`,
       );
-      process.exit(1);
     }
-    if (configuredDatabaseRole !== "app_runtime_secure") {
-      logger.error("DATABASE_URL must use app_runtime_secure. API startup cancelled.");
-      process.exit(1);
+    if (!runtimeStartupFailure && configuredDatabaseRole !== "app_runtime_secure") {
+      recordRuntimeStartupFailure("DATABASE_ROLE_INVALID", "DATABASE_URL must use app_runtime_secure. API startup cancelled.");
     }
   }
 
-  for (const [key, value] of [["NEON_AUTH_BASE_URL", process.env.NEON_AUTH_BASE_URL], ["NEON_AUTH_JWKS_URL", process.env.NEON_AUTH_JWKS_URL]] as const) {
+  if (!runtimeStartupFailure) {
+    for (const [key, value] of [["NEON_AUTH_BASE_URL", process.env.NEON_AUTH_BASE_URL], ["NEON_AUTH_JWKS_URL", process.env.NEON_AUTH_JWKS_URL]] as const) {
+      try {
+        const parsed = new URL(value || "");
+        if (parsed.protocol !== "https:") throw new Error("HTTPS required");
+      } catch {
+        recordRuntimeStartupFailure("NEON_AUTH_CONFIG_INVALID", `${key} must be a valid HTTPS URL. API startup cancelled.`);
+        break;
+      }
+    }
+  }
+
+  if (!runtimeStartupFailure) {
+    // ============================================
+    // Database connection with pooled RLS context support
+    // ============================================
     try {
-      const parsed = new URL(value || "");
-      if (parsed.protocol !== "https:") throw new Error("HTTPS required");
+      pool = new Pool({
+        connectionString: normalizePostgresSslMode(process.env.DATABASE_URL || ""),
+        max: 20,
+        idleTimeoutMillis: 30000,
+      });
     } catch {
-      logger.error(`${key} must be a valid HTTPS URL. API startup cancelled.`);
-      process.exit(1);
+      recordRuntimeStartupFailure("DATABASE_POOL_INIT_FAILED", "Failed to create database pool. API startup cancelled.");
     }
   }
 
-  // ============================================
-  // Database connection with pooled RLS context support
-  // ============================================
-  try {
-    pool = new Pool({
-      connectionString: normalizePostgresSslMode(process.env.DATABASE_URL || ""),
-      max: 20,
-      idleTimeoutMillis: 30000,
-    });
-  } catch (error) {
-    logger.error("Failed to create database pool:", error);
-    process.exit(1);
+  if (runtimeStartupFailure && isServerlessRuntime(process.env)) {
+    logger.error("PKE API serverless process remains alive but is not ready; readiness requests will return HTTP 503.");
   }
 } else {
   logger.info("Manual Trial Mode: skipping required Neon env validation, DB preflight, auth endpoint validation, and Pool creation.");
@@ -182,23 +199,33 @@ if (manualTrialMode.enabled) {
   registerDemoApiRoutes(app);
 } else {
 // ============================================
-// Health check endpoint
+// Health endpoints: liveness is independent of database readiness.
 // ============================================
-app.get("/api/v1/health", async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/health/live", (_req: express.Request, res: express.Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ status: "alive" });
+});
+
+app.get("/api/v1/health", async (_req: express.Request, res: express.Response) => {
+  if (runtimeStartupFailure || !pool) {
+    return res.status(503).json(runtimeUnavailablePayload(
+      runtimeStartupFailure ?? { code: "DATABASE_POOL_UNAVAILABLE", missingEnvironmentVariables: [] },
+    ));
+  }
+
   try {
-    const { rows } = await pool.query("SELECT 1 as healthy");
-    const health = {
+    await pool.query("SELECT 1 as healthy");
+    return res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
       database: "connected",
       environment: process.env.NODE_ENV,
-  };
-    res.json(health);
-  } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Database health check failed.",
     });
+  } catch {
+    return res.status(503).json(runtimeUnavailablePayload({
+      code: "DATABASE_UNAVAILABLE",
+      missingEnvironmentVariables: [],
+    }));
   }
 });
 
@@ -4098,16 +4125,7 @@ async function startServer(): Promise<void> {
   });
 }
 
-function isServerlessRuntime(): boolean {
-  return Boolean(
-    process.env.VERCEL ||
-      process.env.VERCEL_ENV ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.LAMBDA_TASK_ROOT,
-  );
-}
-
-if (!isServerlessRuntime()) {
+if (!isServerlessRuntime(process.env)) {
   process.on("SIGTERM", async () => {
     logger.info("SIGTERM received. Shutting down gracefully...");
     try {
@@ -4143,7 +4161,29 @@ if (!isServerlessRuntime()) {
 
 export async function ensureRuntimeReady(): Promise<void> {
   if (manualTrialMode.enabled) return;
+  if (runtimeStartupFailure) {
+    throw new Error("PKE runtime configuration is incomplete.");
+  }
+  if (!pool) {
+    throw new Error("PKE database pool is unavailable.");
+  }
   await verifyProductionRuntimeSecurity();
+}
+
+export function getRuntimeReadinessState(): {
+  ready: boolean;
+  failure: RuntimeStartupFailure | null;
+} {
+  if (manualTrialMode.enabled) return { ready: true, failure: null };
+  const failure = runtimeStartupFailure
+    ? {
+        code: runtimeStartupFailure.code,
+        missingEnvironmentVariables: [...runtimeStartupFailure.missingEnvironmentVariables],
+      }
+    : !pool
+      ? { code: "DATABASE_POOL_UNAVAILABLE", missingEnvironmentVariables: [] }
+      : null;
+  return { ready: failure === null, failure };
 }
 
 export default app;

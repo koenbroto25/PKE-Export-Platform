@@ -233,5 +233,8 @@ describe("F1 / PRI-0 multi-role Admin UI contract", () => {
   it("routes PM deactivation to the explicit Admin decision endpoint", () => {
     expect(FRONTEND_APP_SRC).toContain("/pm-appointment/${member.user_id}/deactivate");
     expect(FRONTEND_APP_SRC).toContain("Keanggotaan dan role lain tetap dipertahankan.");
+    expect(FRONTEND_APP_SRC).toContain("/admin/projects/${selectedProjectId}/pm-appointment");
+    expect(FRONTEND_APP_SRC).toContain("Tunjuk Project Manager");
+    expect(FRONTEND_APP_SRC).toContain("role.role_code !== 'pm'");
   });
 });

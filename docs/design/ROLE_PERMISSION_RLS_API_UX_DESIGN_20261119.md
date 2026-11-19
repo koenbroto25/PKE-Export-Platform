@@ -198,3 +198,15 @@ Required design correction:
 6. Role grant/revoke events record grantor, target user, exact role assignment, reason, before/after state and timestamp; audit records remain append-only.
 
 This is a design-level finding. No transaction middleware, trigger or audit schema was changed.
+
+
+## 14. Additional audit finding — membership APIs are single-role lifecycle APIs
+
+The current Project role/member endpoints confirm the single-role assumption:
+- `POST /api/v1/projects/:id/members/invite` accepts one `projectRoleId` and creates one role-scoped invitation.
+- `PATCH /api/v1/projects/:id/members/:memberId` changes the one `project_role_id` on the membership row; it does not add an independent role assignment.
+- `POST /api/v1/projects/:id/members/:memberId/revoke` deactivates the entire membership, not one role grant.
+- The role-permission endpoints operate on a Project role template, while the member endpoints bind a person to only one template.
+- The current membership-change audit payload records before/after `project_role_id`, but `actor_role` is the global account role (see §13).
+
+Required design correction: separate Project membership lifecycle from role-assignment lifecycle. Invitation may create a membership plus one or more explicitly selected role assignments; adding/removing a role must not deactivate the person's entire Project membership; expiry and revocation must be independently enforceable per assignment. Keep a separate membership revoke operation that deactivates all assignments for that Project. Preserve an immutable role-assignment event trail.

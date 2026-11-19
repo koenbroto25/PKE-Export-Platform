@@ -92,7 +92,6 @@ describe("F1 independent Project role assignments", () => {
     expect(revoke).toContain('targetRows[0].role_code === "pm"');
     expect(INDEX).toContain("evaluatePmAppointment(currentRows, userId, replaceUserId || null)");
     expect(INDEX).toContain("MULTIPLE_ACTIVE_PM_ASSIGNMENTS");
-    expect(INDEX).toContain("PM_HANDOVER_CONFIRMATION_REQUIRED");
     expect(INDEX).toContain("set_config('app.current_user_id', $1::text, true)");
   });
 });

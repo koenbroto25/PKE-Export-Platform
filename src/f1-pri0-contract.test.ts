@@ -24,7 +24,8 @@ describe("F1 / PRI-0 canonical role governance", () => {
     expect(INDEX_SRC).toContain("assignedUsers: 0");
     expect(INDEX_SRC).toContain('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
     expect(INDEX_SRC).toContain("PM_HANDOVER_CONFIRMATION_REQUIRED");
-    expect(INDEX_SRC).toContain("MULTI_ROLE_SCHEMA_PENDING");
+    expect(INDEX_SRC).toContain("USE_ROLE_ASSIGNMENT_ENDPOINT");
+    expect(INDEX_SRC).toContain("PM_ADMIN_DECISION_REQUIRED");
   });
 
   it("does not grant payment execution permissions through canonical role templates", () => {
@@ -236,5 +237,59 @@ describe("F1 / PRI-0 multi-role Admin UI contract", () => {
     expect(FRONTEND_APP_SRC).toContain("/admin/projects/${selectedProjectId}/pm-appointment");
     expect(FRONTEND_APP_SRC).toContain("Tunjuk Project Manager");
     expect(FRONTEND_APP_SRC).toContain("role.role_code !== 'pm'");
+  });
+});
+
+
+describe("F1 / PRI-0 multi-role security backtest", () => {
+  it("does not expose a user-settable migration bypass for assignment guards", () => {
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).not.toContain("app.migration_context");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("pke_is_platform_admin()");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("pg_advisory_xact_lock");
+  });
+
+  it("backfills every legacy membership role before installing runtime assignment guards", () => {
+    const backfillAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("INSERT INTO public.project_role_assignments");
+    const guardTriggerAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("CREATE TRIGGER trg_project_role_assignment_guard");
+    const eventTriggerAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("CREATE TRIGGER trg_project_role_assignment_event");
+    expect(backfillAt).toBeGreaterThan(-1);
+    expect(guardTriggerAt).toBeGreaterThan(backfillAt);
+    expect(eventTriggerAt).toBeGreaterThan(backfillAt);
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("'legacy_backfill'");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("No PM is selected, revoked, or replaced");
+  });
+
+  it("enforces Project and membership identity, unique active same-role assignment, and immutable event history", () => {
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("FOREIGN KEY (project_role_id, project_id)");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("uq_project_role_assignments_member_role_active");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("project_role_assignment_event_immutable");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("REVOKE INSERT, UPDATE, DELETE ON public.project_role_assignment_events");
+  });
+
+  it("does not allow Project roles to create or revoke PM assignments", () => {
+    const createStart = INDEX_SRC.indexOf('app.post("/api/v1/projects/:id/members/:memberId/role-assignments"');
+    const revokeStart = INDEX_SRC.indexOf('app.post("/api/v1/projects/:id/role-assignments/:assignmentId/revoke"');
+    const inviteStart = INDEX_SRC.indexOf('app.post("/api/v1/projects/:id/members/invite"');
+    const createBlock = INDEX_SRC.slice(createStart, revokeStart);
+    const revokeBlock = INDEX_SRC.slice(revokeStart, inviteStart);
+    expect(createBlock).toContain("PM_ADMIN_DECISION_REQUIRED");
+    expect(revokeBlock).toContain("PM_ADMIN_DECISION_REQUIRED");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("PM role assignment and revocation require an explicit Platform Admin decision");
+  });
+
+  it("keeps membership lifecycle separate from role lifecycle", () => {
+    const start = INDEX_SRC.indexOf('app.patch("/api/v1/projects/:id/members/:memberId"');
+    const end = INDEX_SRC.indexOf('app.post("/api/v1/projects/:id/members/:memberId/revoke"', start);
+    const block = INDEX_SRC.slice(start, end);
+    expect(block).toContain("USE_ROLE_ASSIGNMENT_ENDPOINT");
+    expect(block).toContain("SET is_active = $3::boolean");
+    expect(block).not.toContain("SET project_role_id");
+  });
+
+  it("updates all database-side permission and invitation paths to use assignments", () => {
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("CREATE OR REPLACE FUNCTION public.pke_has_any_project_permission");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("CREATE OR REPLACE FUNCTION public.pke_can_receive_finance_report_notification");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("CREATE OR REPLACE FUNCTION public.accept_pke_project_invitation");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("FROM public.project_role_assignments a");
   });
 });

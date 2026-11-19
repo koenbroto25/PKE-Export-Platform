@@ -8729,3 +8729,64 @@ P0 cannot be marked complete until all are evidenced:
 - 2026-11-19: Confirmed seven active global role catalogue rows, 171 permission rows, eight missing permission references listed above, and the reservation release_reason schema/function mismatch.
 - 2026-11-19: Created migration 042 artifact and calculated SHA-256. No migration application, Production DDL/DML, Vercel deployment, PR merge or branch change was performed.
 - Current P0 status: **IN PROGRESS / BLOCKED ON ROLE CATALOGUE + CANONICAL PERMISSION BASELINE; MIGRATION 042 AWAITS OWNER APPROVAL.**
+
+
+
+
+## 56.19 — STRICK RULE: Production target, backup-first and no-new-branch policy (19 November 2026)
+
+**OWNER'S BINDING INSTRUCTION — MUST BE FOLLOWED FOR ALL FUTURE PKE WORK.**
+
+### 56.19.1 Definition of Production
+- The word **Production** for database operations means exactly the existing Neon branch named `production` in Neon project `purple-base-63944903`, branch ID `br-damp-shape-b3xlh4nr`, database `neondb`.
+- This is the sole authoritative live database target. Do not use another Neon branch, temporary branch, clone, preview or a guessed target.
+- GitHub does not currently have a branch named `production`. **Never rename, alias, reinterpret or silently treat GitHub `main` as Production.**
+- Neon Production and GitHub branch names are separate concepts. A GitHub commit does not apply a database migration; a Neon migration does not change GitHub code.
+
+### 56.19.2 Absolute no-new-branch rule
+- **Do not create any new GitHub branch or any new Neon branch**, including temporary migration/test branches, unless the owner explicitly changes this rule in a later instruction.
+- Do not use Neon migration preparation tools that create temporary branches.
+- Do not create alternate databases, Neon projects, clones or shadow production environments.
+- Existing branches are not to be deleted, renamed, repurposed or promoted without explicit owner authorization.
+- Continue GitHub source/document versioning only on an already-existing, explicitly designated working branch. The current documentation update is being recorded on the already-existing `f1/project-scoped-cob-20261119` branch; this does not make it Production and does not authorize a merge or deployment.
+
+### 56.19.3 Mandatory backup-before-change sequence
+Before any change to Neon Production:
+1. Verify current Production branch identity, readiness, database name, migration ledger, schema inventory and existing backup/snapshot inventory.
+2. Create a fresh recoverable full database backup/snapshot of the exact Production branch, or a verified equivalent export containing schema, data, sequences, functions, triggers, RLS policies, grants and migration history.
+3. Verify backup identity, source branch, timestamp/LSN, completeness and recoverability. A backup request or a pre-existing stale snapshot is not a completed backup.
+4. Archive the exact migration SQL files, ordered manifest, SHA-256 hashes and relevant implementation/test artifacts in the existing GitHub working branch. Never overwrite or rewrite historical migration files.
+5. Only after both database backup and GitHub migration archive are verified, proceed with the approved change directly on the existing Neon `production` branch.
+6. After application, verify migration ledger/hash, schema invariants, data integrity, RLS/security tests, API compatibility and backtests. Update this plan with exact evidence.
+
+No migration is allowed to run through a tool that silently creates a new Neon branch. No migration may be applied to a different branch and then promoted or swapped into Production.
+
+### 56.19.4 Current backup gate — BLOCKED
+Read-only verification on 2026-11-19:
+- Neon project: `purple-base-63944903`.
+- Neon Production branch: `br-damp-shape-b3xlh4nr`, name `production`, default=true, current_state=ready.
+- The project currently exposes one snapshot: `PKE-target-pre-migration-20261115`, created `2026-11-15T02:13:43Z`, source branch `br-damp-shape-b3xlh4nr`, full_size 32,161,792 bytes.
+- A fresh snapshot request named `PKE-PRODUCTION-PRE-P0-20261119` was attempted and rejected by Neon with `snapshots limit exceeded` (HTTP 422).
+- The 15 November snapshot is not a current pre-change backup for the 19 November work. It is preserved; do not delete or replace it without explicit owner authorization.
+- No verified full database export/dump artifact has been created in this session. The currently available SQL query tool is not a full backup mechanism.
+- Therefore **Production DDL/DML remains blocked** until a fresh, verified backup can be created without violating the no-new-branch rule. Do not claim backup complete.
+
+### 56.19.5 GitHub migration archive
+- GitHub source repository: `koenbroto25/PKE-Export-Platform`.
+- No GitHub branch named `production` currently exists. The `main` branch is not Production.
+- Existing branch `f1/project-scoped-cob-20261119` is the current documentation/migration-artifact working branch. No new branch was created for this update.
+- Migration files must be archived in immutable numbered order, with SHA-256 manifest and migration-history cross-check. Do not claim a GitHub archive backup is complete until the full migration directory and the applied migration ledger have been reconciled and a verified archive/manifest commit is recorded.
+
+### 56.19.6 Direct Production execution rule
+Once backup gates pass and owner approval for the exact SQL/hash is present:
+- Apply the approved SQL directly to Neon branch `br-damp-shape-b3xlh4nr` (`production`) only.
+- Do not use temporary branches, Neon migration prepare/complete workflows, branch restore/swap, or a different target.
+- Keep GitHub source artifacts and migration files on the existing authorized GitHub working branch; do not create a new branch and do not pretend GitHub `main` is Production.
+- No automatic deployment, PR merge, Vercel setting change or external payment/notification action is implied.
+
+### 56.19.7 Execution log
+- 2026-11-19: Owner clarified Production means the Neon branch named `production`; GitHub `main` must not be treated as Production.
+- 2026-11-19: Verified Neon Production branch identity and existing branch inventory; no branch created.
+- 2026-11-19: Listed snapshots and attempted a fresh snapshot; Neon rejected it because the snapshot limit is exceeded. Existing 15 November snapshot preserved.
+- 2026-11-19: No full DB export/dump verified. No Production DDL/DML executed.
+- Binding status: **NO NEW BRANCHES; NEON PRODUCTION ONLY; BACKUP-FIRST; CURRENTLY BLOCKED ON FRESH BACKUP CAPACITY.**

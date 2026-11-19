@@ -2428,6 +2428,12 @@ app.post("/api/v1/projects/:id/members/:memberId/role-assignments", requireAuth,
     return res.status(400).json({ error: "Valid projectRoleId and optional expiresAt are required.", code: "INVALID_ROLE_ASSIGNMENT" });
   }
   try {
+    const { rows: roleRows } = await req.db.query(
+      "SELECT id, role_code FROM public.project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true",
+      [id, projectRoleId],
+    );
+    if (roleRows.length !== 1) return res.status(400).json({ error: "Project role is invalid or inactive.", code: "INVALID_PROJECT_ROLE" });
+    if (roleRows[0].role_code === "pm") return res.status(403).json({ error: "PM assignment is an Admin-only decision; use the dedicated appointment workflow.", code: "PM_ADMIN_DECISION_REQUIRED" });
     await req.db.query(
       `UPDATE public.project_role_assignments
           SET is_active = false, updated_at = now()
@@ -2463,6 +2469,16 @@ app.post("/api/v1/projects/:id/role-assignments/:assignmentId/revoke", requireAu
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
   if (reason.length < 5) return res.status(400).json({ error: "A revocation reason of at least 5 characters is required.", code: "AUDIT_REASON_REQUIRED" });
   try {
+    const { rows: targetRows } = await req.db.query(
+      `SELECT pr.role_code
+         FROM public.project_role_assignments a
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+        WHERE a.id = $2::uuid AND a.project_id = $1::uuid AND a.revoked_at IS NULL
+        FOR UPDATE OF a`,
+      [id, assignmentId],
+    );
+    if (targetRows.length !== 1) return res.status(404).json({ error: "Active role assignment not found.", code: "ROLE_ASSIGNMENT_NOT_FOUND" });
+    if (targetRows[0].role_code === "pm") return res.status(403).json({ error: "PM deactivation is an Admin-only decision; use the dedicated Admin PM workflow.", code: "PM_ADMIN_DECISION_REQUIRED" });
     const { rows } = await req.db.query(
       `UPDATE public.project_role_assignments
           SET is_active = false, revoked_at = now(), revoked_by = $3::uuid,
@@ -2532,7 +2548,7 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
   if (expiresAt !== undefined && expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)))) {
     return res.status(400).json({ error: "expiresAt must be a valid timestamp or null.", code: "INVALID_MEMBERSHIP_EXPIRY" });
   }
-  const sensitiveChange = isActive !== undefined || projectRoleId !== undefined;
+  const sensitiveChange = isActive !== undefined;
   if (sensitiveChange && reason.length < 3) {
     return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status or role changes.", code: "AUDIT_REASON_REQUIRED" });
   }
@@ -2549,43 +2565,32 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
     if (beforeRows.length === 0) return res.status(404).json({ error: "Member not found.", code: "MEMBER_NOT_FOUND" });
     const before = beforeRows[0];
 
-    if (projectRoleId !== undefined && projectRoleId !== before.project_role_id) {
-      return res.status(409).json({
-        error: "An existing Project membership cannot be repointed to another role. Use a separate role assignment; multi-role persistence is pending its approved schema migration.",
-        code: "MULTI_ROLE_SCHEMA_PENDING",
-      });
-    }
-
     if (projectRoleId !== undefined) {
-      const { rows: roleRows } = await req.db.query(
-        "SELECT id FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true LIMIT 1",
-        [id, projectRoleId],
-      );
-      if (roleRows.length === 0) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+      return res.status(409).json({
+        error: "Project membership is independent of role assignments. Use the dedicated role-assignment endpoint; membership PATCH cannot add, replace, or remove roles.",
+        code: "USE_ROLE_ASSIGNMENT_ENDPOINT",
+      });
     }
 
     const nextActive = isActive === undefined ? before.is_active === true : isActive;
     const nextExpiresAt = expiresAt === undefined ? before.expires_at : expiresAt;
     const { rows } = await req.db.query(
       `UPDATE project_members
-          SET project_role_id = COALESCE($3::uuid, project_role_id),
-              is_active = $4::boolean,
-              expires_at = $5::timestamptz,
+          SET is_active = $3::boolean,
+              expires_at = $4::timestamptz,
               deactivated_at = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_at, now()) END,
               deactivated_by = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_by, $6::uuid) END,
               updated_at = now()
         WHERE id = $2::uuid AND project_id = $1::uuid
         RETURNING *`,
-      [id, memberId, projectRoleId ?? null, nextActive, nextExpiresAt ?? null, req.user?.id ?? null],
+      [id, memberId, nextActive, nextExpiresAt ?? null, req.user?.id ?? null],
     );
     const after = rows[0];
     const action = isActive === false
       ? "project_member.deactivated"
       : isActive === true && (before.is_active !== true || before.deactivated_at != null)
         ? "project_member.reactivated"
-        : projectRoleId !== undefined
-          ? "project_member.role_changed"
-          : "project_member.updated";
+        : "project_member.updated";
     await req.db.query(
       `INSERT INTO audit_events
         (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,

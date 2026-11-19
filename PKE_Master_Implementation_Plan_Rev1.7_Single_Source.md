@@ -8798,3 +8798,103 @@ Once backup gates pass and owner approval for the exact SQL/hash is present:
 - Inventory: 37 numbered SQL migration files found in the repository `migrations/` directory; gaps 029, 030, 031, 032 and 035 remain to be reconciled against nested/legacy migration locations and the live migration ledger.
 - The manifest records Git blob SHA identifiers, not file-content SHA-256 values. It is an inventory, not a claim of complete backup or full database export.
 - Existing migration files were not altered. No new branch was created.
+
+## 56.20 — Unified phase, priority and work-package governance (19 November 2026)
+
+**Status: CANONICAL PLANNING MODEL — adopted for all subsequent PKE planning, execution, testing and reporting.** This resolves the historical coexistence of F0/F1/F2, P0/P1 and P01–P18. It does not change scope, waive acceptance gates, or authorize a migration, merge, deployment or Production mutation.
+
+### 56.20.1 One hierarchy, three different dimensions
+
+PKE uses one integrated planning system with three orthogonal identifiers. They must never be used as synonyms:
+
+1. **Release phase (F#) — WHEN / product maturity gate.** Defines a coherent release outcome and its exit criteria.
+2. **Execution priority (PRI-0, PRI-1, …; historical shorthand P0, P1) — HOW URGENT.** Ranks work by blocker severity and dependency. Priority can change as evidence changes; it does not create a new product phase.
+3. **Work package (WP-01 … WP-18; historical identifiers P01 … P18) — WHAT DOMAIN.** Defines a durable technical/business responsibility area. Work packages can contribute to more than one release phase.
+
+Every actionable item must be tagged with all applicable dimensions, for example: F1 / PRI-0 / WP-03 + WP-06 / RBAC-RESERVATION-01. An item may have multiple work packages but exactly one primary release phase and one current execution priority. Cross-phase dependencies must be explicit.
+
+### 56.20.2 Canonical release phases
+
+| Canonical ID | Phase name | Outcome and boundary | Current status |
+|---|---|---|---|
+| F0 | Platform Foundation, Identity & Security | Secure platform runtime, Admin-managed user lifecycle, authentication, Project membership foundation, authorization/RLS, private storage, backup/recovery, protected API and deployment baseline. | FINALIZATION PENDING; preserve detailed gates in §§47–55. Latest-head Preview and remaining acceptance evidence must be revalidated; Vercel quota is a deployment constraint, not a waiver of security gates. |
+| F1 | Project Governance, Contract/CoB & Finance Reporting | Project-scoped PM/contract/cycle/CoB, Finance reporting, role/permission governance, Project role assignments and connected approval/audit controls. | PRODUCTION DEPLOYED; functional acceptance/backtest NOT COMPLETE. Live blockers and exact evidence remain in §§56.1, 56.17–56.19. |
+| F2 | Operational Execution & Export Intelligence | Verified supply and quality, inventory/inland logistics, warehouse, port/multimodal, vessel/shipment execution, export document readiness, control tower and governed AI assistance. | DESIGN / PROPOSED; implementation is not authorized until F0 and F1 closeout and explicit F2 start approval. |
+
+Release phases are sequential acceptance gates, not Git branches, Neon branches, sprints or database environments. A phase may reuse and extend work packages from an earlier phase. A deployment READY state or a migration applied does not by itself close a phase.
+
+### 56.20.3 Canonical priority levels
+
+| Canonical ID | Historical shorthand | Meaning | Required handling |
+|---|---|---|---|
+| PRI-0 | P0 | Critical blocker: data integrity, security/authorization, broken core transaction, schema-trigger incompatibility, or dependency preventing a committed phase outcome. | Resolve before phase closeout; fail closed; prove positive and negative tests; no scope bypass. |
+| PRI-1 | P1 | Important functional/acceptance gap that does not currently invalidate the critical safety/integrity baseline but blocks full phase acceptance or a dependent workflow. | Resolve after or alongside PRI-0 where dependencies permit; never report complete while open. |
+| PRI-2 | P2 (if used) | Planned improvement or non-blocking enhancement within approved scope. | Schedule by dependency/value; cannot displace unresolved PRI-0/PRI-1 gates without owner decision. |
+
+Priority is not a phase. P0 does not mean F0; P1 does not mean F1. New ledger entries should write PRI-0/PRI-1; historical P0/P1 labels remain searchable aliases and must not be mass-renamed in historical evidence.
+
+### 56.20.4 Canonical work-package register
+
+The existing P01–P18 catalogue in §4 remains the domain decomposition and is normalized as follows. Historical IDs are retained for backward traceability:
+
+| Canonical ID | Historical ID | Work package |
+|---|---|---|
+| WP-01 | P01 | Business Foundation & Admin Project Configurator |
+| WP-02 | P02 | Backend, Database & Neon Platform |
+| WP-03 | P03 | Identity, Authorization, Role & RLS |
+| WP-04 | P04 | API Architecture & External Integrations |
+| WP-05 | P05 | Object Storage & Document Services |
+| WP-06 | P06 | Operational Workflow, Inventory & Truck Checkpoint |
+| WP-07 | P07 | Finance, RAB, Manual Payment & Accounting |
+| WP-08 | P08 | Export Compliance & Regulatory Document Engine |
+| WP-09 | P09 | Gemini AI, RAG & Intelligence Orchestrator |
+| WP-10 | P10 | Frontend, UX, Routing & Stakeholder Portals |
+| WP-11 | P11 | Reporting, Notifications & BI |
+| WP-12 | P12 | QA, UAT, DevOps & Production Readiness |
+| WP-13 | P13 | Change Control & Traceability |
+| WP-14 | P14 | Open-source Finance & BI Adoption (advisory) |
+| WP-15 | P15 | Supplier, Facility & Product Master Intelligence |
+| WP-16 | P16 | Port, Port Warehouse & Multimodal Logistics Intelligence |
+| WP-17 | P17 | Maritime, Vessel Intelligence & Export Control Tower |
+| WP-18 | P18 | Regulatory Knowledge Graph, RAG & AI Intelligence |
+
+WP-14 remains advisory and does not introduce a second accounting ledger. WP-07 Finance v1.2 remains protected from redesign. Work-package IDs are stable domain identifiers, not delivery order or priority.
+
+### 56.20.5 Crosswalk: active work mapped into the unified system
+
+| Work item | Release phase | Priority | Work packages | Acceptance / disposition |
+|---|---|---|---|---|
+| F0 finalization and latest-head security/runtime evidence | F0 | PRI-0 until all critical gates pass | WP-02, WP-03, WP-04, WP-05, WP-10, WP-12, WP-13 | Keep the existing F0 gate register; Vercel quota is a constraint, not closure. |
+| F1 role catalogue and canonical permission dictionary | F1 | PRI-0 | WP-01, WP-03, WP-10, WP-12, WP-13 | Reconcile central role templates, API/RLS/trigger/frontend permission references, permission ceilings and SoD before role implementation. |
+| F1 Project PM appointment, role-template composition and multi-role assignment | F1 | PRI-0 | WP-01, WP-03, WP-10, WP-13 | App Admin appoints/reassigns PM; PM chooses centrally governed Project role templates; activation is separate from user assignment; assignments expire/revoke independently. |
+| F1 inventory reservation trigger/schema mismatch and shipment allocation dependency | F1 | PRI-0 | WP-02, WP-03, WP-06, WP-12, WP-13 | Migration 042 is prepared but NOT applied; exact backup, archive, approval and post-apply tests remain mandatory. |
+| F1 cash-advance requestor/Finance RLS conflict | F1 | PRI-1 | WP-03, WP-07, WP-12 | Separate requestor own-create/read from Finance review/approval; no broad finance grant workaround. |
+| F1 financial create audit events for CoB/AP/AR | F1 | PRI-1 | WP-03, WP-07, WP-12, WP-13 | Create events must include actor, Project, entity, timestamp and initial state; preserve update audit. |
+| F1 authenticated role-account HTTP/UI UAT | F1 | PRI-1 | WP-03, WP-10, WP-12 | Database helper tests do not substitute for authenticated API/browser evidence; use only owner-authorized test identities. |
+| F1 real private document object and completed report artifact | F1 | PRI-1 | WP-05, WP-08, WP-11, WP-12 | Do not fabricate file/report completion; prove real private storage integrity and report artifact lifecycle. |
+| F1 shipment allocation backtest | F1 | PRI-1 (downstream dependency on reservation PRI-0) | WP-06, WP-07, WP-12 | Execute only after valid reservation path is corrected and approved. |
+| F2 operational workstreams | F2 | Not prioritized for implementation yet | WP-06, WP-08, WP-09, WP-10, WP-11, WP-15, WP-16, WP-17, WP-18 | Design only; wait for F0/F1 exit and explicit F2 authorization. |
+
+This crosswalk normalizes existing evidence. It does not silently change previously recorded PASS/PARTIAL/BLOCKED results. The latest verified evidence in the phase register and execution ledger remains authoritative.
+
+### 56.20.6 Rules for future work and reporting
+
+1. Every new task, defect, migration, test suite, UI slice and release note must carry F# + PRI-# + WP-## tags in the relevant checklist/ledger entry.
+2. Phase status is determined only by that phase's exit criteria. Priority completion alone cannot close a phase; completion of a work package alone cannot close a phase.
+3. A task may support more than one phase only when its shared outcome and acceptance evidence are explicitly split. Do not reuse an F0 PASS as automatic F1 or F2 PASS.
+4. Dependencies are represented as links between work items, not by changing their phase labels. A downstream item blocked by a PRI-0 dependency stays open even if its own code exists.
+5. Maintain one master plan and one execution ledger. Do not create parallel phase plans, P0/P1 plans, status spreadsheets or competing source-of-truth documents.
+6. Preserve historical IDs, headings, migration names, commit references and evidence. Use the canonical crosswalk for new work; do not bulk rename history.
+7. GitHub/Neon branch governance is independent of phase and priority. The no-new-branch and Neon Production-only rules in §56.19 continue to apply unchanged.
+8. Backup-first, exact SQL/SHA-256 approval, no unapproved Production DDL/DML, no unapproved merge/deploy and no fabricated business data remain binding regardless of phase or priority.
+9. At each session end, update the relevant phase row, work-package mapping, priority, acceptance evidence and next dependency in this Master Plan's Living Execution Ledger.
+
+### 56.20.7 Immediate operating baseline
+
+- **Current active release gate:** F1 functional closeout, while F0 retains its own independent finalization register.
+- **Current critical execution wave:** F1 PRI-0 (historically P0): role/permission baseline, PM governance/multi-role model, reservation blocker and expanded backtest.
+- **Next execution wave:** F1 PRI-1 (historically P1): cash-advance RLS, financial creation audit, authenticated UAT, real document/report artifact and downstream allocation verification.
+- **Future release:** F2 remains proposed/design-only until F0 and F1 are independently closed and the owner explicitly authorizes its start.
+- **Domain decomposition:** WP-01–WP-18 (historically P01–P18) remains the stable work-package catalogue.
+
+**Canonical planning rule:** F# answers “which release outcome”; PRI-# answers “how urgent”; WP-## answers “which domain”. These dimensions are mandatory together and must never be conflated.

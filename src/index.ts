@@ -2589,7 +2589,7 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
           SET is_active = $3::boolean,
               expires_at = $4::timestamptz,
               deactivated_at = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_at, now()) END,
-              deactivated_by = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_by, $6::uuid) END,
+              deactivated_by = CASE WHEN $3::boolean THEN NULL ELSE COALESCE(deactivated_by, $5::uuid) END,
               updated_at = now()
         WHERE id = $2::uuid AND project_id = $1::uuid
         RETURNING *`,

@@ -291,6 +291,19 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
     expect(INDEX_SRC.slice(inviteRouteStart, inviteRouteEnd)).toContain("PM_ADMIN_DECISION_REQUIRED");
   });
 
+  it("requires explicit membership reactivation before adding roles or appointing PM", () => {
+    expect(INDEX_SRC).toContain("MEMBERSHIP_REACTIVATION_REQUIRED");
+    const adminStart = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/members"');
+    const pmStart = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
+    const adminBlock = INDEX_SRC.slice(adminStart, pmStart);
+    expect(adminBlock).toContain("before.is_active !== true");
+    expect(adminBlock).not.toContain("SET is_active = true, expires_at = NULL");
+    const pmEnd = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate"', pmStart);
+    const pmBlock = INDEX_SRC.slice(pmStart, pmEnd);
+    expect(pmBlock).toContain("candidateMembership.deactivated_at");
+    expect(pmBlock).not.toContain("SET is_active = true, expires_at = NULL");
+  });
+
   it("keeps membership lifecycle separate from role lifecycle", () => {
     const start = INDEX_SRC.indexOf('app.patch("/api/v1/projects/:id/members/:memberId"');
     const end = INDEX_SRC.indexOf('app.post("/api/v1/projects/:id/members/:memberId/revoke"', start);

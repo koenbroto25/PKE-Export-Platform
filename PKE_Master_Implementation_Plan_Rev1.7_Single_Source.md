@@ -8209,7 +8209,7 @@ Current public advisory evidence as of 18 November 2026 identifies GHSA-fc5q-39x
 | Phase | Current state | Verified / recorded position | Remaining closeout |
 |---|---|---|---|
 | F0 — platform foundation and account/security workflows | **FINALIZATION PENDING — VERCEL QUOTA** | Owner records F0 as one of two phases whose finalization is delayed by Vercel deployment quota. Historical F0 implementation, migration, RLS, storage, Auth, CI and Preview evidence remains in §§47–55. The latest exact F0 branch HEAD and current Preview parity must be re-fetched after quota recovery; do not assume an older READY Preview is latest. | Deploy Preview for exact current F0 HEAD, confirm READY, run approved root/API/health/protected-workflow smoke, reconcile all F0 acceptance gates and record exact commit/deployment/HTTP evidence. |
-| F1 — Project-scoped PM contracts, shipment CoB and Finance reporting | **IMPLEMENTATION + PRODUCTION MIGRATION PASS; LATEST-HEAD PREVIEW READY; API SMOKE FAIL** | Migration 041 was explicitly approved and applied to Neon Production branch `br-damp-shape-b3xlh4nr`, database `neondb`. Ledger row 41 stores exact SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`. Both Finance notification functions exist as SECURITY DEFINER with `search_path=pg_catalog, public`; PUBLIC EXECUTE=false; `app_runtime_secure` EXECUTE=true. Finance insert policy uses recipient guard. No synthetic Production data or real-user notification was created. | Latest F1 HEAD `4b8f1ff17f3ee355d1f176b32cb04bea2ce29157` Preview `dpl_2Tfe3bUDxigBK7enn7r2HWkV5tnk` is READY; root HTTP 200. `/api/v1/health` returns HTTP 500 `FUNCTION_INVOCATION_FAILED`; runtime logs/errors had no matching records. GitHub Unit Tests and Dependency Audit both SUCCESS. Earlier direct deploy attempt returned HTTP 402, but automatic Git Preview succeeded. |
+| F1 — Project-scoped PM contracts, shipment CoB and Finance reporting | **PRODUCTION DEPLOYED + HEALTH PASS; FUNCTIONAL ACCEPTANCE OPEN** | Migration 041 remains applied on Neon Production with approved SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`. Latest deployed F1 branch HEAD `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c` is on Vercel Production deployment `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh`, mapped to `pke-export-platform.vercel.app`. Production root, `/api/v1/health/live`, and `/api/v1/health` returned HTTP 200; health payload reports database connected; runtime log confirms verified `app_runtime_secure`. Latest build reports 97 tests passed, 4 skipped; GitHub Unit Tests and Dependency Audit previously passed. | Still required: authenticated/authorized F1 business-route smoke; cross-Project/role/RLS negative tests; contract-program/cycle/CoB and Finance reporting end-to-end verification; transaction/idempotency/notification recipient checks; frontend role workflow and production UAT. Preview DB readiness remains intentionally blocked by no F1 Preview DB config; do not copy Production secrets to Preview. PR #2 remains OPEN/DRAFT and F1 branch is not merged into `main`. |
 | F2 — Operational execution and export intelligence | **DESIGN / PROPOSED — NOT AUTHORIZED FOR IMPLEMENTATION** | Draft design is in §56.3–56.8 and maps to existing P06/P08/P09/P10/P11/P15/P16/P17/P18 work packages. | Owner review and explicit F2 start authorization after F0/F1 closeout. |
 
 ### F0/F1 release rule
@@ -8509,24 +8509,39 @@ The buyer-side trace is `buyer organization/facility → buyer requirement versi
 
 ---
 
-## 56.15 F1 runtime smoke — 19 November 2026
+## 56.15 F1 runtime smoke and Production deployment — 19 November 2026
 
-### Latest code and Preview evidence
+### Latest deployment and runtime evidence (verified)
 
-- Latest code commit at verification: `0fc41a33c48c2b9ed9d51cae79b524ada9eb47f7` on `f1/project-scoped-cob-20261119`.
-- Vercel Preview: deployment `dpl_CtqtaNw1azZL7fcqTdDgw7e7AzMU`, URL `https://pke-export-platform-oaqo1jm7m-apphubsite.vercel.app`, state READY, environment Preview, runtime Node.js 26.
-- Frontend root smoke: HTTP 200.
-- `GET /api/v1/health/live`: HTTP 200, body `{"status":"alive"}`.
-- `GET /api/v1/health`: HTTP 503 Service Unavailable with code `RUNTIME_ENV_MISSING` and missing variable names `DATABASE_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`. This is the intended fail-closed readiness response; no secrets are returned.
-- Runtime logs for the new deployment show the serverless process loaded and remained alive. No process exit status 1 and no `FUNCTION_INVOCATION_FAILED` occurred for the liveness/readiness smoke. The 503 is an environment readiness blocker, not a function crash.
-- GitHub Unit Tests run `44473403788`: SUCCESS. GitHub Dependency Audit Evidence run `44473403866`: SUCCESS. Vercel build reached READY.
-- The first code commit's test run failed because the serverless-handler unit test imported the real runtime module and triggered its local fail-closed startup. The test was corrected to mock the runtime module; the latest commit's Unit Tests pass. The failed run is retained as history, not accepted evidence.
+- F1 branch HEAD: `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c`.
+- Vercel Production deployment: `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh`, READY, target `production`, URL `https://pke-export-platform.vercel.app`.
+- The Production deployment was created from the F1 branch, not from a merge to `main`. PR #2 remains OPEN/DRAFT; no Git merge occurred.
+- Production smoke: `GET /` HTTP 200; `GET /api/v1/health/live` HTTP 200; `GET /api/v1/health` HTTP 200 with `database=connected` and `environment=production`.
+- Vercel runtime log for the health request confirms: `Database connected with verified app_runtime_secure role.`
+- Build output: 97 tests passed, 4 skipped (101 total); backend TypeScript and frontend `tsc -b && vite build` completed. Earlier GitHub Unit Tests run `44473403788` and Dependency Audit run `44473403866` both SUCCESS for code commit `0fc41a33c48c2b9ed9d51cae79b524ada9eb47f7`.
+- Neon Production migration ledger read-only check confirms migrations 039, 040 and 041 are applied. Migration 041 SHA-256 remains `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- The earlier Preview-only runtime 500 has been fixed in code. The F1 Preview liveness endpoint returned 200 and readiness returned the expected 503 `RUNTIME_ENV_MISSING` because Preview has no permitted F1 database configuration. This is distinct from the now-verified Production readiness 200.
+- No Production schema/data changes, synthetic business rows, new Neon branches, secret copying to Preview, or Git merge were performed in this deployment pass.
 
-### F1 closeout decision
+### Remaining F1 functional acceptance blockers
 
-- **Resolved:** the original Vercel serverless HTTP 500 / process-exit failure caused by missing Preview environment variables. The handler now returns controlled readiness status and keeps liveness available.
-- **Still blocked:** F1 database readiness and authenticated/authorized endpoint smoke, because the F1 Preview branch has no permitted Preview database configuration.
-- The existing preflight policy expressly denies Production database access from Preview and only allowed the temporary F0 validation exception for the F0 branch; that exception is expired and not valid for F1. Do not copy Production credentials into Preview or bypass the preflight.
-- No new Neon branch, alternate DB, mock Production data, Neon schema/data mutation, Vercel environment-variable mutation, Production deployment, or Git merge was performed.
-- F1 remains OPEN / DRAFT and NOT COMPLETE. To close it, the owner must authorize a policy-compliant F1 Preview database target or explicitly revise the Preview database policy. Then provision the required Preview environment variables, obtain `GET /api/v1/health` HTTP 200, and run authenticated/authorized F1 smoke tests on the exact latest commit.
-- This section supersedes the earlier runtime-500 failure status in Section 56.10 for the latest code/Preview commit; the database-readiness blocker remains active.
+1. **Authenticated business-route smoke — OPEN.** Health only proves process/database connectivity. It does not prove real sign-in/session claims or that each F1 route enforces the correct user/project role. Run authorized Admin and PM sessions against the Production deployment using existing authorized accounts; verify expected 2xx/4xx/403 behavior for project, contract-program, cycle-policy, shipment-CoB and Finance reporting endpoints. Never expose tokens or passwords in logs.
+2. **Cross-Project and role isolation — OPEN.** Re-run positive and negative authorization tests for PM active in Project A versus Project B, inactive membership, wrong role, missing project context, and unauthorized shipment/CoB/Finance records. Verify API middleware sets transaction-local RLS context on the same DB transaction and that `app_runtime_secure` cannot read/write outside the authorized Project. Unit/mock tests are not sufficient evidence for live RLS semantics.
+3. **F1 business workflow E2E — OPEN.** Verify contract/program lifecycle, PM scope, cycle policy/CoB obligation creation and linkage to shipment, including duplicate/retry behavior, one-CoB-per-shipment invariant, state transitions, and audit trail. Use existing authorized business records only; Production has no permission for dummy business records. If there are no real records to exercise, record the relevant write-path E2E as BLOCKED_NO_BUSINESS_FIXTURE rather than fabricating success.
+4. **Finance reporting integrity — OPEN.** Verify read/report queries against actual authorized records, RAB/GL/report calculations and source-to-report reconciliation. Confirm draft/posted journal rules, balanced debit/credit, period/account validation, and no fake `completed` report state. Finance scope is reporting/traceability only; bank transfer, payment execution, payment verification and settlement are not F1 acceptance features.
+5. **Notification recipient security and delivery — PARTIAL.** Migration 041 and its function privileges/recipient guard are verified. Still test allowed recipient versus wrong-project/wrong-user rejection, idempotent delivery/outbox behavior and provider delivery status using a safe controlled method. Do not send unsolicited notifications to real users.
+6. **Frontend role workflow and UAT — OPEN.** Production root returning 200 proves SPA delivery only. Exercise Admin and PM screens for contract/program/cycle, shipment CoB and Finance reports: loading/empty/error/unauthorized states, field validation, action enablement, stale data/retry, and API response mapping. Record owner/operator acceptance.
+7. **Exact source-control release alignment — OPEN.** The running Production deployment is built from F1 branch `b700d2c...`; it is not merged to `main`. Reconcile branch ancestry/diff and required F0 baseline before any merge. PR #2 remains DRAFT/OPEN; do not merge or rewrite history until the final source diff and target base are validated.
+8. **Preview parity — POLICY-BLOCKED, NOT A PRODUCTION OUTAGE.** F1 Preview intentionally has no DB configuration because the permanent single-Neon-branch rule prohibits extra DB branches and the Preview preflight rejects Production credentials. Do not copy Production credentials into Preview or weaken the guard. Since the exact F1 commit is deployed and health-tested in Production, use this Production evidence for runtime readiness; keep Preview parity marked blocked unless owner explicitly changes policy.
+
+### Required closeout sequence
+
+- A. Run read-only inventory of the actual F1 Production routes, role permissions, RLS policies, transaction context wrapper, and frontend API call map; identify every route in scope.
+- B. Execute safe authenticated GET/read-only smoke with existing authorized accounts and verify positive/negative role and Project cases.
+- C. Run all non-persisting contract/unit tests, concurrency/idempotency simulations and report calculation reconciliation. Do not claim they replace DB integration.
+- D. Exercise DB-write workflows only with genuine authorized business records and normal approved operations. No synthetic Production data, bulk cleanup, destructive tests or extra Neon branches.
+- E. Complete frontend role walkthrough and owner UAT; record screenshots/HTTP evidence without secrets or personal data.
+- F. Reconcile F1 branch with intended base, resolve required review/checks, then request explicit merge approval. Keep PR #2 DRAFT until that gate.
+- G. Update this ledger with exact commit, deployment, route-level outcomes and remaining exceptions; only then decide F1 COMPLETE versus PARTIAL/BLOCKED.
+
+**F1 status: PRODUCTION RUNTIME READY; FUNCTIONAL ACCEPTANCE NOT YET COMPLETE.**

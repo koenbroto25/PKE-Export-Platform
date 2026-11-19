@@ -4319,13 +4319,13 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     }
 
     const { rows: candidateMemberships } = await req.db.query(
-      "SELECT id, project_role_id, is_active FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid FOR UPDATE",
+      "SELECT id, project_role_id, is_active, deactivated_at, expires_at FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid FOR UPDATE",
       [projectId, userId],
     );
     if (candidateMemberships.length > 1) return res.status(409).json({ error: "Duplicate Project membership requires reconciliation.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
     const candidateMembership = candidateMemberships[0] ?? null;
     // Existing membership and role assignments are independent; appointing PM must not replace another role.
-    if (candidateMembership && (candidateMembership.is_active !== true ||
+    if (candidateMembership && (candidateMembership.is_active !== true || candidateMembership.deactivated_at != null ||
         (candidateMembership.expires_at && new Date(candidateMembership.expires_at).getTime() <= Date.now()))) {
       return res.status(409).json({ error: "Project membership is inactive or expired. Admin must explicitly reactivate membership before appointing this user as PM.", code: "MEMBERSHIP_REACTIVATION_REQUIRED" });
     }

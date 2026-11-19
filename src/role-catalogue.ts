@@ -59,7 +59,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "No payment execution or independent technical approval.",
   ], { mandatory: true, legacyAliases: ["admin"] }),
   role("pm", "Project Manager", "governance", [
-    "project.view", "project.update", "project.members.view", "project.roles.manage", "project.configuration.manage",
+    "project.view", "project.update", "project.members.view", "project.members.invite", "project.members.manage", "project.roles.manage", "project.configuration.manage",
     "contract.view", "manage_contract_programs", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
     "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view",

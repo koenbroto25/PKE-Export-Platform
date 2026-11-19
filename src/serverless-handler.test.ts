@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+vi.mock("./index.js", () => ({
+  default: vi.fn(),
+  ensureRuntimeReady: vi.fn(),
+  getRuntimeReadinessState: vi.fn(),
+}));
+
 import { createServerlessHandler } from "../api/[...path].js";
 
 function makeResponse() {

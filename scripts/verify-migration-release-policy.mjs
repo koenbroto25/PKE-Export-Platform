@@ -13,7 +13,7 @@ const ledger = readJson("migration_history_manifest_001_045.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
-if (ledger.applied_count !== 45 || ledger.entries.length !== 45) fail("Production history ledger must contain exactly 41 entries.");
+if (ledger.applied_count !== 45 || ledger.entries.length !== 45) fail("Production history ledger must contain exactly 45 entries.");
 if (ledger.project_id !== "purple-base-63944903" || ledger.branch_id !== "br-damp-shape-b3xlh4nr" || ledger.database !== "neondb") fail("history ledger target identity mismatch.");
 
 for (let i = 0; i < ledger.entries.length; i++) {

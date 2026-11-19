@@ -42,7 +42,7 @@ describe("Production migration ledger 001-045", () => {
     expect(runner).toContain("appliedManifest.entries?.length !== 45");
     expect(runner).toContain("Production Migration 045 is already applied and all 45 ledger rows are verified; no SQL re-execution performed.");
     expect(runner).toContain("all 44 ledger rows are verified; no SQL re-execution performed");
-    expect(verifier).toContain("migration_history_manifest_001_044.json");
+    expect(verifier).toContain("migration_history_manifest_001_045.json");
     expect(verifier).toContain("No pending migration may remain after Production 042-045 application.");
   });
 });

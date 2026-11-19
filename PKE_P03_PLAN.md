@@ -469,3 +469,55 @@ This section supersedes prior F1 status entries above where they differ.
 - PENDING: final Preview latest-head parity after this plan update commit; do not substitute the preceding Preview.
 - Finance remains reporting-only; payment execution remains OUT OF SCOPE.
 - Do not merge PR #2 or promote a Production deployment as part of this checkpoint.
+
+
+## F1 authoritative validation checkpoint — PostgreSQL backtest + CI (2026-11-19)
+
+This section supersedes earlier F1 progress/status statements where they conflict. It records the current execution state. It does not authorize Production migration application or PM appointment decisions.
+
+### Execution guardrails
+- Work remained on the existing F1 PR branch `f1/project-scoped-cob-20261119`; no new GitHub branch was created.
+- No Vercel deployment/Preview was attempted in this execution.
+- Neon Production branch `br-damp-shape-b3xlh4nr` was read-only throughout. Admin retains sole authority over PM appointment, replacement, and duplicate-PM resolution.
+- Isolated validation branch: `f1-validation-20261119`, ID `br-noisy-fog-b379k1uu`, parent Production. It is not Production.
+
+### Migrations 042–044 — isolated PostgreSQL execution
+- Executed 042, 043, and 044 in one transaction on the validation branch: 53 SQL statements plus 3 migration ledger inserts = 56 statements. The transaction committed.
+- Statement parsing preserved quoted strings, comments, and all 8 dollar-quoted PL/pgSQL function bodies; no semicolon-naive SQL splitter was used.
+- Validation branch ledger is 44/44.
+- Migration 043 backfilled 24/24 legacy Project role memberships and created 24/24 `legacy_backfill` events; missing backfills = 0.
+- Existing inactive/deactivated and expired memberships were preserved. The pre-existing two-active-PM state in Alpha was preserved unchanged; no PM was selected or revoked by this work.
+- 042 release_reason column exists on validation. 044 permission `project.change.delete` exists and is intentionally not granted to any Project role.
+- Migration runner host guard was verified against Neon endpoint inventory: pinned `EXPECTED_HOST` matches the current Production endpoint for `br-damp-shape-b3xlh4nr`. Runner uses direct `client.query(sql)` for complete migration source, preserving PL/pgSQL bodies.
+
+### Database backtest results
+PASS on isolated PostgreSQL validation branch:
+- Independent multiple-role assignments for one user and permission resolution across two Projects.
+- Cross-Project permission leakage denied.
+- Past-expiry active assignment rejected.
+- Inactive membership, expired membership, and inactive role-template assignment rejected.
+- Non-Admin PM assignment rejected; Project Admin PM assignment rejected; Admin PM appointment rejected while duplicate active PMs remain.
+- Assignment identity immutability, revoked-assignment immutability, and append-only event UPDATE/DELETE rejection.
+- Project Admin runtime role can insert/revoke a permitted non-PM role assignment; database records assigned/revoked events.
+- `app_runtime_secure` cannot DELETE role assignments or UPDATE event history.
+- Viewer without `project.members.view` sees 0 assignments/events; Project Admin sees 19 assignments and 19 events in Alpha.
+- Active PM and active platform Admin pass Finance report notification recipient guard; inactive and expired PM recipients fail.
+
+### Code regression tests and CI
+- Added `src/f1-role-assignment-rules.test.ts` and included it in root `npm test`.
+- Test coverage includes assignment effectiveness, membership/role/project expiry state, expiry input validation, PM idempotency, exact handover confirmation, duplicate-PM rejection, and API route guard contracts.
+- Latest corrected test commit: `4458d83d7e4f0cf40da526f8dd2c5e12a1c72601`.
+- Unit Tests run `44543952621`: SUCCESS — 10 files, 141/141 tests; migration release-policy verification; migration runner dry-run; backend API typecheck; frontend typecheck and build all pass.
+- Dependency Audit Evidence run `44543952737`: SUCCESS.
+- The prior failed test run was caused by a source-contract assertion pointing to the wrong file; it was corrected, and the latest full workflow passed.
+
+### Final validation branch and Production state
+- Validation branch after tests: 44 migrations; 26 role assignments (24 legacy + 2 synthetic validation assignments), 27 events, 1 synthetic inactive QA role template. The branch intentionally retains validation fixtures/evidence.
+- Production was rechecked read-only after tests: ledger remains 41/41; `project_role_assignments` absent; `inventory_reservations.release_reason` absent; `project.change.delete` absent. No Production schema/data changes were made.
+- Production migrations 042–044 remain pending and require separate explicit owner approval of the exact SHA-256 values before any application.
+
+### Remaining acceptance boundary
+- PASS: migration package execution/backtest on isolated PostgreSQL; legacy backfill; tested role lifecycle/PM guards; runtime RLS and Finance recipient filtering; 141/141 unit tests; migration release gates; dry-run; backend/frontend typecheck/build; dependency audit.
+- NOT RUN: authenticated HTTP API UAT against the validation schema with a signed Neon Auth identity. API routes were source-reviewed and statically regression-tested, but not exercised through live HTTP.
+- F1 is **NOT COMPLETE** until authenticated HTTP UAT is performed or the owner explicitly excludes it from acceptance. Do not claim 100% final before that boundary is resolved.
+- Vercel/deployment is excluded from this execution by instruction. Do not create a new GitHub branch. Do not apply 042–044 to Production without separate explicit approval.

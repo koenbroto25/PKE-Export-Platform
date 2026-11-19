@@ -303,23 +303,26 @@ async function main() {
             }
           }
 
-          for (const [file, sha] of [[approved042, approved042Sha], [approved043, approved043Sha], [approved044, approved044Sha]]) {
+          for (const [file] of [[approved042], [approved043], [approved044]]) {
             const existing = await client.query("SELECT filename FROM public.migration_history WHERE filename = $1", [file]);
             if (existing.rows.length > 0) fail(file + " already exists in Production migration_history; refusing replay.");
-            const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
-            await client.query("BEGIN");
-            try {
+          }
+          await client.query("BEGIN");
+          try {
+            for (const [file, sha] of [[approved042, approved042Sha], [approved043, approved043Sha], [approved044, approved044Sha]]) {
+              const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
               await client.query(sql);
               await client.query(
                 "INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, 'applied')",
                 [file, sha]
               );
-              await client.query("COMMIT");
-              console.log("Applied explicitly owner-approved " + file + "; SQL and history row committed atomically.");
-            } catch (error) {
-              await client.query("ROLLBACK");
-              fail(file + " apply failed and transaction rolled back: " + (error?.message || "unknown error"));
+              console.log("Applied in transaction: " + file);
             }
+            await client.query("COMMIT");
+            console.log("Migrations 042-044 and all ledger rows committed atomically as one approved package.");
+          } catch (error) {
+            await client.query("ROLLBACK");
+            fail("Migration package 042-044 failed and the entire transaction was rolled back: " + (error?.message || "unknown error"));
           }
           return;
         }

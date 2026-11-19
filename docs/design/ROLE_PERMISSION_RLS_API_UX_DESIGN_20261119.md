@@ -210,3 +210,51 @@ The current Project role/member endpoints confirm the single-role assumption:
 - The current membership-change audit payload records before/after `project_role_id`, but `actor_role` is the global account role (see §13).
 
 Required design correction: separate Project membership lifecycle from role-assignment lifecycle. Invitation may create a membership plus one or more explicitly selected role assignments; adding/removing a role must not deactivate the person's entire Project membership; expiry and revocation must be independently enforceable per assignment. Keep a separate membership revoke operation that deactivates all assignments for that Project. Preserve an immutable role-assignment event trail.
+
+
+## 15. Owner clarification — Project Manager assignment and Project role composition are the primary governance flow
+
+This clarification supersedes any interpretation that Project Admin should routinely configure the operational role structure of every Project.
+
+### 15.1 Platform/App Admin responsibility
+- The central App Admin's primary operational responsibility is to appoint/designate the Project Manager for each Project.
+- One PM may be assigned to multiple Projects. Each Project must have its own explicit PM assignment, start/end or active status, assignment history and audit record.
+- A Project must not become operationally active without a designated active PM, unless an explicitly approved exception exists.
+- Reassignment records previous PM, new PM, who changed it, reason, effective time and any handover acknowledgement.
+- App Admin does not decide which operational departments/roles a Project needs merely by copying a fixed role bundle.
+
+### 15.2 Project Manager responsibility
+- Once appointed, the PM is the accountable owner for configuring the operational role composition of that Project, because the PM understands the contract, scope of work, counterparties, delivery model and operational obligations.
+- PM selects/activates only the role templates needed for the Project from the centrally governed role catalogue. The PM can decide that a role is not needed for a particular Project.
+- PM may configure Project-specific role display names/notes, operational scope, assignment windows and which workstreams are enabled, within centrally defined permission ceilings and segregation-of-duties rules.
+- PM may invite/assign users to the selected Project roles if the App Admin grants the PM the member/role-assignment administration capability. Role assignments remain separate and auditable.
+- PM may not invent new permission codes, expand a template's underlying permission ceiling, grant platform-admin/master-data approval, bypass independent technical approvals, or grant a user permissions the PM does not possess authority to delegate.
+- If the contract requires a role or permission outside the central catalogue/ceiling, PM submits a role-template or permission exception request for App Admin/security governance approval. This preserves flexibility without letting PM rewrite platform security.
+
+### 15.3 Revised authority split
+- App Admin: designate/reassign PM per Project; maintain centrally governed role/permission catalogue and security ceilings; approve exceptional role-template changes; retain platform-level oversight.
+- PM: define the Project's required role composition; activate/deactivate optional role templates for the Project; invite/assign people to roles within delegated authority; configure Project workflow and operational scope; read all Project lines; cannot self-approve controlled technical/financial actions.
+- Technical role owners: retain QA, Warehouse, Finance, Master of Loading and independent approvals.
+- Internal Auditor: independent read-only access and finding/corrective-action functions; no operational role administration or approval of business transactions.
+
+### 15.4 Revised data model
+- Add/maintain a Project PM appointment relation or equivalent explicit field with one active PM appointment per Project, while allowing the same user to hold active PM appointments across many Projects. Record appointment history rather than overwriting it.
+- Keep a PM assignment separate from generic multi-role membership. The PM role is a Project-scoped appointment and can also be represented as a role assignment for permission evaluation, but the authoritative PM appointment record must be unique per Project and independently auditable.
+- Add Project role-template activation/configuration records (e.g. `project_role_configurations`) to indicate which centrally defined role templates are enabled, their Project-specific label/description, scope, required/optional status and configuration version.
+- Project role activation must not itself grant a user access; user role assignment remains a separate relation. This distinguishes “role is needed in this Project” from “this person holds this role”.
+- New Project setup flow: App Admin creates Project and appoints PM; PM reviews contract/work scope and configures required role templates/workstreams; PM invites/assigns people to those roles; each assignment is independently approved/audited where required.
+
+### 15.5 Revised UX
+- App Admin Console: Project list, PM appointment status, appoint/reassign PM, PM workload across Projects, upcoming PM assignment expiry and handover history. This is the primary admin workflow.
+- PM Project Setup Wizard: contract/scope review; choose operational role templates; enable required workstreams; define project-specific operating scope and approval routing; invite/assign role holders; review missing mandatory roles and segregation-of-duties conflicts before activation.
+- PM can reuse a role composition template from another Project as a starting point, but must review and confirm it against the current contract. No automatic assumption that two Projects have identical requirements.
+- PM dashboard displays active Projects and a Project switcher; role permissions and audit context are always evaluated within the selected Project.
+
+### 15.6 Additional acceptance tests
+- One PM can be appointed to multiple Projects concurrently; no cross-Project data access is implied by the shared PM identity.
+- Each Project has exactly one active designated PM unless an approved exception/transition policy permits otherwise.
+- A Project cannot be activated without a PM appointment and required role-composition review.
+- PM can enable only centrally approved role templates and cannot create arbitrary permission grants.
+- Disabled/unneeded role templates cannot receive new user assignments; existing assignment deactivation requires controlled handover/revocation.
+- Role-template activation does not grant access until a separate user assignment is made.
+- App Admin can reassign PM with complete before/after history; old PM loses access according to explicit reassignment/handover policy.

@@ -3344,29 +3344,14 @@ app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, re
     );
     const reportRun = reportRows[0];
     const { rows: notificationRows } = await req.db.query(
-      `WITH recipients AS (
-         SELECT pm.user_id AS recipient_id
-           FROM project_members pm
-           JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
-           JOIN users u ON u.id = pm.user_id
-          WHERE pm.project_id = $1::uuid AND pm.is_active = true
-            AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at > now())
-            AND pr.is_active = true AND pr.role_code = 'pm' AND u.is_active = true
-         UNION
-         SELECT id AS recipient_id FROM users WHERE is_active = true AND role::text = 'admin'
-       )
-       INSERT INTO user_notifications
-         (id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, created_at)
-       SELECT gen_random_uuid(), gen_random_uuid(), $1::uuid, recipient_id, $2::uuid,
-         $3, $4, 'normal', 'finance_report', now()
-         FROM recipients`,
+      "SELECT public.pke_submit_finance_report_notifications($1::uuid, $2::uuid, $3::text, $4::text) AS notifications_created",
       [projectId, requesterId,
        `Laporan keuangan baru — ${projectRows[0].name}`,
        `Finance mengirim laporan periode ${periodStart} sampai ${periodEnd}. Laporan siap ditinjau.`],
     );
     return res.status(201).json({
       financialReport: reportRun,
-      notificationsCreated: notificationRows.rowCount ?? 0,
+      notificationsCreated: Number(notificationRows[0]?.notifications_created ?? 0),
       notifiedRoles: ["pm", "admin"],
       paymentExecution: false,
     });

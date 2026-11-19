@@ -552,3 +552,29 @@ PASS on isolated PostgreSQL validation branch:
 - To complete the requested authenticated HTTP UAT, provision a dedicated test identity on the isolated branch and obtain its legitimate Neon Auth verification/sign-in token. A mailbox controlled by the owner is required; no password or Admin token should be sent in chat.
 - The original validation branch `br-noisy-fog-b379k1uu` is retained temporarily because authenticated HTTP UAT remains outstanding. Delete it only after UAT and final post-UAT evidence are complete. The separate pre-apply backup branch `br-restless-sky-b38dsjol` remains retained as the Production pre-migration restore point.
 - F1 database migration acceptance: PASS. Authenticated HTTP UAT: PENDING. F1 overall final acceptance: NOT COMPLETE. Vercel remains intentionally skipped.
+
+
+## Owner-directed F1 closure and transition — 2026-11-20
+
+### Owner decisions
+- Owner confirmed that the application login is working and explicitly waived the separate Neon Auth authenticated-HTTP test for this acceptance cycle. This is recorded as an owner waiver, not as a test execution or test PASS.
+- Owner explicitly instructed to skip Vercel deployment. No deployment, preview, promotion, or Vercel environment mutation was performed.
+- PM appointment, replacement, and duplicate-active-PM resolution remain exclusively Admin decisions; no PM record was selected or changed by this execution.
+
+### Production migration acceptance
+- Neon Production (br-damp-shape-b3xlh4nr, neondb) is at migration ledger 44/44.
+- Migrations 042, 043, 044 are applied with the exact owner-approved SHA-256 values recorded above.
+- Post-apply schema, ledger, backfill counts, permission grant state, RLS policies, SECURITY DEFINER resolver functions, and app_runtime_secure DML boundaries were verified.
+- Unit Tests run 44599494672: SUCCESS. Dependency Audit Evidence run 44599494504: SUCCESS. The unit workflow includes offline security/unit tests, Production migration ledger/release gates, migration runner dry-run, backend API typecheck, frontend typecheck and frontend build. These are CI checks, not live authenticated HTTP UAT.
+
+### Validation cleanup and recovery
+- Owner waived the separate Neon Auth HTTP UAT and instructed continuation. Deleted validation branch f1-validation-20261119 (br-noisy-fog-b379k1uu); deletion confirmed by a follow-up branch lookup with deleted branches included.
+- Retained pre-apply Production clone/restore point pre-f1-042-044-production-backup-20261120 (br-restless-sky-b38dsjol). It remains a separate backup branch and was not deleted.
+- No synthetic fixtures were written to Production. Existing 24 backfilled role assignments/events remain the only data count introduced by migration 043's deterministic legacy backfill.
+
+### F1 disposition and next execution
+- F1 database migration and code/CI acceptance: PASS.
+- Neon Auth authenticated HTTP UAT: OWNER-WAIVED (not run; not represented as PASS).
+- Vercel deployment/latest-head preview: OWNER-WAIVED FOR THIS CHECKPOINT (not run).
+- F1 accepted for continuation under the owner's explicit waivers; do not claim either waived test was executed.
+- Continue with the next implementation backlog from the existing PKE Master Implementation Plan / phase work, on the existing GitHub production-intended branch and Neon Production only where separately authorized. No new GitHub branch; no Vercel deploy; no PM decisions by the application. Preserve the pre-apply backup branch until the next release checkpoint is safely closed.

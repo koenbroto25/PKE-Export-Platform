@@ -2558,7 +2558,7 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
   if (expiresAt !== undefined && expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)))) {
     return res.status(400).json({ error: "expiresAt must be a valid timestamp or null.", code: "INVALID_MEMBERSHIP_EXPIRY" });
   }
-  const sensitiveChange = isActive !== undefined;
+  const sensitiveChange = isActive !== undefined || expiresAt !== undefined;
   if (sensitiveChange && reason.length < 3) {
     return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status changes.", code: "AUDIT_REASON_REQUIRED" });
   }

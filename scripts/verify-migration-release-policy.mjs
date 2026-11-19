@@ -9,11 +9,11 @@ const hashFile = (name) => crypto.createHash("sha256").update(fs.readFileSync(pa
 const fail = (message) => { console.error("FAIL: " + message); process.exitCode = 1; };
 
 const baseline = readJson("migration_manifest_001_027.json");
-const ledger = readJson("migration_history_manifest_001_038.json");
+const ledger = readJson("migration_history_manifest_001_044.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
-if (ledger.applied_count !== 41 || ledger.entries.length !== 41) fail("Production history ledger must contain exactly 41 entries.");
+if (ledger.applied_count !== 44 || ledger.entries.length !== 44) fail("Production history ledger must contain exactly 41 entries.");
 if (ledger.project_id !== "purple-base-63944903" || ledger.branch_id !== "br-damp-shape-b3xlh4nr" || ledger.database !== "neondb") fail("history ledger target identity mismatch.");
 
 for (let i = 0; i < ledger.entries.length; i++) {
@@ -80,17 +80,19 @@ if (!applied041 || applied041.id !== 41 ||
   fail("Migration 041 must match the exact hash-verified applied Production ledger entry.");
 }
 
-const expectedPending = [
-  ["042_inventory_reservation_release_reason.sql", "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996"],
-  ["043_project_role_assignments_and_history.sql", "15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086"],
-  ["044_project_change_delete_permission.sql", "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d"],
+const expectedApplied = [
+  [42, "042_inventory_reservation_release_reason.sql", "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996"],
+  [43, "043_project_role_assignments_and_history.sql", "15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086"],
+  [44, "044_project_change_delete_permission.sql", "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d"],
 ];
-if ((ledger.pending_migrations || []).length !== expectedPending.length) fail("Exactly migrations 042-044 must remain pending.");
-for (const [file, sha] of expectedPending) {
-  const pending = (ledger.pending_migrations || []).find((m) =>
-    (m.file === "migrations/" + file || m.file === file) && m.sha256 === sha
-  );
-  if (!pending || hashFile("migrations/" + file) !== sha) fail("Pending migration source/hash mismatch: " + file);
+if ((ledger.pending_migrations || []).length !== 0) fail("No pending migration may remain after Production 042-044 application.");
+for (const [id, file, sha] of expectedApplied) {
+  const applied = ledger.entries[id - 1];
+  if (!applied || applied.id !== id || applied.filename !== file || applied.sha256 !== sha ||
+      applied.status !== "applied" || applied.source_sha_verified !== true ||
+      hashFile("migrations/" + file) !== sha) {
+    fail("Applied Production migration source/hash mismatch: " + file);
+  }
 }
 
 for (const required of ["MIGRATE_038_CONFIRM", "MIGRATION_038_APPROVED_SHA256", "MIGRATION_038_APPROVAL_REFERENCE", expected038]) {
@@ -108,11 +110,12 @@ for (const [n, sha] of [["042", expectedPending[0][1]], ["043", expectedPending[
       !runner.includes(sha)) fail("Migration runner is missing exact Migration " + n + " owner-approval guards.");
 }
 if (!runner.includes("exact036to044") || !runner.includes("verifiedManifest.entries?.length !== 41")) fail("Migration runner does not require exact Production history 001-041 before 042-044.");
+if (!runner.includes("alreadyAppliedManifest.entries?.length === 44") || !runner.includes("all 44 ledger rows are verified; no SQL re-execution performed")) fail("Migration runner lacks the safe already-applied 042-044 verification path.");
 if (!runner.includes("Production history ledger:")) fail("Migration status mode does not compare the verified Production ledger.");
 if (!runner.includes("Migrations 042-044 and all ledger rows committed atomically as one approved package.")) fail("Migration runner must apply 042-044 atomically as one all-or-nothing package.");
 if (!runner.includes("Migration package 042-044 failed and the entire transaction was rolled back")) fail("Migration runner is missing atomic rollback handling for 042-044.");
 if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");
 
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028, verified Production history 001-041, exact source hashes 036-041, and pending migrations 042-044 are hash-pinned with owner-approval guards.");
+console.log("PASS: baseline 001-028, verified Production history 001-044, and exact source hashes 036-044 are hash-pinned; migrations 042-044 are recorded applied.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

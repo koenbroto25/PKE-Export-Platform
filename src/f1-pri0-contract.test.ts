@@ -311,6 +311,8 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
     expect(block).toContain("USE_ROLE_ASSIGNMENT_ENDPOINT");
     expect(block).toContain("SET is_active = $3::boolean");
     expect(block).not.toContain("SET project_role_id");
+    expect(block).toContain("deactivated_by, $5::uuid");
+    expect(block).toContain("[id, memberId, nextActive, nextExpiresAt ?? null, req.user?.id ?? null]");
   });
 
   it("updates all database-side permission and invitation paths to use assignments", () => {

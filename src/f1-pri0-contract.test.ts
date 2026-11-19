@@ -314,6 +314,8 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
     expect(block).toContain("SET is_active = $3::boolean");
     expect(block).not.toContain("SET project_role_id");
     expect(block).toContain("deactivated_by, $5::uuid");
+    expect(block).toContain("deactivated_at = CASE WHEN $3::boolean");
+    expect(block).toContain("deactivated_by = CASE WHEN $3::boolean");
     expect(block).toContain("[id, memberId, nextActive, nextExpiresAt ?? null, req.user?.id ?? null]");
   });
 

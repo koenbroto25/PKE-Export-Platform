@@ -1,14 +1,14 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.19 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.20 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.19 (18 November 2026 — one-time comprehensive F0 audit and security revisions)  
+**Revision:** 2.20 (19 November 2026 — F0/F1 Vercel closeout tracking and proposed F2 roadmap)  
 
-**Tanggal dokumen:** 11 November 2026  
+**Tanggal dokumen:** 19 November 2026  
 
 **Repository:** `D:\PKE`  
 
@@ -6444,6 +6444,8 @@ Bukti validasi disimpan sebagai ringkasan pada Section 32: nama command, timesta
 | **v1.6** | **11 Nov 2026** | **Mencatat hasil revisi Cline pada branch Git `pke-admin-project-foundation-20261108` (route collision, table removals, FX-rate/GL mapping, report queued, regression tests); memisahkan klaim Cline dari verifikasi independen; memperbarui status P04/P07/P08/P10/P11/P12; work order lanjutan difokuskan ke MFA arsitektural, P08/P05 storage, FX exposure, Operations/tracking, jurnal, dan workflow frontend.** |
 
 | **v1.7** | **11 Nov 2026** | **Keputusan owner D-107: MFA ditunda sebagai pengembangan pascarilis dan bukan gate rilis awal; Cline harus menghapus hanya MFA enforcement yang memblokir Admin, menjaga seluruh auth/RBAC/RLS/session/audit controls, menambah regression tests tanpa MFA claim, dan tidak membuat klaim MFA aktif.** |
+| **v2.20** | **19 Nov 2026** | **F0 and F1 closeout tracking updated: both finalization gates remain pending latest-head Vercel Preview due deployment quota; F1 Migration 041 applied and verified on Neon Production; F2 operational execution/export intelligence roadmap added as PROPOSED, not authorized for implementation.** |
+
 | **v1.8 / Rev 4** | **14 Nov 2026** | **Keputusan owner PERMANEN: satu Neon project (`purple-base-63944903`), satu branch `production` (`br-damp-shape-b3xlh4nr`), satu `neondb`/`DATABASE_URL`; LARANGAN MUTLAK branch tambahan dalam kondisi apa pun (tanpa pengecualian otomatis). Legacy `lucky-glitter-99553107` sumber migrasi sementara (jangan dipakai app/test, jangan dihapus sebelum migrasi tervalidasi+approval). Testing tanpa branch (tx/rollback, fixture QA namespace+cleanup). Runner `scripts/PKE_RUN_SINGLE_BRANCH.ps1` dan harness single-branch fail-closed ditambahkan; kebijakan 3C validation-branch/NEON_TEST di-SUPERSEDE. Migrasi/acceptance gates ke proyek baru belum selesai.** |
 
 
@@ -6702,6 +6704,7 @@ Validasi di atas dieksekusi dalam sesi ini dengan command, timestamp dan exit co
 Cline appends one concise dated entry per session to the table below. Keep newest entry first. Update or supersede facts when new evidence is obtained; do not delete historical entries.
 
 | Date | Work package | Changes performed | Verification/evidence | Production mutation | Status / blockers | Next action |
+| 2026-11-19 | F0/F1 closeout tracking + F2 design proposal | Recorded owner note that F0 and F1 each await finalization because Vercel deployment quota blocks latest-head Preview. For F1, applied approved Migration 041 to Neon Production, verified row 41/hash/functions/SECURITY DEFINER/search_path/EXECUTE grants/recipient policy, fixed Preview packaging test, and recorded F2 as a proposed next operational phase. | F1 Migration 041 row 41 SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`; `app_runtime_secure` EXECUTE true and PUBLIC EXECUTE false; Unit Tests `44438699683` SUCCESS; Dependency Audit `44438698081` SUCCESS; Preview `dpl_3uRNAwZUhGoXyjbJhyHfw8ejfxAT` READY for code commit `9967194c7869da2e86f8030de4a56e051ac07a76`, root HTTP 200. Latest F1 plan commit `66a225a2a4846d860ffa43b898fd7ac6ab76330c` has Vercel combined status failure due `api-deployments-free-per-day`; direct deploy attempt returned HTTP 402, retryAfter 86400 seconds. F0 closeout remains owner-recorded as Vercel-quota pending; its granular historical evidence remains in §§55 and must be rechecked against the current F0 HEAD when quota returns. | F1 Migration 041 DDL applied only after owner approval of exact SHA-256. No synthetic Production data; no F1 report notification was sent to real users. No Production deployment/promotion. | F0 and F1 are not declared FINAL. F1 latest-head Preview smoke is BLOCKED_EXTERNAL by Vercel quota. F0 latest-head Preview/finalization also remains quota-pending per owner. | After quota recovery, verify each branch's current HEAD, create Preview for exact HEAD, wait READY, smoke root and protected/API health paths with authorized access, record exact evidence; only then close each phase. F2 remains DESIGN/PROPOSED pending F0/F1 closeout and owner authorization. |
 |---|---|---|---|---|---|---|
 | 2026-11-18 | F0 continuation — canonical ledger commit verified | Confirmed CI and Preview completion for the latest canonical-plan commit e6675514bd14166a368f9f97332154cbf691fc6b. | GitHub Actions run 44304605969 SUCCESS. Vercel Preview deployment dpl_53bdk3taSpwNGZzfVy56PcC9CuZe READY; build completed in 48 seconds, 82 tests passed, backend TypeScript and frontend Vite build passed. Preview root and health checks already passed on the preceding app-code commit e9013fd. | NONE — no Production change. | F0 remains OPEN. All automation/code checks in this continuation are green, but external/owner gates remain: Admin Auth lifecycle session tests, second Neon Auth Admin identity reconciliation, cross-project RLS with real project rows, protected API app-layer smoke, automatic backup schedule, Vercel secret visibility, Production redeploy approval, and temporary validation branch cleanup at expiry. | Owner review of second Auth Admin; authenticated Admin session; Neon backup feature enablement; Vercel visibility control; explicit Production redeploy authorization. |
 | 2026-11-18 | F0 continuation — RLS partial behavior, Admin lifecycle CI, Preview recovery, Auth role drift | Corrected lifecycle contract tests to avoid .vercelignore-excluded migration SQL; CI and Preview now pass. Read-only Production Auth role counts and read-only validation RLS context checks completed. | CI run 44304069020 for commit e9013fd32376d84e8998f9623ba3b458ab04134c SUCCESS: 82 tests, Production migration ledger verifier, migration dry-run, backend typecheck. Preview dpl_3fXy3wqPyRRzod4QbnYJbvhAzjyo READY; root HTTP 200 and /api/v1/health HTTP 200, DB connected, environment=production. Protected routes still blocked before app by Deployment Protection share-link auth. Production read-only counts: 2 non-banned Neon Auth Admin users, only 1 linked to a PKE Admin record. RLS test on validation branch: actual Admin sees 1 user, synthetic non-admin sees 0, missing context sees 0; projects/project_members empty. | NONE — no Production SQL/data/Auth/config/deployment changes; no secret values read. | F0.05 PARTIAL PASS only; real two-project isolation not proven. Admin Auth orphan/drift needs owner review; no account modified. Automatic backup schedule provider-disabled. Vercel env edit cannot set visibility=secret because action schema omits visibility. Validation branch contains a temporary role membership grant whose grantor is provider-owned cloud_admin; revoke attempted but connector cannot revoke that grantor's privilege. Branch expires 2026-11-19T06:35Z; no Production effect. Picomatch GHSA remains unpatched and disputed; no forced downgrade. | Keep validation branch isolated until expiry or obtain approval to delete it; reconcile the second Auth Admin with PKE ownership; obtain authorized Admin session for lifecycle tests; ask Neon/Vercel support for backup/secret-visibility controls; obtain explicit Production redeploy approval. |
@@ -6740,6 +6743,16 @@ eondb) credentials/access not available in env (no target DATABASE_URL configure
 
 
 ## 32.7 Cline work order aktif — Revision 5.8 (FINAL APPLICATION INTEGRATION & OWNER UAT)
+## 32.7 Active Work Order — 19 November 2026 (F0/F1 closeout, then F2)
+
+**Authoritative current order:** this dated work order supersedes older active-order statements below where their status conflicts. Preserve the detailed historical evidence in §§47–55; do not delete it or silently relabel historical checklists.
+
+1. **F0 closeout:** owner records F0 as one of two phases awaiting finalization because Vercel deployment quota prevents the required latest-head Preview. When quota recovers, inspect the exact current F0 branch HEAD and revalidate all required CI, deployment, HTTP smoke, Auth/RLS/storage/recovery gates against that HEAD. Do not infer latest-head parity from an older READY Preview. Keep F0 open until the exact release gate is evidenced.
+2. **F1 closeout:** Migration 041 is owner-approved and applied to Neon Production (ledger row 41, exact SHA-256 recorded in §56). Schema/function privilege checks passed. Code commit `9967194c7869da2e86f8030de4a56e051ac07a76` has passing Unit Tests and Dependency Audit and a READY Preview with root HTTP 200. Latest plan/PR head `66a225a2a4846d860ffa43b898fd7ac6ab76330c` has no matching Preview because Vercel returned HTTP 402 `api-deployments-free-per-day`. Do not mark F1 final until Preview is built and smoke-tested for the exact current HEAD.
+3. **F2:** design only at this point. The proposed scope, sequencing, non-goals and acceptance gates are in §56. Do not start F2 implementation, create schema/migrations, seed data, create Neon branches, or activate paid providers until F0/F1 closeout and explicit owner authorization.
+4. **Permanent safety constraints remain binding:** one Neon project/Production branch/database only; no local/Docker/alternate DB and no additional Neon branches; no synthetic business data in Production; no DDL/DML without exact owner approval; payment execution remains out of F1 scope; no merge or Production promotion as a substitute for missing Preview evidence.
+5. **Documentation discipline:** after each future work session update this Master Plan's §32.5 ledger, §32.7 work order and affected domain checklist. Preserve historical entries and label evidence FACT/VERIFIED, OWNER-REPORTED, PROPOSED or BLOCKED accurately.
+
 
 **Status (15 November 2026, updated after 16:56Z session):** ACTIVE. Target remains direct owner acceptance testing on the real deployed application, not a demo. Section 34 is the authoritative detailed work order.
 
@@ -8183,3 +8196,109 @@ Current public advisory evidence as of 18 November 2026 identifies GHSA-fc5q-39x
 - The new RLS behavior smoke is intentionally PARTIAL because the validation branch has no projects or project_members rows. The temporary validation-only role membership cannot be revoked through the available connector because the grantor is provider-owned cloud_admin; branch br-soft-fog-b3zi4c2x remains temporary and is scheduled to expire at 2026-11-19T06:35Z. No further tests should grant roles on that branch. If immediate cleanup before expiry is required, ask the owner to approve deletion of that validation branch.
 - The second non-banned Neon Auth Admin identity is not linked to a PKE Admin record. No changes were made pending owner identification/decision.
 - **F0 remains IN PROGRESS / NOT CLOSED.** Green CI/Preview does not substitute for authenticated Admin Auth lifecycle tests, project-row isolation tests, protected API application-level smoke, automatic backup scheduling, secret visibility correction, or approved Production redeployment.
+
+
+
+# 56. F0/F1 finalization register and F2 implementation design (19 November 2026)
+
+## 56.1 Current phase register — authoritative owner note plus verified F1 evidence
+
+| Phase | Current state | Verified / recorded position | Remaining closeout |
+|---|---|---|---|
+| F0 — platform foundation and account/security workflows | **FINALIZATION PENDING — VERCEL QUOTA** | Owner records F0 as one of two phases whose finalization is delayed by Vercel deployment quota. Historical F0 implementation, migration, RLS, storage, Auth, CI and Preview evidence remains in §§47–55. The latest exact F0 branch HEAD and current Preview parity must be re-fetched after quota recovery; do not assume an older READY Preview is latest. | Deploy Preview for exact current F0 HEAD, confirm READY, run approved root/API/health/protected-workflow smoke, reconcile all F0 acceptance gates and record exact commit/deployment/HTTP evidence. |
+| F1 — Project-scoped PM contracts, shipment CoB and Finance reporting | **IMPLEMENTATION + PRODUCTION MIGRATION PASS; FINALIZATION PENDING — VERCEL QUOTA** | Migration 041 was explicitly approved and applied to Neon Production branch `br-damp-shape-b3xlh4nr`, database `neondb`. Ledger row 41 stores exact SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`. Both Finance notification functions exist as SECURITY DEFINER with `search_path=pg_catalog, public`; PUBLIC EXECUTE=false; `app_runtime_secure` EXECUTE=true. Finance insert policy uses recipient guard. No synthetic Production data or real-user notification was created. | Latest F1 PR/plan HEAD `66a225a2a4846d860ffa43b898fd7ac6ab76330c` lacks its own Preview. Vercel deploy attempt returned HTTP 402 `api-deployments-free-per-day` with retryAfter 86400 seconds. Existing READY Preview `dpl_3uRNAwZUhGoXyjbJhyHfw8ejfxAT` is for code commit `9967194c7869da2e86f8030de4a56e051ac07a76`, one documentation commit behind; root smoke HTTP 200 does not satisfy latest-head gate. |
+| F2 — Operational execution and export intelligence | **DESIGN / PROPOSED — NOT AUTHORIZED FOR IMPLEMENTATION** | Draft design is in §56.3–56.8 and maps to existing P06/P08/P09/P10/P11/P15/P16/P17/P18 work packages. | Owner review and explicit F2 start authorization after F0/F1 closeout. |
+
+### F0/F1 release rule
+- F0 and F1 remain separate phase acceptance decisions. A READY Preview on an earlier commit is not latest-head evidence.
+- On Vercel quota recovery, first fetch the current Git branch HEAD and CI status for each phase; then create Preview against that exact SHA, wait for READY, and smoke the exact deployment URL. Record commit SHA, deployment ID, CI run IDs, HTTP results and any protected-route access limitation.
+- Do not merge PR #2, promote a Production deployment, or mark either phase COMPLETE solely to bypass the quota. No Vercel billing/plan/team security setting may be changed automatically.
+- F0's detailed historical checklist is not erased. Any item previously BLOCKED/PARTIAL must be marked PASS only with new evidence or an explicit owner waiver; do not treat the Vercel quota note as silently waiving unrelated acceptance requirements.
+
+## 56.2 F2 objective and product outcome
+
+**F2 proposed name:** Operational Execution & Export Intelligence.
+
+**Objective:** connect the already established project, contract/program, shipment-CoB and Finance reporting foundation to the physical PKE export chain — verified supply, quality, inventory, inland movement, warehouse, port, vessel, export documents and buyer visibility — with traceable quantities, documents, milestones and role-scoped decisions.
+
+F2 is an operational workflow phase, not a broad platform rewrite. Retain the modular-monolith architecture, existing Neon Production system of record, existing role/project authorization model, and PKE-first scope. Implement vertical slices from verified master data to shipment completion. Keep external data/AI advisory; business state transitions remain deterministic and human-authorized.
+
+## 56.3 F2 scope — proposed workstreams
+
+| F2 slice | Existing plan mapping | Functional outcome | Core acceptance |
+|---|---|---|---|
+| F2.1 Supply master and verification | P15; P01/P03/P05 | Canonical supplier/organization, PKS vs KCP vs warehouse distinction, facility contacts/capacity/certification, product variants/specification versions and provenance | One organization may own multiple facilities; PKS is not assumed to produce PKE; capacity is not stock; unverified data is visibly marked; scoped Admin/PM/supplier access tests pass. |
+| F2.2 Buyer demand, sourcing and quality | P15; P06; P05 | Buyer requirement profiles, explainable supplier/product matching, sample/lab/COA chain, procurement and contract-program linkage | Hard quality/contract constraints cannot be overridden by ranking; units/basis/method mismatch is rejected; each COA binds to lot/sample and immutable document checksum; reviewer approval is auditable. |
+| F2.3 Inventory and inland logistics | P06; P10; P11 | Lot genealogy, stock availability/reservation/hold, dispatch, truck trip/checkpoint, weighbridge, receipt, QC hold/release, warehouse put-away and outbound | No double-counting; stock transitions are atomic and idempotent; each movement records actor/time/source/quantity; GPS/photo evidence includes provenance and permission checks; offline sync conflicts are explicit and recoverable. |
+| F2.4 Port and multimodal readiness | P16; P06 | Port/terminal/berth/channel/warehouse/service master, route and modality constraints, port appointment and loading readiness | Depth includes datum/source/observed date; port service/capacity is versioned; route result is advisory with provenance; system never claims navigation clearance or guaranteed vessel access. |
+| F2.5 Vessel, voyage and shipment execution | P17; P06; F1 shipment/CoB foundation | Vessel registry and identifiers, voyage/port calls, nomination, loading tickets, quantity reconciliation, shipment event timeline, buyer/agent workspace | Vessel identifiers and provider freshness are visible; stale AIS is not presented as live; shipment/CoB linkage is Project-scoped; partial loading and quantity variance require explicit workflow/audit; buyer sees only its authorized shipment projection. |
+| F2.6 Export documents and regulatory readiness | P08; P05; P18 | Shipment document checklist, versioned requirements, source registry, effective-date rules, evidence review, exception handling and export readiness | Every active rule cites an authoritative source, jurisdiction, scope, validity interval and reviewer; missing/uncertain requirements are PENDING/MANUAL REVIEW, never auto-pass; final documents are versioned and immutable by checksum. |
+| F2.7 Control tower, reporting and AI assistance | P09; P11; P18; P10 | Cross-domain operational timeline, exception queue, KPI definitions, alerts, grounded search, document extraction and draft summaries | KPI values reconcile to source records; AI output carries citations/provenance/confidence; retrieval is filtered by project/partner permission; AI is read-only by default and cannot approve, post, release stock, submit customs filings or trigger payments. |
+
+## 56.4 Proposed end-to-end operational journey
+
+1. **Supply onboarding:** Admin/authorized PM verifies supplier organization, each physical facility, ownership/operator, capacity, certification, contact and product capability.
+2. **Demand definition:** PM records buyer requirement and commercial constraints under the Project/Contract Program. Product specification version and units/basis are frozen for the applicable call-off.
+3. **Sourcing and quality:** eligible supplier/facility candidates are filtered by hard constraints; sample, laboratory result and COA are reviewed and attached to the relevant lot.
+4. **Procurement and stock creation:** approved procurement/receipt creates traceable inventory lots; availability is derived from on-hand less reservations/holds, not manually typed totals.
+5. **Dispatch and inland transfer:** authorized dispatch creates truck trip and checkpoint chain; weighbridge and receiving events reconcile source/destination quantities; exceptions enter a controlled review queue.
+6. **Warehouse and shipment allocation:** warehouse receipt, QC release, packing and outbound movement update stock atomically; allocation links eligible lots to a Project shipment without double reservation.
+7. **Port and vessel readiness:** terminal/service constraints and vessel particulars are checked against verified data; nomination, port calls, loading events and actual loaded quantities are recorded.
+8. **Compliance and documents:** jurisdiction/date-specific checklist is evaluated; documents are generated/attached as drafts, reviewed by authorized human, then versioned/finalized.
+9. **Buyer visibility and closeout:** buyer/agent sees permitted milestone and quantity projections; operational variance, document readiness and Finance reporting are reconciled. Payment execution remains outside this F2 design unless separately approved.
+
+## 56.5 Core domain model and invariants
+
+- Preserve Project as the authorization boundary. Every operational record must have a direct or unambiguous inherited Project scope and be protected by API authorization plus RLS; partner access adds partner-specific scope, never broadens Project access.
+- Preserve F1 contract/program/cycle ownership. PM manages the commercial configuration only within the PM's active Project membership and permission. Each shipment has at most one Project-linked CoB obligation.
+- Maintain lot genealogy: supplier/facility → production/receipt lot → sample/COA → stock movement → warehouse location → shipment allocation → loading ticket → shipment document. Never overwrite provenance or silently merge unlike lots.
+- Separate physical quantities and units: production capacity, actual production, on-hand, reserved, held, in-transit, received, packed and loaded are distinct measures with explicit units and event timestamps.
+- All state transitions are server-side, permission checked, transactional, idempotent, auditable and monotonic where business rules require. Corrections use reversal/adjustment events rather than destructive history edits.
+- External data is source/version/time stamped with freshness and confidence. Manual, partner-submitted, provider-retrieved, AI-extracted and independently verified data must be distinguishable.
+- Document object storage remains private; every file has Project/partner access checks, checksum, version, MIME/size validation, retention metadata and audit trail.
+- Finance integration is read/reporting and operational cost traceability only. Do not infer a payment execution capability from CoB, obligation or report records.
+
+## 56.6 Recommended delivery order and gates
+
+| Order | Delivery slice | Dependencies | Exit gate |
+|---|---|---|---|
+| 0 | F0/F1 closeout | Vercel quota recovery | Exact current-head CI + Preview READY + approved smoke evidence for both phases; explicit phase closeout. |
+| 1 | F2 baseline reconciliation | F0/F1 closed; owner authorizes F2 | Read-only schema/source/API/UI inventory; exact current Git HEAD; existing-table mapping; no duplicate tables; no Neon branch creation. |
+| 2 | F2.1 supply master | P01/P03/P05 foundation | Master data and provenance tests; role/project/partner isolation; UI and API vertical slice. |
+| 3 | F2.2 buyer demand and quality | F2.1 | Spec/version/unit and COA chain tests; explainable matching with hard filters. |
+| 4 | F2.3 inventory and inland logistics | F2.1–F2.2; existing P06 shipment foundations | Transactional lot/reservation/movement tests, quantity reconciliation, idempotency and exception workflow. |
+| 5 | F2.4 port and multimodal | Facility/product + logistics | Port data provenance/freshness and vessel-screen boundaries; no navigation clearance claim. |
+| 6 | F2.5 vessel and shipment execution | F2.3–F2.4 | Shipment milestone, loading, quantity variance, buyer/agent isolation and stale-provider behavior tests. |
+| 7 | F2.6 compliance/document readiness | F2.1–F2.5; counsel review for legal rules | Source-backed country pack, effective-date evaluation, human review, document version/checksum tests. |
+| 8 | F2.7 control tower and AI assistance | Operational event model stable | KPI reconciliation, permission-filtered retrieval, citations, read-only tool policy and human approval tests. |
+| 9 | F2 integration release | All prior slices | Full CI, frontend build, API contract, single-branch Production-safe checks, approved Preview exact-head smoke, operator and owner UAT. |
+
+## 56.7 F2 explicit non-goals and external dependencies
+
+**Non-goals for initial F2:** multi-exporter marketplace, replacing customs/port/bank/shipping-line systems, autonomous legal opinion, autonomous customs filing, automatic bank transfer/payment execution, AI-driven inventory release or payment, guaranteed AIS coverage, navigation clearance, and unverified HS classification.
+
+**External dependencies:** approved supplier/partner data; laboratory and sampling procedure; official regulatory source access and legal/customs reviewer; selected AIS/map/geospatial provider contracts and keys; email/notification provider; AI provider credentials, data processing/retention review and budget; owner-approved Production migration(s). Build provider-neutral adapters and manual milestone paths while activation is blocked. No paid provider activation or contractual commitment is implied by this proposal.
+
+## 56.8 F2 architecture, security and test policy
+
+- Modular monolith with domain boundaries; no microservices split without measured need.
+- Existing-schema-first. Before every migration: inspect exact Production columns/constraints/indexes/RLS/policies/grants/functions/triggers; prepare exact SQL, SHA-256, impact/lock review, rollback/recovery plan and post-apply checks; obtain owner approval for that exact artifact.
+- Single Neon project/branch/database rule remains absolute. No new Neon branch, local database, Docker database or alternate connection string.
+- No mock business records in Production. Use pure unit/contract tests, mock provider adapters, transaction rollback tests that do not persist business fixtures, and read-only Production verification. Any exception needs a separate written owner decision.
+- Test each vertical slice at three levels: domain invariants; API authorization/RLS and cross-Project/partner negative cases; frontend role-aware workflow and empty/error/loading states.
+- Require idempotency/retry/outbox behavior for provider callbacks, uploads, webhook ingestion and field-device sync.
+- AI never receives data outside the caller's authorized scope; AI-generated extraction/matching is staged, reviewable and never directly changes authoritative records.
+- Release only after CI and exact-head Preview are green, security and dependency audits are acceptable, live smoke is permitted and evidenced, and the owner accepts the slice.
+
+## 56.9 Decisions requested before F2 implementation
+
+The following are deliberately **not assumed approved** by this design:
+
+1. Confirm F2 priority order: supply master/quality first, then inventory/logistics, then port/vessel/compliance, then control tower/AI — recommended.
+2. Confirm first operational pilot workflow and which Project/partner roles will participate; no names or business records are assumed.
+3. Approve provider selection/budget only when the relevant adapter and data contract are ready.
+4. Approve any exact Production migration separately after schema reconciliation and SHA-256 review.
+5. Authorize F2 start only after F0 and F1 latest-head finalization gates are completed.
+
+**F2 status: DESIGN / PROPOSED. No implementation authorization, schema mutation, data seeding, provider activation, Git merge or Production deployment is granted by this section.**
+

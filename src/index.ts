@@ -2428,6 +2428,14 @@ app.post("/api/v1/projects/:id/members/:memberId/role-assignments", requireAuth,
     return res.status(400).json({ error: "Valid projectRoleId and optional expiresAt are required.", code: "INVALID_ROLE_ASSIGNMENT" });
   }
   try {
+    await req.db.query(
+      `UPDATE public.project_role_assignments
+          SET is_active = false, updated_at = now()
+        WHERE project_id = $1::uuid AND project_member_id = $2::uuid
+          AND project_role_id = $3::uuid AND is_active = true
+          AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= now()`,
+      [id, memberId, projectRoleId],
+    );
     const { rows } = await req.db.query(
       `INSERT INTO public.project_role_assignments
          (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by, expires_at)
@@ -4147,6 +4155,14 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
       );
       member = rows[0];
     }
+    await req.db.query(
+      `UPDATE public.project_role_assignments
+          SET is_active = false, updated_at = now()
+        WHERE project_id = $1::uuid AND project_member_id = $2::uuid
+          AND project_role_id = $3::uuid AND is_active = true
+          AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= now()`,
+      [projectId, member.id, projectRoleId],
+    );
     const { rows: assignmentRows } = await req.db.query(
       `INSERT INTO public.project_role_assignments
          (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by)
@@ -4328,6 +4344,14 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
       );
       appointed = rows[0];
     }
+    await req.db.query(
+      `UPDATE public.project_role_assignments
+          SET is_active = false, updated_at = now()
+        WHERE project_id = $1::uuid AND project_member_id = $2::uuid
+          AND project_role_id = $3::uuid AND is_active = true
+          AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= now()`,
+      [projectId, appointed.id, pmRoleId],
+    );
     const { rows: assignmentResult } = await req.db.query(
       `INSERT INTO public.project_role_assignments
          (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by)

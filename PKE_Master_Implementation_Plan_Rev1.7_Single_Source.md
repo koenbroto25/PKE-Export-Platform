@@ -9276,3 +9276,52 @@ A targeted read-only Production inspection begins the next F1 / PRI-1 wave (WP-0
 - F2 remains design-only. Under canonical Section 56.20, F2 implementation does not start until F0/F1 exit gates are independently closed or explicitly waived by the owner. Current F1 PRI-1 items remain open, so the next active work is F1 / PRI-1, not F2.
 
 **Disposition:** F1 / PRI-0 database schema and code/CI gate accepted for continuation under the owner's explicit Neon Auth HTTP and Vercel waivers. F1 overall remains IN PROGRESS pending PRI-1 functional work. F0 retains its separate acceptance register; no claim of Application Complete or Business Production Ready is made.
+
+
+---
+
+## 56.29 — Migration release reconciliation verified; F1 PRI-1 execution baseline (20 November 2026)
+
+### 56.29.1 Manifest and runner reconciliation
+- Production migration_history was re-read on the exact Neon Production target and rows 042–044 were confirmed with the exact filenames, SHA-256 values and status applied.
+- Created canonical active ledger file migration_history_manifest_001_044.json: 44 ordered entries, 44/44 verified, zero pending migrations. Rows 001–016 retain their verified baselined status; rows 017–044 are applied. Historical authentic SQL 029–035 remains unrecovered and is not represented as source-verified.
+- Updated scripts/migrate.mjs to use migration_history_manifest_001_044.json and added a fail-closed already-applied path for the exact 042–044 package. When the 44-row manifest and live ledger match, the runner verifies all rows and exact 042–044 source hashes, then exits without re-executing SQL.
+- Updated scripts/verify-migration-release-policy.mjs to validate all 44 entries, zero pending migrations, exact 042–044 hashes and the safe no-replay runner path.
+- Added src/migration-ledger-44.contract.test.ts and included it in npm test. The test verifies the legacy baselined/applied status split, contiguous IDs, exact migration hashes, no pending entries and runner/verifier manifest alignment.
+- The initial contract test incorrectly assumed every legacy row was baselined, then incorrectly assumed rows 001–028 were baselined. Both assertions were corrected against the actual verified manifest: rows 001–016 baselined, 017–044 applied. No Production state was affected by those test-only failures.
+
+### 56.29.2 Latest CI — PASS
+Current F1 branch HEAD: 7d5c4986a0e3c9cdf82045bf15b4673d0d2f525a.
+- GitHub Unit Tests run 44602083712: SUCCESS.
+  - 11 test files, 146/146 tests passed.
+  - Production migration ledger/release-policy verifier passed.
+  - Migration runner dry-run passed without a database connection.
+  - Backend API TypeScript check passed.
+  - Frontend TypeScript check passed.
+  - Frontend production build passed.
+- Dependency Audit Evidence run 44602083458: SUCCESS for root and frontend production dependency audits.
+- These CI results prove repository/static/build consistency. They do not constitute authenticated HTTP UAT or live cash-advance/AP/AR workflow tests.
+
+### 56.29.3 Vercel owner instruction honored
+- GitHub pushes automatically queued Vercel Preview builds despite the explicit instruction to skip deployment. No Vercel deployment was intentionally requested.
+- Queued Preview deployments for commits 7264891e2a61fe91a9792e60113e834bee7140cd and 7d5c4986a0e3c9cdf82045bf15b4673d0d2f525a were explicitly canceled before completion. Other automatic Preview attempts in this docs/release-verifier series ended in ERROR. No Preview reached READY and no Production deployment/promotion occurred.
+- No Vercel environment variable or project configuration was changed. For subsequent GitHub commits, inspect/cancel any automatically queued Preview before it completes; do not intentionally deploy.
+
+### 56.29.4 F1 / PRI-1 — read-only baseline confirmed
+- cash_advances currently has INSERT policy requiring finance.create and SELECT policy requiring finance.view. The database guard requires requestor_id to equal the transaction-local PKE user, initial approval/disbursement state to be draft/pending, and zero initial disbursement/settlement balances. Approval/rejection requires finance.update, a non-requestor actor, and the guard preserves the reconciliation-only disbursement path.
+- There is no requestor-own SELECT policy and no direct cash_advances API implementation in src/index.ts or corresponding Drizzle model in src/schema.ts. The frontend currently labels Cash Advance/Schedule and AP/AR Invoice as available in a finance feature inventory despite the missing backend route/model; correct this UI status when the vertical slice is implemented, not by pretending the workflow is operational.
+- The existing shared financial audit function handles state changes. Production triggers for cash_advances, payment_obligations, ap_invoices and ar_invoices are AFTER UPDATE only; there are no matching AFTER INSERT creation-audit triggers. Creation events are therefore a concrete audit gap.
+- AP/AR INSERT policies require finance.create. Financial guards require new invoices to start unpaid and unverified/open; paid/outstanding balances remain reconciliation-controlled. No payment execution capability is added by this work.
+- No source, SQL, policy, trigger, role, permission grant or business data was changed during this read-only F1 PRI-1 baseline.
+
+### 56.29.5 Next execution sequence
+F1 / PRI-1 / WP-03 + WP-07 + WP-11 + WP-12 + WP-13 is now the active work wave:
+1. Define and implement least-privilege Cash Advance requestor-create/read-own versus independent Finance approve/reject. Keep the non-requestor approval rule and reconciliation-only disbursement. Do not grant all Project members access by default; map eligible requestor roles through the canonical role catalogue and permission dictionary.
+2. Add immutable creation audit events for cash advances, payment obligations, AP invoices and AR invoices. Define created action names, exact actor/Project/permission attribution, safe before/after snapshots and retry/idempotency behavior. Verify existing data before adding any uniqueness constraint.
+3. Implement API/service/UI vertical slices for the missing cash advance and invoice operations; do not display feature status as available until backend routes, RLS and tests are complete.
+4. Reconcile reservation → allocation → loading → inventory issue with the live 042–044 schema and triggers. Use existing owner-authorized fixture rows only; do not fabricate additional Production business records or modify pre-existing PM fixture decisions.
+5. Keep document/report completion pending until a real private object exists and checksum/metadata integrity is verified.
+6. Run the complete 36 permission assertions, expanded RLS matrix, API contract suite, CI and the non-authenticated domain smoke available under the owner's Neon Auth UAT waiver. Mark the Auth HTTP test OWNER-WAIVED, never PASS.
+7. Prepare any new SQL as an exact migration artifact and SHA-256 for separate owner approval. Migrations 042–044 approval does not authorize migration 045+.
+
+F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, not F2.

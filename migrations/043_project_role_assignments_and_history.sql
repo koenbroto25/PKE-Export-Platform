@@ -517,6 +517,14 @@ BEGIN
     RAISE EXCEPTION 'Invitation is invalid or expired' USING ERRCODE = 'P0001';
   END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM public.project_roles
+     WHERE id = v_project_role_id AND project_id = v_project_id AND role_code = 'pm'
+  ) THEN
+    RAISE EXCEPTION 'PM appointments cannot be accepted through invitations; an explicit Platform Admin decision is required'
+      USING ERRCODE = '42501';
+  END IF;
+
   INSERT INTO public.project_members AS pm
     (project_id, user_id, project_role_id, joined_at, is_active, invited_at, updated_at)
   VALUES (v_project_id, v_user_id, NULL, now(), true, v_invited_at, now())

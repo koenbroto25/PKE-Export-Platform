@@ -2218,33 +2218,39 @@ app.post("/api/v1/projects/:id/roles", requireAuth, async (req: express.Request,
   if (!roleCode || !name) {
     return res.status(400).json({ error: "Required fields: roleCode, name" });
   }
+  const canonicalTemplate = getCanonicalRoleTemplate(String(roleCode));
+  if (!canonicalTemplate || canonicalTemplate.scope !== "project" ||
+      (templateRoleCode && templateRoleCode !== roleCode)) {
+    return res.status(400).json({ error: "Only centrally governed Project role templates may be activated.", code: "NON_CANONICAL_ROLE_TEMPLATE" });
+  }
   const userId = req.user?.id;
   try {
+    const { rows: permRows } = await req.db.query(
+      "SELECT id, code FROM permissions WHERE code = ANY($1::text[]) AND is_active = true",
+      [canonicalTemplate.permissionCodes],
+    );
+    const foundCodes = new Set(permRows.map((row: any) => row.code));
+    const missingCodes = canonicalTemplate.permissionCodes.filter((code) => !foundCodes.has(code));
+    if (missingCodes.length > 0) {
+      return res.status(503).json({ error: "Canonical role permissions are not fully provisioned.", code: "ROLE_TEMPLATE_PERMISSION_CATALOG_INCOMPLETE", missingPermissionCodes: missingCodes });
+    }
     const { rows: roleRows } = await req.db.query(
       `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
        VALUES ($1::uuid, $2::text, $3::text, $4::text, true, $5::uuid, now(), now())
+       ON CONFLICT (project_id, role_code) DO UPDATE SET is_active = true, updated_at = now()
        RETURNING id`,
-      [id, roleCode, name, description || null, userId]
+      [id, canonicalTemplate.code, canonicalTemplate.label, canonicalTemplate.restrictions.join(" "), userId]
     );
     const projectRoleId = roleRows[0].id;
-    if (templateRoleCode) {
-      const perms = defaultPermissionsForRole(templateRoleCode);
-      for (const permCode of perms) {
-        const { rows: permRows } = await req.db.query(
-          "SELECT id FROM permissions WHERE code = $1::text AND is_active = true LIMIT 1",
-          [permCode]
-        );
-        if (permRows.length > 0) {
-          await req.db.query(
-            `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-             VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
-             ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
-            [id, projectRoleId, permRows[0].id, userId]
-          );
-        }
-      }
-    }
-    res.status(201).json({ role: { id: projectRoleId, roleCode, name, description } });
+    await req.db.query(
+      `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
+       SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+         FROM permissions p
+        WHERE p.code = ANY($4::text[]) AND p.is_active = true
+       ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+      [id, projectRoleId, userId, canonicalTemplate.permissionCodes],
+    );
+    res.status(200).json({ role: { id: projectRoleId, roleCode: canonicalTemplate.code, name: canonicalTemplate.label, description: canonicalTemplate.restrictions.join(" ") }, activated: true, assignedUsers: 0 });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
   }
@@ -3987,6 +3993,9 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
       [projectRoleId, projectId],
     );
     if (roleRows.length !== 1) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+    if (roleRows[0].role_code === "pm") {
+      return res.status(409).json({ error: "PM assignments must use the dedicated appointment and handover workflow.", code: "USE_PM_APPOINTMENT_WORKFLOW" });
+    }
 
     // Serialize Admin assignments for this project/user pair because this schema has no unique pair constraint.
     await req.db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))", [projectId, userId]);
@@ -3999,6 +4008,12 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
     }
 
     const before = existingRows[0] || null;
+    if (before?.is_active === true && before.project_role_id !== projectRoleId) {
+      return res.status(409).json({
+        error: "This account already has an active Project role. Independent multi-role assignment requires the role-assignment schema migration; no role was overwritten.",
+        code: "MULTI_ROLE_SCHEMA_PENDING",
+      });
+    }
     let member;
     if (before) {
       const { rows } = await req.db.query(

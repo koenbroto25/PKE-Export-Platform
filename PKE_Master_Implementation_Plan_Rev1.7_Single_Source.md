@@ -9081,3 +9081,36 @@ The preceding completed run at commit `289332e323f3151fdc795d702ba46897194c2a83`
 7. Vercel latest-head Preview remains constrained by the previously recorded free deployment quota. No merge, Production deploy, or promotion is authorized.
 
 **Status:** Multi-role API, Admin PM decision workflow, migration archive metadata, and frontend UI are prepared on the existing F1 working branch. F1 remains NOT READY for Production until backup, exact SQL approval, database integration tests, and final UAT are satisfied.
+
+
+---
+
+## 56.24 Final verification checkpoint — Production unchanged, CI green (19 November 2026)
+
+### 56.24.1 Production re-check (read-only after code preparation)
+
+- Neon Production migration ledger remains at row 41 / Migration 041, SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- `public.project_role_assignments` does not yet exist in Production.
+- `inventory_reservations.release_reason` remains absent.
+- `project.change.delete` remains absent.
+- Therefore migrations 042–044 are confirmed NOT applied. No Production DDL/DML occurred during this execution.
+- Existing QA fixtures remain unchanged: Alpha QA Project has two active PM memberships; Beta QA Project has one active PM membership. No PM was selected or deactivated by the application or assistant.
+- Snapshot inventory remains one existing snapshot, `PKE-target-pre-migration-20261115`, created 15 November 2026, size 32,161,792 bytes. No fresh snapshot was created and no snapshot was deleted.
+- No new GitHub or Neon branch was created. Work remains on the existing GitHub branch `f1/project-scoped-cob-20261119`.
+
+### 56.24.2 Latest completed CI
+
+For code commit `613ab606d1c9709ad8b85fc8c5f25d04ccf71aeb`:
+- Unit/security suite: 9 test files, 123 tests — PASS.
+- Migration release-policy verification: PASS.
+- Migration runner dry-run: PASS; no DB connection and no DB writes.
+- Backend TypeScript check: PASS.
+- Frontend TypeScript check: PASS.
+- Frontend production build: PASS.
+- Dependency Audit Evidence workflow: PASS.
+
+The subsequent commit `a47e3ea8bc07320af7e4c404ff81b56f2124e685` updates the Master Plan only; it does not change code. PR #2 remains OPEN / DRAFT and has not been merged.
+
+### 56.24.3 Execution decision
+
+**Continue parallel code and QA work; do not apply Production migrations yet.** The next critical task is a fresh, full, recoverable Production backup durably archived in GitHub. After that, complete SQL review and owner approval for the exact 042–044 hashes, then execute the single atomic migration package through the updated fail-closed runner. F1 is still NOT READY for Production acceptance.

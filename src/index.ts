@@ -4061,7 +4061,7 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
 });
 
 app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const projectId = req.params.projectId;
+  const projectId = Array.isArray(req.params.projectId) ? req.params.projectId[0] : req.params.projectId;
   const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
   const replaceUserId = typeof req.body?.replaceUserId === "string" ? req.body.replaceUserId : "";
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
@@ -4341,7 +4341,8 @@ app.get("/api/v1/role-templates", requireAuth, async (_req: express.Request, res
 });
 
 app.post("/api/v1/projects/:id/role-templates/:roleCode/activate", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { id: projectId, roleCode } = req.params;
+  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const roleCode = Array.isArray(req.params.roleCode) ? req.params.roleCode[0] : req.params.roleCode;
   const template = getCanonicalRoleTemplate(roleCode);
   if (!template || template.scope !== "project") {
     return res.status(404).json({ error: "Canonical Project role template not found.", code: "ROLE_TEMPLATE_NOT_FOUND" });

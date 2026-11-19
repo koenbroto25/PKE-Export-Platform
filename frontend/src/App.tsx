@@ -1092,6 +1092,9 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   const [memberAddRoleId, setMemberAddRoleId] = useState('');
   const [memberAddReason, setMemberAddReason] = useState('');
   const [memberAddBusy, setMemberAddBusy] = useState(false);
+  const [pmAppointUserId, setPmAppointUserId] = useState('');
+  const [pmAppointReason, setPmAppointReason] = useState('');
+  const [pmAppointBusy, setPmAppointBusy] = useState(false);
   const [provisionBusy, setProvisionBusy] = useState(false);
   const [provisionEmail, setProvisionEmail] = useState('');
   const [provisionName, setProvisionName] = useState('');
@@ -1243,6 +1246,29 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
     }
   };
 
+  const appointProjectManager = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedProjectId || !pmAppointUserId || pmAppointReason.trim().length < 5) {
+      onNotice('error', 'Pilih akun aktif dan isi alasan penunjukan PM minimal 5 karakter.');
+      return;
+    }
+    setPmAppointBusy(true);
+    try {
+      await post(`/admin/projects/${selectedProjectId}/pm-appointment`, {
+        userId: pmAppointUserId,
+        reason: pmAppointReason.trim(),
+      });
+      setPmAppointUserId('');
+      setPmAppointReason('');
+      onNotice('success', 'Project Manager berhasil ditunjuk oleh Admin. Riwayat penunjukan tercatat.');
+      projectDetail.refresh();
+    } catch (e) {
+      onNotice('error', e instanceof Error ? e.message : 'Penunjukan Project Manager gagal.');
+    } finally {
+      setPmAppointBusy(false);
+    }
+  };
+
   const requestReset = async (user: AnyRecord) => {
     const id = String(user.id || '');
     if (!id) return;
@@ -1322,11 +1348,22 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
           </select></FormField>
           <FormField label="Role pada proyek ini"><select value={memberAddRoleId} onChange={e => setMemberAddRoleId(e.target.value)} required>
             <option value="">Pilih role proyek</option>
-            {(projectDetail.data?.roles || []).filter(role => role.is_active).map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}
+            {(projectDetail.data?.roles || []).filter(role => role.is_active && role.role_code !== 'pm').map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}
           </select></FormField>
           <FormField label="Alasan penetapan akses"><input value={memberAddReason} onChange={e => setMemberAddReason(e.target.value)} minLength={5} maxLength={500} required placeholder="Dasar pemberian role pada proyek ini" /></FormField>
           <div className="form-actions"><button className="primary-button" disabled={memberAddBusy || projectDetail.loading || !users.data?.users?.length}>{memberAddBusy ? 'Menyimpan…' : 'Tambahkan ke proyek'}</button></div>
         </form>
+        <div className="panel-subsection">
+          <PanelHeading title="Penunjukan Project Manager" description="Keputusan penunjukan dan penonaktifan PM sepenuhnya milik Admin. Jika Project masih memiliki PM aktif, nonaktifkan penugasan PM yang dipilih Admin terlebih dahulu." />
+          <form className="form-grid" onSubmit={appointProjectManager}>
+            <FormField label="Akun PM"><select value={pmAppointUserId} onChange={e => setPmAppointUserId(e.target.value)} required>
+              <option value="">Pilih akun PKE aktif</option>
+              {(users.data?.users || []).filter(user => user.is_active === true && !!user.neon_auth_user_id).map(user => <option key={user.id} value={user.id}>{user.name || user.email} — {user.email}</option>)}
+            </select></FormField>
+            <FormField label="Alasan penunjukan"><input value={pmAppointReason} onChange={e => setPmAppointReason(e.target.value)} minLength={5} maxLength={500} required placeholder="Dasar keputusan Admin" /></FormField>
+            <div className="form-actions"><button className="primary-button" disabled={pmAppointBusy || !selectedProjectId}>{pmAppointBusy ? 'Menyimpan…' : 'Tunjuk Project Manager'}</button></div>
+          </form>
+        </div>
         {projectDetail.loading ? <Loading /> : projectDetail.error ? <ErrorState message={projectDetail.error} retry={projectDetail.refresh} /> : <DataTable rows={projectDetail.data?.members || []} columns={[
           { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
           { key: 'role_assignments', label: 'Role assignments', render: r => <div className="stacked-cell">{(r.role_assignments || []).length ? (r.role_assignments || []).map((a: AnyRecord) => {

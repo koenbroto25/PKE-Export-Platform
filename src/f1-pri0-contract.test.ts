@@ -182,3 +182,39 @@ describe("F1 / PRI-0 inventory mock backtest", () => {
     }).code).toBe("INVALID_LOADED_QUANTITY");
   });
 });
+
+
+describe("F1 / PRI-0 independent Project role assignment contract", () => {
+  it("resolves Project permission and audit attribution from active independent assignments", () => {
+    const start = INDEX_SRC.indexOf("async function requireProjectPermission(");
+    const end = INDEX_SRC.indexOf("async function getProjectOr404(", start);
+    const block = INDEX_SRC.slice(start, end);
+    expect(block).toContain("FROM public.project_role_assignments a");
+    expect(block).toContain("a.revoked_at IS NULL");
+    expect(block).toContain("a.expires_at > now()");
+    expect(block).toContain("assignmentRows[0].project_role_id");
+  });
+
+  it("supports multiple role assignments with independent creation and revocation endpoints", () => {
+    expect(INDEX_SRC).toContain('app.post("/api/v1/projects/:id/members/:memberId/role-assignments"');
+    expect(INDEX_SRC).toContain('app.post("/api/v1/projects/:id/role-assignments/:assignmentId/revoke"');
+    expect(INDEX_SRC).toContain("project_role_assignment_events");
+    expect(INDEX_SRC).toContain("role_assignments");
+  });
+
+  it("keeps PM appointment and deactivation under explicit Platform Admin control", () => {
+    expect(INDEX_SRC).toContain('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
+    expect(INDEX_SRC).toContain('app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate"');
+    expect(INDEX_SRC).toContain("project.pm.deactivated");
+    expect(INDEX_SRC).toContain("membershipPreserved: true");
+    expect(INDEX_SRC).toContain("MULTIPLE_ACTIVE_PM_ASSIGNMENTS");
+  });
+
+  it("does not overwrite a member's legacy role when appointing a PM", () => {
+    const start = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
+    const end = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate"', start);
+    const block = INDEX_SRC.slice(start, end);
+    expect(block).toContain("INSERT INTO public.project_role_assignments");
+    expect(block).not.toContain("SET project_role_id = $3::uuid");
+  });
+});

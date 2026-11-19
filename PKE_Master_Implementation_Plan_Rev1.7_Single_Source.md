@@ -9177,3 +9177,45 @@ The migration runner, release-policy verifier, and pending migration manifest ha
 - A preceding CI run completed 135/136 tests successfully and exposed one stale SQL parameter expectation; the code and regression test have since been corrected.
 - Current-head CI must be rerun after these final membership-lifecycle changes. Do not claim full CI PASS until the current head has completed all unit/security, release-policy, dry-run, backend/frontend typecheck and build, and dependency-audit jobs.
 - No Production DDL/DML, no QA fixture mutation, no Vercel snapshot work, no branch creation, no PR merge or deployment was performed.
+
+
+---
+
+## 56.27 Current-head backtest result — PASS for code/static acceptance (19 November 2026)
+
+### 56.27.1 Current CI evidence
+
+The latest completed current-head CI is for `1f54c88ce00e897f581dd1314c819a6b62705f5c`; the only later commit is this Master Plan update. Results:
+
+- Unit/security suite: **9 test files, 136 tests — PASS**.
+- Migration release-policy verification: PASS; exact Production ledger through 041 and pinned 042–044 confirmed.
+- Migration runner dry-run: PASS; no DB connection attempted and no DB changes.
+- Backend API TypeScript check: PASS.
+- Frontend TypeScript check: PASS.
+- Frontend production build: PASS.
+- Dependency Audit Evidence: PASS (root and frontend).
+
+### 56.27.2 Backtest coverage now passing
+
+The 136-test suite includes behavioral role assignment rules (multiple roles, independent expiry/revocation, membership/Project suspension, cross-Project/user isolation, PM duplicate/handover decisions) and source-contract checks for SQL migration order, no user-settable bypass, append-only event history, Admin-only PM lifecycle, invitation restrictions, expiry validation, membership/role separation, and frontend controls.
+
+### 56.27.3 Scope boundary — database integration still pending
+
+This is a code/domain and migration-source backtest, not a live PostgreSQL execution of migration 043 or authenticated API/database UAT. Production does not yet contain the new table/column/permission. No temporary Neon branch, local/Docker database, Production DDL/DML, or test fixture mutation was used. The repository's mandated integration runner is single-Production-branch only; live integration after schema change remains sequenced behind the durable backup and explicit migration approval gates.
+
+### 56.27.4 Exact migration package state
+
+- 042: `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`
+- 043: `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`
+- 044: `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d`
+
+All three hashes are pinned in the migration runner, release-policy verifier, and pending manifest. They remain pending; no owner approval flags were set and no migration was applied.
+
+### 56.27.5 Remaining execution sequence
+
+1. Produce a fresh full Production backup and verify restore/recoverability; archive the exact encrypted backup and recovery artifacts durably in GitHub. Vercel snapshots and deployment quota are not part of this workstream.
+2. Complete final SQL review and obtain explicit owner approval for the exact three hashes.
+3. Apply 042–044 as one atomic package to Neon Production using the fail-closed runner.
+4. Immediately run authenticated DB integration/backtest and F0/F1 UAT on the migrated Production schema, with only temporary namespaced QA data inside verified transactions and cleanup evidence. Never alter pre-existing owner fixtures or choose PM assignments on the owner's behalf.
+
+**Status:** Code/static backtest PASS. Live database integration and Production release remain blocked by backup and exact owner-approval gates.

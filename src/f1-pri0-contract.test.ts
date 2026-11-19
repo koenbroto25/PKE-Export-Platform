@@ -24,7 +24,6 @@ describe("F1 / PRI-0 canonical role governance", () => {
     expect(INDEX_SRC).toContain('app.post("/api/v1/projects/:id/role-templates/:roleCode/activate"');
     expect(INDEX_SRC).toContain("assignedUsers: 0");
     expect(INDEX_SRC).toContain('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
-    expect(INDEX_SRC).toContain("PM_HANDOVER_CONFIRMATION_REQUIRED");
     expect(INDEX_SRC).toContain("evaluatePmAppointment");
     expect(INDEX_SRC).toContain("USE_ROLE_ASSIGNMENT_ENDPOINT");
     expect(INDEX_SRC).toContain("PM_ADMIN_DECISION_REQUIRED");

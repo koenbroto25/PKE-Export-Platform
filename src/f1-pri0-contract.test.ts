@@ -196,6 +196,8 @@ describe("F1 / PRI-0 independent Project role assignment contract", () => {
     expect(block).toContain("a.revoked_at IS NULL");
     expect(block).toContain("a.expires_at > now()");
     expect(block).toContain("assignmentRows[0].project_role_id");
+    expect(INDEX_SRC).toContain("Date.parse(expiresAt) <= Date.now()");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("An active role assignment must expire in the future");
   });
 
   it("supports multiple role assignments with independent creation and revocation endpoints", () => {
@@ -236,6 +238,8 @@ describe("F1 / PRI-0 multi-role Admin UI contract", () => {
     expect(FRONTEND_APP_SRC).toContain("Keanggotaan dan role lain tetap dipertahankan.");
     expect(FRONTEND_APP_SRC).toContain("/admin/projects/${selectedProjectId}/pm-appointment");
     expect(FRONTEND_APP_SRC).toContain("Tunjuk Project Manager");
+    expect(FRONTEND_APP_SRC).toContain("Masa berlaku role (opsional)");
+    expect(FRONTEND_APP_SRC).toContain("expiresAt: new Date(memberAddExpiresAt).toISOString()");
     expect(FRONTEND_APP_SRC).toContain("role.role_code !== 'pm'");
   });
 });

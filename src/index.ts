@@ -2507,11 +2507,14 @@ app.post("/api/v1/projects/:id/members/invite", requireAuth, async (req: express
   }
   const userId = req.user?.id;
   const { rows: roleRows } = await req.db.query(
-    "SELECT id FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true",
+    "SELECT id, role_code FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true",
     [id, projectRoleId]
   );
   if (roleRows.length === 0) {
     return res.status(400).json({ error: "Invalid project role" });
+  }
+  if (roleRows[0].role_code === "pm") {
+    return res.status(403).json({ error: "PM appointments cannot be issued as invitations; use the explicit Admin PM appointment workflow.", code: "PM_ADMIN_DECISION_REQUIRED" });
   }
   const crypto = await import("node:crypto");
   const tokenHash = crypto.createHash("sha256").update(`${invitationEmail}:${id}:${Date.now()}:${crypto.randomBytes(16).toString("hex")}`).digest("hex");

@@ -7,6 +7,7 @@ import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAs
 const INDEX_SRC = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 const ROLE_ASSIGNMENT_MIGRATION_SRC = readFileSync(new URL("../migrations/043_project_role_assignments_and_history.sql", import.meta.url), "utf8");
 const FRONTEND_APP_SRC = readFileSync(new URL("../frontend/src/App.tsx", import.meta.url), "utf8");
+const ROLE_ASSIGNMENT_RULES_SRC = readFileSync(new URL("./f1-role-assignment-rules.ts", import.meta.url), "utf8");
 
 describe("F1 / PRI-0 canonical role governance", () => {
   it("has a unique centrally governed role catalogue with Project and platform scopes", () => {
@@ -197,7 +198,8 @@ describe("F1 / PRI-0 independent Project role assignment contract", () => {
     expect(block).toContain("a.revoked_at IS NULL");
     expect(block).toContain("a.expires_at > now()");
     expect(block).toContain("assignmentRows[0].project_role_id");
-    expect(INDEX_SRC).toContain("Date.parse(expiresAt) <= Date.now()");
+    expect(INDEX_SRC).toContain("validateRoleAssignmentExpiry(expiresAt)");
+    expect(ROLE_ASSIGNMENT_RULES_SRC).toContain("Date.parse(expiresAt) <= nowMs");
     expect(INDEX_SRC).toContain("?.roleCode ?? null");
     expect(INDEX_SRC).toContain("?.roleName ?? null");
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("An active role assignment must expire in the future");
@@ -256,9 +258,10 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
   });
 
   it("backfills every legacy membership role before installing runtime assignment guards", () => {
-    const backfillAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("INSERT INTO public.project_role_assignments");
+    const backfillMarker = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("-- Preserve every existing legacy role assignment");
+    const backfillAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("INSERT INTO public.project_role_assignments", backfillMarker);
     const guardTriggerAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("CREATE TRIGGER trg_project_role_assignment_guard");
-    const eventTriggerAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("CREATE TRIGGER trg_project_role_assignment_event");
+    const eventTriggerAt = ROLE_ASSIGNMENT_MIGRATION_SRC.indexOf("CREATE TRIGGER trg_project_role_assignment_event\nAFTER INSERT OR UPDATE");
     expect(backfillAt).toBeGreaterThan(-1);
     expect(guardTriggerAt).toBeGreaterThan(backfillAt);
     expect(eventTriggerAt).toBeGreaterThan(backfillAt);

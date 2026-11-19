@@ -214,7 +214,7 @@ async function main() {
       const approved042 = "042_inventory_reservation_release_reason.sql";
       const approved042Sha = "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996";
       const approved043 = "043_project_role_assignments_and_history.sql";
-      const approved043Sha = "3e176c555d1f4552280e1b4af221fa11de2c62da265fac4774cbc695967139a1";
+      const approved043Sha = "c9c06e6750ae811caaf28d9c19ce9a0ab59b53b6afae6fdb9b4be031ead7cc79";
       const approved044 = "044_project_change_delete_permission.sql";
       const approved044Sha = "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);

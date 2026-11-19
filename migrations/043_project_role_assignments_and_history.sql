@@ -296,3 +296,232 @@ REVOKE INSERT, UPDATE, DELETE ON public.project_role_assignment_events FROM app_
 GRANT EXECUTE ON FUNCTION public.pke_project_role_assignment_guard() TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_project_role_assignment_event() TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_project_role_assignment_event_immutable() TO app_runtime_secure;
+
+
+-- Reconcile every database-side permission/notification/invitation path that
+-- previously inferred a single role from project_members.project_role_id.
+CREATE OR REPLACE FUNCTION public.pke_has_any_project_permission(p_permission_code text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $function$
+  SELECT public.pke_is_platform_admin()
+    OR EXISTS (
+      SELECT 1
+        FROM public.project_role_assignments a
+        JOIN public.project_members pm
+          ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+        JOIN public.project_roles pr
+          ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+        JOIN public.project_role_permissions prp
+          ON prp.project_role_id = pr.id AND prp.project_id = pr.project_id
+        JOIN public.permissions perm ON perm.id = prp.permission_id
+        JOIN public.projects proj ON proj.id = a.project_id
+        JOIN public.users u ON u.id = a.user_id
+       WHERE a.user_id = NULLIF(current_setting('app.current_user_id', true),'')::uuid
+         AND a.is_active = true AND a.revoked_at IS NULL
+         AND (a.expires_at IS NULL OR a.expires_at > now())
+         AND pm.is_active = true AND pm.deactivated_at IS NULL
+         AND (pm.expires_at IS NULL OR pm.expires_at > now())
+         AND pr.is_active = true AND proj.is_active = true
+         AND u.is_active = true AND perm.is_active = true
+         AND perm.code = p_permission_code
+    )
+$function$;
+
+REVOKE ALL ON FUNCTION public.pke_has_any_project_permission(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pke_has_any_project_permission(text) TO app_runtime_secure;
+
+CREATE OR REPLACE FUNCTION public.pke_can_receive_finance_report_notification(
+  p_project_id uuid,
+  p_user_id uuid
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+      FROM public.users recipient
+     WHERE recipient.id = p_user_id
+       AND recipient.is_active = true
+       AND (
+         recipient.role::text = 'admin'
+         OR EXISTS (
+           SELECT 1
+             FROM public.project_role_assignments a
+             JOIN public.project_members pm
+               ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+             JOIN public.project_roles pr
+               ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+             JOIN public.projects project ON project.id = a.project_id
+            WHERE a.project_id = p_project_id
+              AND a.user_id = recipient.id
+              AND a.is_active = true AND a.revoked_at IS NULL
+              AND (a.expires_at IS NULL OR a.expires_at > now())
+              AND pm.is_active = true AND pm.deactivated_at IS NULL
+              AND (pm.expires_at IS NULL OR pm.expires_at > now())
+              AND pr.is_active = true AND pr.role_code = 'pm'
+              AND project.is_active = true
+         )
+       )
+  )
+$function$;
+
+REVOKE ALL ON FUNCTION public.pke_can_receive_finance_report_notification(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pke_can_receive_finance_report_notification(uuid, uuid) TO app_runtime_secure;
+
+CREATE OR REPLACE FUNCTION public.pke_submit_finance_report_notifications(
+  p_project_id uuid,
+  p_actor_id uuid,
+  p_title text,
+  p_message text
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $function$
+DECLARE
+  v_inserted integer := 0;
+BEGIN
+  IF p_actor_id IS NULL OR p_actor_id <> public.pke_current_user_id() THEN
+    RAISE EXCEPTION 'Finance report actor does not match the authenticated database principal'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT public.pke_has_project_permission(p_project_id, 'reports.create') THEN
+    RAISE EXCEPTION 'Finance report permission required' USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.project_role_assignments a
+      JOIN public.project_members pm
+        ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+      JOIN public.project_roles pr
+        ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+      JOIN public.projects project ON project.id = a.project_id
+      JOIN public.users actor ON actor.id = a.user_id
+     WHERE a.project_id = p_project_id AND a.user_id = p_actor_id
+       AND a.is_active = true AND a.revoked_at IS NULL
+       AND (a.expires_at IS NULL OR a.expires_at > now())
+       AND pm.is_active = true AND pm.deactivated_at IS NULL
+       AND (pm.expires_at IS NULL OR pm.expires_at > now())
+       AND pr.is_active = true AND pr.role_code = 'finance'
+       AND project.is_active = true AND actor.is_active = true
+  ) THEN
+    RAISE EXCEPTION 'Only an active Finance Project role assignment can submit reports'
+      USING ERRCODE = '42501';
+  END IF;
+
+  WITH recipients AS (
+    SELECT a.user_id AS recipient_id
+      FROM public.project_role_assignments a
+      JOIN public.project_members pm
+        ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+      JOIN public.project_roles pr
+        ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+      JOIN public.projects project ON project.id = a.project_id
+      JOIN public.users recipient ON recipient.id = a.user_id
+     WHERE a.project_id = p_project_id
+       AND a.is_active = true AND a.revoked_at IS NULL
+       AND (a.expires_at IS NULL OR a.expires_at > now())
+       AND pm.is_active = true AND pm.deactivated_at IS NULL
+       AND (pm.expires_at IS NULL OR pm.expires_at > now())
+       AND pr.is_active = true AND pr.role_code = 'pm'
+       AND project.is_active = true AND recipient.is_active = true
+    UNION
+    SELECT recipient.id
+      FROM public.users recipient
+     WHERE recipient.is_active = true AND recipient.role::text = 'admin'
+  )
+  INSERT INTO public.user_notifications
+    (id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, created_at)
+  SELECT gen_random_uuid(), gen_random_uuid(), p_project_id, recipient_id, p_actor_id,
+         left(coalesce(p_title, 'Laporan keuangan baru'), 240),
+         left(coalesce(p_message, 'Laporan keuangan baru tersedia.'), 2000),
+         'normal', 'finance_report', now()
+    FROM recipients;
+
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  RETURN v_inserted;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.pke_submit_finance_report_notifications(uuid, uuid, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pke_submit_finance_report_notifications(uuid, uuid, text, text) TO app_runtime_secure;
+
+CREATE OR REPLACE FUNCTION public.accept_pke_project_invitation(p_token_hash text)
+RETURNS TABLE(membership_id uuid, accepted_project_id uuid, accepted_project_role_id uuid)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $function$
+DECLARE
+  v_user_id uuid;
+  v_user_email text;
+  v_invitation_id uuid;
+  v_project_id uuid;
+  v_project_role_id uuid;
+  v_invited_at timestamptz;
+  v_invited_by uuid;
+  v_membership_id uuid;
+BEGIN
+  v_user_id := public.pke_current_user_id();
+  IF v_user_id IS NULL OR p_token_hash IS NULL OR length(p_token_hash) <> 64 THEN
+    RAISE EXCEPTION 'Invitation is invalid or expired' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT u.email INTO v_user_email
+    FROM public.users u WHERE u.id = v_user_id AND u.is_active = true;
+  IF v_user_email IS NULL THEN
+    RAISE EXCEPTION 'Invitation is invalid or expired' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT i.id, i.project_id, i.project_role_id, i.invited_at, i.invited_by
+    INTO v_invitation_id, v_project_id, v_project_role_id, v_invited_at, v_invited_by
+    FROM public.project_invitations i
+    JOIN public.projects p ON p.id = i.project_id AND p.is_active = true
+    JOIN public.project_roles pr ON pr.id = i.project_role_id AND pr.project_id = i.project_id AND pr.is_active = true
+   WHERE i.token_hash = p_token_hash
+     AND lower(i.invitation_email) = lower(v_user_email)
+     AND i.status = 'pending' AND i.expires_at > now()
+   FOR UPDATE OF i;
+
+  IF v_invitation_id IS NULL THEN
+    RAISE EXCEPTION 'Invitation is invalid or expired' USING ERRCODE = 'P0001';
+  END IF;
+
+  INSERT INTO public.project_members AS pm
+    (project_id, user_id, project_role_id, joined_at, is_active, invited_at, updated_at)
+  VALUES (v_project_id, v_user_id, NULL, now(), true, v_invited_at, now())
+  ON CONFLICT (project_id, user_id)
+  DO UPDATE SET is_active = true, deactivated_at = NULL, deactivated_by = NULL,
+                expires_at = NULL, updated_at = now()
+  RETURNING pm.id INTO v_membership_id;
+
+  INSERT INTO public.project_role_assignments
+    (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by)
+  SELECT v_project_id, v_membership_id, v_user_id, v_project_role_id, true, now(), v_invited_by
+   WHERE NOT EXISTS (
+     SELECT 1 FROM public.project_role_assignments existing
+      WHERE existing.project_member_id = v_membership_id
+        AND existing.project_role_id = v_project_role_id
+        AND existing.is_active = true AND existing.revoked_at IS NULL
+   );
+
+  UPDATE public.project_invitations
+     SET status = 'accepted', accepted_user_id = v_user_id, accepted_at = now()
+   WHERE id = v_invitation_id;
+
+  RETURN QUERY SELECT v_membership_id, v_project_id, v_project_role_id;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.accept_pke_project_invitation(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.accept_pke_project_invitation(text) TO app_runtime_secure;

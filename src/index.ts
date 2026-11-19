@@ -4038,6 +4038,169 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
   }
 });
 
+app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId;
+  const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
+  const replaceUserId = typeof req.body?.replaceUserId === "string" ? req.body.replaceUserId : "";
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || (replaceUserId && !uuidPattern.test(replaceUserId)) || reason.length < 5) {
+    return res.status(400).json({ error: "Valid Project, PM user and audit reason (at least 5 characters) are required.", code: "INVALID_PM_APPOINTMENT_INPUT" });
+  }
+  try {
+    await req.db.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':pm-appointment', 0))",
+      [projectId],
+    );
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, name FROM public.projects WHERE id = $1::uuid AND is_active = true FOR UPDATE",
+      [projectId],
+    );
+    if (projectRows.length !== 1) return res.status(404).json({ error: "Active Project not found.", code: "PROJECT_NOT_FOUND" });
+
+    const { rows: userRows } = await req.db.query(
+      "SELECT user_id, email, is_active, neon_auth_user_id FROM public.pke_admin_get_user($1::uuid)",
+      [userId],
+    );
+    if (userRows.length !== 1) return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
+    if (userRows[0].is_active !== true || !userRows[0].neon_auth_user_id) {
+      return res.status(409).json({ error: "PM must have an active PKE account and linked Neon Auth identity.", code: "PM_USER_NOT_READY" });
+    }
+
+    let { rows: pmRoleRows } = await req.db.query(
+      "SELECT id FROM public.project_roles WHERE project_id = $1::uuid AND role_code = 'pm' AND is_active = true LIMIT 1 FOR UPDATE",
+      [projectId],
+    );
+    if (pmRoleRows.length !== 1) {
+      const pmTemplate = getCanonicalRoleTemplate("pm");
+      if (!pmTemplate) return res.status(500).json({ error: "Canonical PM template is unavailable.", code: "PM_TEMPLATE_UNAVAILABLE" });
+      const { rows: permissionRows } = await req.db.query(
+        "SELECT id, code FROM public.permissions WHERE code = ANY($1::text[]) AND is_active = true",
+        [pmTemplate.permissionCodes],
+      );
+      const found = new Set(permissionRows.map((row: any) => row.code));
+      const missing = pmTemplate.permissionCodes.filter((code) => !found.has(code));
+      if (missing.length) return res.status(503).json({ error: "PM template permission catalogue is incomplete.", code: "ROLE_TEMPLATE_PERMISSION_CATALOG_INCOMPLETE", missingPermissionCodes: missing });
+      const { rows: created } = await req.db.query(
+        `INSERT INTO public.project_roles
+           (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
+         VALUES ($1::uuid, 'pm', $2::text, $3::text, true, $4::uuid, now(), now())
+         ON CONFLICT (project_id, role_code) DO UPDATE SET is_active = true, updated_at = now()
+         RETURNING id`,
+        [projectId, pmTemplate.label, pmTemplate.restrictions.join(" "), req.user?.id],
+      );
+      pmRoleRows = created;
+      await req.db.query(
+        `INSERT INTO public.project_role_permissions
+           (project_id, project_role_id, permission_id, granted_by, granted_at)
+         SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+           FROM public.permissions p
+          WHERE p.code = ANY($4::text[]) AND p.is_active = true
+         ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+        [projectId, pmRoleRows[0].id, req.user?.id, pmTemplate.permissionCodes],
+      );
+    }
+    const pmRoleId = pmRoleRows[0].id;
+
+    const { rows: currentRows } = await req.db.query(
+      `SELECT pm.id, pm.user_id, pm.project_role_id, pm.is_active, pm.expires_at,
+              u.email, pr.role_code
+         FROM public.project_members pm
+         JOIN public.project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+         JOIN public.users u ON u.id = pm.user_id
+        WHERE pm.project_id = $1::uuid AND pr.role_code = 'pm'
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+        FOR UPDATE OF pm`,
+      [projectId],
+    );
+    if (currentRows.length > 1) return res.status(409).json({ error: "More than one active PM exists; reconcile appointments before continuing.", code: "MULTIPLE_ACTIVE_PM_ASSIGNMENTS" });
+    const current = currentRows[0] ?? null;
+    if (current?.user_id === userId) {
+      return res.status(200).json({ appointment: { projectId, userId, roleCode: "pm", status: "active" }, idempotentReplay: true });
+    }
+    if (current && current.user_id !== userId && current.user_id !== replaceUserId) {
+      return res.status(409).json({
+        error: "An active PM is already appointed. Supply its exact userId as replaceUserId to perform an audited handover.",
+        code: "PM_HANDOVER_CONFIRMATION_REQUIRED",
+        currentPm: { userId: current.user_id, email: current.email },
+      });
+    }
+
+    const { rows: candidateMemberships } = await req.db.query(
+      "SELECT id, project_role_id, is_active FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid FOR UPDATE",
+      [projectId, userId],
+    );
+    if (candidateMemberships.length > 1) return res.status(409).json({ error: "Duplicate Project membership requires reconciliation.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
+    const candidateMembership = candidateMemberships[0] ?? null;
+    if (candidateMembership && candidateMembership.project_role_id && candidateMembership.project_role_id !== pmRoleId) {
+      return res.status(409).json({
+        error: "This user already has another Project role. Independent multi-role assignments require the approved role-assignment schema migration; no existing role was replaced.",
+        code: "MULTI_ROLE_SCHEMA_PENDING",
+      });
+    }
+
+    if (current && current.user_id !== userId) {
+      const { rows: oldRows } = await req.db.query(
+        `UPDATE public.project_members
+            SET is_active = false, deactivated_at = now(), deactivated_by = $2::uuid,
+                updated_at = now()
+          WHERE id = $1::uuid RETURNING *`,
+        [current.id, req.user?.id],
+      );
+      await req.db.query(
+        `INSERT INTO public.audit_events
+           (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+            reason, before_snapshot, after_snapshot, metadata, outcome)
+         VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.unappointed', 'project_pm_appointment',
+                 $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
+        [req.user?.id, current.id, projectId, reason, JSON.stringify(current),
+         JSON.stringify({ is_active: false, deactivated_at: oldRows[0]?.deactivated_at }),
+         JSON.stringify({ previousPmUserId: current.user_id, nextPmUserId: userId })],
+      );
+    }
+
+    let appointed;
+    if (candidateMembership) {
+      const { rows } = await req.db.query(
+        `UPDATE public.project_members
+            SET project_role_id = $3::uuid, is_active = true, expires_at = NULL,
+                deactivated_at = NULL, deactivated_by = NULL, updated_at = now()
+          WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *`,
+        [candidateMembership.id, projectId, pmRoleId],
+      );
+      appointed = rows[0];
+    } else {
+      const { rows } = await req.db.query(
+        `INSERT INTO public.project_members
+           (project_id, user_id, project_role_id, is_active, joined_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, $3::uuid, true, now(), now()) RETURNING *`,
+        [projectId, userId, pmRoleId],
+      );
+      appointed = rows[0];
+    }
+    await req.db.query(
+      `INSERT INTO public.audit_events
+         (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+          reason, before_snapshot, after_snapshot, metadata, outcome)
+       VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.appointed', 'project_pm_appointment',
+               $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
+      [req.user?.id, appointed.id, projectId, reason,
+       candidateMembership ? JSON.stringify(candidateMembership) : null,
+       JSON.stringify({ userId, projectRoleId: pmRoleId, isActive: true }),
+       JSON.stringify({ email: userRows[0].email, handoverFromUserId: current?.user_id ?? null })],
+    );
+    return res.status(current ? 200 : 201).json({
+      appointment: { projectId, userId, email: userRows[0].email, projectRoleId: pmRoleId, status: "active" },
+      handoverFromUserId: current?.user_id ?? null,
+    });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "PM appointment conflicts with an existing Project membership.", code: "PM_APPOINTMENT_CONFLICT" });
+    logger.error("Project PM appointment failed:", { code: error?.code || "UNKNOWN" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.patch("/api/v1/admin/users/:id/status", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const userId = req.params.id as string;
   const isActive = req.body?.isActive;

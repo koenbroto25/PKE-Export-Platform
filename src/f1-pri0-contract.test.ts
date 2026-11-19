@@ -198,6 +198,8 @@ describe("F1 / PRI-0 independent Project role assignment contract", () => {
     expect(block).toContain("a.expires_at > now()");
     expect(block).toContain("assignmentRows[0].project_role_id");
     expect(INDEX_SRC).toContain("Date.parse(expiresAt) <= Date.now()");
+    expect(INDEX_SRC).toContain("?.roleCode ?? null");
+    expect(INDEX_SRC).toContain("?.roleName ?? null");
     expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("An active role assignment must expire in the future");
   });
 

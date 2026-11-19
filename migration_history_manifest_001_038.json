@@ -4,7 +4,7 @@
   "project_id": "purple-base-63944903",
   "branch_id": "br-damp-shape-b3xlh4nr",
   "database": "neondb",
-  "verified_at": "2026-11-19T20:30:00+08:00",
+  "verified_at": "2026-11-19T19:59:00+08:00",
   "applied_count": 41,
   "source_recovery_note": "Production migration_history was re-read directly on 2026-11-19 and contains 41 contiguous rows through Migration 041. Migrations 029-035 remain recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migration 041 is confirmed applied on 2026-11-19. Migrations 042-044 are prepared and hash-pinned but remain pending explicit owner approval and verified backup.",
   "entries": [

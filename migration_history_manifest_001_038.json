@@ -4,9 +4,9 @@
   "project_id": "purple-base-63944903",
   "branch_id": "br-damp-shape-b3xlh4nr",
   "database": "neondb",
-  "verified_at": "2026-11-19",
-  "applied_count": 39,
-  "source_recovery_note": "Production migration_history is the authoritative evidence for applied names and hashes. Migrations 029-035 are recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migration 039 source is recovered, SHA-256 verified, and applied to Production on 2026-11-18.",
+  "verified_at": "2026-11-19T08:40:00+08:00",
+  "applied_count": 40,
+  "source_recovery_note": "Production migration_history is the authoritative evidence for applied names and hashes. Migrations 029-035 are recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migration 039 source is recovered, SHA-256 verified, and applied to Production on 2026-11-18. Migration 040 source SHA-256 is verified and applied to Production on 2026-11-19; Finance is reporting-only and payment execution is out of scope.",
   "entries": [
     {
       "id": 1,
@@ -278,6 +278,13 @@
       "id": 39,
       "filename": "039_project_scoped_contract_cob_cycles.sql",
       "sha256": "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 40,
+      "filename": "040_finance_reporting_notifications.sql",
+      "sha256": "3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f",
       "status": "applied",
       "source_sha_verified": true
     }

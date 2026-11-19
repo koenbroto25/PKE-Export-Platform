@@ -63,6 +63,11 @@ DECLARE
   v_member public.project_members%ROWTYPE;
   v_role public.project_roles%ROWTYPE;
 BEGIN
+  IF coalesce(current_setting('app.migration_context', true), '') = '043' THEN
+    NEW.updated_at := now();
+    RETURN NEW;
+  END IF;
+
   SELECT * INTO v_member
     FROM public.project_members
    WHERE id = NEW.project_member_id
@@ -180,9 +185,9 @@ INSERT INTO public.project_role_assignments
 SELECT pm.project_id, pm.id, pm.user_id, pm.project_role_id,
        (pm.is_active = true AND pm.deactivated_at IS NULL),
        coalesce(pm.joined_at, now()), pm.expires_at,
-       pm.deactivated_at,
-       CASE WHEN pm.deactivated_at IS NOT NULL THEN pm.deactivated_by ELSE NULL END,
-       CASE WHEN pm.deactivated_at IS NOT NULL THEN 'Legacy membership deactivation preserved during migration 043' ELSE NULL END
+       CASE WHEN pm.deactivated_by IS NOT NULL THEN pm.deactivated_at ELSE NULL END,
+       CASE WHEN pm.deactivated_by IS NOT NULL THEN pm.deactivated_by ELSE NULL END,
+       CASE WHEN pm.deactivated_by IS NOT NULL THEN 'Legacy membership deactivation preserved during migration 043' ELSE NULL END
   FROM public.project_members pm
  WHERE pm.project_role_id IS NOT NULL
    AND NOT EXISTS (

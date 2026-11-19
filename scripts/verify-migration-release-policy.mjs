@@ -109,6 +109,8 @@ for (const [n, sha] of [["042", expectedPending[0][1]], ["043", expectedPending[
 }
 if (!runner.includes("exact036to044") || !runner.includes("verifiedManifest.entries?.length !== 41")) fail("Migration runner does not require exact Production history 001-041 before 042-044.");
 if (!runner.includes("Production history ledger:")) fail("Migration status mode does not compare the verified Production ledger.");
+if (!runner.includes("Migrations 042-044 and all ledger rows committed atomically as one approved package.")) fail("Migration runner must apply 042-044 atomically as one all-or-nothing package.");
+if (!runner.includes("Migration package 042-044 failed and the entire transaction was rolled back")) fail("Migration runner is missing atomic rollback handling for 042-044.");
 if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");
 
 if (process.exitCode) process.exit(process.exitCode);

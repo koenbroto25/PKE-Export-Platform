@@ -289,5 +289,11 @@
       "source_sha_verified": true
     }
   ],
-  "pending_migrations": []
+  "pending_migrations": [
+    {
+      "file": "migrations/041_finance_notification_rls_recipient_guard.sql",
+      "sha256": "96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770",
+      "reason": "Finance notification recipient lookup must bypass caller-side RLS safely; exact source tested on isolated Neon branch; Production application awaits explicit owner approval."
+    }
+  ]
 }

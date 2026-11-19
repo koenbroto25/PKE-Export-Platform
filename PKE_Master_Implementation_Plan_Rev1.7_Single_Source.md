@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.24 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.25 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.24 (19 November 2026 — F1 Preview liveness/readiness smoke after crash containment)  
+**Revision:** 2.25 (19 November 2026 — owner-authorized persistent Production fixture dataset and first role/RLS/business backtest)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -6444,7 +6444,7 @@ Bukti validasi disimpan sebagai ringkasan pada Section 32: nama command, timesta
 | **v1.6** | **11 Nov 2026** | **Mencatat hasil revisi Cline pada branch Git `pke-admin-project-foundation-20261108` (route collision, table removals, FX-rate/GL mapping, report queued, regression tests); memisahkan klaim Cline dari verifikasi independen; memperbarui status P04/P07/P08/P10/P11/P12; work order lanjutan difokuskan ke MFA arsitektural, P08/P05 storage, FX exposure, Operations/tracking, jurnal, dan workflow frontend.** |
 
 | **v1.7** | **11 Nov 2026** | **Keputusan owner D-107: MFA ditunda sebagai pengembangan pascarilis dan bukan gate rilis awal; Cline harus menghapus hanya MFA enforcement yang memblokir Admin, menjaga seluruh auth/RBAC/RLS/session/audit controls, menambah regression tests tanpa MFA claim, dan tidak membuat klaim MFA aktif.** |
-| **v2.21** | **19 Nov 2026** | **F1 latest-head Preview for commit 4b8f1ff is READY and root smoke HTTP 200, but /api/v1/health returns HTTP 500 FUNCTION_INVOCATION_FAILED; F1 closeout is now runtime-blocked, not awaiting creation of that Preview. F0 remains owner-recorded as Vercel-quota pending.** |
+| **v2.25** | **19 Nov 2026** | **Owner explicitly authorized persistent synthetic QA fixtures on the single Neon Production branch. Added two isolated test Projects, 23 DB-only test identities, 18 project roles per Project, 24 memberships and 548 permission mappings; ran 36 permission and 45 direct-RLS visibility assertions. Seeded contract, logistics, warehouse, quality, shipment, CoB, finance, GL, FX, documents, workflow, vessel and reporting fixtures. Backtest exposed inventory reservation trigger/schema drift, missing permission catalog codes, cash-advance requestor RLS mismatch and missing financial creation audit events. No DDL/migration or payment execution.** |\n| **v2.21** | **19 Nov 2026** | **F1 latest-head Preview for commit 4b8f1ff is READY and root smoke HTTP 200, but /api/v1/health returns HTTP 500 FUNCTION_INVOCATION_FAILED; F1 closeout is now runtime-blocked, not awaiting creation of that Preview. F0 remains owner-recorded as Vercel-quota pending.** |
 
 | **v2.20** | **19 Nov 2026** | **F0 and F1 closeout tracking updated: both finalization gates remain pending latest-head Vercel Preview due deployment quota; F1 Migration 041 applied and verified on Neon Production; F2 operational execution/export intelligence roadmap added as PROPOSED, not authorized for implementation.** |
 
@@ -8209,7 +8209,7 @@ Current public advisory evidence as of 18 November 2026 identifies GHSA-fc5q-39x
 | Phase | Current state | Verified / recorded position | Remaining closeout |
 |---|---|---|---|
 | F0 — platform foundation and account/security workflows | **FINALIZATION PENDING — VERCEL QUOTA** | Owner records F0 as one of two phases whose finalization is delayed by Vercel deployment quota. Historical F0 implementation, migration, RLS, storage, Auth, CI and Preview evidence remains in §§47–55. The latest exact F0 branch HEAD and current Preview parity must be re-fetched after quota recovery; do not assume an older READY Preview is latest. | Deploy Preview for exact current F0 HEAD, confirm READY, run approved root/API/health/protected-workflow smoke, reconcile all F0 acceptance gates and record exact commit/deployment/HTTP evidence. |
-| F1 — Project-scoped PM contracts, shipment CoB and Finance reporting | **PRODUCTION DEPLOYED + HEALTH PASS; FUNCTIONAL ACCEPTANCE OPEN** | Migration 041 remains applied on Neon Production with approved SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`. Latest deployed F1 branch HEAD `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c` is on Vercel Production deployment `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh`, mapped to `pke-export-platform.vercel.app`. Production root, `/api/v1/health/live`, and `/api/v1/health` returned HTTP 200; health payload reports database connected; runtime log confirms verified `app_runtime_secure`. Latest build reports 97 tests passed, 4 skipped; GitHub Unit Tests and Dependency Audit previously passed. | Still required: authenticated/authorized F1 business-route smoke; cross-Project/role/RLS negative tests; contract-program/cycle/CoB and Finance reporting end-to-end verification; transaction/idempotency/notification recipient checks; frontend role workflow and production UAT. Preview DB readiness remains intentionally blocked by no F1 Preview DB config; do not copy Production secrets to Preview. PR #2 remains OPEN/DRAFT and F1 branch is not merged into `main`. |
+| F1 — Project-scoped PM contracts, shipment CoB and Finance reporting | **PRODUCTION DEPLOYED + HEALTH PASS; PERSISTENT FIXTURE BACKTEST IN PROGRESS; FUNCTIONAL BLOCKERS OPEN** | Migration 041 remains applied on Neon Production with approved SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`. Latest deployed F1 branch HEAD `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c` is on Vercel Production deployment `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh`, mapped to `pke-export-platform.vercel.app`. Production root, `/api/v1/health/live`, and `/api/v1/health` returned HTTP 200; health payload reports database connected; runtime log confirms verified `app_runtime_secure`. Latest build reports 97 tests passed, 4 skipped; GitHub Unit Tests and Dependency Audit previously passed. | Still required: authenticated/authorized F1 business-route smoke; cross-Project/role/RLS negative tests; contract-program/cycle/CoB and Finance reporting end-to-end verification; transaction/idempotency/notification recipient checks; frontend role workflow and production UAT. Preview DB readiness remains intentionally blocked by no F1 Preview DB config; do not copy Production secrets to Preview. PR #2 remains OPEN/DRAFT and F1 branch is not merged into `main`. |
 | F2 — Operational execution and export intelligence | **DESIGN / PROPOSED — NOT AUTHORIZED FOR IMPLEMENTATION** | Draft design is in §56.3–56.8 and maps to existing P06/P08/P09/P10/P11/P15/P16/P17/P18 work packages. | Owner review and explicit F2 start authorization after F0/F1 closeout. |
 
 ### F0/F1 release rule
@@ -8545,3 +8545,94 @@ The buyer-side trace is `buyer organization/facility → buyer requirement versi
 - G. Update this ledger with exact commit, deployment, route-level outcomes and remaining exceptions; only then decide F1 COMPLETE versus PARTIAL/BLOCKED.
 
 **F1 status: PRODUCTION RUNTIME READY; FUNCTIONAL ACCEPTANCE NOT YET COMPLETE.**
+
+---
+
+## 56.16 Persistent Production QA fixtures and initial role/RLS/business backtest — 19 November 2026
+
+### Authority, target and safety boundary
+
+- Owner explicitly authorized creation of synthetic mock data directly on the single Neon Production branch for repeatable role-by-role and feature-by-feature backtesting. This authorization is specific to fixture DML; it is not authorization for new DDL/migrations, payment execution, schema changes, Vercel environment changes, Git merge, or Production code promotion.
+- Target used: Neon project `purple-base-63944903`, Production branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`. No additional Neon branch, alternate database, local database or Docker database was created or used.
+- All fixture data is persistent by owner request and is not scheduled for cleanup after F0/F1 closeout. Every fixture Project and most business rows are marked with `[TEST FIXTURE]`, `PKE_FIXTURE_ONLY`, or an explicit fixture note. The synthetic regulatory source and its document requirements are explicitly labelled NOT LEGAL / NOT A REAL LEGAL REQUIREMENT.
+- No migration or schema DDL was applied in this pass. No real bank transfer, payment instruction, payment verification, settlement, external notification, real document upload or real supplier/buyer transaction was performed.
+- The running Vercel Production deployment remains `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh` from code commit `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c`. This pass did not deploy code or change Vercel configuration. The documentation update itself is a Git commit only.
+- This section supersedes the earlier “no synthetic Production data” statement in §56.15 for the current state only. That statement accurately described the earlier deployment pass; the present fixture DML is separately owner-authorized and recorded here.
+
+### Fixture identity and role model
+
+Two Project-scoped QA Projects were created:
+
+| Fixture Project | ID | Purpose |
+|---|---|---|
+| PKE Alpha Export Project | `a1000000-0000-4000-8000-000000000001` | Full operational and finance test scenario |
+| PKE Beta Export Project | `b2000000-0000-4000-8000-000000000002` | Cross-Project isolation and membership-state negative tests |
+
+Fixture identity inventory:
+
+- 23 synthetic rows in `public.users`, with emails under `@fixture.invalid`; these are DB/RLS test principals only.
+- 18 project role definitions created separately in each Project (36 `project_roles` rows): `project_admin`, `pm`, `finance`, `accounting`, `checker`, `warehouse`, `document_officer`, `buyer`, `supplier`, `transporter`, `viewer`, `procurement`, `field_manager`, `packing_supervisor`, `loading_manager`, `cashier`, `funder`, and `external_provider`.
+- 24 project memberships: Alpha has 18; Beta has 6. Beta includes one explicitly inactive PM and one PM whose membership is active-flagged but expired by timestamp.
+- 548 project-role permission mapping rows were seeded across the two Projects.
+- Multi-Project test identity `10000000-0000-4000-8000-000000000012` is PM in Alpha and Finance in Beta. Inactive PM is `10000000-0000-4000-8000-000000000013`; expired PM is `10000000-0000-4000-8000-000000000014`; Beta viewer is `10000000-0000-4000-8000-000000000015`; scoped Project Admin Alpha is `10000000-0000-4000-8000-000000000016`.
+- All fixture user rows have no Neon Auth identity mapping and no password hash. They cannot sign in. They support database-level permission/RLS tests only; authenticated API and browser UAT still require owner-approved test email identities and a normal Neon Auth invitation/sign-in flow.
+- Payment execution permissions were deliberately not granted to any fixture role. The only `payment.*` permission assigned to a project role is `payment.view` for scoped Project Admin; no fixture role has payment instruction issue, payment approval, payment reconciliation or payment evidence verification permission.
+
+### Business fixture coverage
+
+The Alpha Project now has persistent synthetic rows covering the main operational and reporting domains:
+
+1. **Project / contract / partner foundation:** Project Alpha and Beta; two fixture Contract Programs; one Alpha Contract; one fixture Buyer; five fixture partner organizations; three fixture Vendors; supplier and trucking participation; one PKS site; one export port; project operating profiles; project product specification snapshot; monthly Cycle Policy.
+2. **Production / facility / quality:** one product variant; one draft product specification; one facility capacity record and facility product capability; one production batch; one quality sample; three typed quality results; sample reviewed and production batch/lot quality disposition marked passed for the fixture scenario.
+3. **Warehouse / inventory:** one fixture warehouse, three zones, one bin and one equipment record; one 400 MT inventory lot; one pending-to-verified warehouse receipt; verification by an independent Warehouse Manager; the receipt trigger posted one 400 MT `receipt` inventory movement and updated the lot to 400 MT available. The movement was generated by the receipt trigger and has idempotency key `warehouse-receipt:2e000000-0000-4000-8000-000000000001`.
+4. **Inland logistics / shipping / vessel / loading:** one transport leg; one truck trip; two GPS tracking events (departure and arrival); one shipment; one voyage; one vessel; one vessel nomination in submitted state; one vessel position; one planned port call; one planned loading operation; one loading segment; one pending loading ticket.
+5. **CoB / Finance / accounting:** one RAB; one cost obligation; one shipment-linked CoB/payment obligation; two cash schedules; one project financier; one cash advance request (approved but still pending disbursement and unsettled); one AP invoice; one AR invoice; one FX rate; one FX exposure; four chart-of-account rows; one open fiscal period; one posted journal entry with debit 4,800 and credit 4,800; one queued Finance report run and one weekly report schedule.
+6. **Documents / workflow / project governance:** one synthetic regulatory source explicitly marked not legal; three fixture document types; three synthetic country document requirements; three Alpha Project document requirements in pending state; one active project workflow with seven stages; one pending project change request; one project version; one module-configuration version. No `project_export_documents` file row was fabricated because no real object-storage file was uploaded.
+7. **Deliberately absent downstream fixture rows:** no inventory reservation and no shipment allocation were created because the live reservation trigger fails (see blocker 1 below). The report run remains queued with no file reference; no fake completed report was inserted. The CoB remains `payment_status=draft`, `amount_paid=0`; no payment instruction was created. The cash advance remains disbursement-pending; no cash was disbursed.
+
+### Initial backtest strategy and measured results
+
+The initial strategy ran from identity/RBAC and RLS, then moved through real trigger-controlled business transitions and Finance controls:
+
+| Test layer | Result | Evidence / interpretation |
+|---|---:|---|
+| Permission helper matrix | **36/36 PASS** | Positive and negative checks across all 18 role types, cross-Project, inactive, expired and multi-Project identities. “PASS” means actual permission-helper result matched the explicitly expected allow/deny result. |
+| Direct table RLS visibility matrix | **45/45 expected outcomes** | Executed as `app_runtime_secure` using transaction-local `app.current_user_id`. Included Alpha/Beta separation for shipment and CoB, inactive/expired membership, partner roles, documents, workflow, quality, vessel/loading and Finance tables. The cash-advance requestor visibility result is an observed design defect, not an accepted business outcome (see blocker 3). |
+| Public table RLS inventory | **152/152 tables RLS enabled** | 0 tables with RLS disabled; 71 tables also FORCE ROW LEVEL SECURITY; 81 are not FORCE. `app_runtime_secure` is not superuser, has `rolbypassrls=false`, and is not a member of `neondb_owner`; therefore the runtime role does not bypass RLS on the non-FORCE tables. |
+| Project/membership isolation | **PASS for tested cases** | Alpha PM sees Alpha only; Beta PM sees Beta only; Beta PM cannot see Alpha shipment/CoB; inactive and expired Beta PM see no Project; the multi-Project user sees only the two Projects where they have the respective active roles; scoped Project Admin sees only Alpha. |
+| Truck trip / tracking / warehouse receipt | **PASS for seeded transitions** | Checker captured two tracking events; independent Project Admin reviewed them; Warehouse Manager verified the pending receipt. Receipt trigger posted 400 MT movement and maintained the lot quantity. Audit events record receipt verification actor, role, permission and Project. |
+| Quality / production | **PASS for seeded fixture transition** | One sample and three typed results were reviewed by Warehouse Manager; fixture production batch and inventory lot were marked passed. This does not yet prove lot-level quality API behavior or COA generation. |
+| CoB uniqueness | **PASS at database constraint level** | Finance-role duplicate insert for the same shipment using `app_runtime_secure` and `ON CONFLICT DO NOTHING` returned no inserted row. One CoB exists for the fixture shipment. |
+| CoB direct payment balance mutation | **PASS — blocked as required** | Attempt to change `amount_paid` directly was rejected by the payment-obligation guard. CoB remains draft for payment and amount paid remains zero. |
+| Report completion without file | **PASS — blocked as required** | Attempt to set the queued report to completed with no file reference raised the expected check violation. The report remains queued and has no file reference. |
+| GL posting | **PASS for seeded balanced entry** | Accounting role posted a journal entry with debit 4,800 and credit 4,800 in an open period. Audit event records the Accounting actor and `accounting.post` permission. |
+| Cash advance requestor flow | **FAIL / BLOCKED** | Field Manager insert was denied by RLS and the same requestor could not read their own row. The current RLS requires Finance permission while the trigger requires requestor identity to match the session; see blocker 3. |
+
+### Confirmed blockers and required remediation
+
+1. **P0 — Inventory reservation trigger/schema mismatch.** The attempted fixture insert into `inventory_reservations` failed because `pke_inventory_state_audit()` reads `NEW.release_reason`, but `inventory_reservations` has no `release_reason` column. The reservation guard `pke_inventory_reservation_guard()` also references `NEW.release_reason` on release/expiry transitions. The failed transaction rolled back completely. This blocks reservation creation/release and consequently shipment allocation, loading allocation and downstream stock reservation backtests. Required fix: prepare an exact migration to either add a justified release-reason field or safely read an optional JSON field in both trigger functions; include create, release, expiry, audit and counter-reconciliation tests. No DDL was applied in this pass.
+2. **P0 — Route/RLS permission catalog drift.** The inspected F1 API permission calls reference four active permission codes that do not exist in `public.permissions`: `documents.review`, `reports.manage`, `notifications.create`, and `project.configuration.view`. An inspected RLS policy also references absent `project.change.delete`. As a result, ordinary Project roles cannot be granted these capabilities in the current catalog; affected review, report-management, notification, configuration-read and delete paths remain unavailable. Required fix: reconcile the API permission names, RLS names, permission catalog, project role templates and negative tests in one reviewed patch. Do not invent grants or broaden roles to bypass missing catalog entries.
+3. **P1 — Cash advance requestor RLS/trigger conflict.** `cash_advances` INSERT policy requires `finance.create`; the database guard requires `requestor_id` to equal the current session identity. A Field Manager has no `finance.create`, while Finance cannot create on behalf of a different requestor under the guard. The SELECT policy requires `finance.view`, so the Field Manager cannot read their own request after Finance approval either. Required fix: define separate requestor-create/read-own and Finance-review/approve policies, preserve Project scope and audit the approver; do not grant broad `finance.view` to field roles as a workaround.
+4. **P1 — Financial create audit events missing.** The live audit triggers for `payment_obligations`, `ap_invoices` and `ar_invoices` record selected state changes on UPDATE, but no creation audit event was found for the fixture inserts. The CoB approval update did create a `payment_obligation.state_changed` event; AP and AR creation had no corresponding audit row. Required fix: add insert/create audit events with actor, Project, entity, timestamp and initial status snapshot; retain existing update audit behavior.
+5. **P1 — Missing authenticated role accounts for HTTP/UI UAT.** The 23 fixture identities are not Neon Auth accounts (`neon_auth_user_id` and password hash are null; addresses use the reserved `.invalid` domain). Database permission/RLS testing is valid, but no authenticated Production HTTP route or browser workflow has been claimed as passed. Owner must provide/confirm dedicated test inbox addresses for the required role accounts; never send passwords or session tokens in chat.
+6. **P1 — Document upload/review and report artifact completion remain open.** Document requirements are seeded but there is no real private object-storage file, so no uploaded/verified export document is represented. The report run intentionally remains queued with no file reference. A completed report or verified document must not be fabricated without an actual storage object and successful integrity checks.
+7. **P1 — Shipment allocation is downstream-blocked.** No allocation row exists because the active allocation requires a valid reservation. Retest allocation totals, idempotency, retry/concurrency, loaded quantity and inventory issue movement only after blocker 1 is fixed and approved.
+
+### Audit evidence from the seeded transitions
+
+- Present: `warehouse_receipt.verified` by Warehouse Manager with `inventory.update`; `journal.posted` by Accounting with `accounting.post`; `cash_advance.state_changed` by Finance with `finance.update`; `payment_obligation.state_changed` by scoped Project Admin with `finance.update`.
+- Missing: no creation audit event for the CoB/payment obligation, AP invoice or AR invoice. Do not treat the later CoB approval event as proof that its creation was audited.
+- No external notification was sent. No payment instruction or settlement operation was performed.
+
+### Required next execution order
+
+A. Prepare and review the exact inventory reservation migration SQL; compute SHA-256; request owner approval of that exact SQL before applying it to Neon Production.  
+B. Reconcile the five missing permission codes across API routes, RLS policies, permission catalog and each Project role; run allow/deny tests and request owner approval for any Production RBAC data/schema change.  
+C. Repair cash advance requestor-create/read-own and Finance-approve separation without widening field-role access to all Finance records.  
+D. Add financial insert/create audit events and verify no duplicate audit event on retry.  
+E. Once the above are approved and applied, repeat reservation → shipment allocation → loading → inventory issue, including concurrency, idempotency, partial load, reversal and cross-Project negative tests.  
+F. Complete real authenticated API and frontend role UAT after owner confirms dedicated test email identities; no password/token exchange in chat.  
+G. Complete document upload only with a real private object-storage fixture file, and complete a report only after an actual report artifact exists and its hash/metadata is persisted.  
+H. Re-run the full 36 permission assertions, 45+ RLS matrix, full feature E2E, audit reconciliation and independent final audit. Update this plan after each pass.
+
+**F1 status after this pass: PRODUCTION RUNTIME READY; PERSISTENT FIXTURE BACKTEST STARTED; FUNCTIONAL ACCEPTANCE NOT COMPLETE. P0 reservation schema/trigger and permission-catalog blockers remain open; cash-advance and financial audit blockers remain open. The fixture dataset is intentionally persistent for subsequent F0/F1/F2 backtests.**

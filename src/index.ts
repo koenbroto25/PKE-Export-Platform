@@ -17,6 +17,7 @@ import { isPositiveQuantity } from "./f1-contract-rules.js";
 import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
+import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -459,7 +460,7 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
          LEFT JOIN LATERAL (
            SELECT jsonb_agg(jsonb_build_object(
              'assignmentId', a.id, 'projectRoleId', a.project_role_id,
-             'roleCode', pr.role_code, 'roleName', pr.name,
+             'roleCode', pr.role_code, 'roleName', pr.name, 'roleIsActive', pr.is_active,
              'isActive', a.is_active, 'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
            ) ORDER BY pr.role_code) AS roles
              FROM public.project_role_assignments a
@@ -523,8 +524,14 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
           catalogRoleId: m.catalog_role_id,
           catalogRoleName: m.catalog_role_name,
           roleAssignments: m.project_role_assignments,
-          roleCode: m.project_role_assignments?.find((a: any) => a.isActive && !a.revokedAt)?.roleCode ?? m.catalog_role_name,
-          roleName: m.project_role_assignments?.find((a: any) => a.isActive && !a.revokedAt)?.roleName ?? m.catalog_role_name,
+          roleCode: m.project_role_assignments?.find((a: any) => isEffectiveProjectRoleAssignment(
+            { project_id: m.project_id, user_id: m.user_id, project_member_id: m.membership_id, is_active: a.isActive, revoked_at: a.revokedAt, expires_at: a.expiresAt, role_is_active: a.roleIsActive },
+            { id: m.membership_id, project_id: m.project_id, user_id: m.user_id, is_active: m.is_active, deactivated_at: m.deactivated_at, expires_at: m.expires_at, project_is_active: m.project_is_active },
+          ))?.roleCode ?? m.catalog_role_name,
+          roleName: m.project_role_assignments?.find((a: any) => isEffectiveProjectRoleAssignment(
+            { project_id: m.project_id, user_id: m.user_id, project_member_id: m.membership_id, is_active: a.isActive, revoked_at: a.revokedAt, expires_at: a.expiresAt, role_is_active: a.roleIsActive },
+            { id: m.membership_id, project_id: m.project_id, user_id: m.user_id, is_active: m.is_active, deactivated_at: m.deactivated_at, expires_at: m.expires_at, project_is_active: m.project_is_active },
+          ))?.roleName ?? m.catalog_role_name,
           isActive: m.is_active === true,
           joinedAt: m.joined_at,
         })),
@@ -2424,7 +2431,7 @@ app.post("/api/v1/projects/:id/members/:memberId/role-assignments", requireAuth,
   if (!(await requireProjectPermission(req, res, id, "project.members.manage"))) return;
   const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
   const expiresAt = req.body?.expiresAt ?? null;
-  if (!projectRoleId || (expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()))) {
+  if (!projectRoleId || !validateRoleAssignmentExpiry(expiresAt).ok) {
     return res.status(400).json({ error: "Valid projectRoleId and optional expiresAt are required.", code: "INVALID_ROLE_ASSIGNMENT" });
   }
   try {
@@ -4117,7 +4124,7 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || !uuidPattern.test(projectRoleId) ||
-      (expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now())) ||
+      !validateRoleAssignmentExpiry(expiresAt).ok ||
       reason.length < 5) {
     return res.status(400).json({ error: "Project, user, project role, and an audit reason are required.", code: "INVALID_PROJECT_MEMBER_INPUT" });
   }
@@ -4295,17 +4302,20 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
         FOR UPDATE OF a, pm`,
       [projectId],
     );
-    if (currentRows.length > 1) return res.status(409).json({ error: "More than one active PM exists; reconcile appointments before continuing.", code: "MULTIPLE_ACTIVE_PM_ASSIGNMENTS" });
     const current = currentRows[0] ?? null;
-    if (current?.user_id === userId) {
-      return res.status(200).json({ appointment: { projectId, userId, roleCode: "pm", status: "active" }, idempotentReplay: true });
-    }
-    if (current && current.user_id !== userId && current.user_id !== replaceUserId) {
+    const pmDecision = evaluatePmAppointment(currentRows, userId, replaceUserId || null);
+    if (!pmDecision.ok) {
+      if (pmDecision.code === "MULTIPLE_ACTIVE_PM_ASSIGNMENTS") {
+        return res.status(409).json({ error: "More than one active PM exists; Admin must explicitly reconcile appointments before continuing.", code: pmDecision.code });
+      }
       return res.status(409).json({
         error: "An active PM is already appointed. Supply its exact userId as replaceUserId to perform an audited handover.",
-        code: "PM_HANDOVER_CONFIRMATION_REQUIRED",
-        currentPm: { userId: current.user_id, email: current.email },
+        code: pmDecision.code,
+        currentPm: current ? { userId: current.user_id, email: current.email } : null,
       });
+    }
+    if (pmDecision.idempotent) {
+      return res.status(200).json({ appointment: { projectId, userId, roleCode: "pm", status: "active" }, idempotentReplay: true });
     }
 
     const { rows: candidateMemberships } = await req.db.query(

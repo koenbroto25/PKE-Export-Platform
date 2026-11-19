@@ -3634,10 +3634,14 @@ app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, re
   try {
     const { rows: financeMembership } = await req.db.query(
       `SELECT 1
-         FROM project_members pm
-         JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
-         JOIN users u ON u.id = pm.user_id
-        WHERE pm.project_id = $1::uuid AND pm.user_id = $2::uuid
+         FROM public.project_role_assignments a
+         JOIN public.project_members pm
+           ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+         JOIN public.users u ON u.id = a.user_id
+        WHERE a.project_id = $1::uuid AND a.user_id = $2::uuid
+          AND a.is_active = true AND a.revoked_at IS NULL
+          AND (a.expires_at IS NULL OR a.expires_at > now())
           AND pm.is_active = true AND pm.deactivated_at IS NULL
           AND (pm.expires_at IS NULL OR pm.expires_at > now())
           AND pr.is_active = true AND pr.role_code = 'finance' AND u.is_active = true
@@ -4129,45 +4133,56 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
     }
 
     const before = existingRows[0] || null;
-    if (before?.is_active === true && before.project_role_id !== projectRoleId) {
-      return res.status(409).json({
-        error: "This account already has an active Project role. Independent multi-role assignment requires the role-assignment schema migration; no role was overwritten.",
-        code: "MULTI_ROLE_SCHEMA_PENDING",
-      });
-    }
     let member;
     if (before) {
       const { rows } = await req.db.query(
-        "UPDATE public.project_members SET project_role_id = $3::uuid, is_active = true, expires_at = NULL, deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *",
-        [before.id, projectId, projectRoleId],
+        "UPDATE public.project_members SET is_active = true, expires_at = NULL, deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *",
+        [before.id, projectId],
       );
       member = rows[0];
     } else {
       const { rows } = await req.db.query(
-        "INSERT INTO public.project_members (project_id, user_id, project_role_id, is_active, joined_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, true, now(), now()) RETURNING *",
-        [projectId, userId, projectRoleId],
+        "INSERT INTO public.project_members (project_id, user_id, project_role_id, is_active, joined_at, updated_at) VALUES ($1::uuid, $2::uuid, NULL, true, now(), now()) RETURNING *",
+        [projectId, userId],
       );
       member = rows[0];
     }
-
-    const action = !before ? "project_member.created" :
-      before.is_active !== true || before.deactivated_at !== null ? "project_member.reactivated" :
-        before.project_role_id !== projectRoleId ? "project_member.role_changed" : "project_member.reconfirmed";
+    const { rows: assignmentRows } = await req.db.query(
+      `INSERT INTO public.project_role_assignments
+         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by)
+       SELECT $1::uuid, $2::uuid, $3::uuid, $4::uuid, true, now(), $5::uuid
+        WHERE NOT EXISTS (
+          SELECT 1 FROM public.project_role_assignments existing
+           WHERE existing.project_member_id = $2::uuid
+             AND existing.project_role_id = $4::uuid
+             AND existing.is_active = true AND existing.revoked_at IS NULL
+             AND (existing.expires_at IS NULL OR existing.expires_at > now())
+        )
+       RETURNING *`,
+      [projectId, member.id, userId, projectRoleId, req.user?.id ?? null],
+    );
+    if (assignmentRows.length !== 1) {
+      return res.status(409).json({ error: "This Project role is already actively assigned to the user.", code: "ROLE_ASSIGNMENT_EXISTS" });
+    }
+    const assignment = assignmentRows[0];
+    const action = !before ? "project_role_assignment.created" :
+      before.is_active !== true || before.deactivated_at !== null ? "project_role_assignment.reactivated" :
+        "project_role_assignment.created";
     await req.db.query(
       "INSERT INTO public.audit_events (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id, reason, before_snapshot, after_snapshot, metadata, outcome) VALUES ($1::uuid, 'user', $2::text, $3::text, 'project_member', $4::uuid, $5::uuid, $6::text, $7::jsonb, $8::jsonb, $9::jsonb, 'success')",
       [
         req.user?.id ?? null,
         req.user?.role ?? null,
         action,
-        member.id,
+        assignment.id,
         projectId,
         reason,
         before ? JSON.stringify(before) : null,
-        JSON.stringify({ user_id: member.user_id, project_role_id: member.project_role_id, is_active: member.is_active, expires_at: member.expires_at, deactivated_at: member.deactivated_at }),
-        JSON.stringify({ email: userRows[0].email, role_code: roleRows[0].role_code }),
+        JSON.stringify({ membership_id: member.id, user_id: member.user_id, is_active: member.is_active }),
+        JSON.stringify({ assignment_id: assignment.id, project_role_id: assignment.project_role_id, role_code: roleRows[0].role_code, expires_at: assignment.expires_at }),
       ],
     );
-    return res.status(before ? 200 : 201).json({ member });
+    return res.status(before ? 200 : 201).json({ member, assignment });
   } catch (error) {
     logger.error("Admin project membership assignment failed:", error);
     return res.status(500).json(internalServerErrorPayload());

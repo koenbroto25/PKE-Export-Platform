@@ -4,6 +4,7 @@ import { CANONICAL_ROLE_TEMPLATES, getCanonicalRoleTemplate, listProjectRoleTemp
 import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
 
 const INDEX_SRC = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+const ROLE_ASSIGNMENT_MIGRATION_SRC = readFileSync(new URL("../migrations/043_project_role_assignments_and_history.sql", import.meta.url), "utf8");
 
 describe("F1 / PRI-0 canonical role governance", () => {
   it("has a unique centrally governed role catalogue with Project and platform scopes", () => {
@@ -198,7 +199,7 @@ describe("F1 / PRI-0 independent Project role assignment contract", () => {
   it("supports multiple role assignments with independent creation and revocation endpoints", () => {
     expect(INDEX_SRC).toContain('app.post("/api/v1/projects/:id/members/:memberId/role-assignments"');
     expect(INDEX_SRC).toContain('app.post("/api/v1/projects/:id/role-assignments/:assignmentId/revoke"');
-    expect(INDEX_SRC).toContain("project_role_assignment_events");
+    expect(ROLE_ASSIGNMENT_MIGRATION_SRC).toContain("project_role_assignment_events");
     expect(INDEX_SRC).toContain("role_assignments");
   });
 

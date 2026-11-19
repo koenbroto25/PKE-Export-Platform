@@ -10,7 +10,7 @@ dotenv.config({ path: ".env.migrate", override: false });
 const mode = process.argv[2] || "dry-run";
 const migrationsDir = path.resolve("migrations");
 const manifestPath = path.resolve("migration_manifest_001_027.json");
-const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_038.json");
+const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_044.json");
 
 // REVISION 5.6 safety policy:
 // - Migrations 001-035 are immutable; no apply/baseline may rerun or mutate them.
@@ -265,6 +265,37 @@ async function main() {
         }
 
         if (exact036to044) {
+          const alreadyAppliedManifest = productionHistoryManifest;
+          if (alreadyAppliedManifest?.applied_count === 44 &&
+              alreadyAppliedManifest.entries?.length === 44 &&
+              (alreadyAppliedManifest.pending_migrations || []).length === 0) {
+            for (const [file, sha] of [[approved042, approved042Sha], [approved043, approved043Sha], [approved044, approved044Sha]]) {
+              if (sha256File(path.join(migrationsDir, file)) !== sha) fail(file + " checksum mismatch against applied Production history; refusing.");
+            }
+            const appliedHistory = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+            if (appliedHistory.rows.length !== 44) fail("Applied 042-044 verification requires exactly 44 Production history rows.");
+            for (let i = 0; i < alreadyAppliedManifest.entries.length; i++) {
+              const expected = alreadyAppliedManifest.entries[i], actual = appliedHistory.rows[i];
+              if (Number(actual.id) !== i + 1 || Number(expected.id) !== i + 1 ||
+                  actual.filename !== expected.filename || actual.sha256 !== expected.sha256 ||
+                  actual.status !== expected.status) {
+                fail("Production migration_history mismatch at sequence " + (i + 1) + "; refusing to treat 042-044 as complete.");
+              }
+            }
+            for (const [index, file, sha] of [
+              [41, approved042, approved042Sha],
+              [42, approved043, approved043Sha],
+              [43, approved044, approved044Sha],
+            ]) {
+              const row = alreadyAppliedManifest.entries[index];
+              if (row?.filename !== file || row?.sha256 !== sha || row?.status !== "applied" || row?.source_sha_verified !== true) {
+                fail("Applied migration manifest entry mismatch for " + file + ".");
+              }
+            }
+            console.log("Production migrations 042-044 are already applied and all 44 ledger rows are verified; no SQL re-execution performed.");
+            return;
+          }
+
           const expectedNew = [
             [approved042, approved042Sha, "MIGRATE_042_CONFIRM", "MIGRATION_042_APPROVED_SHA256", "MIGRATION_042_APPROVAL_REFERENCE"],
             [approved043, approved043Sha, "MIGRATE_043_CONFIRM", "MIGRATION_043_APPROVED_SHA256", "MIGRATION_043_APPROVAL_REFERENCE"],

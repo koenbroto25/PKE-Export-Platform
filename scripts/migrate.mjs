@@ -209,6 +209,8 @@ async function main() {
       const approved039Sha = "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168";
       const approved040 = "040_finance_reporting_notifications.sql";
       const approved040Sha = "3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f";
+      const approved041 = "041_finance_notification_rls_recipient_guard.sql";
+      const approved041Sha = "96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -250,8 +252,9 @@ async function main() {
         const exact036to038 = newFiles.length === 3 && [approved036, approved037, approved038].every((f) => newFiles.includes(f));
         const exact036to039 = newFiles.length === 4 && [approved036, approved037, approved038, approved039].every((f) => newFiles.includes(f));
         const exact036to040 = newFiles.length === 5 && [approved036, approved037, approved038, approved039, approved040].every((f) => newFiles.includes(f));
-        if (!exact036to038 && !exact036to039 && !exact036to040 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
-          fail("Apply is restricted to the pinned, already-applied verification paths 036-040; no SQL re-execution is permitted.");
+        const exact036to041 = newFiles.length === 6 && [approved036, approved037, approved038, approved039, approved040, approved041].every((f) => newFiles.includes(f));
+        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
+          fail("Apply is restricted to the pinned 036-040 verification paths or the separately owner-approved Migration 041 path.");
         }
 
         if (newFiles.length === 4 && newFiles.includes(approved039) &&
@@ -312,6 +315,48 @@ async function main() {
             fail("Production Migration 040 is not byte-for-byte verified; refusing.");
           }
           console.log("Production Migration 040 is already applied and ledger-verified; no SQL re-execution performed.");
+          return;
+        }
+
+        if (newFiles.length === 6 && newFiles.includes(approved041)) {
+          if (sha256File(path.join(migrationsDir, approved041)) !== approved041Sha) fail("041 checksum mismatch; refusing.");
+          const verifiedManifest = productionHistoryManifest;
+          const pending041 = verifiedManifest?.pending_migrations?.find((m) => m.file === "migrations/" + approved041 && m.sha256 === approved041Sha);
+          if (!verifiedManifest || verifiedManifest.applied_count !== 40 ||
+              verifiedManifest.entries?.length !== 40 ||
+              verifiedManifest.entries[39]?.filename !== approved040 ||
+              verifiedManifest.entries[39]?.sha256 !== approved040Sha ||
+              !pending041) {
+            fail("Verified Production history 001-040 and exact pending Migration 041 entry are required.");
+          }
+          const history041 = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          if (history041.rows.length !== 40) fail("Migration 041 requires exactly 40 prior Production history rows.");
+          for (let i = 0; i < verifiedManifest.entries.length; i++) {
+            const expected = verifiedManifest.entries[i], actual = history041.rows[i];
+            if (Number(actual.id) !== i + 1 || actual.filename !== expected.filename ||
+                actual.sha256 !== expected.sha256 || actual.status !== expected.status) {
+              fail("Production migration_history mismatch at sequence " + (i + 1) + ".");
+            }
+          }
+          if (process.env.MIGRATE_041_CONFIRM !== "1") fail("Migration 041 requires MIGRATE_041_CONFIRM=1 after separate owner approval.");
+          if (process.env.MIGRATION_041_APPROVED_SHA256 !== approved041Sha) fail("Migration 041 approval SHA-256 is absent or does not match the exact reviewed SQL.");
+          if (!process.env.MIGRATION_041_APPROVAL_REFERENCE || !process.env.MIGRATION_041_APPROVAL_REFERENCE.trim()) {
+            fail("Migration 041 requires MIGRATION_041_APPROVAL_REFERENCE identifying the owner's explicit approval.");
+          }
+          const sql = fs.readFileSync(path.join(migrationsDir, approved041), "utf8");
+          await client.query("BEGIN");
+          try {
+            await client.query(sql);
+            await client.query(
+              "INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, 'applied')",
+              [approved041, approved041Sha]
+            );
+            await client.query("COMMIT");
+            console.log("Applied explicitly owner-approved Migration 041; SQL and history row committed atomically.");
+          } catch (error) {
+            await client.query("ROLLBACK");
+            fail("041 apply failed and transaction rolled back: " + (error?.message || "unknown error"));
+          }
           return;
         }
 

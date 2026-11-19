@@ -2377,17 +2377,85 @@ app.get("/api/v1/projects/:id/members", requireAuth, async (req: express.Request
   const allowed = await requireProjectPermission(req, res, id, 'project.members.view');
   if (!allowed) return;
   const { rows } = await req.db.query(
-    `SELECT pm.id, pm.user_id, u.email, u.name, pm.project_role_id, pr.role_code, pr.name AS role_name,
-            pm.is_active, pm.joined_at, pm.expires_at, pm.deactivated_at
+    `SELECT pm.id, pm.user_id, u.email, u.name,
+            pm.is_active, pm.joined_at, pm.expires_at, pm.deactivated_at,
+            coalesce(assignments.roles, '[]'::jsonb) AS role_assignments
        FROM project_members pm
        JOIN users u ON u.id = pm.user_id
-       LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+       LEFT JOIN LATERAL (
+         SELECT jsonb_agg(jsonb_build_object(
+           'id', a.id, 'projectRoleId', a.project_role_id,
+           'roleCode', pr.role_code, 'roleName', pr.name,
+           'isActive', a.is_active, 'assignedAt', a.assigned_at,
+           'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+         ) ORDER BY pr.role_code) AS roles
+           FROM public.project_role_assignments a
+           JOIN public.project_roles pr
+             ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+          WHERE a.project_member_id = pm.id
+       ) assignments ON true
       WHERE pm.project_id = $1::uuid
       ORDER BY u.email`,
     [id]
   );
   res.json({ members: rows });
 });
+
+// Independent role assignments: membership is the Project access container;
+// each Project role has its own expiry and revocation history.
+app.post("/api/v1/projects/:id/members/:memberId/role-assignments", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id, memberId } = req.params;
+  if (!(await requireProjectPermission(req, res, id, "project.members.manage"))) return;
+  const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
+  const expiresAt = req.body?.expiresAt ?? null;
+  if (!projectRoleId || (expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt))))) {
+    return res.status(400).json({ error: "Valid projectRoleId and optional expiresAt are required.", code: "INVALID_ROLE_ASSIGNMENT" });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO public.project_role_assignments
+         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by, expires_at)
+       SELECT pm.project_id, pm.id, pm.user_id, pr.id, true, now(), $4::uuid, $5::timestamptz
+         FROM public.project_members pm
+         JOIN public.project_roles pr ON pr.project_id = pm.project_id AND pr.id = $3::uuid AND pr.is_active = true
+        WHERE pm.project_id = $1::uuid AND pm.id = $2::uuid
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+       RETURNING *`,
+      [id, memberId, projectRoleId, req.user?.id ?? null, expiresAt],
+    );
+    if (rows.length !== 1) return res.status(409).json({ error: "Active Project membership or role not found.", code: "ROLE_ASSIGNMENT_CONTEXT_INVALID" });
+    return res.status(201).json({ assignment: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "This role is already assigned to this member.", code: "ROLE_ASSIGNMENT_EXISTS" });
+    if (error?.code === "23514") return res.status(409).json({ error: "Role assignment violates Project membership or role constraints.", code: "ROLE_ASSIGNMENT_REJECTED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/projects/:id/role-assignments/:assignmentId/revoke", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id, assignmentId } = req.params;
+  if (!(await requireProjectPermission(req, res, id, "project.members.manage"))) return;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 5) return res.status(400).json({ error: "A revocation reason of at least 5 characters is required.", code: "AUDIT_REASON_REQUIRED" });
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE public.project_role_assignments
+          SET is_active = false, revoked_at = now(), revoked_by = $3::uuid,
+              revoke_reason = $4::text, updated_at = now()
+        WHERE id = $2::uuid AND project_id = $1::uuid
+          AND revoked_at IS NULL
+        RETURNING *`,
+      [id, assignmentId, req.user?.id ?? null, reason],
+    );
+    if (rows.length !== 1) return res.status(404).json({ error: "Active role assignment not found.", code: "ROLE_ASSIGNMENT_NOT_FOUND" });
+    return res.json({ ok: true, assignment: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23514") return res.status(409).json({ error: "Role assignment revocation was rejected.", code: "ROLE_ASSIGNMENT_REJECTED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 
 app.post("/api/v1/projects/:id/members/invite", requireAuth, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;

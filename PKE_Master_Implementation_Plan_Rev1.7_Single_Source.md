@@ -9365,3 +9365,14 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Proposed Migration 045 exact SQL SHA-256: `da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261`. It is NOT applied. Production read-only verification still shows migration ledger 44/44, permission `finance.cash_advance.request` absent, existing cash_advance platform-admin policy present, and no financial INSERT audit triggers. This is expected until owner separately approves the exact migration.
 - No requestor permission was granted to any Project role. Admin must decide the eligible Project role(s) and explicitly grant `finance.cash_advance.request`; no default template was broadened.
 - **Status:** service/API/UI source and CI = PASS; proposed RLS/audit migration = PREPARED / OWNER APPROVAL REQUIRED; live Production vertical slice = NOT ACTIVE. No synthetic business data or Production writes were performed. No new GitHub or Neon branch was created.
+
+
+## 56.34 — Production Migration 045 applied — 2026-11-20
+
+- Owner explicitly approved exact SQL SHA-256 `da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261`.
+- Applied the exact SQL to Neon project `purple-base-63944903`, branch `production` (`br-damp-shape-b3xlh4nr`), database `neondb`, in one atomic transaction. The migration ledger row was inserted in that same transaction.
+- Post-apply read-back: migration ledger 45 contiguous rows; row 45 filename/hash/status match the approved artifact; `finance.cash_advance.request` active; platform-admin bypass policy removed from cash_advances; requestor-own / Finance-view SELECT policy, explicit request INSERT policy, independent actor UPDATE policy, and Finance delete permission policy present; four INSERT audit triggers created on cash_advances, payment_obligations, ap_invoices, ar_invoices. Existing financial UPDATE audit function and UPDATE triggers were preserved.
+- No Project role received `finance.cash_advance.request` automatically. Admin must explicitly assign it to an intended Project role. No synthetic business rows or PM appointment decisions were made.
+- Snapshot creation was attempted before apply but Neon rejected it because the project snapshot limit was exceeded. No additional Neon branch was created. The migration was executed transactionally; on failure the DDL and ledger insert would roll back together.
+- Source release gate now advances to verified history 001-045; the previous 001-044 manifest is retained as historical evidence only. Runner/verifier/tests updated to recognize already-applied Migration 045 without replay.
+- Production RLS catalog policy verification passed. Runtime DML matrix was not executed because no synthetic Production rows or user role grants were authorized; feature activation still depends on Admin granting the new request permission to the intended Project role and subsequent authenticated workflow verification.

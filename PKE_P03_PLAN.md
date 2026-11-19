@@ -312,3 +312,46 @@ Owner clarified Finance is reporting-only: no bank transfer, payment instruction
 - Vercel has accepted Preview deployments for commits `f8e96bb` and `3de57d25` into QUEUED/BUILDING states; no READY preview has yet been verified. Continue to monitor only the latest branch deployment; no Production promotion.
 - Final scope: Finance creates/submits Project financial report JSON payload with period metadata; only active Finance Project members may submit. Active PM members and all active platform Admin accounts receive in-app notifications. PM/Admin can retrieve reports via Project-scoped report view. No payment execution endpoints or permissions are implemented; legacy payment-instruction routes return HTTP 410 `PAYMENT_EXECUTION_OUT_OF_SCOPE`.
 - Request-scoped database middleware wraps each API request in one transaction, so the report row and set-based notification insert commit/rollback together.
+
+
+## F1 Finalization checkpoint — 2026-11-19 08:45 WIB
+### Binding Finance scope
+Owner confirmed Finance is a reporting-only function. Finance users submit Project-scoped financial reports; active PM members in the same Project and active platform Admin users receive in-app notifications. The application does not execute bank payments, issue payment instructions, approve payments, verify payment evidence, or reconcile external payments. These are explicitly OUT OF SCOPE and are not F1 blockers. Legacy payment-instruction routes return HTTP 410 `PAYMENT_EXECUTION_OUT_OF_SCOPE`.
+
+### Migration 040 Production status — verified
+- Owner explicitly approved Migration 040 with SHA-256 `3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f`.
+- Production branch `br-damp-shape-b3xlh4nr`, database `neondb`: `public.migration_history` row 40 = `040_finance_reporting_notifications.sql`, exact SHA-256, status `applied`; read-only verification returned rows 40, 39, 38, 37, 36 in descending order.
+- Read-only schema verification confirmed all four columns `report_payload`, `period_start`, `period_end`, `submitted_at` on `report_runs`.
+- Migration 040 was applied to Production after explicit owner approval. No re-execution is permitted.
+
+### Manifest, release verifier and migration runner
+- Production history manifest file `migration_history_manifest_001_038.json` was updated to 40 entries, applied_count 40, with row 40 exact filename/hash/status and no pending migrations. (The historical filename is retained to avoid unnecessary path churn; content is the 001-040 ledger.)
+- `scripts/verify-migration-release-policy.mjs` now requires exactly 40 ledger entries, verifies Migration 040 source hash and applied status, and checks the migration runner's verification-only 040 path.
+- `scripts/migrate.mjs` now has a fail-closed verification-only path for the exact applied 036-040 source set and exact 40-row ledger. It verifies Migration 040 source SHA and manifest/ledger parity, then exits without executing migration SQL.
+- Production DDL/DML is not performed by this verifier. Migration 040 must never be replayed.
+
+### Finance API implementation and regression coverage
+- `POST /api/v1/finance/reports`: requires active Finance membership in the target Project and `reports.create`; stores the JSON report payload and period metadata in `report_runs`.
+- PM/Admin notifications are inserted set-wise within the same request-scoped transaction as the report record; report and notifications commit/rollback atomically.
+- `GET /api/v1/finance/reports?projectId=...`: Project-scoped report retrieval subject to `reports.view`.
+- Migration 040 RLS policy constrains notification inserts to active PM recipients in the same Project or active platform Admin recipients, with the creator's `reports.create` permission.
+- Finance reporting regression assertions are included in `src/f1-contract-program-authorization.test.ts`; latest complete recorded CI before the manifest/runner 040 release-gate edits was Unit Tests run `44421313855` SUCCESS and Dependency Audit run `44421313846` SUCCESS on the then-current application commit. Fresh CI for the 040 manifest/runner edits must be captured before F1 can be declared fully accepted.
+
+### Preview status
+- Vercel Preview deployment `dpl_91oDETVm7Babf2QSK5rhTHsgJvKR` for application commit `639de9e7198899d1142e889c0f9ab40f99d2bbd2` reached READY.
+- This READY deployment includes the Finance reporting API implementation and regression-test changes, but predates the final Migration 040 release-manifest/runner verifier edits. It is not proof that the latest branch head has a READY Preview.
+- No Production promotion or deployment was attempted.
+
+### Final F1 acceptance matrix
+| Gate | Status | Evidence / remaining action |
+|---|---|---|
+| Project-scoped PM contract/program/cycle ownership and CoB uniqueness | PASS | Migration 039 applied; earlier isolated DML backtest passed cross-Project isolation, Admin denial, duplicate CoB rejection, same-Project FK enforcement |
+| Finance reporting-only API and notifications | IMPLEMENTED | Finance role guard, report storage, PM/Admin notification insert, retrieval route and out-of-scope payment routes in source |
+| Migration 040 Production schema and ledger | PASS | Production row 40 exact filename/SHA/status; four columns confirmed |
+| Manifest/release verifier/migration runner 001-040 | IMPLEMENTED; fresh CI pending | Verify via new GitHub Actions after these edits |
+| Finance end-to-end DML backtest on isolated Neon branch | PENDING | Must prove Finance submit/report persistence/PM+Admin notifications, non-Finance rejection, Project isolation and rollback; Production must not receive fixtures |
+| Latest-head Vercel Preview smoke | PENDING | READY deployment and health/API smoke must correspond to latest branch source; do not substitute earlier commit |
+| Production promotion | NOT AUTHORIZED / NOT ATTEMPTED | Requires separate explicit owner instruction |
+
+### F1 status — not yet marked COMPLETE
+F1 remains IN PROGRESS until the fresh 001-040 CI checks, isolated Finance DML backtest, and latest-head Preview smoke are evidenced. Do not treat payment execution as a blocker; it is outside the owner-approved Finance scope. Do not promote to Production.

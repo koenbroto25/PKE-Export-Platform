@@ -9354,3 +9354,14 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - The UI source now calls the new service API; integration is source-complete pending frontend typecheck/build and CI. Migration 045 remains unapplied pending exact owner approval.
 
 - Migration 045 audit capture uses a separate INSERT-only SECURITY DEFINER trigger function; the existing financial UPDATE audit function is deliberately left unchanged so payment-instruction/evidence/reconciliation audit cases are preserved.
+
+
+## 56.33 — Cash Advance vertical-slice source/CI checkpoint — 2026-11-20
+
+- Source commit `83c47e2e2eee33b4b1f8b0c5fe4955003eb1e62e` contains Cash Advance service, authenticated Project-scoped API, requestor/Finance UI, maker-checker rules/tests, and proposed migration 045.
+- GitHub Unit Tests run `44616953963`: SUCCESS. Steps passed: offline security/unit tests, verified Production migration ledger, migration runner dry-run, backend API TypeScript, frontend TypeScript, and frontend production build.
+- Dependency Audit Evidence run `44616953990`: SUCCESS for root and frontend.
+- Automatic Vercel Preview for this commit ended in ERROR (`ENOENT` in build step). It did not reach READY. No intentional Vercel deployment, Production deployment, or promotion was performed; Vercel remains skipped per owner instruction.
+- Proposed Migration 045 exact SQL SHA-256: `da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261`. It is NOT applied. Production read-only verification still shows migration ledger 44/44, permission `finance.cash_advance.request` absent, existing cash_advance platform-admin policy present, and no financial INSERT audit triggers. This is expected until owner separately approves the exact migration.
+- No requestor permission was granted to any Project role. Admin must decide the eligible Project role(s) and explicitly grant `finance.cash_advance.request`; no default template was broadened.
+- **Status:** service/API/UI source and CI = PASS; proposed RLS/audit migration = PREPARED / OWNER APPROVAL REQUIRED; live Production vertical slice = NOT ACTIVE. No synthetic business data or Production writes were performed. No new GitHub or Neon branch was created.

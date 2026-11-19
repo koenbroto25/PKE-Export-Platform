@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { canAccessProjectMembership, canManageProjectBusiness, isCobCyclePaid, isPositiveQuantity } from "./f1-contract-rules.js";
+import { getCanonicalRoleTemplate } from "./role-catalogue.js";
 
 const INDEX = readFileSync(fileURLToPath(new URL("./index.ts", import.meta.url)), "utf8");
 const MIGRATION_PATH = fileURLToPath(new URL("../migrations/039_project_scoped_contract_cob_cycles.sql", import.meta.url));
@@ -34,7 +35,8 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
   it("keeps platform Admin limited to initial Project setup", () => {
     expect(INDEX).toMatch(/app\.post\("\/api\/v1\/projects",\s*requireAuth,\s*requireAdmin/);
     expect(INDEX).toContain("Contract Programs are created by the Project Manager after Project setup.");
-    expect(INDEX).toContain('project.configuration.manage",\n      "contract.view"');
+    expect(getCanonicalRoleTemplate("pm")?.permissionCodes).toContain("project.configuration.manage");
+    expect(getCanonicalRoleTemplate("pm")?.permissionCodes).toContain("contract.view");
   });
 
   it("isolates Project Manager access to an active Project membership", () => {

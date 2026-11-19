@@ -8998,7 +8998,7 @@ The owner/Admin explicitly confirmed that appointment and deactivation of a Proj
 
 ### 56.22.3 Changes prepared on existing F1 working branch
 
-1. `migrations/043_project_role_assignments_and_history.sql` — creates independent Project role assignments and append-only assignment event history; preserves legacy membership rows and backfills their role assignments; updates `pke_has_project_permission(uuid,text)` to resolve permissions from active, unexpired assignments; adds RLS and least-privilege grants; enforces one active PM for subsequent assignments while leaving existing duplicate PM decisions to Admin. Existing role assignment identity is immutable; revocation requires Admin actor and reason. SHA-256: `cf49b417b0a16b38e594c21a5eb30ae07e19e9a1d0769faaf65ca92e9e15650b`.
+1. `migrations/043_project_role_assignments_and_history.sql` — creates independent Project role assignments and append-only assignment event history; preserves legacy membership rows and backfills their role assignments; updates `pke_has_project_permission(uuid,text)` to resolve permissions from active, unexpired assignments; adds RLS and least-privilege grants; enforces one active PM for subsequent assignments while leaving existing duplicate PM decisions to Admin. Existing role assignment identity is immutable; revocation requires Admin actor and reason. SHA-256: `3e176c555d1f4552280e1b4af221fa11de2c62da265fac4774cbc695967139a1`.
 2. `migrations/044_project_change_delete_permission.sql` — restores the missing active permission row but deliberately grants it to no global or Project role. SHA-256: `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d`.
 3. Existing `migrations/042_inventory_reservation_release_reason.sql` re-fetched and SHA-256 re-verified: `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`.
 4. `src/index.ts`: permission attribution now resolves the specific active Project role assignment; added independent role-assignment creation/revocation API; member listing now exposes multiple role assignments; PM appointment writes a distinct PM assignment instead of overwriting the member's legacy role; added explicit Admin PM deactivation endpoint that revokes only PM assignment and preserves membership/other roles.
@@ -9020,3 +9020,64 @@ C. Add regression tests for multi-role permissions, cross-Project isolation, ind
 D. Reconcile the complete migration archive and produce a recoverable, durably stored Production backup package with checksum and restore evidence.
 E. Run integrated F0/F1 backtest with temporary QA fixtures only where explicitly authorized; clean up only fixtures created by that test run, never pre-existing owner fixtures.
 F. Refresh this single Master Plan with evidence and blockers before any Production execution request.
+
+
+---
+
+## 56.23 Parallel execution update — multi-role end-to-end and migration release gate (19 November 2026)
+
+### 56.23.1 Multi-role runtime integration
+
+The independent role-assignment model is now integrated across the following working-branch layers:
+
+- Database migration 043 creates `project_role_assignments` and append-only `project_role_assignment_events`, backfills legacy role fields without changing existing Admin decisions, updates Project and global permission helper functions, and updates Finance notification and invitation acceptance database functions.
+- API permission middleware resolves the authorized role assignment rather than relying on the legacy single-role field.
+- API member context, Project detail, and `/api/v1/me` expose multiple role assignments.
+- API supports independent role assignment creation and revocation with reason/audit history. Expired assignments are marked inactive before reassignment to preserve the active-role uniqueness index.
+- Admin role assignment no longer overwrites `project_members.project_role_id`; membership remains the Project access container.
+- PM appointment creates a separate PM assignment. The dedicated Admin PM deactivation route revokes only the PM assignment and preserves membership and other role assignments.
+- Frontend Admin screen now shows multiple role assignments, separate membership status, per-role deactivation, and a dedicated Admin PM appointment form. PM is excluded from generic role assignment.
+- The generic and Admin UI/API paths do not select or resolve existing duplicate PMs. Only Admin can decide which PM assignment to deactivate.
+
+### 56.23.2 Migration release runner and ledger reconciliation
+
+- Production migration history was re-read from Neon Production and verified as exactly 41 contiguous rows, through Migration 041.
+- `migration_history_manifest_001_038.json` is now reconciled to 41 applied entries and 3 hash-pinned pending migrations. Historical SQL 029–035 remains explicitly marked as authentic source not recovered.
+- Migration runner now has an exact 036–044 sequence gate for the 042–044 package. Each pending migration requires its own confirmation flag, exact approved SHA-256 environment value, and approval reference. The runner verifies the exact 001–041 Production ledger before execution.
+- Migrations 042–044 are applied by the runner as one atomic transaction, including all three ledger rows; any failure rolls back the entire package.
+- The release-policy verifier checks the 41-row applied ledger and exact pending hashes for 042–044.
+- No owner approval environment variables were set, and no Production migration was applied.
+
+### 56.23.3 Exact pending migration package
+
+| Migration | SHA-256 | Purpose |
+|---|---|---|
+| 042 | `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996` | Add reservation release reason required by Production triggers |
+| 043 | `3e176c555d1f4552280e1b4af221fa11de2c62da265fac4774cbc695967139a1` | Multi-role assignments, history, permission and Finance/invitation integration |
+| 044 | `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d` | Restore `project.change.delete` without granting it to any role |
+
+### 56.23.4 CI evidence
+
+Latest inspected CI run for PR #2 head `613ab606d1c9709ad8b85fc8c5f25d04ccf71aeb`:
+- Offline security/unit tests: PASS.
+- Production migration ledger and release policy: PASS.
+- Migration runner dry-run (no database connection): PASS.
+- Backend API TypeScript check: PASS.
+- Frontend dependency installation: PASS.
+- Frontend TypeScript check: PASS.
+- Frontend production build: PASS.
+- Dependency audit workflow: pending final completion check at time of this update.
+
+The preceding completed run at commit `289332e323f3151fdc795d702ba46897194c2a83` passed unit tests, release policy, migration dry-run, backend typecheck, and dependency audit. The later frontend build checks were added to CI to ensure the multi-role UI is included in acceptance.
+
+### 56.23.5 Remaining blockers — do not waive
+
+1. Fresh, complete, recoverable Production backup durably archived to GitHub remains NOT READY. The existing 15 November snapshot is not a fresh backup; snapshot capacity is full. No existing snapshot may be deleted to force capacity.
+2. SQL 042–044 still requires final exact SQL review and explicit owner approval for each exact SHA-256 before Production execution.
+3. Migration SQL has not been exercised against a disposable database because creating a new Neon branch is prohibited. Static/release-policy validation is not equivalent to live SQL execution.
+4. PM duplicate QA fixture rows remain untouched. Admin must make the appointment/deactivation decisions in the application after the migration is approved and applied.
+5. Integrated authenticated API/database UAT and Project-level cross-role isolation tests remain pending.
+6. Authentic SQL source for applied migrations 029–035 remains unrecovered; do not fabricate or execute reconstructed SQL.
+7. Vercel latest-head Preview remains constrained by the previously recorded free deployment quota. No merge, Production deploy, or promotion is authorized.
+
+**Status:** Multi-role API, Admin PM decision workflow, migration archive metadata, and frontend UI are prepared on the existing F1 working branch. F1 remains NOT READY for Production until backup, exact SQL approval, database integration tests, and final UAT are satisfied.

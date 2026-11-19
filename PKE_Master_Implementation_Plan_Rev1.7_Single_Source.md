@@ -8637,3 +8637,23 @@ G. Complete document upload only with a real private object-storage fixture file
 H. Re-run the full 36 permission assertions, 45+ RLS matrix, full feature E2E, audit reconciliation and independent final audit. Update this plan after each pass.
 
 **F1 status after this pass: PRODUCTION RUNTIME READY; PERSISTENT FIXTURE BACKTEST STARTED; FUNCTIONAL ACCEPTANCE NOT COMPLETE. P0 reservation schema/trigger and permission-catalog blockers remain open; cash-advance and financial audit blockers remain open. The fixture dataset is intentionally persistent for subsequent F0/F1/F2 backtests.**
+
+## 56.17 — Approved Role, Permission, RLS, API, Workflow & UX Architecture Design (2026-11-19)
+
+**Status: DESIGN BASELINE RECORDED — IMPLEMENTATION NOT STARTED / NO PRODUCTION MUTATION AUTHORIZED**
+
+Owner-approved decisions: PM manages Project-scoped PKS data with global legal identity approval; PM has read-only visibility across all Project lines/evidence/history/exceptions; technical approvals remain with QA/Warehouse/Finance/Master of Loading/independent parties; Master of Loading is a distinct role with safe legacy migration; Internal Auditor is independent/read-only with finding and corrective-action capability; users may hold multiple roles with separate audit identity.
+
+Read-only audit target: Neon project purple-base-63944903 / branch br-damp-shape-b3xlh4nr / database neondb. Repository branch: f1/project-scoped-cob-20261119.
+
+Verified repository files: src/index.ts blob 04dd002b118d749c718d0ad67ab9bb3207c9957a (136 Express route declarations inventoried); src/schema.ts blob 556dd9df4d5e160598332b51532f18f8523f7c00; src/auth.ts blob f161d476ac4e59c48c5a3e865f83a20aa29ddefe; frontend/src/App.tsx blob 0761f78cbe17f28fa3b5c7654b48662acbe06f07; migration 041 file blob b6e40ff778390c13ea9a1203c1e67d161a179e72.
+
+Verified Production baseline: 162 tables/views in retrieved inventory; 152 public tables with RLS enabled and 510 public policies; migration_history latest applied is 041 with SHA-256 96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770.
+
+Key findings: (1) global role_catalog has seven roles while frontend has 18 role keys; Project creation copies role_catalog and silently skips default permission codes absent from permissions. (2) project_members_project_user_unique(project_id,user_id) blocks multiple roles within one Project although pke_has_project_permission and /api/v1/me are already structured to union active memberships. (3) PM's audit.view and selected domain read grants do not provide full Project-wide read. (4) pks_sites RLS is SELECT-only; partner_organizations has relationship-scoped SELECT, so PM Project PKS write and independent legal-master approval boundary are not implemented. (5) loading base tables exist but readiness/plan signoff/shift/exception/reconciliation workflow is incomplete. (6) Internal Auditor template/finding/action tables were not identified. (7) API/RLS permission catalog drift includes documents.review, reports.manage, notifications.create, notifications.view, project.configuration.view, project.roles.view, approvals.create and project.change.delete; legacy and newer permission naming families coexist.
+
+Detailed design: docs/design/ROLE_PERMISSION_RLS_API_UX_DESIGN_20261119.md
+
+Proposed staged implementation: Stage 0 canonical permission/route/RLS inventory and CI; Stage 1 normalized multi-role assignments with backfill/compatibility; Stage 2 PM read-all + Project PKS overlay + independent master-data approval; Stage 3 Master of Loading and loading control workflow with legacy alias; Stage 4 Internal Auditor findings/corrective actions; Stage 5 API/permission-driven UX and authenticated UAT.
+
+No DDL, role/permission DML, Production migration, Vercel change, deployment, PR merge or runtime configuration change was made. No new SQL artifact or SHA-256 has been approved or applied. This is a design record only.

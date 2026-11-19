@@ -4304,7 +4304,7 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     );
     const current = currentRows[0] ?? null;
     const pmDecision = evaluatePmAppointment(currentRows, userId, replaceUserId || null);
-    if (!pmDecision.ok) {
+    if (pmDecision.ok === false) {
       if (pmDecision.code === "MULTIPLE_ACTIVE_PM_ASSIGNMENTS") {
         return res.status(409).json({ error: "More than one active PM exists; Admin must explicitly reconcile appointments before continuing.", code: pmDecision.code });
       }

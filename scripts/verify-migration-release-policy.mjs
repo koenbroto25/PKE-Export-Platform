@@ -103,7 +103,7 @@ if (!runner.includes("verifiedManifest.entries?.length !== 39")) fail("Migration
 if (!runner.includes("Production migration_history mismatch at sequence")) fail("Migration runner is missing exact history reconciliation.");
 if (!runner.includes("Production Migration 040 is already applied and ledger-verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe Migration 040 verification-only path.");
 if (!runner.includes("MIGRATE_041_CONFIRM") || !runner.includes("MIGRATION_041_APPROVED_SHA256") || !runner.includes("MIGRATION_041_APPROVAL_REFERENCE") || !runner.includes(expected041)) fail("Migration runner is missing exact Migration 041 owner-approval guards.");
-for (const [n, sha] of [["042", expectedPending[0][1]], ["043", expectedPending[1][1]], ["044", expectedPending[2][1]]]) {
+for (const [n, sha] of [["042", expectedApplied[0][2]], ["043", expectedApplied[1][2]], ["044", expectedApplied[2][2]]]) {
   if (!runner.includes("MIGRATE_" + n + "_CONFIRM") ||
       !runner.includes("MIGRATION_" + n + "_APPROVED_SHA256") ||
       !runner.includes("MIGRATION_" + n + "_APPROVAL_REFERENCE") ||

@@ -446,22 +446,26 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
     // project_members.role_id -> role_catalog.id (catalog role)
     // project_members.project_role_id -> project_roles.id (project-scoped role)
     const { rows: memberships } = await req.db.query(
-      `SELECT pm.project_id,
+      `SELECT pm.id AS membership_id, pm.project_id,
               p.name AS project_name,
               pm.role_id AS catalog_role_id,
               rc.name AS catalog_role_name,
-              pm.project_role_id,
-              pr.role_code AS project_role_code,
-              pr.name AS project_role_name,
-              pm.is_active,
-              pm.joined_at,
-              pm.expires_at,
-              pm.deactivated_at,
-              p.is_active AS project_is_active
+              pm.is_active, pm.joined_at, pm.expires_at, pm.deactivated_at,
+              p.is_active AS project_is_active,
+              coalesce(assignments.roles, '[]'::jsonb) AS project_role_assignments
          FROM project_members pm
          LEFT JOIN projects p ON p.id = pm.project_id
          LEFT JOIN role_catalog rc ON rc.id = pm.role_id
-         LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+         LEFT JOIN LATERAL (
+           SELECT jsonb_agg(jsonb_build_object(
+             'assignmentId', a.id, 'projectRoleId', a.project_role_id,
+             'roleCode', pr.role_code, 'roleName', pr.name,
+             'isActive', a.is_active, 'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+           ) ORDER BY pr.role_code) AS roles
+             FROM public.project_role_assignments a
+             JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+            WHERE a.project_member_id = pm.id
+         ) assignments ON true
         WHERE pm.user_id = $1::uuid
         ORDER BY pm.joined_at DESC`,
       [userId],
@@ -475,17 +479,19 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
     } else if (projectIds.length > 0) {
       const { rows } = await req.db.query(
         `SELECT DISTINCT perm.code
-           FROM project_role_permissions prp
-           JOIN permissions perm ON perm.id = prp.permission_id
-           JOIN project_members pm ON pm.project_role_id IS NOT NULL
-                                 AND pm.project_id = prp.project_id
-                                 AND pm.project_role_id = prp.project_role_id
-          WHERE pm.user_id = $1::uuid
-             AND pm.is_active = true
-             AND pm.deactivated_at IS NULL
-             AND (pm.expires_at IS NULL OR pm.expires_at > now())
-             AND EXISTS (SELECT 1 FROM projects p WHERE p.id = pm.project_id AND p.is_active = true)
-             AND perm.is_active = true
+           FROM public.project_role_assignments a
+           JOIN public.project_members pm
+             ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+           JOIN public.project_role_permissions prp
+             ON prp.project_id = a.project_id AND prp.project_role_id = a.project_role_id
+           JOIN public.permissions perm ON perm.id = prp.permission_id
+           JOIN public.projects p ON p.id = a.project_id
+          WHERE a.user_id = $1::uuid
+            AND a.is_active = true AND a.revoked_at IS NULL
+            AND (a.expires_at IS NULL OR a.expires_at > now())
+            AND pm.is_active = true AND pm.deactivated_at IS NULL
+            AND (pm.expires_at IS NULL OR pm.expires_at > now())
+            AND p.is_active = true AND perm.is_active = true
           ORDER BY perm.code`,
         [userId],
       );
@@ -516,9 +522,9 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
           roleId: m.catalog_role_id,
           catalogRoleId: m.catalog_role_id,
           catalogRoleName: m.catalog_role_name,
-          projectRoleId: m.project_role_id,
-          roleCode: m.project_role_code ?? m.catalog_role_name,
-          roleName: m.project_role_name ?? m.catalog_role_name,
+          roleAssignments: m.project_role_assignments,
+          roleCode: m.project_role_assignments?.find((a: any) => a.isActive && !a.revokedAt)?.roleCode ?? m.catalog_role_name,
+          roleName: m.project_role_assignments?.find((a: any) => a.isActive && !a.revokedAt)?.roleName ?? m.catalog_role_name,
           isActive: m.is_active === true,
           joinedAt: m.joined_at,
         })),
@@ -2171,13 +2177,23 @@ app.get("/api/v1/projects/:id/detail", requireAuth, async (req: express.Request,
   const { rows: projRows } = await req.db.query("SELECT * FROM projects WHERE id = $1::uuid", [id]);
   if (projRows.length === 0) return res.status(404).json({ error: "Project not found" });
   const { rows: members } = await req.db.query(
-    `SELECT pm.id, pm.user_id, u.email, u.name, pm.project_role_id, pr.role_code, pr.name AS role_name,
-            pm.is_active, pm.joined_at, pm.expires_at
+    `SELECT pm.id, pm.user_id, u.email, u.name,
+            pm.is_active, pm.joined_at, pm.expires_at,
+            coalesce(assignments.roles, '[]'::jsonb) AS role_assignments
        FROM project_members pm
        JOIN users u ON u.id = pm.user_id
-       LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+       LEFT JOIN LATERAL (
+         SELECT jsonb_agg(jsonb_build_object(
+           'id', a.id, 'projectRoleId', a.project_role_id,
+           'roleCode', pr.role_code, 'roleName', pr.name,
+           'isActive', a.is_active, 'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+         ) ORDER BY pr.role_code) AS roles
+           FROM public.project_role_assignments a
+           JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+          WHERE a.project_member_id = pm.id
+       ) assignments ON true
       WHERE pm.project_id = $1::uuid
-      ORDER BY pr.role_code, u.email`,
+      ORDER BY u.email`,
     [id]
   );
   const { rows: roles } = await req.db.query(

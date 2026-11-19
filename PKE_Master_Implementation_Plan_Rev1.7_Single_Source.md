@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.28 — F1 PRI-0 Audit & Remediation
+# Master Implementation Plan Rev2.29 — F1 PRI-0 CI Pass & Production Governance Audit
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.28 (19 November 2026 — F1/PRI-0 code remediation, role catalogue and inventory contract backtest; see §§56.20–56.21)  
+**Revision:** 2.29 (19 November 2026 — F1/PRI-0 code remediation, 117-test CI pass and Production governance audit; see §§56.20–56.21)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -8940,8 +8940,9 @@ Supporting catalogue/test commits include `d3eb4560e6cf2f812f30d3a8fea3cdff09ef8
 ### 56.21.3 CI, backtest and Vercel evidence
 
 - First CI run on commit `e9b9128d90ed56a18a6708c44826d927b180d0f7`: 108 tests passed and one legacy source assertion failed because it still expected PM permissions in the removed inline map. The assertion was revised to read the canonical PM template.
-- CI on commit `9f8a4779a53fcb270553debab03df25ec1571c83`: offline security/unit tests PASS; Production migration-ledger verifier PASS; migration runner dry-run PASS; backend TypeScript check FAIL with two Express `string | string[]` route-parameter errors.
-- TypeScript route parameter normalization was committed in `45cb33bc16b0ac702f214b46ab68355963704983`. Subsequent inventory rule/test additions are in `1505805714188691471853faec567434ebb4c043` and `cc84f7771c7728d4077928a468b911ed3ce5200b`. Their final CI result must be recorded after the next GitHub Actions run; do not infer success from the prior run.
+- CI on commit `9f8a4779a53fcb270553debab03df25ec1571c83`: offline security/unit tests PASS; Production migration-ledger verifier PASS; migration runner dry-run PASS; backend TypeScript check initially failed with two Express `string | string[]` route-parameter errors.
+- TypeScript route parameter normalization was committed in `45cb33bc16b0ac702f214b46ab68355963704983`. Inventory rule/test additions are in `1505805714188691471853faec567434ebb4c043` and `cc84f7771c7728d4077928a468b911ed3ce5200b`; final TypeScript narrowing fix is `76092d6e80796643b7b44045f155df1fddedfeb3`.
+- **Latest verified GitHub Actions on commit `76092d6e80796643b7b44045f155df1fddedfeb3`: PASS.** Unit Tests run `44513249672`: 9/9 test files, 117/117 tests PASS; Production migration-ledger verifier PASS; migration runner dry-run PASS (no DB connection/writes); backend API TypeScript check PASS. Dependency Audit run `44513249713`: root and frontend production dependency audits PASS. These are repository CI results, not database/API/browser acceptance.
 - Vercel status on the PR head is FAILURE solely because the account has exceeded the free daily deployment limit (`api-deployments-free-per-day`, build-rate-limit). Per the current owner instruction this one external deployment blocker is skipped for this work wave. No deployment, promotion, environment change or merge was attempted.
 - The mock inventory tests are pure deterministic state-machine tests; they are not a substitute for authenticated HTTP/UI tests or PostgreSQL trigger/RLS DML backtests.
 
@@ -8951,10 +8952,11 @@ Supporting catalogue/test commits include `d3eb4560e6cf2f812f30d3a8fea3cdff09ef8
 2. Migration 042 `migrations/042_inventory_reservation_release_reason.sql` is prepared only; SHA-256 `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`. It is NOT applied. Production trigger functions reference `NEW.release_reason`, but the column is absent. Reservation create/release/expiry therefore cannot be certified until the schema is repaired.
 3. The last known snapshot is `PKE-target-pre-migration-20261115`, created 15 November 2026, source Production branch ID `br-damp-shape-b3xlh4nr`, full size 32,161,792 bytes. A fresh snapshot request was rejected by Neon with `snapshots limit exceeded`. No verified full export exists. Do not delete old snapshots or create a new branch to evade this.
 4. No Production DDL/DML has been performed during this checkpoint. Do not apply Migration 042 or a new RBAC/multi-role migration until a fresh recoverable full backup/export is verified, the complete ordered migration archive/manifest is reconciled (including the known legacy/nested files for 029–032 and 035), and the exact SQL plus SHA-256 receives explicit owner approval.
-5. Production `project_members` still stores only one `project_role_id` per user/Project. This checkpoint intentionally blocks role replacement; it does not implement independent multi-role assignment, per-role expiry/revocation, or separate assignment history. A normalized child assignment table and PM appointment persistence/history remain a schema migration blocker.
-6. PM currently receives a defined set of domain read permissions, not a proven universal Project-wide SELECT-only grant. The dedicated PM read-all permission/RLS policy coverage must be designed and backtested before claiming the owner-approved read-all rule complete.
-7. `project.change.delete` is referenced by one Production RLS policy but absent from `public.permissions`. It is deny-by-default; reconcile it with an approved migration and verify no unintended delete grant.
-8. No authenticated multi-role HTTP/UI UAT, PostgreSQL reservation/trigger backtest, shipment allocation DB lifecycle backtest, or browser role-portal acceptance was performed. No mock business data was inserted into Production.
+5. Additional read-only Production membership audit: 7 active legacy `role_catalog` entries, 36 active `project_roles`, 22 active Project memberships, 3 active PM assignments across 2 Projects, 0 reservation rows and 0 shipment-allocation rows. One existing fixture Project has **2 active PM assignments**, violating the one-active-PM rule. The new appointment API fails closed when it detects multiple active PMs; database-level uniqueness and reconciliation of this existing synthetic fixture require the approved RBAC migration/cleanup path. Do not mutate these rows before backup and exact approval.
+6. Production `project_members` still stores only one `project_role_id` per user/Project. This checkpoint intentionally blocks role replacement; it does not implement independent multi-role assignment, per-role expiry/revocation, or separate assignment history. A normalized child assignment table and PM appointment persistence/history remain a schema migration blocker.
+7. PM currently receives a defined set of domain read permissions, not a proven universal Project-wide SELECT-only grant. The dedicated PM read-all permission/RLS policy coverage must be designed and backtested before claiming the owner-approved read-all rule complete.
+8. `project.change.delete` is referenced by one Production RLS policy but absent from `public.permissions`. It is deny-by-default; reconcile it with an approved migration and verify no unintended delete grant.
+9. No authenticated multi-role HTTP/UI UAT, PostgreSQL reservation/trigger backtest, shipment allocation DB lifecycle backtest, or browser role-portal acceptance was performed. No mock business data was inserted into Production.
 
 ### 56.21.5 Current disposition and exit criteria
 

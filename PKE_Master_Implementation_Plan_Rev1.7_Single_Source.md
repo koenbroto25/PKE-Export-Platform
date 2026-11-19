@@ -8998,7 +8998,7 @@ The owner/Admin explicitly confirmed that appointment and deactivation of a Proj
 
 ### 56.22.3 Changes prepared on existing F1 working branch
 
-1. `migrations/043_project_role_assignments_and_history.sql` — creates independent Project role assignments and append-only assignment event history; preserves legacy membership rows and backfills their role assignments; updates `pke_has_project_permission(uuid,text)` to resolve permissions from active, unexpired assignments; adds RLS and least-privilege grants; enforces one active PM for subsequent assignments while leaving existing duplicate PM decisions to Admin. Existing role assignment identity is immutable; revocation requires Admin actor and reason. SHA-256: `7887fd35e024b61ff19c08c7d9a59beb3bcab58802d92edbd7f6665883a2b565`.
+1. `migrations/043_project_role_assignments_and_history.sql` — creates independent Project role assignments and append-only assignment event history; preserves legacy membership rows and backfills their role assignments; updates `pke_has_project_permission(uuid,text)` to resolve permissions from active, unexpired assignments; adds RLS and least-privilege grants; enforces one active PM for subsequent assignments while leaving existing duplicate PM decisions to Admin. Existing role assignment identity is immutable; revocation requires Admin actor and reason. SHA-256: `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`.
 2. `migrations/044_project_change_delete_permission.sql` — restores the missing active permission row but deliberately grants it to no global or Project role. SHA-256: `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d`.
 3. Existing `migrations/042_inventory_reservation_release_reason.sql` re-fetched and SHA-256 re-verified: `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`.
 4. `src/index.ts`: permission attribution now resolves the specific active Project role assignment; added independent role-assignment creation/revocation API; member listing now exposes multiple role assignments; PM appointment writes a distinct PM assignment instead of overwriting the member's legacy role; added explicit Admin PM deactivation endpoint that revokes only PM assignment and preserves membership/other roles.
@@ -9053,7 +9053,7 @@ The independent role-assignment model is now integrated across the following wor
 | Migration | SHA-256 | Purpose |
 |---|---|---|
 | 042 | `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996` | Add reservation release reason required by Production triggers |
-| 043 | `7887fd35e024b61ff19c08c7d9a59beb3bcab58802d92edbd7f6665883a2b565` | Multi-role assignments, history, permission and Finance/invitation integration |
+| 043 | `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086` | Multi-role assignments, history, permission and Finance/invitation integration |
 | 044 | `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d` | Restore `project.change.delete` without granting it to any role |
 
 ### 56.23.4 CI evidence
@@ -9146,7 +9146,7 @@ The subsequent commit `a47e3ea8bc07320af7e4c404ff81b56f2124e685` updates the Mas
 
 The latest source checksum for `migrations/043_project_role_assignments_and_history.sql` is:
 
-`7887fd35e024b61ff19c08c7d9a59beb3bcab58802d92edbd7f6665883a2b565`
+`15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`
 
 The migration runner, release-policy verifier, and pending migration manifest have been updated to this exact value. Migrations 042 and 044 hashes remain unchanged. No owner approval flags or Production execution were used.
 
@@ -9159,3 +9159,21 @@ The migration runner, release-policy verifier, and pending migration manifest ha
 - Vercel snapshots, preview quota, merge and deployment are explicitly outside this focused execution cycle.
 
 **Current status:** changes and expanded behavioral backtests are in progress on the existing F1 branch. F1 remains NOT READY pending current-head CI, database integration/backtest, durable backup, and exact owner approval.
+
+
+---
+
+## 56.26 Follow-on backtest hardening — membership lifecycle and assignment revocation (19 November 2026)
+
+### 56.26.1 Additional edge cases fixed
+
+- Admin role assignment and PM appointment no longer silently reactivate an inactive/expired Project membership. The Admin must explicitly reactivate membership first; only then may a new role be assigned or PM appointed. This avoids accidentally restoring old role assignments when a membership is re-enabled as a side effect of adding one new role.
+- Migration 043's assignment guard now distinguishes INSERT/reactivation from revocation/expiry. New and reactivated assignments require an active membership and active role template; revocation and expiry remain possible even after the membership or role template is inactive. Immutable assignment identity and revoked-row immutability remain enforced.
+- Membership PATCH SQL bind positions were corrected and covered by contract tests. Membership state and actor parameters are checked independently; expiry changes now also require an audit reason.
+- Migration 043 checksum was recalculated and pinned in the runner, release verifier, and pending manifest after the guard change: `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`.
+
+### 56.26.2 Validation checkpoint
+
+- A preceding CI run completed 135/136 tests successfully and exposed one stale SQL parameter expectation; the code and regression test have since been corrected.
+- Current-head CI must be rerun after these final membership-lifecycle changes. Do not claim full CI PASS until the current head has completed all unit/security, release-policy, dry-run, backend/frontend typecheck and build, and dependency-audit jobs.
+- No Production DDL/DML, no QA fixture mutation, no Vercel snapshot work, no branch creation, no PR merge or deployment was performed.

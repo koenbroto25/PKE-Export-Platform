@@ -9376,3 +9376,11 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Snapshot creation was attempted before apply but Neon rejected it because the project snapshot limit was exceeded. No additional Neon branch was created. The migration was executed transactionally; on failure the DDL and ledger insert would roll back together.
 - Source release gate now advances to verified history 001-045; the previous 001-044 manifest is retained as historical evidence only. Runner/verifier/tests updated to recognize already-applied Migration 045 without replay.
 - Production RLS catalog policy verification passed. Runtime DML matrix was not executed because no synthetic Production rows or user role grants were authorized; feature activation still depends on Admin granting the new request permission to the intended Project role and subsequent authenticated workflow verification.
+
+
+## 56.35 — Post-045 security residual and activation gate — 2026-11-20
+
+- Post-migration role-permission catalog check found `finance.update` assigned to both `finance` and `project_admin` Project role definitions (two each). The Cash Advance API explicitly rejects Project Admin decision requests, but the Migration 045 database UPDATE policy and existing `pke_cash_advance_guard()` enforce `finance.update` plus actor/requestor separation and do not independently require `role_code='finance'`.
+- Consequently, the database-only approval path is not yet Finance-role-exclusive if a Project Admin holds `finance.update`. Do not claim complete DB-level maker-checker isolation until a separate Migration 046 hardens the database policy/guard and is owner-approved/applied. No role grants or permission revocations were made during this verification.
+- Migration 045 is applied and verified, but the application is not deployed (Vercel intentionally skipped), and no Project role has been granted `finance.cash_advance.request`. Keep Cash Advance request/decision UI unavailable operationally until the deployment decision, explicit Admin role grant, and authenticated workflow verification are completed.
+- Latest CI at commit `351ea50dafa1eaa83ddfb51790bf330e1c93aeab`: 13 test files / 162 tests PASS; migration release verifier and runner dry-run PASS; backend/frontend TypeScript and frontend build PASS; Dependency Audit PASS.

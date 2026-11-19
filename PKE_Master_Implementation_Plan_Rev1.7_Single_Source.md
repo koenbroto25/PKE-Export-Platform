@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.25 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.26 — P0 Role Baseline & Remediation Kickoff
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.25 (19 November 2026 — owner-authorized persistent Production fixture dataset and first role/RLS/business backtest)  
+**Revision:** 2.26 (19 November 2026 — P0 role baseline sequencing and reservation trigger/schema remediation artifact prepared)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -8664,3 +8664,68 @@ Additional finding F-10: Project invitation currently accepts one projectRoleId;
 
 
 Owner clarification added to §15 of the role/access design: central App Admin's primary governance task is appointing/reassigning the PM for each Project. One PM may manage multiple Projects; every Project has its own explicit, auditable PM appointment. The appointed PM—not App Admin—determines which centrally approved operational role templates/workstreams are needed for that Project based on contract and scope, activates the selected templates, and may assign people within delegated authority. Template activation is distinct from user assignment. PM cannot invent permissions or exceed centrally governed security/SoD ceilings. Revised data model, admin console, PM setup wizard and acceptance tests are documented. No Production DDL/DML or application code was changed.
+
+
+
+## 56.18 — P0 execution kickoff: role catalogue gate, governance changes and blocker remediation (19 November 2026)
+
+**Status: IN PROGRESS — READ-ONLY PRODUCTION AUDIT COMPLETE; MIGRATION 042 ARTIFACT PREPARED; NO PRODUCTION DDL/DML APPLIED.**
+
+### 56.18.1 Owner instruction and sequencing
+The owner instructed that the approved role/governance changes be inserted into P0 after the full role set is established, and that P0 work commence. The following order is mandatory:
+
+1. **P0-A — Establish the complete centrally governed role catalogue first.** Reconcile all role templates, stable role codes, labels, domains, assignment scopes, default permission ceilings, legacy aliases and external-role restrictions. The catalogue must include the approved target roles in §56.17 and distinguish platform governance, Project governance, technical approvers, operational roles, finance/accounting, external counterparties and independent audit.
+2. **P0-B — Canonicalize the permission dictionary against every API call, RLS policy, trigger, workflow and frontend action.** No role template may be finalized while a permission literal is unknown, duplicated under legacy/new naming, or silently omitted. Unknown permission references must fail CI/build validation; no broad grants or fallback bypass.
+3. **P0-C — Apply the approved Project governance design to P0 only after P0-A/P0-B are reconciled.** This includes App Admin appointment/reassignment of PM per Project; one PM may serve multiple Projects; PM chooses Project-specific role templates/workstreams from the central catalogue; template activation does not grant user access; user assignments are separate and independently auditable; PM assignment administration is delegated and ceiling-limited; one active PM per Project except explicit transition exception; complete handover/history.
+4. **P0-D — Implement multi-role membership and exact role-source audit identity.** Separate Project membership lifecycle from individual role-assignment lifecycle; independent role expiry/revocation; exact assignment/permission source in request-scoped trusted context; no cross-Project inheritance.
+5. **P0-E — Close the two existing P0 business blockers and then rerun the expanded role/RLS/business backtest.** Reservation creation/release/expiry/allocation must pass; API/RLS/permission catalogue parity must pass. Existing P1 blockers remain separate and cannot be reported as closed by P0 work.
+
+The owner-approved PM, PM read-all, PKS Project overlay, Master of Loading, Internal Auditor, multiple roles and technical segregation-of-duties decisions in §56.17 remain requirements, not optional enhancements. The role catalogue is the prerequisite; it does not dilute those decisions.
+
+### 56.18.2 Live Production role and permission baseline — verified read-only
+Target: Neon project purple-base-63944903, branch br-damp-shape-b3xlh4nr, database neondb.
+
+- public.role_catalog currently has only seven active global rows: admin, buyer, checker, finance, supplier, warehouse and pm. The table uses name as the role identifier; it does not have a code column.
+- public.project_roles has role_code, name, description and is_active; public.project_role_permissions maps Project role IDs to permission IDs.
+- The persistent fixture Projects contain 18 Project role definitions each (36 total), but this is fixture data and does not establish a complete global role catalogue or prove that new Projects receive all approved templates.
+- public.permissions currently contains 171 rows. The following exact codes were confirmed absent: documents.review, reports.manage, notifications.create, notifications.view, project.configuration.view, project.roles.view, approvals.create and project.change.delete. Do not add these blindly; first reconcile each API/RLS reference to a canonical permission and determine its correct grant boundary.
+- The reservation table has 17 columns and does not contain release_reason. Both live trigger functions pke_inventory_reservation_guard() and pke_inventory_state_audit() reference NEW.release_reason. The guard requires this value on manual release/expiry; the audit function records it. This is a confirmed schema/function mismatch.
+- public.migration_history confirms migration 041 is the latest applied migration, SHA-256 96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770. Repository migration 041 matches the applied migration hash. Migration numbering may therefore proceed with 042 after full migration-manifest reconciliation.
+
+### 56.18.3 P0 inventory reservation fix — artifact prepared, NOT applied
+Prepared repository artifact:
+- File: migrations/042_inventory_reservation_release_reason.sql
+- SHA-256: 4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996
+- Git commit: 59b3e2e10fc1c8d46e2196ba10f67345f79d1040
+- Intended change: add nullable release_reason text to public.inventory_reservations (idempotently) and document its purpose. Existing trigger logic already enforces a non-empty reason on a manual release/expiry transition and treats release metadata as immutable. Existing rows are not fabricated or backfilled.
+- Status: **ARTIFACT PREPARED / NOT APPLIED / OWNER APPROVAL REQUIRED**. No Production DDL was executed.
+
+Before any application, verify the complete migration runner behavior, exact file bytes/hash, table lock impact, existing reservation states, dependent triggers/functions and rollback implications. After approval and application, verify the column exists, the migration ledger records the exact hash, and the following tests pass: reservation create; manual release with reason; release without reason denied; expiry only after timestamp; expiry without reason denied; immutable release metadata; reservation counters reconcile with active/partially fulfilled rows; audit event includes release reason; shipment allocation can consume only a valid reservation. Do not create new Production fixture business rows beyond the owner's existing fixture authorization and scope.
+
+### 56.18.4 P0 permission and role reconciliation — NOT YET IMPLEMENTED
+Required deliverables, in order:
+- Canonical role inventory with stable role code, display name, domain, internal/external classification, Project/platform scope, template version, mandatory/optional status and SoD constraints.
+- Explicit mapping from legacy global roles and current Project fixture roles to canonical templates. Preserve legacy aliases during compatibility transition; never silently reinterpret admin as Project Admin or vice versa.
+- Permission inventory generated from all API permission checks, RLS policy expressions, trigger guards, workflow actions and frontend action gates. Every reference must map to one active canonical permission.
+- Explicit permission-to-role matrix for each role template, including deny-by-default, technical approval separation, read-all as SELECT-only, finance reporting-only boundary and no payment execution permissions.
+- PM's Project role-template activation and user assignment administration must be distinct capabilities. Template activation alone never grants membership or permissions.
+- Migration/data changes must preserve current project-role assignments, permission grants, audit history and fixture identities. No Production role/permission DML until exact artifact, SHA-256, preflight and owner approval.
+
+### 56.18.5 P0 acceptance gate
+P0 cannot be marked complete until all are evidenced:
+1. Every approved role exists as a centrally governed template or is explicitly documented as a restricted external/appointment type.
+2. All active API/RLS/frontend permission references resolve to canonical permissions; no unknown literals or silently skipped grants.
+3. Every role template passes positive and negative permission tests, including technical approval separation and finance/payment boundaries.
+4. App Admin can appoint/reassign PM per Project with history; one PM can manage multiple Projects without cross-Project access.
+5. PM can activate only approved templates and assign people only within delegated permission ceilings; activation does not grant access.
+6. Multi-role assignments can be independently added, expired and revoked without deactivating the entire Project membership; action audit records the exact role assignment used.
+7. PM read-all is SELECT-only; PKS legal identity remains protected; Master of Loading and Internal Auditor boundaries pass.
+8. Reservation lifecycle, shipment allocation and counter/audit reconciliation pass after the approved schema fix.
+9. Existing 36 permission-helper assertions and 45 RLS expectations are rerun and expanded to every canonical role, role combination, API route and Project boundary. Authenticated API/UI UAT remains separately gated by valid test identities.
+10. No Production DDL/DML is performed without specific owner approval; no merge, deploy, Vercel environment change or Neon branch creation is implied by this kickoff.
+
+### 56.18.6 Execution log
+- 2026-11-19: Re-read the current branch source plan, approved role design, live Production role/permission catalog, reservation schema, trigger definitions and migration ledger.
+- 2026-11-19: Confirmed seven active global role catalogue rows, 171 permission rows, eight missing permission references listed above, and the reservation release_reason schema/function mismatch.
+- 2026-11-19: Created migration 042 artifact and calculated SHA-256. No migration application, Production DDL/DML, Vercel deployment, PR merge or branch change was performed.
+- Current P0 status: **IN PROGRESS / BLOCKED ON ROLE CATALOGUE + CANONICAL PERMISSION BASELINE; MIGRATION 042 AWAITS OWNER APPROVAL.**

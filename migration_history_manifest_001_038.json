@@ -304,8 +304,8 @@
     },
     {
       "file": "migrations/043_project_role_assignments_and_history.sql",
-      "sha256": "c9c06e6750ae811caaf28d9c19ce9a0ab59b53b6afae6fdb9b4be031ead7cc79",
-      "reason": "Prepared; independent role assignments/history, Admin-only PM assignment lifecycle, concurrency lock, secure legacy backfill, permission and Finance/invitation integration. Pending fresh durable backup and explicit owner approval."
+      "sha256": "cad784490cb4a48c208f94524e3aa2b43b98baef75b9f48268a9fce761c0f89f",
+      "reason": "Prepared; independent role assignments/history, secure legacy backfill, Admin-only PM assignment lifecycle with concurrency lock, independent expiry and Finance/invitation integration. Pending backup and explicit owner approval."
     },
     {
       "file": "migrations/044_project_change_delete_permission.sql",

@@ -73,10 +73,8 @@ BEGIN
      AND project_id = NEW.project_id
      AND user_id = NEW.user_id
    FOR KEY SHARE;
-  IF NOT FOUND OR v_member.is_active IS DISTINCT FROM true
-     OR v_member.deactivated_at IS NOT NULL
-     OR (v_member.expires_at IS NOT NULL AND v_member.expires_at <= now()) THEN
-    RAISE EXCEPTION 'Active Project membership required for role assignment'
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Project membership identity is required for role assignment'
       USING ERRCODE = '23514';
   END IF;
 
@@ -84,11 +82,37 @@ BEGIN
     FROM public.project_roles
    WHERE id = NEW.project_role_id
      AND project_id = NEW.project_id
-     AND is_active = true
    FOR KEY SHARE;
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Active Project role template required'
+    RAISE EXCEPTION 'Project role template identity is required for role assignment'
       USING ERRCODE = '23514';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF OLD.project_id <> NEW.project_id OR OLD.project_member_id <> NEW.project_member_id
+       OR OLD.user_id <> NEW.user_id OR OLD.project_role_id <> NEW.project_role_id THEN
+      RAISE EXCEPTION 'Assignment identity is immutable; revoke and create a new assignment'
+        USING ERRCODE = '23514';
+    END IF;
+    IF OLD.revoked_at IS NOT NULL THEN
+      RAISE EXCEPTION 'Revoked assignments are immutable'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  -- New assignments and reactivations require a live membership and active role.
+  -- Revocation/expiry must remain possible after membership or role deactivation.
+  IF TG_OP = 'INSERT' OR NEW.is_active = true THEN
+    IF v_member.is_active IS DISTINCT FROM true
+       OR v_member.deactivated_at IS NOT NULL
+       OR (v_member.expires_at IS NOT NULL AND v_member.expires_at <= now()) THEN
+      RAISE EXCEPTION 'Active Project membership required for role assignment'
+        USING ERRCODE = '23514';
+    END IF;
+    IF v_role.is_active IS DISTINCT FROM true THEN
+      RAISE EXCEPTION 'Active Project role template required for assignment'
+        USING ERRCODE = '23514';
+    END IF;
   END IF;
 
   IF NEW.is_active = true AND NEW.expires_at IS NOT NULL AND NEW.expires_at <= now() THEN
@@ -132,17 +156,6 @@ BEGIN
       USING ERRCODE = '23505';
   END IF;
 
-  IF TG_OP = 'UPDATE' THEN
-    IF OLD.project_id <> NEW.project_id OR OLD.project_member_id <> NEW.project_member_id
-       OR OLD.user_id <> NEW.user_id OR OLD.project_role_id <> NEW.project_role_id THEN
-      RAISE EXCEPTION 'Assignment identity is immutable; revoke and create a new assignment'
-        USING ERRCODE = '23514';
-    END IF;
-    IF OLD.revoked_at IS NOT NULL THEN
-      RAISE EXCEPTION 'Revoked assignments are immutable'
-        USING ERRCODE = '23514';
-    END IF;
-  END IF;
   NEW.updated_at := now();
   RETURN NEW;
 END

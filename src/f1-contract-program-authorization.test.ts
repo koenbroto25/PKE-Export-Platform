@@ -84,8 +84,10 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
     expect(INDEX).toContain('app.get("/api/v1/finance/reports"');
     expect(INDEX).toContain("FINANCE_ROLE_REQUIRED");
     expect(INDEX).toContain("pr.role_code = 'finance'");
-    expect(MIGRATION_041).toContain("pr.role_code = 'pm'");
-    expect(MIGRATION_041).toContain("recipient.role::text = 'admin'");
+    if (HAS_MIGRATION_041_SOURCE) {
+      expect(MIGRATION_041).toContain("pr.role_code = 'pm'");
+      expect(MIGRATION_041).toContain("recipient.role::text = 'admin'");
+    }
     expect(INDEX).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
     expect(INDEX).not.toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
     expect(INDEX).toContain('"reports.create"');

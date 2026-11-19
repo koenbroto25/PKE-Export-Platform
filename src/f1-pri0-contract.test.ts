@@ -5,6 +5,7 @@ import { validateAllocationCapacity, validateAllocationTransition } from "./f1-p
 
 const INDEX_SRC = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 const ROLE_ASSIGNMENT_MIGRATION_SRC = readFileSync(new URL("../migrations/043_project_role_assignments_and_history.sql", import.meta.url), "utf8");
+const FRONTEND_APP_SRC = readFileSync(new URL("../frontend/src/App.tsx", import.meta.url), "utf8");
 
 describe("F1 / PRI-0 canonical role governance", () => {
   it("has a unique centrally governed role catalogue with Project and platform scopes", () => {
@@ -217,5 +218,20 @@ describe("F1 / PRI-0 independent Project role assignment contract", () => {
     const block = INDEX_SRC.slice(start, end);
     expect(block).toContain("INSERT INTO public.project_role_assignments");
     expect(block).not.toContain("SET project_role_id = $3::uuid");
+  });
+});
+
+
+describe("F1 / PRI-0 multi-role Admin UI contract", () => {
+  it("renders multiple role assignments separately from Project membership status", () => {
+    expect(FRONTEND_APP_SRC).toContain("Role assignments");
+    expect(FRONTEND_APP_SRC).toContain("r.role_assignments");
+    expect(FRONTEND_APP_SRC).toContain("Status membership");
+    expect(FRONTEND_APP_SRC).not.toContain("value={r.project_role_id || ''}");
+  });
+
+  it("routes PM deactivation to the explicit Admin decision endpoint", () => {
+    expect(FRONTEND_APP_SRC).toContain("/pm-appointment/${member.user_id}/deactivate");
+    expect(FRONTEND_APP_SRC).toContain("Keanggotaan dan role lain tetap dipertahankan.");
   });
 });

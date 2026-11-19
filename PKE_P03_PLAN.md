@@ -528,3 +528,27 @@ PASS on isolated PostgreSQL validation branch:
 - Unit Tests run `44544866720`: SUCCESS; 141/141 tests and all configured migration/release, backend typecheck, frontend typecheck/build steps passed.
 - Dependency Audit Evidence run `44544866867`: SUCCESS.
 - The following plan/audit-only documentation commits did not alter executable code. No Production DDL/DML or Vercel deployment was performed.
+
+
+## Production application — migrations 042–044 (2026-11-20)
+
+### Authorization and pre-apply protection
+- Owner explicitly requested application of the exact three SHA-256-pinned migrations to Neon Production and asked to skip Vercel deployment.
+- Before applying, created a Neon backup branch `pre-f1-042-044-production-backup-20261120` (`br-restless-sky-b38dsjol`) from Production. Verified it captured the pre-apply state: ledger 41/41; assignment tables absent; release_reason absent; project.change.delete absent.
+- Neon manual snapshot creation was unavailable because the project snapshot limit was reached. The pre-apply child branch is retained as the restore point; it is not the F1 validation branch.
+- Re-read all three migration files from the existing F1 GitHub branch. Applied the complete migration package in one PostgreSQL transaction on Production, preserving dollar-quoted PL/pgSQL bodies (no semicolon-naive splitter). 53 migration SQL statements plus 3 ledger inserts; 56/56 executed and committed.
+
+### Production verification
+- Production ledger rows 042–044 now contain the exact approved SHA-256 values and status `applied`; ledger total is 44/44.
+- `inventory_reservations.release_reason` exists.
+- `project_role_assignments` and `project_role_assignment_events` exist; Production contains 24 backfilled assignments and 24 backfill events.
+- Permission `project.change.delete` exists and is not granted to any Project role.
+- Role assignment RLS policies are scoped to `app_runtime_secure`; permission resolver functions remain SECURITY DEFINER.
+- Existing PM appointments were not changed. Any duplicate active PM state remains for Admin to resolve.
+- Vercel deployment was not attempted.
+
+### Remaining UAT and cleanup boundary
+- Authenticated HTTP UAT has not yet been run. Neon Auth is Better Auth with email/password enabled but public sign-up disabled. The isolated branch has only the cloned Platform Admin identity and no dedicated UAT mailbox/account. No real bearer JWT was available; no JWT was forged and no Admin credential/session was used.
+- To complete the requested authenticated HTTP UAT, provision a dedicated test identity on the isolated branch and obtain its legitimate Neon Auth verification/sign-in token. A mailbox controlled by the owner is required; no password or Admin token should be sent in chat.
+- The original validation branch `br-noisy-fog-b379k1uu` is retained temporarily because authenticated HTTP UAT remains outstanding. Delete it only after UAT and final post-UAT evidence are complete. The separate pre-apply backup branch `br-restless-sky-b38dsjol` remains retained as the Production pre-migration restore point.
+- F1 database migration acceptance: PASS. Authenticated HTTP UAT: PENDING. F1 overall final acceptance: NOT COMPLETE. Vercel remains intentionally skipped.

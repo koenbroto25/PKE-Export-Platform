@@ -67,11 +67,6 @@ DECLARE
   v_member public.project_members%ROWTYPE;
   v_role public.project_roles%ROWTYPE;
 BEGIN
-  IF coalesce(current_setting('app.migration_context', true), '') = '043' THEN
-    NEW.updated_at := now();
-    RETURN NEW;
-  END IF;
-
   SELECT * INTO v_member
     FROM public.project_members
    WHERE id = NEW.project_member_id
@@ -101,6 +96,16 @@ BEGIN
       length(trim(coalesce(NEW.revoke_reason,''))) < 5) THEN
     RAISE EXCEPTION 'Revoked assignments require inactive state, Admin actor, and reason'
       USING ERRCODE = '23514';
+  END IF;
+
+  IF v_role.role_code = 'pm' AND NOT public.pke_is_platform_admin() THEN
+    RAISE EXCEPTION 'PM role assignment and revocation require an explicit Platform Admin decision'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_role.role_code = 'pm' AND NEW.is_active = true AND NEW.revoked_at IS NULL
+     AND (NEW.expires_at IS NULL OR NEW.expires_at > now()) THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended(NEW.project_id::text || ':pm-appointment', 0));
   END IF;
 
   IF v_role.role_code = 'pm' AND NEW.is_active = true AND NEW.revoked_at IS NULL
@@ -138,11 +143,6 @@ BEGIN
 END
 $function$;
 
-DROP TRIGGER IF EXISTS trg_project_role_assignment_guard ON public.project_role_assignments;
-CREATE TRIGGER trg_project_role_assignment_guard
-BEFORE INSERT OR UPDATE ON public.project_role_assignments
-FOR EACH ROW EXECUTE FUNCTION public.pke_project_role_assignment_guard();
-
 CREATE OR REPLACE FUNCTION public.pke_project_role_assignment_event()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -153,7 +153,7 @@ DECLARE
   v_type text;
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    v_type := CASE WHEN coalesce(current_setting('app.migration_context', true), '') = '043' THEN 'legacy_backfill' ELSE 'assigned' END;
+    v_type := 'assigned';
     INSERT INTO public.project_role_assignment_events
       (assignment_id, project_id, user_id, project_role_id, event_type, actor_user_id, after_snapshot)
     VALUES
@@ -180,11 +180,6 @@ BEGIN
 END
 $function$;
 
-DROP TRIGGER IF EXISTS trg_project_role_assignment_event ON public.project_role_assignments;
-CREATE TRIGGER trg_project_role_assignment_event
-AFTER INSERT OR UPDATE ON public.project_role_assignments
-FOR EACH ROW EXECUTE FUNCTION public.pke_project_role_assignment_event();
-
 CREATE OR REPLACE FUNCTION public.pke_project_role_assignment_event_immutable()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -200,8 +195,8 @@ CREATE TRIGGER trg_project_role_assignment_event_immutable
 BEFORE UPDATE OR DELETE ON public.project_role_assignment_events
 FOR EACH ROW EXECUTE FUNCTION public.pke_project_role_assignment_event_immutable();
 
--- Preserve every existing legacy role assignment; do not resolve PM conflicts here.
-SELECT set_config('app.migration_context', '043', true);
+-- Preserve every existing legacy role assignment, including existing duplicate PM QA fixtures.
+-- Backfill runs before runtime triggers are installed; no user-settable migration bypass is needed.
 INSERT INTO public.project_role_assignments
   (project_id, project_member_id, user_id, project_role_id, is_active,
    assigned_at, expires_at, revoked_at, revoked_by, revoke_reason)
@@ -218,6 +213,26 @@ SELECT pm.project_id, pm.id, pm.user_id, pm.project_role_id,
       WHERE a.project_member_id = pm.id
         AND a.project_role_id = pm.project_role_id
    );
+
+INSERT INTO public.project_role_assignment_events
+  (assignment_id, project_id, user_id, project_role_id, event_type, actor_user_id, reason, after_snapshot)
+SELECT a.id, a.project_id, a.user_id, a.project_role_id, 'legacy_backfill',
+       a.assigned_by, a.revoke_reason, to_jsonb(a)
+  FROM public.project_role_assignments a
+ WHERE NOT EXISTS (
+   SELECT 1 FROM public.project_role_assignment_events e WHERE e.assignment_id = a.id
+ );
+
+-- Runtime enforcement begins only after the legacy backfill has preserved every prior assignment.
+DROP TRIGGER IF EXISTS trg_project_role_assignment_guard ON public.project_role_assignments;
+CREATE TRIGGER trg_project_role_assignment_guard
+BEFORE INSERT OR UPDATE ON public.project_role_assignments
+FOR EACH ROW EXECUTE FUNCTION public.pke_project_role_assignment_guard();
+
+DROP TRIGGER IF EXISTS trg_project_role_assignment_event ON public.project_role_assignments;
+CREATE TRIGGER trg_project_role_assignment_event
+AFTER INSERT OR UPDATE ON public.project_role_assignments
+FOR EACH ROW EXECUTE FUNCTION public.pke_project_role_assignment_event();
 
 CREATE OR REPLACE FUNCTION public.pke_has_project_permission(
   p_project_id uuid,

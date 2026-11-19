@@ -2424,7 +2424,7 @@ app.post("/api/v1/projects/:id/members/:memberId/role-assignments", requireAuth,
   if (!(await requireProjectPermission(req, res, id, "project.members.manage"))) return;
   const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
   const expiresAt = req.body?.expiresAt ?? null;
-  if (!projectRoleId || (expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt))))) {
+  if (!projectRoleId || (expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()))) {
     return res.status(400).json({ error: "Valid projectRoleId and optional expiresAt are required.", code: "INVALID_ROLE_ASSIGNMENT" });
   }
   try {
@@ -4110,9 +4110,12 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
   const projectId = req.params.projectId as string;
   const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
   const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
+  const expiresAt = req.body?.expiresAt ?? null;
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || !uuidPattern.test(projectRoleId) || reason.length < 5) {
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || !uuidPattern.test(projectRoleId) ||
+      (expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now())) ||
+      reason.length < 5) {
     return res.status(400).json({ error: "Project, user, project role, and an audit reason are required.", code: "INVALID_PROJECT_MEMBER_INPUT" });
   }
 
@@ -4170,8 +4173,8 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
     );
     const { rows: assignmentRows } = await req.db.query(
       `INSERT INTO public.project_role_assignments
-         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by)
-       SELECT $1::uuid, $2::uuid, $3::uuid, $4::uuid, true, now(), $5::uuid
+         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by, expires_at)
+       SELECT $1::uuid, $2::uuid, $3::uuid, $4::uuid, true, now(), $5::uuid, $6::timestamptz
         WHERE NOT EXISTS (
           SELECT 1 FROM public.project_role_assignments existing
            WHERE existing.project_member_id = $2::uuid
@@ -4180,7 +4183,7 @@ app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin,
              AND (existing.expires_at IS NULL OR existing.expires_at > now())
         )
        RETURNING *`,
-      [projectId, member.id, userId, projectRoleId, req.user?.id ?? null],
+      [projectId, member.id, userId, projectRoleId, req.user?.id ?? null, expiresAt],
     );
     if (assignmentRows.length !== 1) {
       return res.status(409).json({ error: "This Project role is already actively assigned to the user.", code: "ROLE_ASSIGNMENT_EXISTS" });

@@ -440,3 +440,32 @@ This section supersedes older F1 checkpoints above where their status differs.
 - BLOCKED EXTERNAL: latest-head Vercel Preview build/smoke due account deployment quota. The older READY Preview is not a substitute.
 - Finance remains reporting-only; payment execution is OUT OF SCOPE and must not be reopened as an F1 blocker.
 - F1 remains IN PROGRESS. Do not mark COMPLETE, merge, or promote to Production until Migration 041 approval/application and latest-head Preview smoke evidence are complete.
+
+
+## F1 authoritative checkpoint — Migration 041 applied and Preview remediation (2026-11-19)
+This section supersedes prior F1 status entries above where they differ.
+
+### Migration 041 — Neon Production
+- Owner approved exact SQL SHA-256: `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- Applied to Neon project `purple-base-63944903`, Production branch `br-damp-shape-b3xlh4nr`, database `neondb`.
+- Production ledger now contains 41 rows; row 41 is `041_finance_notification_rls_recipient_guard.sql`, exact approved SHA-256, status `applied`.
+- Catalog verification: both `pke_can_receive_finance_report_notification(uuid,uuid)` and `pke_submit_finance_report_notifications(uuid,uuid,text,text)` exist as SECURITY DEFINER with `search_path=pg_catalog, public`; PUBLIC EXECUTE=false and `app_runtime_secure` EXECUTE=true.
+- Policy `pke_user_notifications_finance_report_insert` is scoped to `app_runtime_secure` and uses the recipient guard. Production currently has zero existing `finance_report` notification rows; no synthetic data was inserted and the submit function was not invoked against real users.
+- SQL tool accepts one statement per call; migration statements were applied individually. The initial multi-command request was rejected before execution. The ledger insert initially hit a stale sequence value, then succeeded with the next explicit sequence-generated ID. Final ledger and catalog checks passed. Record this execution detail for audit transparency.
+
+### Preview latest-head build and regression correction
+- A Vercel build on commit `c7385b4f53e248f7100c6e3cd03c008fbdbfff91` failed because deployment packaging intentionally excludes `*.sql`, while one Finance policy test unconditionally read the excluded Migration 041 source and expected its PM/Admin recipient SQL.
+- Corrected `src/f1-contract-program-authorization.test.ts`: keep API/Finance scope assertions unconditional, but guard only the migration-source string assertions with `HAS_MIGRATION_041_SOURCE`. Repository CI still includes the SQL file and exercises those assertions; Vercel deployment packaging can now omit SQL safely.
+- Fix commit: `9967194c7869da2e86f8030de4a56e051ac07a76`.
+- Unit Tests run `44438699683`: SUCCESS. Dependency Audit Evidence run `44438698081`: SUCCESS.
+- Vercel Preview deployment `dpl_3uRNAwZUhGoXyjbJhyHfw8ejfxAT`, commit `9967194c7869da2e86f8030de4a56e051ac07a76`: READY. Root page smoke returned HTTP 200 and valid PKE SPA HTML.
+- This is the latest code commit before this documentation checkpoint. Because this plan update creates a new branch head, a fresh Preview must be verified against the resulting documentation commit before calling the latest-head gate complete.
+
+### Current F1 status
+- PASS: Migration 041 approved/applied and Production ledger/schema/privileges verified.
+- PASS: isolated synthetic F1 backtest, remediation, retest, rollback, and cleanup from prior checkpoint; no synthetic Production data.
+- PASS: Unit Tests and Dependency Audit on code fix commit.
+- PASS: Preview build and HTTP 200 smoke on code fix commit.
+- PENDING: final Preview latest-head parity after this plan update commit; do not substitute the preceding Preview.
+- Finance remains reporting-only; payment execution remains OUT OF SCOPE.
+- Do not merge PR #2 or promote a Production deployment as part of this checkpoint.

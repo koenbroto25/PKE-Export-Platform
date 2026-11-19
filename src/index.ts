@@ -527,11 +527,11 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
           roleCode: m.project_role_assignments?.find((a: any) => isEffectiveProjectRoleAssignment(
             { project_id: m.project_id, user_id: m.user_id, project_member_id: m.membership_id, is_active: a.isActive, revoked_at: a.revokedAt, expires_at: a.expiresAt, role_is_active: a.roleIsActive },
             { id: m.membership_id, project_id: m.project_id, user_id: m.user_id, is_active: m.is_active, deactivated_at: m.deactivated_at, expires_at: m.expires_at, project_is_active: m.project_is_active },
-          ))?.roleCode ?? m.catalog_role_name,
+          ))?.roleCode ?? null,
           roleName: m.project_role_assignments?.find((a: any) => isEffectiveProjectRoleAssignment(
             { project_id: m.project_id, user_id: m.user_id, project_member_id: m.membership_id, is_active: a.isActive, revoked_at: a.revokedAt, expires_at: a.expiresAt, role_is_active: a.roleIsActive },
             { id: m.membership_id, project_id: m.project_id, user_id: m.user_id, is_active: m.is_active, deactivated_at: m.deactivated_at, expires_at: m.expires_at, project_is_active: m.project_is_active },
-          ))?.roleName ?? m.catalog_role_name,
+          ))?.roleName ?? null,
           isActive: m.is_active === true,
           joinedAt: m.joined_at,
         })),

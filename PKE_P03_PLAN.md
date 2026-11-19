@@ -355,3 +355,58 @@ Owner confirmed Finance is a reporting-only function. Finance users submit Proje
 
 ### F1 status — not yet marked COMPLETE
 F1 remains IN PROGRESS until the fresh 001-040 CI checks, isolated Finance DML backtest, and latest-head Preview smoke are evidenced. Do not treat payment execution as a blocker; it is outside the owner-approved Finance scope. Do not promote to Production.
+
+
+## F1 full mock-data backtest, audit, remediation, retest — 2026-11-19
+
+### Execution environment and cleanup
+- Used isolated Neon temporary branch `br-square-darkness-b3g97o4p`, based on Production after Migration 040. Branch creation of a second fresh branch was blocked by Neon branch quota; the existing isolated Migration 040 preparation branch had no prior test data and was reused.
+- Created a connected synthetic dataset: 8 mock users (platform Admin, PM/Finance in Project A and B, non-Finance, expired PM, inactive Admin), 2 Projects, 6 memberships, Project roles and permission grants, 1 buyer, 1 Project A contract, 2 Contract Programs, 1 cycle policy, 4 shipments, 3 CoB obligations, 3 financial reports, and 8 notifications.
+- Temporary branch was deleted after backtest and final audit. No mock fixtures were written to Production.
+- Read-only Production post-cleanup checks: migration history remains exactly 40 rows; no `f1-%@mock.invalid` users, no `F1 Mock Project %` Projects, no mock report IDs; Migration 041 function is absent from Production. Production remains at Migration 040.
+- One legacy Contract Program without Project association remained unassigned throughout; count remained 1.
+
+### First backtest findings and remediation
+The first Finance notification backtest found real blockers:
+1. The notification recipient CTE in the Finance API queried `project_members` and `users` under the caller's RLS context. Finance could not enumerate PM memberships or platform Admin rows, so recipient resolution could return no recipients.
+2. Returning notification rows from the INSERT conflicted with recipient-only SELECT RLS. Finance could insert a notification but could not `RETURNING` rows for PM/Admin recipients; the endpoint's notification result handling was therefore not reliable.
+
+Remediation committed to F1 branch:
+- `src/index.ts` now calls a narrowly scoped database function `pke_submit_finance_report_notifications(project_id, actor_id, title, message)` after storing the report. It no longer selects recipient memberships in the Finance caller context and no longer uses notification `RETURNING`.
+- New `migrations/041_finance_notification_rls_recipient_guard.sql` defines a SECURITY DEFINER recipient predicate and a narrowly scoped notification submission function. The function verifies actor equals `pke_current_user_id()`, requires `reports.create`, verifies active Finance membership and active Project, selects only active PM members of that Project plus active platform Admin users, inserts notifications, and returns the inserted count.
+- PUBLIC EXECUTE is revoked; EXECUTE is granted only to `app_runtime_secure`. Function search_path is pinned. Finance cannot use the function to submit for another actor or Project.
+- `src/f1-contract-program-authorization.test.ts` now asserts the secure notification function, PM/Admin routing, explicit permission boundary, and removal of notification RETURNING.
+- Migration runner now has an explicit Migration 041 apply gate requiring `MIGRATE_041_CONFIRM=1`, exact `MIGRATION_041_APPROVED_SHA256`, and a non-empty owner approval reference. Migration 041 is staged as pending in the verified Production history manifest; it is not marked applied.
+
+### Second backtest after remediation — PASS on isolated branch
+- Finance A submitted a Project A report. The report persisted with payload and period metadata; PM A could read it and received a notification.
+- Active platform Admin recipients received notifications. In this clone there were two active platform Admin accounts, so the function returned 3 notifications for Project A (one active Project PM plus two active platform Admins).
+- Finance B submitted a Project B report; PM B could read the report and received a notification. PM A could not read Project B report or notifications. PM B could not read Project A contract.
+- Non-Finance Project member report submission was rejected by RLS. Finance A writing to Project B was rejected by RLS. A forged/non-Finance call to the notification function was rejected.
+- Expired PM and inactive Admin were rejected as notification recipients.
+- PM B created a Project B Contract Program and linked it to Project B. PM A's Project A data remained isolated.
+- PM A created a shipment-linked CoB obligation in unpaid draft state. Duplicate obligation for the same Project/shipment was rejected by the unique index. Cross-Project shipment linkage was rejected by the composite FK.
+- Attempt to mark a CoB obligation paid without verified reconciliation was blocked by the payment-obligation guard. The existing full-paid check and unit tests remain in place.
+- Invalid report period was rejected by the database CHECK constraint.
+- Transaction rollback test: report row was inserted, notification function deliberately failed on actor mismatch, the request transaction rolled back, and the report row count for the test ID was 0.
+- Admin's attempt to create a Project contract was denied by Project-business RLS.
+- All synthetic fixtures were removed by deleting the isolated branch.
+
+### Latest GitHub CI evidence
+Latest F1 source commit at the time of this checkpoint: `c0984cfec18fca204350faa57c7201baf4d4b661`.
+- Unit Tests workflow run `44434538650`: SUCCESS. Steps include offline security/unit tests, Production migration ledger/release-gate verification, migration runner dry-run, and backend TypeScript typecheck — all SUCCESS.
+- Dependency Audit Evidence run `44434538630`: SUCCESS. Root and frontend production dependency audits and full dependency tree audits — all SUCCESS.
+- An earlier Unit Test failure `44434348731` was traced to a stale assertion expecting PM/Admin recipient selection SQL in `src/index.ts`; the assertions were corrected to validate Migration 041 source, and the subsequent run passed.
+
+### Vercel
+- Latest-head Vercel check is blocked only by Vercel build-rate/deploy quota (GitHub combined status context Vercel = failure with target URL identifying build-rate-limit). This is the excluded deploy-limit blocker requested by the owner.
+- No claim of latest-head Preview READY or latest-head live smoke test is made. Earlier READY Preview deployments belong to older commits.
+- No Production promotion/deployment was attempted.
+
+### Production migration state and required owner action
+- Production remains at Migration 040, 40 migration history rows. Migration 041 is not applied.
+- Exact Migration 041 source SHA-256: `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- Migration 041 is recorded in `migration_history_manifest_001_038.json` as pending with the exact SHA-256. Release verifier checks the exact source hash and pending state; runner requires explicit owner approval before applying.
+- Applying Migration 041 to Production is the remaining database blocker for the revised Finance notification endpoint. It requires explicit owner approval of this exact SQL/hash before Production DDL is executed.
+- Payment execution remains explicitly OUT OF SCOPE and is not an F1 blocker.
+- F1 status: **IMPLEMENTATION AND ISOLATED BACKTEST PASS; PRODUCTION MIGRATION 041 APPROVAL AND LATEST-HEAD VERCEL DEPLOY LIMIT REMAIN. Do not mark F1 COMPLETE until Migration 041 is approved/applied and a latest-head Preview smoke can be completed when Vercel quota permits.**

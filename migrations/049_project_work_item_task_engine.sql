@@ -207,7 +207,19 @@ CREATE POLICY pke_user_notifications_task_assignment_insert ON public.user_notif
     created_by = public.pke_current_user_id()
     AND work_item_id IS NOT NULL
     AND project_id IS NOT NULL
-    AND public.pke_has_project_permission(project_id, 'project.tasks.assign')
+    AND (
+      public.pke_has_project_permission(project_id, 'project.tasks.assign')
+      OR public.pke_has_project_permission(project_id, 'project.tasks.escalate')
+      OR EXISTS (
+        SELECT 1 FROM public.project_work_items wi
+         WHERE wi.id = user_notifications.work_item_id
+           AND wi.project_id = user_notifications.project_id
+           AND (
+             wi.assignee_user_id = public.pke_current_user_id()
+             OR public.pke_user_has_active_project_role(wi.project_id, wi.owner_role_code)
+           )
+      )
+    )
     AND EXISTS (
       SELECT 1 FROM public.project_members pm
        WHERE pm.project_id = user_notifications.project_id

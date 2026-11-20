@@ -10,7 +10,11 @@ export interface WorkspaceAccessUser {
   projectPermissions?: string[];
   projectPermissionsLoading?: boolean;
   projectPermissionsError?: string;
-  projectMemberships?: Array<{ isActive?: boolean; projectId?: string }>;
+  projectMemberships?: Array<{
+    isActive?: boolean;
+    projectId?: string;
+    roleAssignments?: Array<{ roleCode?: string; isActive?: boolean; roleIsActive?: boolean; revokedAt?: string | null; expiresAt?: string | null }>;
+  }>;
 }
 
 const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
@@ -48,6 +52,23 @@ export function hasActiveProjectMembership(user: WorkspaceAccessUser): boolean {
   return (user.projectMemberships || []).some(membership => membership.isActive === true);
 }
 
+function activeProjectRoleCodes(user: WorkspaceAccessUser): string[] {
+  const membership = (user.projectMemberships || []).find(item =>
+    item.isActive === true && (!user.selectedProjectId || item.projectId === user.selectedProjectId)
+  );
+  return (membership?.roleAssignments || [])
+    .filter(assignment => assignment.isActive === true && assignment.roleIsActive !== false && !assignment.revokedAt &&
+      (!assignment.expiresAt || new Date(assignment.expiresAt).getTime() > Date.now()))
+    .map(assignment => String(assignment.roleCode || "").toLowerCase())
+    .filter(Boolean);
+}
+
+const FINANCE_PAGE_ROLES = new Set(["pm", "project_admin", "finance", "internal_auditor", "cashier"]);
+const REPORT_PAGE_ROLES = new Set(["pm", "project_admin", "internal_auditor", "finance", "accounting", "cashier"]);
+function hasAuthorizedRoleForPage(user: WorkspaceAccessUser, allowedRoles: Set<string>): boolean {
+  return activeProjectRoleCodes(user).some(roleCode => allowedRoles.has(roleCode));
+}
+
 export function hasPageAccess(pageKey: WorkspacePageKey | string, user: WorkspaceAccessUser): boolean {
   if (user.platformAdmin === true) return true;
   if (pageKey === 'notifications') return true;
@@ -63,19 +84,27 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
     return [...permissions].some(permission => !externalOnly.has(permission))
       && PAGE_PERMISSION_REQUIREMENTS.compliance.some(permission => permissions.has(permission));
   }
-  if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0;
+  if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");
   if (pageKey === 'projects') return hasActiveProjectMembership(user);
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
-    return pageKey === 'dashboard' && !user.selectedProjectId && hasActiveProjectMembership(user);
+    return pageKey === 'dashboard' && hasActiveProjectMembership(user);
   }
   if (pageKey === 'dashboard') {
     // Every active Project role receives a scoped landing dashboard. Domain data
     // remains permission-gated by the dashboard and the API/RLS layer.
-    return (user.projectPermissions || []).length > 0;
+    return hasActiveProjectMembership(user);
   }
   const permissions = new Set(user.projectPermissions || []);
   if (pageKey === 'supplier') return permissions.has('supplier.view') && permissions.has('shipment.view');
   if (pageKey === 'transporter') return permissions.has('record_truck_trips') && permissions.has('verify_checkpoints');
+  if (pageKey === 'finance') {
+    return hasAuthorizedRoleForPage(user, FINANCE_PAGE_ROLES) &&
+      PAGE_PERMISSION_REQUIREMENTS.finance.some(permission => permissions.has(permission));
+  }
+  if (pageKey === 'reports') {
+    return hasAuthorizedRoleForPage(user, REPORT_PAGE_ROLES) &&
+      PAGE_PERMISSION_REQUIREMENTS.reports.some(permission => permissions.has(permission));
+  }
   const required = PAGE_PERMISSION_REQUIREMENTS[pageKey];
   if (!required) return false;
   return required.some(permission => permissions.has(permission));

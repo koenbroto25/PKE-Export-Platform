@@ -81,4 +81,25 @@ describe("Consolidated PKE permission and integrity contracts", () => {
     expect(migration).toContain("pke_tracking_events_insert");
     expect(ui).toContain("/tracking-events?projectId=");
   });
+  it("scopes operational read APIs by Project and matching view permissions", () => {
+    for (const [route, permission, filter] of [
+      ["/api/v1/truck-trips", "logistics.view", "project_id=$1::uuid"],
+      ["/api/v1/warehouse-receipts", "warehouse.view", "project_id=$1::uuid"],
+      ["/api/v1/inventory-lots", "inventory.view", "project_id=$1::uuid"],
+      ["/api/v1/inventory-movements", "inventory.view", "project_id=$1::uuid"],
+      ["/api/v1/inventory-holds", "inventory.view", "project_id=$1::uuid"],
+      ["/api/v1/inventory-reservations", "inventory.view", "project_id = $1::uuid"],
+    ] as const) {
+      const block = routeBlock("get", route);
+      expect(block).toContain(`"${permission}"`);
+      expect(block).toContain(filter);
+    }
+    expect(ui).toContain("/warehouse-receipts?projectId=");
+    expect(ui).toContain("/inventory-movements?projectId=");
+  });
+  it("does not accept a client-provided AP three-way match assertion", () => {
+    const block = routeBlock("patch", "/api/v1/ap-invoices/:id/verification");
+    expect(block).not.toContain("threeWayMatch");
+    expect(block).toContain("THREE_WAY_MATCH_WORKFLOW_REQUIRED");
+  });
 });

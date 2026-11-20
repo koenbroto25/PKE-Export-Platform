@@ -236,7 +236,7 @@ The following are now source-implemented on the branch, subject to CI and runtim
 - Explicitly assigned tasks are visible only to that user while their role assignment is active; role-wide tasks are visible only to active members of the owning Project role.
 - Production/QA, vessel/loading/laytime and LC presentation remain unavailable. The PM dashboard reports those gaps rather than implying readiness.
 
-Prepared Migration 049 SHA-256: `4d4cd7a877665986f10c3068ba8dd86332eff8c22b00214d45a45806fac276a8`. It depends on sequential Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. Neither migration is approved/applied; Production remains at Migration 047.
+Prepared Migration 049 SHA-256: `f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780`. It depends on sequential Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. Neither migration is approved/applied; Production remains at Migration 047.
 
 Current source CI is pending. This design document is not evidence of runtime UAT or Production authorization.
 ### CI confirmation — source commit `fc25624ec288189bc1f33ece374422667c28d982`
@@ -253,12 +253,22 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Migration 049 notification RLS now explicitly authorizes `project.tasks.resolve` for PM-to-owner resolution/closure notifications.
 - Transport-leg reads are now mandatory Project-scoped and require `logistics.view`; operational UI uses real transport legs from the selected Project and does not synthesize them.
 - Latest CI: 214/214 tests, both TypeScript checks, production frontend build, migration ledger verifier, dry-run and dependency audit PASS on PR #2 head `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f`.
-- Current prepared hashes: 048 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; 049 `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Not approved/applied; Production remains 047.
+- Current prepared hashes: 048 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; 049 `f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780`. Not approved/applied; Production remains 047.
 - Still required: approved 048/049, verified backup, sequential application, and runtime multi-role/multi-Project UAT. No Production or Vercel mutation was performed.
 
 ## 12. Source/Production status reconciliation — 2026-11-20
 
 - The role and workflow analysis in Sections 1–5 remains the business design baseline. Sections 6, 7 and the historical mismatch rows in Section 10 are reconciled above with the P0 source implementation and its audit corrections.
 - Last validated application-source commit `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f` has 214/214 unit tests passing across 18 files; backend/frontend TypeScript, frontend production build, migration release verifier, migration dry-run and dependency audit all pass. Subsequent commits `5f258b110f29f03b4c230617a858303faf474411` and `116aff13697da0486410f708528fbb9ec3cba45f` update this design document only; they do not change application source.
-- Migration 048 SHA-256: `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. Migration 049 SHA-256: `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Both are prepared and unapproved; Production remains at Migration 047.
+- Migration 048 SHA-256: `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. Migration 049 SHA-256: `f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780`. Both are prepared and unapproved; Production remains at Migration 047.
 - P0 source completion is not Production activation. Required release gates remain exact owner approval, verified backup, sequential 048/049 application, and authenticated multi-role/multi-Project RLS and workflow UAT. No Production write or Vercel deployment is implied.
+
+
+## 13. P0 SQL/release-runner correction — 2026-11-20
+
+- Re-opened the final Migration 049 SQL after identifying that its anonymous DO block used an invalid single-dollar delimiter. Corrected the block to PostgreSQL's valid DO $$ ... END $$; quoting.
+- Final corrected Migration 049 SHA-256: f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780. This supersedes the earlier 4d4... and c2e5... hashes recorded in historical checkpoints above.
+- Updated scripts/migrate.mjs to pin the corrected exact Migration 049 hash. The 048/049 apply gate continues to require both explicit per-migration approvals, exact approved hashes, the verified 001–047 Production ledger, and a recorded backup reference plus SHA-256; the migrations execute in order inside one transaction.
+- Extended src/project-work-items.contract.test.ts to assert valid DO quoting, reject the malformed delimiter, and ensure the runner's 048/049 pins and approval/backup gates remain aligned.
+- Source-level corrections are committed; current-head CI must complete before this checkpoint is considered green. No Neon Production DDL/DML or Vercel deployment was performed.
+- Production ledger independently re-read on 2026-11-20: 47/47, exact Migration 047 hash. The existing pre-F1 backup branch predates migrations 042–047 and is not a valid pre-048/049 backup. Snapshot creation did not produce a new snapshot; a current backup is still required before migration apply.

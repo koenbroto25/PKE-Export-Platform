@@ -22,6 +22,7 @@ const EXPECTED_PORT = 5432;
 const PREPARED_MIGRATION_PINS = Object.freeze({
   "048_buyer_accounting_ap_ar_document_hardening.sql": "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3",
   "049_project_work_item_task_engine.sql": "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780",
+  "050_inventory_holds_legacy_schema_alignment.sql": "e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab",
 });
 
 const LEGACY_HOST_HINTS = [

@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 const migration = fs.readFileSync("migrations/052_funder_finance_report_scope_isolation.sql");
 const runner = fs.readFileSync("scripts/apply-migration-052.mjs", "utf8");
 const manifest = JSON.parse(fs.readFileSync("migration_history_manifest_001_051.json", "utf8"));
+const appliedManifest = JSON.parse(fs.readFileSync("migration_history_manifest_001_052.json", "utf8"));
 const backup = JSON.parse(fs.readFileSync("docs/audits/NEON_PRE_052_BACKUP_MANIFEST_20261120.json", "utf8"));
 const sha = crypto.createHash("sha256").update(migration).digest("hex");
 
@@ -32,6 +33,18 @@ describe("Migration 052 release safety contract", () => {
       id: 51,
       filename: "051_task_notification_recipient_rls_helper.sql",
       sha256: "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927",
+      status: "applied",
+    });
+  });
+
+  it("records Migration 052 as applied in the canonical 001-052 ledger", () => {
+    expect(appliedManifest.applied_count).toBe(52);
+    expect(appliedManifest.entries).toHaveLength(52);
+    expect(appliedManifest.pending_migrations).toEqual([]);
+    expect(appliedManifest.entries[51]).toMatchObject({
+      id: 52,
+      filename: "052_funder_finance_report_scope_isolation.sql",
+      sha256: "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b",
       status: "applied",
     });
   });

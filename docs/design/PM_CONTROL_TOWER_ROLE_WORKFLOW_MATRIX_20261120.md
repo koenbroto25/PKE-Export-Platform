@@ -272,3 +272,10 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Extended src/project-work-items.contract.test.ts to assert valid DO quoting, reject the malformed delimiter, and ensure the runner's 048/049 pins and approval/backup gates remain aligned.
 - Source-level corrections are committed; current-head CI must complete before this checkpoint is considered green. No Neon Production DDL/DML or Vercel deployment was performed.
 - Production ledger independently re-read on 2026-11-20: 47/47, exact Migration 047 hash. The existing pre-F1 backup branch predates migrations 042–047 and is not a valid pre-048/049 backup. Snapshot creation did not produce a new snapshot; a current backup is still required before migration apply.
+
+
+### P0 release-runner hardening follow-up
+
+- The no-connection dry-run now fails closed if either prepared SQL file is missing or its actual SHA-256 differs from the pinned Migration 048/049 release hashes. This closes the prior gap where dry-run only printed hashes without enforcing the approved values.
+- Migration 049's regression test now computes SHA-256 from the actual SQL bytes with Node crypto and compares it to the runner pin, in addition to checking PostgreSQL DO-block quoting.
+- The current CI run is required to validate these changes; previous green CI runs are historical evidence only.

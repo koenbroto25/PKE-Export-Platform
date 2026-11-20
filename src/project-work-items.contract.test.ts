@@ -39,6 +39,7 @@ describe("Project work item task engine contract", () => {
     expect(api).toContain('requireProjectPermission(req, res, projectId, "project.tasks.create")');
     expect(api).toContain("ROLE_HAS_NO_ACTIVE_ASSIGNEE");
     expect(api).toContain("ASSIGNEE_ROLE_MISMATCH");
+    expect(api).toContain("ownerRoleCode and reassignment reason are required.");
     expect(api).toContain('app.patch("/api/v1/projects/:projectId/work-items/:id"');
   });
 
@@ -59,6 +60,9 @@ describe("Project work item task engine contract", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS work_item_id uuid");
     expect(migration).toContain("pke_user_has_active_project_role(wi.project_id, wi.owner_role_code)");
     expect(api).toContain("work_item_id,recipient_user_id");
+    expect(api).toContain('["assign","escalate","submit","block","resolve","close"].includes(action)');
+    expect(api).toContain("Tugas menunggu review PM: ");
+    expect(api).toContain("Tugas terblokir: ");
     expect(api).toContain('eventType === "checkpoint" ? "verify_checkpoints"');
     expect(migration).toContain("event_type = 'checkpoint' AND public.pke_has_truck_trip_permission(truck_trip_id, 'verify_checkpoints')");
     expect(api).toContain('const targetRole = action === "escalate" ? "pm" : roleCode');

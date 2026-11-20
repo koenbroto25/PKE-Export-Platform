@@ -373,7 +373,7 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
   const [form, setForm] = useState({ name: '', description: '', settlementUnit: 'MT', targetQuantity: '', status: 'draft' });
   const [busy, setBusy] = useState(false);
   const save = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!canCreateProject) return; setBusy(true);
     try { await post('/projects', { ...form, targetQuantity: Number(form.targetQuantity) }); onNotice('success', 'Proyek berhasil dibuat.'); setShowForm(false); setForm((v: any) => ({ ...v, name: '', description: '', targetQuantity: '' })); projects.refresh(); }
     catch (e) { onNotice('error', e instanceof Error ? e.message : 'Proyek tidak dapat dibuat.'); }
     finally { setBusy(false); }
@@ -412,7 +412,7 @@ function ContractsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNot
   const [cycle, setCycle] = useState({ contractProgramId: '', cadence: 'monthly', targetQuantity: '', generationMode: 'scheduled_draft' });
   useEffect(() => { if (!cycle.contractProgramId && programs.data?.contractPrograms?.[0]) setCycle(v => ({ ...v, contractProgramId: programs.data!.contractPrograms![0].id })); }, [programs.data, cycle.contractProgramId]);
   const save = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!canManagePrograms) return; setBusy(true);
     try {
       if (mode === 'program') await post('/contract-programs', { ...program, targetQuantity: Number(program.targetQuantity) });
       else await post('/cycle-policies', { ...cycle, targetQuantity: cycle.targetQuantity ? Number(cycle.targetQuantity) : null });
@@ -502,7 +502,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
   }, [reservation.lotId, lots.data, reservations.data]);
 
   const saveTrip = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!can('record_truck_trips')) return; setBusy(true);
     try {
       await post('/truck-trips', { ...trip, departureTime: trip.departureTime ? new Date(trip.departureTime).toISOString() : null, arrivalTime: trip.arrivalTime ? new Date(trip.arrivalTime).toISOString() : null });
       onNotice('success', 'Perjalanan truk berhasil dicatat.'); setFormOpen(false); trips.refresh();
@@ -510,7 +510,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const saveEvent = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (event.eventType === 'checkpoint' ? !can('verify_checkpoints') : !can('record_truck_trips')) return; setBusy(true);
     try {
       await post('/tracking-events', { ...event, latitude: event.latitude ? Number(event.latitude) : null, longitude: event.longitude ? Number(event.longitude) : null, gpsAccuracy: event.gpsAccuracy ? Number(event.gpsAccuracy) : null, captureTimestamp: event.captureTimestamp ? new Date(event.captureTimestamp).toISOString() : null });
       onNotice('success', 'Checkpoint berhasil dikirim.'); setEventOpen(false); events.refresh();
@@ -518,7 +518,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const saveReceipt = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!can('warehouse.receipt.create')) return; setBusy(true);
     try {
       await post('/warehouse-receipts', { ...receipt, receivedQuantity: receipt.receivedQuantity ? Number(receipt.receivedQuantity) : null, checkTimestamp: receipt.checkTimestamp ? new Date(receipt.checkTimestamp).toISOString() : null });
       onNotice('success', 'Terima gudang berhasil dicatat.'); setReceipt(v => ({ ...v, receivedQuantity: '', conditionStatus: '', exceptionReason: '', weighbridgeTicketKey: '', status: 'pending' })); receipts.refresh();
@@ -526,7 +526,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const saveLot = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!can('inventory.create')) return; setBusy(true);
     try {
       await post('/inventory-lots', { ...lot, quantity: lot.quantity ? Number(lot.quantity) : null });
       onNotice('success', 'Lot inventori berhasil dibuat.'); setFormOpen(false); lots.refresh();
@@ -534,7 +534,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const saveReservation = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!can('inventory.reserve')) return; setBusy(true);
     try {
       const reservedQty = Number(reservation.reservedQuantity || 0);
       if (reservedQty > reservationAvailableQty) {
@@ -547,7 +547,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const saveHold = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!can('inventory.hold')) return; setBusy(true);
     try {
       await post('/inventory-holds', { ...hold, heldQuantity: Number(hold.heldQuantity) });
       onNotice('success', 'Tahanan inventori berhasil dibuat.'); setHoldOpen(false); holds.refresh();
@@ -555,7 +555,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const saveAllocation = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!can('shipping.update')) return; setBusy(true);
     try {
       await post('/shipment-allocations', { ...allocation, allocatedQuantity: Number(allocation.allocatedQuantity) });
       onNotice('success', 'Alokasi pengiriman berhasil dibuat.'); setAllocationOpen(false); allocations.refresh();
@@ -563,7 +563,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const saveMovement = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!can('inventory.update')) return; setBusy(true);
     try {
       await post('/inventory-movements', { ...movement, quantity: Number(movement.quantity) });
       onNotice('success', 'Gerakan inventori berhasil dicatat.'); setMovementOpen(false); movements.refresh();
@@ -951,7 +951,7 @@ function CashAdvancesPage({ projectId, onNotice }: { projectId: string; onNotice
   }, [currencies.data, form.currencyId]);
 
   const submit = async (event: FormEvent) => {
-    event.preventDefault();
+    event.preventDefault(); if (!advances.data?.canRequest) return;
     if (!projectId) return onNotice('error', 'Pilih Project terlebih dahulu.');
     setBusy(true);
     try {
@@ -966,6 +966,7 @@ function CashAdvancesPage({ projectId, onNotice }: { projectId: string; onNotice
   };
 
   const decide = async (row: AnyRecord, decision: 'approved' | 'rejected') => {
+    if (!advances.data?.canApprove) return;
     setBusy(true);
     try {
       await patch(`/cash-advances/${row.id}/decision`, { decision });

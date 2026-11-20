@@ -18,6 +18,11 @@ describe("Project-scoped effective permission UX", () => {
     expect(hasPageAccess("finance", noSelection)).toBe(false); expect(hasPageAccess("journal-entries", noSelection)).toBe(false);
     expect(hasPageAccess("projects", noSelection)).toBe(true); expect(hasPageAccess("notifications", noSelection)).toBe(true);
   });
+  it("does not expose payment instructions or Funder workspace from Finance read access alone", () => {
+    const pm = visiblePageKeys(user(["project.view", "finance.view", "reports.view"]));
+    expect(pm).toContain("finance"); expect(pm).not.toContain("payment-instructions"); expect(pm).not.toContain("funder");
+    expect(visiblePageKeys(user(["payment.view"]))).toContain("payment-instructions");
+  });
   it("fails closed while Project permissions are loading or unavailable", () => {
     expect(hasPageAccess("finance", { ...user(["finance.view"]), projectPermissionsLoading: true })).toBe(false);
     expect(hasPageAccess("finance", { ...user(["finance.view"]), projectPermissionsError: "denied" })).toBe(false);

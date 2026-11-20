@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+
+const appSource = fs.readFileSync(path.join(process.cwd(), "frontend/src/App.tsx"), "utf8");
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from "../frontend/src/role-permissions.js";
 
 const member = { projectId: "project-a", isActive: true };
@@ -67,6 +71,30 @@ describe("Project-scoped effective permission UX", () => {
   it("fails closed while Project permissions are loading or unavailable", () => {
     expect(hasPageAccess("finance", { ...user(["finance.view"]), projectPermissionsLoading: true })).toBe(false);
     expect(hasPageAccess("finance", { ...user(["finance.view"]), projectPermissionsError: "denied" })).toBe(false);
+  });
+  it("gates Operations data requests and action forms by their own domain permissions", () => {
+    const operations = appSource.slice(appSource.indexOf("function OperationsPage"), appSource.indexOf("function FinancePage"));
+    expect(operations).toContain("projectId && canLogisticsView");
+    expect(operations).toContain("projectId && canWarehouseView");
+    expect(operations).toContain("projectId && canInventoryView");
+    expect(operations).toContain("projectId && canShippingView");
+    expect(operations).toContain('can("warehouse.receipt.create")');
+    expect(operations).toContain('can("inventory.create")');
+    expect(operations).toContain('can("inventory.reserve")');
+    expect(operations).toContain('can("inventory.hold")');
+    expect(operations).toContain('can("inventory.update")');
+    expect(operations).toContain('can("shipping.update")');
+    expect(operations).not.toContain("/transport-legs?projectId=");
+    expect(operations).not.toContain("get('/shipment-allocations')");
+  });
+  it("keeps Admin-only regulatory endpoints out of Project user document workflows", () => {
+    const compliance = appSource.slice(appSource.indexOf("function CompliancePage"), appSource.indexOf("function ReportsPage"));
+    expect(compliance).toContain("canAdminRegulatory ? get('/regulatory-knowledge')");
+    expect(compliance).toContain("canAdminRegulatory ? get('/country-packs')");
+    expect(compliance).toContain("projectId && canViewDocuments");
+    expect(compliance).toContain("if (!canCreateDocuments)");
+    expect(compliance).toContain("if (!canUpdateDocuments || !editStatus)");
+    expect(compliance).toContain('canAdminRegulatory && <Card><PanelHeading title="Pemeriksaan kepatuhan"');
   });
   it("keeps Platform Admin access separate from Project permissions", () => {
     expect(hasPageAccess("access", { platformAdmin: true, selectedProjectId: "", projectPermissions: [] })).toBe(true);

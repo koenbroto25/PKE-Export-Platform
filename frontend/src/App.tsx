@@ -1379,11 +1379,13 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
           {["acknowledged","in_progress"].includes(task.status) && <ActionButton variant="ghost" onClick={() => act(task, "block", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Blokir</ActionButton>}
           {task.status === "submitted" && canResolve && <ActionButton onClick={() => act(task, "resolve")} disabled={busy}>Setujui penyelesaian</ActionButton>}
           {task.status === "resolved" && canResolve && <ActionButton onClick={() => act(task, "close")} disabled={busy}>Tutup tugas</ActionButton>}
+          {["resolved","closed"].includes(task.status) && canResolve && <ActionButton variant="ghost" onClick={() => act(task, "reopen", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Buka kembali</ActionButton>}
           {!["resolved","closed","cancelled"].includes(task.status) && <ActionButton variant="ghost" onClick={() => act(task, "escalate", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Eskalasi ke PM</ActionButton>}
+          {actionReason.trim().length >= 2 && <ActionButton variant="ghost" onClick={() => act(task, "comment", { comment: actionReason })} disabled={busy}>Catat komentar</ActionButton>}
           {canAssign && !["closed","cancelled"].includes(task.status) && <ActionButton variant="secondary" onClick={() => { setAssignTaskId(task.id); setAssignDraft({ ownerRoleCode: task.owner_role_code, assigneeUserId: task.assignee_user_id || "", dueAt: task.due_at ? new Date(task.due_at).toISOString().slice(0,16) : "", priority: task.priority }); }}>Alihkan</ActionButton>}
           <ActionButton variant="ghost" onClick={() => setSelectedTaskId(task.id)}>Riwayat</ActionButton>
         </div>
-        {(["acknowledged","in_progress","blocked"].includes(task.status) || !["resolved","closed","cancelled"].includes(task.status)) && <FormField label="Alasan blokir / eskalasi"><input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Minimal 5 karakter" /></FormField>}
+        {(["acknowledged","in_progress","blocked"].includes(task.status) || !["resolved","closed","cancelled"].includes(task.status)) && <FormField label="Catatan / alasan blokir / eskalasi / buka kembali"><input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Minimal 5 karakter" /></FormField>}
         {assignTaskId === task.id && canAssign && <form className="form-grid" onSubmit={e => { e.preventDefault(); assign(task); }}>
           <FormField label="Role baru"><select value={assignDraft.ownerRoleCode} onChange={e => setAssignDraft(v => ({ ...v, ownerRoleCode: e.target.value, assigneeUserId: "" }))}>{activeRoles.map(role => <option key={role.id} value={role.role_code}>{role.name}</option>)}</select></FormField>
           <FormField label="User tertentu"><select value={assignDraft.assigneeUserId} onChange={e => setAssignDraft(v => ({ ...v, assigneeUserId: e.target.value }))}><option value="">Seluruh role</option>{eligibleMembers(assignDraft.ownerRoleCode).map(member => <option key={member.user_id} value={member.user_id}>{member.name || member.email}</option>)}</select></FormField>
@@ -1392,7 +1394,7 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
         </form>}
       </Card>)}</div>}
     {selectedTaskId && <Card><PanelHeading title="Riwayat tugas" description="Event append-only untuk penugasan, acknowledgment dan penyelesaian." action={<button className="icon-button" onClick={() => setSelectedTaskId("")}><X size={16} /></button>} />
-      {events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : <div className="activity-list">{(events.data?.events || []).map(event => <div className="activity-item" key={event.id}><div className="activity-icon"><Clock3 size={16} /></div><div className="activity-copy"><strong>{event.event_type}</strong><span>{event.reason || ""}</span><small>{dateTime(event.occurred_at)} · {shortId(event.actor_user_id)}</small></div></div>)}</div>}
+      {events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : <div className="activity-list">{(events.data?.events || []).map(event => <div className="activity-item" key={event.id}><div className="activity-icon"><Clock3 size={16} /></div><div className="activity-copy"><strong>{event.event_type}</strong><span>{event.reason || (event.payload?.comment ? String(event.payload.comment) : "")}</span><small>{dateTime(event.occurred_at)} · {shortId(event.actor_user_id)}</small></div></div>)}</div>}
     </Card>}
   </>;
 }

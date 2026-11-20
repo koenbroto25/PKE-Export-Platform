@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
-import { hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
+import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 
 type AnyRecord = Record<string, any>;
 type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';

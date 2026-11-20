@@ -158,8 +158,10 @@ CREATE POLICY pke_project_work_items_select ON public.project_work_items
   FOR SELECT TO app_runtime_secure
   USING (
     public.pke_has_project_permission(project_id, 'project.tasks.view')
-    OR assignee_user_id = public.pke_current_user_id()
-    OR public.pke_user_has_active_project_role(project_id, owner_role_code)
+    OR (
+      public.pke_user_has_active_project_role(project_id, owner_role_code)
+      AND (assignee_user_id IS NULL OR assignee_user_id = public.pke_current_user_id())
+    )
   );
 
 DROP POLICY IF EXISTS pke_project_work_items_insert ON public.project_work_items;
@@ -176,14 +178,18 @@ CREATE POLICY pke_project_work_items_update ON public.project_work_items
   USING (
     public.pke_has_project_permission(project_id, 'project.tasks.update')
     OR public.pke_has_project_permission(project_id, 'project.tasks.resolve')
-    OR assignee_user_id = public.pke_current_user_id()
-    OR public.pke_user_has_active_project_role(project_id, owner_role_code)
+    OR (
+      public.pke_user_has_active_project_role(project_id, owner_role_code)
+      AND (assignee_user_id IS NULL OR assignee_user_id = public.pke_current_user_id())
+    )
   )
   WITH CHECK (
     public.pke_has_project_permission(project_id, 'project.tasks.update')
     OR public.pke_has_project_permission(project_id, 'project.tasks.resolve')
-    OR assignee_user_id = public.pke_current_user_id()
-    OR public.pke_user_has_active_project_role(project_id, owner_role_code)
+    OR (
+      public.pke_user_has_active_project_role(project_id, owner_role_code)
+      AND (assignee_user_id IS NULL OR assignee_user_id = public.pke_current_user_id())
+    )
   );
 
 DROP POLICY IF EXISTS pke_project_work_item_events_select ON public.project_work_item_events;
@@ -223,10 +229,8 @@ CREATE POLICY pke_user_notifications_task_assignment_insert ON public.user_notif
         SELECT 1 FROM public.project_work_items wi
          WHERE wi.id = user_notifications.work_item_id
            AND wi.project_id = user_notifications.project_id
-           AND (
-             wi.assignee_user_id = public.pke_current_user_id()
-             OR public.pke_user_has_active_project_role(wi.project_id, wi.owner_role_code)
-           )
+           AND public.pke_user_has_active_project_role(wi.project_id, wi.owner_role_code)
+           AND (wi.assignee_user_id IS NULL OR wi.assignee_user_id = public.pke_current_user_id())
       )
     )
     AND EXISTS (

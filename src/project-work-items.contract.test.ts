@@ -8,6 +8,7 @@ const api = fs.readFileSync(path.join(root, "src/index.ts"), "utf8");
 const ui = fs.readFileSync(path.join(root, "frontend/src/App.tsx"), "utf8");
 const roles = fs.readFileSync(path.join(root, "src/role-catalogue.ts"), "utf8");
 const schema = fs.readFileSync(path.join(root, "src/schema.ts"), "utf8");
+const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 
 describe("Project work item task engine contract", () => {
   it("creates Project-scoped work items and append-only events under forced RLS", () => {
@@ -98,4 +99,15 @@ describe("Project work item task engine contract", () => {
     const taskWorkspace = ui.slice(ui.indexOf("function MyWorkPage"), ui.indexOf("function NotificationsPage"));
     expect(taskWorkspace).not.toContain("finance.update");
   });
+  it("pins the final task migration checksum and rejects malformed PostgreSQL DO quoting", () => {
+    expect(migration).toContain("DO $$\\nBEGIN");
+    expect(migration).toContain("END $$;");
+    expect(migration).not.toContain("DO $\\nBEGIN");
+    expect(runner).toContain('const approved048Sha = "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3";');
+    expect(runner).toContain('const approved049Sha = "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780";');
+    expect(runner).toContain("MIGRATE_048_CONFIRM");
+    expect(runner).toContain("MIGRATE_049_CONFIRM");
+    expect(runner).toContain("MIGRATION_BACKUP_REFERENCE");
+  });
+
 });

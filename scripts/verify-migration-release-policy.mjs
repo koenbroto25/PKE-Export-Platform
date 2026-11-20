@@ -87,10 +87,8 @@ const expectedApplied = [
   [44, "044_project_change_delete_permission.sql", "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d"],
   [45, "045_cash_advance_financial_audit.sql", "da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261"],
 ];
-if ((ledger.pending_migrations || []).length !== 1 ||
-    ledger.pending_migrations[0]?.file !== "migrations/047_project_admin_finance_read_only.sql" ||
-    ledger.pending_migrations[0]?.sha256 !== "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682") {
-  fail("Only the exact owner-approval-pending Migration 047 may remain pending.");
+if ((ledger.pending_migrations || []).length !== 0) {
+  fail("No pending migrations may remain after applied Migration 047.");
 }
 for (const [id, file, sha] of expectedApplied) {
   const applied = ledger.entries[id - 1];

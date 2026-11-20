@@ -3055,27 +3055,20 @@ app.patch("/api/v1/truck-trips/:id", requireAuth, async (req: express.Request, r
 // Transport legs (read-only listing for trip assignment)
 // ============================================
 app.get("/api/v1/transport-legs", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId } = req.query;
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter required" });
+  if (!(await requireProjectPermission(req, res, projectId, "logistics.view"))) return;
   try {
-    if (projectId) {
-      const { rows } = await req.db.query(
-        `SELECT id, project_id, origin, destination, distance_km, status, created_at, updated_at
-         FROM transport_legs
-         WHERE project_id = $1::uuid
-         ORDER BY created_at DESC LIMIT 100`,
-        [projectId],
-      );
-      res.json({ transportLegs: rows });
-    } else {
-      const { rows } = await req.db.query(
-        `SELECT id, project_id, origin, destination, distance_km, status, created_at, updated_at
-         FROM transport_legs
-         ORDER BY created_at DESC LIMIT 100`,
-      );
-      res.json({ transportLegs: rows });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load transport legs" });
+    const { rows } = await req.db.query(
+      `SELECT id, project_id, origin, destination, distance_km, status, created_at, updated_at
+       FROM transport_legs
+       WHERE project_id = $1::uuid
+       ORDER BY created_at DESC LIMIT 100`,
+      [projectId],
+    );
+    return res.json({ transportLegs: rows });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

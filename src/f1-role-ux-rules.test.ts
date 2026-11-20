@@ -111,6 +111,19 @@ describe("Project-scoped effective permission UX", () => {
     expect(appSource).toContain("showForm && canCreateProject");
     expect(appSource).toContain("showForm && canManagePrograms");
   });
+  it("scopes transport-leg reads to an authorized Project and restores real trip creation", () => {
+    const route = apiSource.slice(apiSource.indexOf('app.get("/api/v1/transport-legs"'), apiSource.indexOf('app.get("/api/v1/tracking-events"'));
+    expect(route).toContain("projectId query parameter required");
+    expect(route).toContain('requireProjectPermission(req, res, projectId, "logistics.view")');
+    expect(route).toContain("WHERE project_id = $1::uuid");
+    expect(route).not.toContain("SELECT id, project_id, origin, destination, distance_km, status, created_at, updated_at FROM transport_legs ORDER BY");
+    const ops = appSource.slice(appSource.indexOf("function OperationsPage"), appSource.indexOf("function FinancePage"));
+    expect(ops).toContain("get(`/transport-legs?projectId=");
+    expect(ops).toContain('can("record_truck_trips") && <ActionButton');
+    expect(ops).toContain("{formOpen && can(\"record_truck_trips\")");
+    expect(ops).toContain("disabled={busy || !(legs.data?.transportLegs || []).length}");
+  });
+
   it("keeps Platform Admin access separate from Project permissions", () => {
     expect(hasPageAccess("access", { platformAdmin: true, selectedProjectId: "", projectPermissions: [] })).toBe(true);
   });

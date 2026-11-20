@@ -1030,11 +1030,11 @@ async function requireProjectPermission(
         AND perm.code = $3::text
         AND NOT (
           pr.role_code = 'funder'
-          AND $3::text = ANY(ARRAY[
-            'finance.view','finance.create','finance.update','finance.delete','finance.cash_advance.request',
-            'accounting.view','accounting.create','reports.view','reports.create','report.view',
-            'view_financial','view_rab','payment.view'
-          ]::text[])
+          AND (
+            $3::text LIKE 'finance.%' OR $3::text LIKE 'accounting.%' OR
+            $3::text LIKE 'reports.%' OR $3::text LIKE 'payment.%' OR
+            $3::text IN ('report.view','view_financial','view_rab')
+          )
         )
       ORDER BY pr.role_code, a.assigned_at DESC
       LIMIT 1`,
@@ -1079,11 +1079,11 @@ async function findExplicitProjectPermission(req: express.Request, projectId: st
         AND pr.is_active=true AND perm.code=ANY($3::text[])
         AND NOT (
           pr.role_code='funder'
-          AND perm.code=ANY(ARRAY[
-            'finance.view','finance.create','finance.update','finance.delete','finance.cash_advance.request',
-            'accounting.view','accounting.create','reports.view','reports.create','report.view',
-            'view_financial','view_rab','payment.view'
-          ]::text[])
+          AND (
+            perm.code LIKE 'finance.%' OR perm.code LIKE 'accounting.%' OR
+            perm.code LIKE 'reports.%' OR perm.code LIKE 'payment.%' OR
+            perm.code IN ('report.view','view_financial','view_rab')
+          )
         )
       ORDER BY array_position($3::text[],perm.code),a.assigned_at DESC LIMIT 1`,
     [projectId,principalId,permissionCodes]);

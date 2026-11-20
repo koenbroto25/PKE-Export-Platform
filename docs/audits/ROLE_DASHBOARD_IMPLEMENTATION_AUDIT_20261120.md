@@ -142,3 +142,24 @@ The canonical `funder` role template currently grants `finance.view`, `reports.v
 - PR #2: **OPEN / DRAFT / UNMERGED**.
 - Production deployment: **NOT ATTEMPTED**.
 - Neon Production business data: **UNCHANGED BY THIS DASHBOARD WORK**.
+
+
+## 8. Latest-head CI closure — 2026-11-20
+
+Exact PR/source head checked: `91fec201c63c08d56ebad6b146b6218ba14801dc`.
+
+- Unit Tests run `44752309698`: **SUCCESS**.
+  - 18 test files passed; 218 tests passed.
+  - Production migration history/release verifier passed (verified contiguous ledger through 051; exact source hashes 036–051 pinned).
+  - Migration runner dry-run passed with no database connection.
+  - Backend API TypeScript check passed.
+  - Frontend TypeScript check passed.
+  - Frontend production build passed (Vite build completed).
+- Dependency Audit Evidence run `44752309859`: **SUCCESS**; root and frontend production dependency audits and dependency-tree audit steps completed.
+- This CI evidence verifies source/static/build gates only. It does not prove authenticated browser role coverage, Preview deployment, real object-level external partner isolation or operational workflows whose APIs do not exist.
+- Vercel Preview/browser smoke remains BLOCKED by the daily deployment quota. The isolated Preview clone still has only one Auth-linked PKE user. No Production deploy or PR merge was attempted.
+
+Updated source acceptance:
+- Role dashboard source, TypeScript, build, unit/security tests and dependency audit: **PASS on exact head 91fec**.
+- Authenticated 34-role browser/API matrix: **BLOCKED_EXTERNAL / NOT VERIFIED**.
+- Full operational workflow coverage: **PARTIAL** pending RD-04 through RD-12.

@@ -193,7 +193,7 @@ function App() {
             <Route path="/journal-entries" element={<RoleGuard allowedKeys={['journal-entries']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={workspaceUser}><ReportsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={workspaceUser}><NotificationsPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><AccessPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><AccessPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/shipment-allocations" element={<RoleGuard allowedKeys={['shipment-allocations']} activeUser={workspaceUser}><ShipmentAllocationPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/cash-advances" element={<RoleGuard allowedKeys={["cash-advances"]} activeUser={workspaceUser}><CashAdvancesPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/payment-instructions" element={<RoleGuard allowedKeys={['payment-instructions']} activeUser={workspaceUser}><PaymentInstructionsPage onNotice={notify} /></RoleGuard>} />
@@ -1419,11 +1419,14 @@ function NotificationsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' 
   </>;
 }
 
-function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const roles = useLoad<{ roles?: AnyRecord[]; permissions?: AnyRecord[] }>(() => get('/roles'), []);
-  const users = useLoad<{ users?: AnyRecord[] }>(() => get('/users'), []);
+function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const canPlatformAdmin = activeUser?.platformAdmin === true;
+  const canManageProjectRoles = hasProjectPermission('project.roles.manage', activeUser);
+  const canManageMemberships = hasProjectPermission('project.members.manage', activeUser);
+  const roles = useLoad<{ roles?: AnyRecord[]; permissions?: AnyRecord[] }>(() => canPlatformAdmin ? get('/roles') : Promise.resolve({ roles: [], permissions: [] }), [canPlatformAdmin]);
+  const users = useLoad<{ users?: AnyRecord[] }>(() => canPlatformAdmin ? get('/users') : Promise.resolve({ users: [] }), [canPlatformAdmin]);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
-  const provisioning = useLoad<{ ready?: boolean; reason?: string | null }>(() => get('/admin/provisioning/status'), []);
+  const provisioning = useLoad<{ ready?: boolean; reason?: string | null }>(() => canPlatformAdmin ? get('/admin/provisioning/status') : Promise.resolve({ ready: false }), [canPlatformAdmin]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const projectDetail = useLoad<{ members?: AnyRecord[]; roles?: AnyRecord[]; project?: AnyRecord }>(
     () => selectedProjectId ? get(`/projects/${selectedProjectId}/detail`) : Promise.resolve({ members: [], roles: [] }),
@@ -1458,7 +1461,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   };
 
   const createAccount = async (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); if (!canPlatformAdmin) return;
     if (!provisioning.data?.ready) {
       onNotice('error', 'Provisioning belum diaktifkan pada environment ini.');
       return;
@@ -1505,6 +1508,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   };
 
   const updateGlobalStatus = async (user: AnyRecord) => {
+    if (!canPlatformAdmin) return;
     const id = String(user.id || '');
     const authUserId = String(user.neon_auth_user_id || '');
     if (!id || !authUserId) {
@@ -1546,7 +1550,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   };
 
   const addMemberToProject = async (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); if (!canPlatformAdmin) return;
     if (!selectedProjectId || !memberAddUserId || !memberAddRoleId || memberAddReason.trim().length < 5) {
       onNotice('error', 'Pilih akun aktif, role proyek, dan alasan minimal 5 karakter.');
       return;
@@ -1594,7 +1598,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   };
 
   const appointProjectManager = async (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); if (!canPlatformAdmin) return;
     if (!selectedProjectId || !pmAppointUserId || pmAppointReason.trim().length < 5) {
       onNotice('error', 'Pilih akun aktif dan isi alasan penunjukan PM minimal 5 karakter.');
       return;
@@ -1617,6 +1621,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
   };
 
   const requestReset = async (user: AnyRecord) => {
+    if (!canPlatformAdmin) return;
     const id = String(user.id || '');
     if (!id) return;
     const label = String(user.email || user.id || 'pengguna ini');
@@ -1654,6 +1659,7 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
 
   return <>
     <PageTitle eyebrow="IDENTITY & GOVERNANCE" title="Role & permission" subtitle="Status akun bersifat global; role dan status keanggotaan ditetapkan terpisah untuk setiap proyek." actions={<ActionButton variant="secondary" onClick={() => { roles.refresh(); users.refresh(); projects.refresh(); projectDetail.refresh(); provisioning.refresh(); }}><RefreshCw size={16} /> Segarkan</ActionButton>} />
+    {canPlatformAdmin && <>
     <Card>
       <PanelHeading title="Pembuatan akun oleh Admin" description="Pendaftaran publik tetap ditutup. Akun baru dibuat melalui Neon Auth Admin SDK, lalu dipetakan oleh webhook bertanda tangan; akun PKE tetap nonaktif sampai diaktifkan Admin." />
       {provisioning.loading ? <Loading /> : provisioning.error ? <ErrorState message={provisioning.error} retry={provisioning.refresh} /> : !provisioning.data?.ready ? <div className="muted">{provisioning.data?.reason || 'Provisioning belum diaktifkan pada environment ini.'}</div> : <>
@@ -1684,11 +1690,12 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
       { key: 'global_action', label: 'Akun global', render: r => <ActionButton variant="secondary" disabled={!!globalBusyId || !r.neon_auth_user_id} onClick={() => updateGlobalStatus(r)}>{globalBusyId === String(r.id) ? 'Memproses…' : r.is_active ? 'Nonaktifkan global' : 'Aktifkan global'}</ActionButton> },
       { key: 'action', label: 'Pemulihan', render: r => <ActionButton variant="secondary" disabled={!!resettingId || !r.neon_auth_user_id} onClick={() => requestReset(r)}>{resettingId === String(r.id) ? 'Memproses…' : 'Kirim reset password'}</ActionButton> }
     ]} />}</Card>
+    </>}
     <Card>
       <PanelHeading title="Role & status per proyek" description="Satu pengguna dapat mempunyai role berbeda dan status aktif/nonaktif yang independen pada setiap proyek." />
       {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : !projects.data?.projects?.length ? <EmptyState title="Belum ada proyek" desc="Keanggotaan proyek dapat dikelola setelah proyek tersedia." /> : <>
         <FormField label="Pilih proyek"><select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
-        <form className="form-grid" onSubmit={addMemberToProject}>
+        {canPlatformAdmin && <form className="form-grid" onSubmit={addMemberToProject}>
           <FormField label="Akun aktif"><select value={memberAddUserId} onChange={e => setMemberAddUserId(e.target.value)} required>
             <option value="">Pilih akun PKE</option>
             {(users.data?.users || []).filter(user => user.is_active === true && !!user.neon_auth_user_id).map(user => <option key={user.id} value={user.id}>{user.name || user.email} — {user.email}</option>)}
@@ -1717,10 +1724,10 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
           { key: 'role_assignments', label: 'Role assignments', render: r => <div className="stacked-cell">{(r.role_assignments || []).length ? (r.role_assignments || []).map((a: AnyRecord) => {
             const expired = !!a.expiresAt && new Date(a.expiresAt).getTime() <= Date.now();
             const active = a.isActive === true && !a.revokedAt && !expired && r.is_active === true && !r.deactivated_at;
-            return <div key={a.id} className="inline-actions"><span>{a.roleName || a.roleCode} <StatusPill value={active ? 'active' : a.revokedAt ? 'revoked' : expired ? 'expired' : 'inactive'} /></span>{active && <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => revokeRoleAssignment(r, a)}>Nonaktifkan role</ActionButton>}</div>;
+            return <div key={a.id} className="inline-actions"><span>{a.roleName || a.roleCode} <StatusPill value={active ? 'active' : a.revokedAt ? 'revoked' : expired ? 'expired' : 'inactive'} /></span>{active && (a.roleCode === "pm" ? canPlatformAdmin : canManageProjectRoles) && <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => revokeRoleAssignment(r, a)}>Nonaktifkan role</ActionButton>}</div>;
           }) : <span className="muted">Belum ada role</span>}</div> },
           { key: 'is_active', label: 'Status membership', render: r => <StatusPill value={r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'active' : 'inactive'} /> },
-          { key: 'action', label: 'Membership', render: r => <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => {
+          { key: 'action', label: 'Membership', render: r => canManageMemberships ? <ActionButton variant="secondary" disabled={membershipBusyId === String(r.id)} onClick={() => {
             const currentlyActive = r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now());
             updateMembership(r, currentlyActive
               ? { isActive: false }
@@ -1729,8 +1736,10 @@ function AccessPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info
         ]} emptyTitle="Belum ada anggota" emptyText="Belum ada keanggotaan untuk proyek ini." />}
       </>}
     </Card>
+    {canPlatformAdmin && <>
     <Card><PanelHeading title="Role katalog" description="Role katalog global bukan pengganti project role yang melekat pada membership." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.roles || []} columns={[{ key: 'name', label: 'Role', render: r => <strong>{r.name}</strong> }, { key: 'description', label: 'Deskripsi' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} />}</Card>
     <Card><PanelHeading title="Permission katalog" description="Kunci permission yang dapat dipakai oleh role dan policy." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.permissions || []} columns={[{ key: 'code', label: 'Code', render: r => <span className="mono">{String(r.code || '')}</span> }, { key: 'name', label: 'Permission' }, { key: 'description', label: 'Keterangan' }]} />}</Card>
+    </>}
   </>;
 }
 function ForgotPasswordPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {

@@ -9924,3 +9924,13 @@ Do not adopt a large external application merely because it has many features. T
 - After approval/application, run isolated runtime UAT for multi-role, multi-Project, explicit assignee, expired/revoked role, task lifecycle, notification routing, Checker permission, Project Admin Finance read-only and task event immutability.
 - Project timezone/SLA calendar and scheduled automatic overdue escalation are not yet implemented; current overdue state is calculated on read and escalation is manual.
 - Do not mark P0 Production-complete until CI, sequential migration application and runtime UAT all pass.
+### CI confirmation — source commit `fc25624ec288189bc1f33ece374422667c28d982`
+
+- Unit Tests: **213/213 PASS** across 18 test files.
+- Backend API TypeScript: PASS.
+- Frontend TypeScript: PASS.
+- Frontend production build: PASS.
+- Production migration ledger/release verifier: PASS; baseline 001–028 and verified Production history 001–047 are contiguous. The verifier retains the notice that authentic SQL for historical migrations 029–035 remains unrecovered.
+- Migration runner dry-run: PASS; no database connection attempted and no database changes made. Migrations 048 and 049 are reported `manifest=absent` and remain unapproved for apply.
+- Dependency Audit Evidence: PASS (root and frontend production dependency audits).
+- PR #2 remains OPEN / DRAFT. CI validates source/static/build gates, not authenticated browser UAT or runtime RLS integration.

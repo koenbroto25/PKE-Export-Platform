@@ -106,7 +106,7 @@ for (const required of ["MIGRATE_038_CONFIRM", "MIGRATION_038_APPROVED_SHA256", 
 if (!runner.includes("Production Migration 039 is already applied and ledger-verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe Migration 039 verification-only path.");
 if (!runner.includes("verifiedManifest.entries?.length !== 39")) fail("Migration runner does not require exact Production history length 001-039.");
 if (!runner.includes("Production Migration 045 is already applied and all 45 ledger rows are verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe already-applied 045 verification-only path.");
-if (!runner.includes("migration_history_manifest_001_046.json") || !runner.includes("verifiedManifest.entries?.length !== 41")) fail("Migration runner does not bind to the 001-045 verified history manifest and historical pre-042 gate.");
+if (!runner.includes("migration_history_manifest_001_047.json") || !runner.includes("verifiedManifest.entries?.length !== 41")) fail("Migration runner does not bind to the 001-046 verified history manifest and historical pre-042 gate.");
 if (!runner.includes("Production migration_history mismatch at sequence")) fail("Migration runner is missing exact history reconciliation.");
 if (!runner.includes("Production Migration 040 is already applied and ledger-verified; no SQL re-execution performed.")) fail("Migration runner is missing the safe Migration 040 verification-only path.");
 if (!runner.includes("MIGRATE_041_CONFIRM") || !runner.includes("MIGRATION_041_APPROVED_SHA256") || !runner.includes("MIGRATION_041_APPROVAL_REFERENCE") || !runner.includes(expected041)) fail("Migration runner is missing exact Migration 041 owner-approval guards.");

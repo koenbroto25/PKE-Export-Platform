@@ -64,6 +64,23 @@ DROP POLICY IF EXISTS pke_buyers_delete_platform_admin ON public.buyers;
 CREATE POLICY pke_buyers_insert_platform_admin ON public.buyers FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
 CREATE POLICY pke_buyers_update_platform_admin ON public.buyers FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
 CREATE POLICY pke_buyers_delete_platform_admin ON public.buyers FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+DROP POLICY IF EXISTS pke_buyers_finance_select ON public.buyers;
+CREATE POLICY pke_buyers_finance_select ON public.buyers FOR SELECT TO app_runtime_secure
+  USING (public.pke_has_buyer_permission(id,'finance.view'));
+
+-- Finance users may select only suppliers participating in their own Project.
+DROP POLICY IF EXISTS pke_project_supplier_participation_finance_select ON public.project_supplier_participation;
+CREATE POLICY pke_project_supplier_participation_finance_select ON public.project_supplier_participation
+  FOR SELECT TO app_runtime_secure USING (public.pke_has_project_permission(project_id,'finance.view'));
+DROP POLICY IF EXISTS pke_vendors_finance_select ON public.vendors;
+CREATE POLICY pke_vendors_finance_select ON public.vendors
+  FOR SELECT TO app_runtime_secure USING (
+    public.pke_is_platform_admin() OR EXISTS (
+      SELECT 1 FROM public.project_supplier_participation psp
+       WHERE psp.vendor_id=vendors.id AND psp.is_active=true
+         AND public.pke_has_project_permission(psp.project_id,'finance.view')
+    )
+  );
 DROP POLICY IF EXISTS pke_fx_rates_insert_platform_admin ON public.fx_rates;
 DROP POLICY IF EXISTS pke_fx_rates_update_platform_admin ON public.fx_rates;
 DROP POLICY IF EXISTS pke_fx_rates_delete_platform_admin ON public.fx_rates;

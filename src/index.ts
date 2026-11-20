@@ -591,12 +591,39 @@ app.get("/api/v1/contract-programs/:id", requireAuth, async (req: express.Reques
 
 // Buyer management
 app.get("/api/v1/buyers", requireAuth, async (req: express.Request, res: express.Response) => {
-  try {
-    const { rows } = await req.db.query("SELECT * FROM buyers WHERE is_active = true ORDER BY created_at DESC");
-    res.json({ buyers: rows });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) {
+    if (!req.user?.isAdmin) return res.status(400).json({ error: "projectId is required." });
+    try { const { rows } = await req.db.query("SELECT * FROM buyers WHERE is_active=true ORDER BY name"); return res.json({ buyers: rows }); }
+    catch { return res.status(500).json(internalServerErrorPayload()); }
   }
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT DISTINCT b.* FROM buyers b
+       JOIN contract_programs cp ON cp.buyer_id=b.id
+       JOIN projects p ON p.contract_program_id=cp.id
+       WHERE p.id=$1::uuid AND b.is_active=true ORDER BY b.name`,
+      [projectId],
+    );
+    return res.json({ buyers: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.get("/api/v1/vendors", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT DISTINCT v.id,v.name,v.code,v.description
+         FROM vendors v JOIN project_supplier_participation psp ON psp.vendor_id=v.id
+        WHERE psp.project_id=$1::uuid AND psp.is_active=true AND v.is_active=true
+        ORDER BY v.name`,
+      [projectId],
+    );
+    return res.json({ vendors: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/buyers", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
@@ -3704,7 +3731,7 @@ app.post("/api/v1/ap-invoices", requireAuth, async (req: express.Request, res: e
   if(!projectId||!supplierId||!invoiceNumber||!invoiceDate||!currencyCode||!Number.isFinite(amount)||amount<=0||!Number.isFinite(tax)||tax<0)return res.status(400).json({error:"Valid Project, supplier, invoice/date, currency and amounts are required."});
   if(!(await requireProjectPermission(req,res,projectId,"finance.create")))return;
   try {
-    const {rows:v}=await req.db.query("SELECT id FROM vendors WHERE id=$1::uuid AND is_active=true",[supplierId]);
+    const {rows:v}=await req.db.query("SELECT v.id FROM vendors v JOIN project_supplier_participation psp ON psp.vendor_id=v.id WHERE v.id=$1::uuid AND psp.project_id=$2::uuid AND psp.is_active=true AND v.is_active=true",[supplierId,projectId]);
     const {rows:c}=await req.db.query("SELECT id FROM currencies WHERE code=$1::text AND is_active=true",[currencyCode]);
     if(!v.length||!c.length)return res.status(400).json({error:"Supplier or currency is invalid or inactive."});
     const total=Math.round((amount+tax)*100)/100;
@@ -3744,8 +3771,7 @@ app.post("/api/v1/ar-invoices", requireAuth, async (req: express.Request, res: e
   if(!projectId||!buyerMasterId||!invoiceNumber||!invoiceDate||!currencyCode||!Number.isFinite(amount)||amount<=0||(qty!==null&&(!Number.isFinite(qty)||qty<=0))||(price!==null&&(!Number.isFinite(price)||price<0)))return res.status(400).json({error:"Valid Project, buyer, invoice, currency and amount are required."});
   if(!(await requireProjectPermission(req,res,projectId,"finance.create")))return;
   try {
-    const {rows:b}=await req.db.query(`SELECT b.id FROM buyers b JOIN contracts c ON c.buyer_id=b.id JOIN projects p ON p.id=c.project_id WHERE b.id=$1::uuid AND p.id=$2::uuid AND b.is_active=true
-      UNION SELECT b.id FROM buyers b JOIN contract_programs cp ON cp.buyer_id=b.id JOIN projects p ON p.contract_program_id=cp.id WHERE b.id=$1::uuid AND p.id=$2::uuid AND b.is_active=true LIMIT 1`,[buyerMasterId,projectId]);
+    const {rows:b}=await req.db.query(`SELECT b.id FROM buyers b JOIN contract_programs cp ON cp.buyer_id=b.id JOIN projects p ON p.contract_program_id=cp.id WHERE b.id=$1::uuid AND p.id=$2::uuid AND b.is_active=true LIMIT 1`,[buyerMasterId,projectId]);
     const {rows:c}=await req.db.query("SELECT id FROM currencies WHERE code=$1::text AND is_active=true",[currencyCode]);
     if(!b.length||!c.length)return res.status(400).json({error:"Buyer is not assigned to this Project or currency is invalid."});
     if(relatedShipmentId){const {rows}=await req.db.query("SELECT id FROM shipments WHERE id=$1::uuid AND project_id=$2::uuid",[relatedShipmentId,projectId]);if(!rows.length)return res.status(400).json({error:"Shipment is not part of this Project."});}

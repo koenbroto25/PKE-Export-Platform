@@ -9882,3 +9882,6 @@ Do not adopt a large external application merely because it has many features. T
 - GitHub Actions result is pending for this commit. This source change is not yet a runtime HTTP or browser UAT pass.
 - No Neon Production mutation, migration, mock data, package installation, Vercel deployment or branch creation was performed.
 - Next P0: complete PM Control Tower data contract and read-only dashboard, then actionable notification/task lifecycle; do not start P1 workbench expansion until P0 acceptance.
+
+- Permission-map refinement: `finance.view` alone does not expose Payment Instructions or Funder workspace. Payment Instructions requires the explicit `payment.view` capability; Funder requires `funder.view`. This avoids treating Finance read-only visibility as payment/funder workflow authority.
+- Added regression coverage for this separation. The latest CI run after this refinement is pending.

@@ -60,7 +60,7 @@ async function main() {
       !Array.isArray(manifest.entries) || manifest.entries.length !== 51) {
     stop("The verified Production ledger manifest must identify this exact Production target and contain 51 entries.");
   }
-  if (manifest.entries.some((entry, i) => Number(entry.id) !== i + 1) ||
+  if (!Array.isArray(manifest.pending_migrations) || manifest.pending_migrations.length !== 1 ||\n      manifest.pending_migrations[0]?.id !== 52 || manifest.pending_migrations[0]?.sha256 !== EXPECTED_SHA) {\n    stop("The 001-051 manifest must list only the exact Migration 052 as pending.");\n  }\n  if (manifest.entries.some((entry, i) => Number(entry.id) !== i + 1) ||
       manifest.entries[50]?.filename !== "051_task_notification_recipient_rls_helper.sql" ||
       manifest.entries[50]?.sha256 !== "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927" ||
       manifest.entries[50]?.status !== "applied") {
@@ -92,7 +92,7 @@ async function main() {
   try { target = new URL(rawUrl); } catch { stop("MIGRATION_DATABASE_URL is invalid."); }
   const username = decodeURIComponent(target.username || "");
   if (!["postgres:", "postgresql:"].includes(target.protocol) ||
-      target.hostname !== EXPECTED_HOST || target.port !== "5432" ||
+      target.hostname !== EXPECTED_HOST || Number(target.port || 5432) !== 5432 ||
       target.pathname.replace(/^\//, "") !== EXPECTED_DB ||
       !["require", "verify-ca", "verify-full"].includes(target.searchParams.get("sslmode")) ||
       !username || ["app_runtime", "app_runtime_secure"].includes(username)) {
@@ -170,7 +170,7 @@ async function main() {
       }
 
       const funder = await client.query(`
-        SELECT a.user_id
+        SELECT a.user_id, a.project_id, a.project_role_id
           FROM public.project_role_assignments a
           JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
           JOIN public.project_members pm ON pm.id = a.project_member_id AND pm.project_id = a.project_id
@@ -182,26 +182,30 @@ async function main() {
       `);
       if (!funder.rows[0]?.user_id) throw new Error("No active Funder assignment available for post-migration denial backtest.");
       await client.query("SELECT set_config('app.current_user_id', $1, true)", [funder.rows[0].user_id]);
+      const probePermissions = await client.query(
+        "SELECT id, code FROM public.permissions WHERE code IN ('finance.view', 'reports.view') AND is_active = true ORDER BY code"
+      );
+      if (probePermissions.rows.length !== 2) {
+        throw new Error("Required finance.view and reports.view permission catalog entries are missing for the Funder backtest.");
+      }
+      for (const permission of probePermissions.rows) {
+        await client.query(
+          "INSERT INTO public.project_role_permissions (project_id, project_role_id, permission_id) VALUES ($1, $2, $3)",
+          [funder.rows[0].project_id, funder.rows[0].project_role_id, permission.id]
+        );
+      }
       const denied = await client.query(`
         SELECT
-          public.pke_has_project_permission(
-            (SELECT a.project_id FROM public.project_role_assignments a
-              JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
-             WHERE a.user_id = $1 AND pr.role_code = 'funder' AND a.is_active = true
-               AND a.revoked_at IS NULL
-             ORDER BY a.project_id LIMIT 1), 'finance.view'
-          ) AS finance_view,
-          public.pke_has_project_permission(
-            (SELECT a.project_id FROM public.project_role_assignments a
-              JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
-             WHERE a.user_id = $1 AND pr.role_code = 'funder' AND a.is_active = true
-               AND a.revoked_at IS NULL
-             ORDER BY a.project_id LIMIT 1), 'reports.view'
-          ) AS reports_view
-      `, [funder.rows[0].user_id]);
+          public.pke_has_project_permission($1, 'finance.view') AS finance_view,
+          public.pke_has_project_permission($1, 'reports.view') AS reports_view
+      `, [funder.rows[0].project_id]);
       if (denied.rows[0]?.finance_view !== false || denied.rows[0]?.reports_view !== false) {
-        throw new Error("Funder permission helper did not deny generic Finance/Reports access.");
+        throw new Error("Funder permission helper did not deny generic Finance/Reports access when legacy grants were temporarily reintroduced.");
       }
+      await client.query(
+        "DELETE FROM public.project_role_permissions WHERE project_id = $1 AND project_role_id = $2 AND permission_id = ANY($3::uuid[])",
+        [funder.rows[0].project_id, funder.rows[0].project_role_id, probePermissions.rows.map((row) => row.id)]
+      );
 
       const ledger = await client.query(
         "SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id"

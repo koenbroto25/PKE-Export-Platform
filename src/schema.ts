@@ -314,7 +314,7 @@ export const project_work_items = pgTable("project_work_items", {
 
 export const project_work_item_events = pgTable("project_work_item_events", {
   id: uuid("id").defaultRandom().primaryKey(),
-  work_item_id: uuid("work_item_id").notNull().references(() => project_work_items.id),
+  work_item_id: uuid("work_item_id").notNull(),
   project_id: uuid("project_id").notNull().references(() => projects.id),
   event_type: text("event_type").notNull(),
   actor_user_id: uuid("actor_user_id").notNull().references(() => users.id),

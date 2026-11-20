@@ -898,3 +898,6 @@ PASS on isolated PostgreSQL validation branch:
 - Migration 052 is pinned and release-source/dry-run verified but **not enabled for apply** and **not applied**. A fresh current-Production backup and explicit owner approval of this exact SHA are required before application. Until then, Production permission grants remain unchanged and the overgrant remains a live DB/RLS blocker despite source guards.
 - Exact source CI head `d18d8d267afcdfa0179b11e7408fa8cb9b43d607`: Unit Tests `44755729653` SUCCESS (20 files / 231 tests); Dependency Audit `44755729686` SUCCESS; migration verifier/dry-run, backend/frontend TypeScript and frontend production build PASS.
 - Full detail: `docs/audits/ROLE_DASHBOARD_IMPLEMENTATION_AUDIT_20261120.md`.
+
+
+- Pre-052 backup gate is blocked: Neon Production has reached the 10-branch limit (Production + 9 children). Creation of a fresh `pre-052-funder-scope-production-backup-20261120` clone was rejected with `branches limit exceeded`. The existing pre-048/049 backup is stale for Migration 052. No old backup/UAT/migration branch was deleted without owner authorization. Migration 052 remains prepared-only.

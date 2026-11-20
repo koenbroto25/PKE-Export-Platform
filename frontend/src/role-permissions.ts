@@ -24,13 +24,13 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   'journal-entries': ['accounting.view'],
   'shipment-allocations': ['shipment.view'],
   'cash-advances': ['finance.view', 'finance.cash_advance.request'],
-  'payment-instructions': ['payment.view', 'finance.view'],
+  'payment-instructions': ['payment.view'],
   buyer: ['buyer.requirement.view', 'buyer.shipment.view'],
   supplier: ['supplier.view'],
   transporter: ['logistics.view', 'record_truck_trips', 'verify_checkpoints'],
   warehouse: ['warehouse.view', 'inventory.view'],
   warehouse_manager: ['warehouse.view', 'inventory.view'],
-  funder: ['finance.view'],
+  funder: ['funder.view'],
 };
 
 export function hasActiveProjectMembership(user: WorkspaceAccessUser): boolean {

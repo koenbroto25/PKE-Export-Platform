@@ -163,3 +163,38 @@ Updated source acceptance:
 - Role dashboard source, TypeScript, build, unit/security tests and dependency audit: **PASS on exact head 91fec**.
 - Authenticated 34-role browser/API matrix: **BLOCKED_EXTERNAL / NOT VERIFIED**.
 - Full operational workflow coverage: **PARTIAL** pending RD-04 through RD-12.
+
+
+## 9. Wave C execution checkpoint — inventory and warehouse hardening
+
+Source changes committed on the existing branch after the dashboard CI gate:
+
+- `src/index.ts` — inventory hold idempotency:
+  - identical replay returns the original hold with HTTP 200 and `idempotentReplay: true`;
+  - replay is accepted only when Project, lot, quantity, unit, reason and original actor match;
+  - reuse of the same key for a different request returns `IDEMPOTENCY_KEY_CONFLICT`;
+  - concurrent duplicate insert is re-read after `ON CONFLICT DO NOTHING` and handled idempotently.
+- `src/index.ts` — inventory movement validation:
+  - quantity must be finite and positive;
+  - movement type and unit must be non-empty;
+  - lot is locked and unit must match the lot;
+  - writes use the validated numeric quantity and trimmed unit/type.
+- `src/index.ts` — warehouse receipt validation:
+  - create and update require positive finite quantities;
+  - unit must be non-empty;
+  - create/update check the unit against the linked inventory lot when a lot is linked;
+  - linked lot is locked during receipt creation.
+- Added `src/inventory-movement-hold.contract.test.ts` with six contract assertions covering idempotent replay, actor/request identity, hold unit matching, positive movement quantities, movement unit matching, and receipt create/update validation.
+- Added the new contract test to the root `npm test` script in `package.json`; this ensures CI includes it rather than leaving it as an undiscovered test file.
+- No migration was introduced; no Neon branch/database was mutated; no mock business data was created.
+- Source commits: `97f2fa363b905ac1c1668a7bb8ed231a12573a7f` (inventory hold/movement), `023fd505be2f718d957107a1ebb3b0db0e3de4ba` (warehouse receipt), `94bde76a9cf2982790a5454c4d0274d6dcec9d24` (contract tests), `4d4d7809fb56b5aa5cbad3ca6e0b7dd32e82a902` (CI test inclusion).
+- Latest source head at checkpoint: `94bde76a9cf2982790a5454c4d0274d6dcec9d24`; CI has not yet returned for this head. The prior dashboard-only head `91fec201c63c08d56ebad6b146b6218ba14801dc` retains its verified 218-test/typecheck/build/dependency audit results, but those results do not cover these later inventory changes.
+- Runtime DB/API integration UAT for the new replay and validation behavior is still NOT VERIFIED. It must run on isolated Preview after deployment and approved authenticated identities are available.
+
+### Wave C remaining work after this checkpoint
+
+1. Add transaction-level tests for concurrent duplicate hold replay and cross-actor key collision.
+2. Verify movement ledger triggers and balances for every movement type; test negative/overdrawn movement rejection and reversal semantics.
+3. Complete warehouse receipt-to-inventory movement reconciliation, weighbridge evidence integrity and duplicate receipt protection.
+4. Complete reservation/allocation/load reconciliation, including draft/allocated/partially-loaded/loaded/cancelled/reversed transitions and aggregate capacity under concurrency.
+5. Implement the missing source workflows listed in RD-05 through RD-12; do not invent database schemas or apply migrations without preflight, backup and owner-approved exact checksum.

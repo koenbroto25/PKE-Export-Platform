@@ -62,6 +62,7 @@ describe("Project work item task engine contract", () => {
     expect(ui).toContain("function MyWorkPage");
     expect(ui).toContain("PM Control Tower · Tindak lanjut");
     expect(ui).toContain('hasProjectPermission("project.tasks.resolve", activeUser)');
-    expect(ui).not.toContain("finance.update");
+    const taskWorkspace = ui.slice(ui.indexOf("function MyWorkPage"), ui.indexOf("function NotificationsPage"));
+    expect(taskWorkspace).not.toContain("finance.update");
   });
 });

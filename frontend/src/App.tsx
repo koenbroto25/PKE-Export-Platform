@@ -10,6 +10,7 @@ import {
 import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
+import RoleDashboardPage from './RoleDashboardPage';
 
 type AnyRecord = Record<string, any>;
 type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
@@ -177,7 +178,7 @@ function App() {
         </header>
         <div className="page-content">
           <Routes>
-            <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><DashboardPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><RoleDashboardPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id" element={<RoleGuard allowedKeys={['project-detail']} activeUser={workspaceUser}><ProjectDetailPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />

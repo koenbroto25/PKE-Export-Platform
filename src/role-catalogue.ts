@@ -178,8 +178,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "payment.view", "finance.view", "reports.view",
   ], ["No payment instruction issue, payment approval or payment evidence verification by default."]),
   role("funder", "Project Funder", "finance", [
-    "finance.view", "reports.view", "report.view", "view_financial",
-  ], ["Read-only assigned Project financial summary; no transaction or payment authority."], { classification: "external" }),
+  ], ["External Funder has no generic Finance or Reports permission. Only explicitly shared report artifacts may be exposed after a dedicated Funder permission, API and RLS scope are implemented."], { classification: "external" }),
 ] as const;
 
 const byCode = new Map(CANONICAL_ROLE_TEMPLATES.map((template) => [template.code, template]));

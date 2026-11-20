@@ -603,3 +603,16 @@ PASS on isolated PostgreSQL validation branch:
 - Open-source evaluation: AIS-catcher (local experimental receiver only; GPL-3.0 and not safety-reliable), MapLibre GL JS (web map renderer), and PostGIS (spatial database extension, subject to Neon test availability). No packages or services installed. Global AIS coverage requires a licensed data feed; source and commercial usage terms must be approved before integration.
 - Remaining gates: AP three-way matching, Accounting posting permission assignment, live Finance role-matrix tests, provider-backed Object Storage E2E, cross-Project RLS runtime matrix, PostGIS/Neon compatibility test, and AIS source selection.
 - Canonical detailed evidence is in Master Implementation Plan Rev2.35 §56.42. Do not declare F1/PKE complete from CI alone.
+
+
+## 2026-11-20 — Owner decision recorded: Indonesia-only AIS / Vessel Readiness
+
+- Business objective: support Master of Loading and export operations to prepare product, terminal and export documents before vessel arrival; reduce avoidable vessel waiting and overtime/demurrage-related costs.
+- Required vessel-position scope: Indonesian waters only, especially approach areas, anchorages, port limits and relevant loading terminals.
+- International voyage position tracking is explicitly NOT a PKE requirement. Buyer/authorized external stakeholders receive vessel identity and approved voyage details plus a verified external tracking link where available. PKE does not ingest global AIS history or warrant third-party tracking freshness.
+- The next design is an Export & Vessel Readiness workflow: port-call/ETA milestones, product and stock readiness, quality/inspection, terminal/berth/loading resources, export documentation, readiness checklist, task ownership, due times, notifications, acknowledgements and escalation.
+- AIS position is an operational signal only. It cannot automatically mark READY or authorize loading. READY / AT RISK / NOT READY must be calculated from explicit evidence-based checklist rules.
+- Evaluate licensed Indonesian coastal AIS coverage against lawful shore receiver/partner coverage. AIS-catcher is only an optional limited pilot; it is not a national coverage guarantee. No package, hardware, provider subscription or infrastructure has been installed or purchased.
+- MapLibre and PostGIS remain optional candidates; PostGIS requires isolated Neon compatibility testing.
+- Acceptance gates and detailed scope are in Master Implementation Plan Rev2.36 §56.43.
+- No Neon Production changes, Vercel deployment, or business data mutation were performed for this decision.

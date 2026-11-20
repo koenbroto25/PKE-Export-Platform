@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.35 — Consolidated Finance, RLS and document revision
+# Master Implementation Plan Rev2.36 — Indonesia AIS and Vessel Readiness scope
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.35 (20 November 2026 — Consolidated Finance, RLS, documents and OSS evaluation; see §56.42)  
+**Revision:** 2.36 (20 November 2026 — Indonesia AIS and Vessel Readiness scope; see §56.43)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -9565,3 +9565,84 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Run full API/RLS runtime matrix across multiple Projects, including cross-Project ID substitution and revoked/expired assignments.
 - Validate PostGIS extension availability and choose an AIS source/coverage model before installing map/geospatial/AIS dependencies.
 - Do not mark overall PKE/F1 complete from this source/CI pass alone.
+
+
+## 56.43 — Owner decision: Indonesia-only vessel position and export readiness notifications — 2026-11-20
+
+**Decision owner:** Business owner / PKE Admin.  
+**Status:** ACCEPTED REQUIREMENT — scope baseline for the Vessel Readiness workstream.  
+**Source branch:** `f1/project-scoped-cob-20261119`.  
+**No installation or Production changes authorized by this decision.**
+
+### A. Business objective
+PKE's vessel-position capability exists to help the Master of Loading and relevant export operations personnel prepare product loading and export documentation on time, reduce avoidable vessel waiting, and prevent or minimize demurrage / anchorage overtime / other avoidable vessel-time charges. The system is an **Export & Vessel Readiness Control** capability, not a global vessel-tracking product.
+
+### B. Geographic boundary
+- Required: vessel position while within Indonesian waters, with operational emphasis on approach corridors, anchorages, port limits, terminals and relevant loading locations.
+- Not required: continuous global/international vessel tracking, global historical tracks, or building an international AIS reception network.
+- For international voyage visibility, show known vessel identity and available voyage details (e.g. vessel name, IMO/MMSI, flag, carrier/agent, last supplied ETA/ETD, destination and data timestamp where available) and provide a clearly labelled external third-party tracking link when a suitable provider URL is known.
+- The third-party tracking link is a convenience for Buyer/other authorized stakeholders. PKE does not warrant the external provider's coverage, freshness or accuracy and must not represent third-party data as PKE-verified.
+
+### C. AIS source strategy
+- Evaluate an Indonesian coastal AIS data source with documented geographic coverage, update latency, uptime, historical retention, API/stream format, commercial usage and redistribution rights, pricing, data provenance, and operational support.
+- Compare a licensed AIS data feed with selected shore-based AIS receiver stations / receiver partners. AIS-catcher may be used only for a limited technical pilot where legally permitted and where reception coverage can be proven; it is not a prerequisite and cannot be assumed to provide national coverage.
+- Do not purchase SDR hardware, subscribe to a paid feed, deploy receiver infrastructure, install AIS-catcher, or integrate an external AIS provider without an explicit owner-approved proposal and cost/licensing review.
+- AIS is an operational situational-awareness signal only. It is not a navigational or safety-of-life source and must not be the sole trigger for safety-critical decisions.
+- Record source, observed_at, received_at, position quality/validity where supplied, and stale-data status. Never present an old position as current.
+
+### D. Vessel Readiness data model / integration requirements
+Link a vessel call / port call to the relevant Project, shipment/contract, loading terminal and loading window. Normalize vessel identity using IMO where available; MMSI alone is not a durable vessel identity. Store the AIS observation separately from planned and manually confirmed ETA so that source data does not silently overwrite an approved operational ETA.
+Required operational fields include:
+- Vessel identity and identifiers (name, IMO, MMSI where available), carrier/agent and contact reference.
+- Port/terminal, anchorage/berth, loading window, nominated quantity and loading rate assumptions where known.
+- AIS position and observation timestamps; source and stale/coverage status.
+- ETA/ETD with source, last update, confidence/status and person who confirmed a manual override.
+- Readiness checklist and evidence links for product availability/quality, stock allocation, loading equipment/terminal readiness, surveyor/inspection arrangements, shipping/export documentation, customs/port/terminal clearances, and counterparties' confirmations as applicable.
+- Responsibility, due date/time, completion status, evidence, exception reason and audit history for each checklist item.
+
+### E. Master of Loading alerts and escalation
+- Notify the Master of Loading and explicitly assigned Project stakeholders when a vessel enters configurable Indonesian approach/anchorage/port geofences, ETA changes materially, the loading window approaches, or a required readiness item is overdue / incomplete.
+- Build a configurable milestone timeline: nominated vessel; pre-arrival; ETA confirmed; product and stock ready; quality/inspection ready; terminal/berth/loading resources ready; export documents ready; final loading authorization; loading commenced; loading completed; departure/document close-out.
+- Alert timing thresholds and escalation recipients must be configurable by Admin/authorized operations owners, not hard-coded assumptions.
+- Every notification must identify Project, vessel call, trigger, urgency, due time, outstanding task, responsible person, source timestamp and a direct link to the relevant PKE work item.
+- Support acknowledgement, assignment, resolution, escalation and immutable audit history. Avoid repeated alert spam using deduplication, cooldown and state-change rules; retain a record of suppressed/merged alerts.
+- Separate information alerts from formal loading authorization. AIS proximity or ETA alone must never mark a Project as loading-ready or authorize loading.
+- Provide a readiness summary and blockers view for the Master of Loading with a clear READY / AT RISK / NOT READY state calculated from explicit checklist rules and evidence, not from vessel position alone.
+
+### F. Buyer and external stakeholder UX
+- Buyer and authorized external stakeholders see vessel identity and approved voyage information only within their existing Project/contract permissions.
+- For international tracking, provide a third-party link when available. Do not expose internal operational notes, private contacts, document evidence or other Projects' information.
+- External link must be labelled as an external service and opened safely. If no verified tracking URL exists, show vessel identity and state that international position is followed through the carrier/ship agent or the selected external service; do not fabricate a URL.
+
+### G. Reliability, privacy and security
+- All vessel calls, observations, readiness tasks, documents and notifications must be Project-scoped and protected by backend authorization plus RLS.
+- Validate AIS message provenance, MMSI/IMO association, coordinate ranges, timestamps, duplicate/out-of-order messages and stale feeds.
+- Preserve raw source observation separately from normalized operational state; record correction/override actor and reason.
+- Define monitoring for feed outage, coverage gaps, stale observations, clock drift and geofence false positives.
+- Do not infer a vessel's position outside source coverage. A missing AIS observation means unknown/stale, not that the vessel has stopped.
+- Respect applicable Indonesian radio, data, privacy, contractual and commercial redistribution requirements.
+
+### H. Explicit exclusions
+- No global AIS feed or global vessel-position ingestion requirement.
+- No PKE-owned international tracking infrastructure.
+- No navigational route optimization or safety-of-life function.
+- No automatic loading authorization, port clearance or document certification based solely on AIS.
+- No open-source package, hardware, provider subscription, paid API or new infrastructure is approved for installation/purchase by this requirement.
+
+### I. Acceptance gates before implementation is called complete
+1. Owner-approved Indonesian coverage map and source selection for the actual loading ports/terminals.
+2. Written confirmation of data rights, API/stream SLA, update frequency, cost and support.
+3. AIS feed freshness and outage behavior demonstrated using a non-Production test feed or fixtures.
+4. Port/anchorage geofence and ETA change logic tested for false positives and stale/out-of-order observations.
+5. Master of Loading readiness checklist and escalation thresholds approved by operations owner.
+6. End-to-end notification acknowledgement, reassignment, escalation and audit tested.
+7. Buyer/external stakeholder visibility tested for cross-Project isolation and external-link handling.
+8. Evidence-based READY / AT RISK / NOT READY calculation tested; AIS alone cannot produce READY.
+9. No Production feed credentials, hardware, subscription or migration changes until separately approved.
+
+### J. Consequence for the open-source roadmap
+- MapLibre GL JS remains an optional UI renderer for Indonesian vessel positions, port geofences and operational map layers.
+- PostGIS remains a candidate only if geofence/port spatial query requirements justify it and Neon compatibility is proven in an isolated environment.
+- AIS-catcher is optional for a small, lawful receiver pilot only; it is not the national coverage strategy.
+- A commercial/partner Indonesian AIS feed may be more reliable and cheaper operationally than deploying/maintaining a nationwide receiver network. Compare total cost and coverage before deciding.
+- International third-party tracking links do not require ingestion or storage of global AIS tracks in PKE.

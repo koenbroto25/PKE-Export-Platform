@@ -862,3 +862,16 @@ PASS on isolated PostgreSQL validation branch:
 - Dashboard mapping remains 34/34 canonical roles. Full authenticated browser/API role matrix is still BLOCKED by one Auth-linked user on Preview clone and Vercel daily deployment quota. No Preview smoke PASS is claimed.
 - Full role operational workflow implementation remains PARTIAL as detailed in `docs/audits/ROLE_DASHBOARD_IMPLEMENTATION_AUDIT_20261120.md`; PO, production/QA/HSE, dispatch SLA, vessel/loading/laytime, LC presentation, audit findings, and Funder permission reconciliation remain in the comprehensive revision plan. Payment execution remains outside F1 and fail-closed.
 - PR #2 remains OPEN/DRAFT/unmerged. No new GitHub branch, no Production deployment/promotion, no Production business/mock data, and no Neon Production mutation were made for role dashboard implementation.
+
+
+### Wave C checkpoint — inventory/warehouse API hardening — 2026-11-20
+
+- Hardened `POST /api/v1/inventory-holds`: same idempotency key + identical Project/lot/quantity/unit/reason/actor returns the original row as HTTP 200 with `idempotentReplay=true`; conflicting reuse returns `IDEMPOTENCY_KEY_CONFLICT`; concurrent duplicate insert is safely re-read after unique conflict.
+- Hardened `POST /api/v1/inventory-movements`: finite positive quantity, non-empty movement type/unit, locked Project lot and exact lot-unit match are required.
+- Hardened warehouse receipt create/update: positive finite received quantity, non-empty unit, and unit consistency with linked inventory lot.
+- Added six contract tests in `src/inventory-movement-hold.contract.test.ts` and included the file in `npm test` in `package.json`.
+- Source commits: `97f2fa363b905ac1c1668a7bb8ed231a12573a7f`, `023fd505be2f718d957107a1ebb3b0db0e3de4ba`, `94bde76a9cf2982790a5454c4d0274d6dcec9d24`, `4d4d7809fb56b5aa5cbad3ca6e0b7dd32e82a902`.
+- No schema migration, Production database write, test fixture or deployment was performed.
+- Latest source head at checkpoint: `94bde76a9cf2982790a5454c4d0274d6dcec9d24`. Latest-head CI and DB/API integration UAT are PENDING; dashboard CI evidence at `91fec` does not cover these later code changes.
+- Next: test concurrent hold replay and cross-actor conflict; verify movement trigger/balance/reversal semantics; complete receipt-to-stock and reservation-to-shipment reconciliation under concurrency; then proceed through PO, Production/QA/HSE, Dispatch, Vessel/Loading, LC, Audit findings and Funder permission design.
+- Funder remains fail-closed: do not add `funder.view` or broaden `finance.view` until dedicated report-sharing permission and API/RLS object scope are reconciled.

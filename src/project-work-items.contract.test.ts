@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 const root = process.cwd();
 const migration = fs.readFileSync(path.join(root, "migrations/049_project_work_item_task_engine.sql"), "utf8");
 const inventoryMigration = fs.readFileSync(path.join(root, "migrations/050_inventory_holds_legacy_schema_alignment.sql"), "utf8");
+const notificationMigration = fs.readFileSync(path.join(root, "migrations/051_task_notification_recipient_rls_helper.sql"), "utf8");
 const api = fs.readFileSync(path.join(root, "src/index.ts"), "utf8");
 const ui = fs.readFileSync(path.join(root, "frontend/src/App.tsx"), "utf8");
 const roles = fs.readFileSync(path.join(root, "src/role-catalogue.ts"), "utf8");
@@ -130,6 +131,16 @@ describe("Project work item task engine contract", () => {
     expect(holdApi).toContain("hold_type, quantity, unit_code, reason, status, placed_by, placed_at");
     expect(holdApi).toContain("held_quantity, unit, idempotency_key, created_by, created_at, updated_at");
     expect(holdApi).toContain("'operational'");
+  });
+
+  it("uses a SECURITY DEFINER membership helper for PM task notifications under RLS", () => {
+    expect(notificationMigration).toContain("public.pke_is_active_project_member(project_id, recipient_user_id)");
+    expect(notificationMigration).toContain("public.pke_has_project_permission(project_id, 'project.tasks.resolve')");
+    expect(notificationMigration).not.toContain("FROM public.project_members pm");
+    expect(crypto.createHash("sha256").update(notificationMigration).digest("hex")).toBe("acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927");
+    expect(runner).toContain("051_task_notification_recipient_rls_helper.sql");
+    expect(runner).toContain("exact036to051");
+    expect(runner).toContain("Migration 051 is prepared only.");
   });
 
 });

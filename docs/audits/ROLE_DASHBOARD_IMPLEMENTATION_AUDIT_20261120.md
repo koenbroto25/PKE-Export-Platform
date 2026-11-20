@@ -237,3 +237,38 @@ Read-only aggregate query on Neon Production branch `br-damp-shape-b3xlh4nr` (pr
 - `inventory_movements`: 1 row; 0 invalid (quantity positive, unit non-empty, movement type/status in allowed enums).
 - `inventory_holds`: 0 rows; 0 invalid.
 No row values were read or changed. This confirms Production is not literally empty in the first two tables, even though no invalid values were found. Do not assume these rows are disposable test data; inspect provenance/ownership before any cleanup or backfill. No migration 052 or other DDL was applied.
+
+
+## 10. Funder access isolation finding and remediation
+
+A read-only Neon Production permission audit found a material external-role overgrant:
+- Two active Funder role definitions contain generic grants for `finance.view`, `reports.view`, `report.view`, and `view_financial`.
+- One active Funder role assignment currently inherits those grants.
+- Generic Finance APIs such as AP/AR and Cash Advance list, and generic Reports APIs, are not an appropriate sharing boundary for an external Funder.
+
+### Source remediation committed
+
+- Canonical Funder template now grants **no generic Finance/Accounting/Reports/payment permissions**.
+- `requireProjectPermission` and `findExplicitProjectPermission` no longer attribute generic Finance/Accounting/Reports/payment permissions to a Funder role. A separate active non-Funder role in the same Project may still supply its own explicit permission.
+- Unscoped `GET /reports/runs` now requires an active non-Funder role assignment with `reports.view`.
+- Non-platform report generation requires a Project ID.
+- Finance and Reports page guards require an eligible active internal Project role; the Funder-only landing dashboard remains accessible but has no generic Finance/Reports metrics or shortcuts.
+- Added `src/funder-permission-isolation.contract.test.ts` (7 tests) and included it in `npm test`.
+
+### Database remediation prepared, not applied
+
+Migration `052_funder_finance_report_scope_isolation.sql`:
+- Deletes existing generic Finance/Accounting/Reports/payment grants from Funder role definitions.
+- Replaces `pke_has_project_permission(uuid,text)` so RLS also denies those generic permission families when the only matching assignment is Funder.
+- SHA-256: `cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b`.
+- Migration 052 is pinned in `scripts/migrate.mjs` and `scripts/verify-migration-release-policy.mjs`, and passes dry-run/release-source verification. The runner deliberately does **not** enable apply for 052.
+- Production permission grants remain unchanged until a fresh current-Production backup is made and the owner approves this exact SQL hash. Do not treat source-level guards as a substitute for the DB/RLS migration; this remains a live Production authorization blocker until applied and verified.
+
+### CI evidence for Funder isolation source
+
+Exact executable source head: `d18d8d267afcdfa0179b11e7408fa8cb9b43d607`.
+- Unit Tests run `44755729653`: **SUCCESS**, 20/20 files and 231/231 tests passed, including 7 Funder isolation and 6 inventory/warehouse tests.
+- Migration release verifier and dry-run passed; dry-run explicitly reports Migration 052 as prepared-only and made no DB connection.
+- Backend API TypeScript, frontend TypeScript and frontend production build passed.
+- Dependency Audit run `44755729686`: **SUCCESS**; root/frontend production and dependency-tree audits passed.
+- No Migration 052 DDL was applied. No Production data or permissions were changed.

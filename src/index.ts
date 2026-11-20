@@ -3121,7 +3121,7 @@ app.post("/api/v1/tracking-events", requireAuth, async (req: express.Request, re
       return res.status(404).json({ error: "Truck trip not found" });
     }
     const tripProjectId = tripRows[0].project_id as string;
-    const requiredPermission = eventType === "receipt" ? "warehouse.receipt.create" : "record_truck_trips";
+    const requiredPermission = eventType === "receipt" ? "warehouse.receipt.create" : eventType === "checkpoint" ? "verify_checkpoints" : "record_truck_trips";
     if (!(await requireProjectPermission(req, res, tripProjectId, requiredPermission))) return;
     const effectiveCapture = captureTimestamp || new Date().toISOString();
     const { rows } = await req.db.query(

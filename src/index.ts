@@ -1744,20 +1744,20 @@ app.post("/api/v1/projects/:projectId/work-items", requireAuth, async (req: expr
     );
     if (!inserted.rows.length) return res.status(409).json({ error: "A work item with this Project dedupe key already exists.", code: "WORK_ITEM_DUPLICATE" });
     const item = inserted.rows[0];
-    await req.db.query(
-      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,'created',$3::uuid,'Work item created',$4::jsonb)",
+    const createdEvent = await req.db.query(
+      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,'created',$3::uuid,'Work item created',$4::jsonb) RETURNING id",
       [item.id,projectId,actorId,JSON.stringify({ ownerRoleCode, assigneeUserId: body.assigneeUserId || null })]
     );
     await req.db.query(
       "INSERT INTO public.user_notifications (id,event_id,project_id,work_item_id,recipient_user_id,created_by,title,message,priority,category,created_at) " +
-      "SELECT gen_random_uuid(),gen_random_uuid(),wi.project_id,wi.id,a.user_id,$2::uuid,$3,$4,wi.priority,'task_assignment',now() " +
+      "SELECT gen_random_uuid(),$5::uuid,wi.project_id,wi.id,a.user_id,$2::uuid,$3,$4,wi.priority,'task_assignment',now() " +
       "FROM public.project_work_items wi JOIN public.project_roles pr ON pr.project_id=wi.project_id AND pr.role_code=wi.owner_role_code " +
       "JOIN public.project_role_assignments a ON a.project_id=pr.project_id AND a.project_role_id=pr.id " +
       "JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.user_id=a.user_id " +
       "WHERE wi.id=$1::uuid AND (wi.assignee_user_id IS NULL OR wi.assignee_user_id=a.user_id) " +
       "AND a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) " +
       "AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now()) ON CONFLICT DO NOTHING",
-      [item.id,actorId,"Tugas baru: " + item.title,"Anda menerima tugas " + item.title + ". Tenggat: " + (item.due_at || "belum ditentukan") + "."]
+      [item.id,actorId,"Tugas baru: " + item.title,"Anda menerima tugas " + item.title + ". Tenggat: " + (item.due_at || "belum ditentukan") + ".",createdEvent.rows[0].id]
     );
     return res.status(201).json({ workItem: item });
   } catch { return res.status(500).json(internalServerErrorPayload()); }
@@ -1832,9 +1832,9 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
         [status,roleCode,assignee,due,priority,actorId,item.id,projectId]
       );
     }
-    await req.db.query(
-      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,$3,$4::uuid,$5,$6::jsonb)",
-      [item.id,projectId,eventType,actorId,body.reason || null,JSON.stringify({ action, comment: body.comment || null, status, ownerRoleCode: roleCode, assigneeUserId: assignee })]
+    const recordedEvent = await req.db.query(
+      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,$3,$4::uuid,$5,$6::jsonb) RETURNING id",
+      [item.id,projectId,eventType,actorId,body.reason || null,JSON.stringify({ action, comment: body.comment || null, beforeStatus: item.status, status, beforeOwnerRoleCode: item.owner_role_code, ownerRoleCode: roleCode, beforeAssigneeUserId: item.assignee_user_id, assigneeUserId: assignee })]
     );
     if (["assign","escalate","submit","block","resolve","close"].includes(action)) {
       const notifyPm = ["escalate","submit","block"].includes(action);
@@ -1848,13 +1848,13 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
         : (action === "assign" ? "Anda menerima tugas. Alasan penugasan: " + body.reason : "Status tugas diperbarui menjadi " + status + ".");
       await req.db.query(
         "INSERT INTO public.user_notifications (id,event_id,project_id,work_item_id,recipient_user_id,created_by,title,message,priority,category,created_at) " +
-        "SELECT gen_random_uuid(),gen_random_uuid(),$1::uuid,$2::uuid,a.user_id,$3::uuid,$4,$5,$6,'task_update',now() " +
+        "SELECT gen_random_uuid(),$9::uuid,$1::uuid,$2::uuid,a.user_id,$3::uuid,$4,$5,$6,'task_update',now() " +
         "FROM public.project_roles pr JOIN public.project_role_assignments a ON a.project_role_id=pr.id AND a.project_id=pr.project_id " +
         "JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.user_id=a.user_id " +
         "WHERE pr.project_id=$1::uuid AND pr.role_code=$7 AND pr.is_active=true AND a.is_active=true AND a.revoked_at IS NULL " +
         "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
         "AND (pm.expires_at IS NULL OR pm.expires_at>now()) AND ($8::uuid IS NULL OR a.user_id=$8::uuid) ON CONFLICT DO NOTHING",
-        [projectId,item.id,actorId,title,message,item.priority,targetRole,targetUser]
+        [projectId,item.id,actorId,title,message,item.priority,targetRole,targetUser,recordedEvent.rows[0].id]
       );
     }
     const updated = await req.db.query(

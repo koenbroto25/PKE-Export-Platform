@@ -1803,7 +1803,7 @@ function ResetPasswordPage({ onNotice }: { onNotice: (kind: 'success' | 'error' 
     </div>
   </div>;
 }
-function ProjectDetailPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const detail = useLoad<any>(() => id ? get('/projects/' + id + '/detail') : Promise.resolve({}), [id]);
@@ -1814,6 +1814,7 @@ function ProjectDetailPage({ onNotice }: { onNotice: (kind: 'success' | 'error' 
       <p>Status: {detail.data?.project?.status || '—'}</p>
       <p>Target: {detail.data?.project?.target_quantity || 0} {detail.data?.project?.settlement_unit || 'MT'}</p>
       <button onClick={() => navigate('/projects')}><ArrowLeft size={16} /> Kembali</button>
+      <div className="form-actions">{hasProjectPermission("project.update", activeUser) && <ActionButton onClick={() => navigate("/projects/" + id + "/edit")}>Edit Project</ActionButton>}{hasProjectPermission("project.configuration.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/configuration")}>Konfigurasi</ActionButton>}{hasProjectPermission("project.members.view", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/members")}>Anggota</ActionButton>}{hasProjectPermission("project.roles.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/roles")}>Role</ActionButton>}</div>
     </div>}
   </div>;
 };

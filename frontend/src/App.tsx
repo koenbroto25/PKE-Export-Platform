@@ -1708,7 +1708,7 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
           <FormField label="Masa berlaku role (opsional)"><input type="datetime-local" value={memberAddExpiresAt} onChange={e => setMemberAddExpiresAt(e.target.value)} min={new Date(Date.now() + 60_000).toISOString().slice(0,16)} /></FormField>
           <div className="form-actions"><button className="primary-button" disabled={memberAddBusy || projectDetail.loading || !users.data?.users?.length}>{memberAddBusy ? 'Menyimpan…' : 'Tambahkan ke proyek'}</button></div>
         </form>
-        <div className="panel-subsection">
+        {canPlatformAdmin && <div className="panel-subsection">
           <PanelHeading title="Penunjukan Project Manager" description="Keputusan penunjukan dan penonaktifan PM sepenuhnya milik Admin. Jika Project masih memiliki PM aktif, nonaktifkan penugasan PM yang dipilih Admin terlebih dahulu." />
           <form className="form-grid" onSubmit={appointProjectManager}>
             <FormField label="Akun PM"><select value={pmAppointUserId} onChange={e => setPmAppointUserId(e.target.value)} required>
@@ -1718,7 +1718,7 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
             <FormField label="Alasan penunjukan"><input value={pmAppointReason} onChange={e => setPmAppointReason(e.target.value)} minLength={5} maxLength={500} required placeholder="Dasar keputusan Admin" /></FormField>
             <div className="form-actions"><button className="primary-button" disabled={pmAppointBusy || !selectedProjectId}>{pmAppointBusy ? 'Menyimpan…' : 'Tunjuk Project Manager'}</button></div>
           </form>
-        </div>
+        </div>}
         {projectDetail.loading ? <Loading /> : projectDetail.error ? <ErrorState message={projectDetail.error} retry={projectDetail.refresh} /> : <DataTable rows={projectDetail.data?.members || []} columns={[
           { key: 'email', label: 'Pengguna', render: r => <div className="primary-cell"><strong>{r.email || '—'}</strong><small>{r.name || shortId(r.user_id)}</small></div> },
           { key: 'role_assignments', label: 'Role assignments', render: r => <div className="stacked-cell">{(r.role_assignments || []).length ? (r.role_assignments || []).map((a: AnyRecord) => {
@@ -1828,7 +1828,7 @@ function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; o
       <p>Status: {detail.data?.project?.status || '—'}</p>
       <p>Target: {detail.data?.project?.target_quantity || 0} {detail.data?.project?.settlement_unit || 'MT'}</p>
       <button onClick={() => navigate('/projects')}><ArrowLeft size={16} /> Kembali</button>
-      <div className="form-actions">{hasProjectPermission("project.update", activeUser) && <ActionButton onClick={() => navigate("/projects/" + id + "/edit")}>Edit Project</ActionButton>}{hasProjectPermission("project.configuration.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/configuration")}>Konfigurasi</ActionButton>}{hasProjectPermission("project.members.view", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/members")}>Anggota</ActionButton>}{hasProjectPermission("project.roles.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/roles")}>Role</ActionButton>}</div>
+      <div className="form-actions">{hasProjectPermission("project.update", activeUser) && <ActionButton onClick={() => navigate("/projects/" + id + "/edit")}>Edit Project</ActionButton>}{hasProjectPermission("project.configuration.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/configuration")}>Konfigurasi</ActionButton>}{hasAnyProjectPermission(["project.members.view", "project.members.manage"], activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/members")}>Anggota</ActionButton>}{hasProjectPermission("project.roles.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/roles")}>Role</ActionButton>}</div>
     </div>}
   </div>;
 };

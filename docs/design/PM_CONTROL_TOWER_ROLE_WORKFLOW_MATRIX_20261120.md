@@ -286,3 +286,15 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Unit Tests run 44742140799 and Dependency Audit Evidence run 44742140665 both completed SUCCESS on source commit aec2c683a8b4b0825b351541b1300dd0b147d7e5. Unit Tests: 215/215 across 18 files; migration release verifier PASS; fail-closed migration dry-run PASS with exact 048/049 hashes; backend/frontend TypeScript PASS; frontend production build PASS; Dependency Audit PASS.
 - Dry-run reported 048 and 049 as manifest=absent (prepared, not applied), printed the exact pinned hashes, and ended with 'No database changes made. No target connection attempted.'
 - This confirms source/build/release-preflight gates only. It does not prove SQL execution, authenticated RLS runtime UAT, or Production activation.
+
+
+## 14. P0 Production execution and post-migration verification — 2026-11-20
+
+- Pre-migration Neon backup branch: `p0-pre-048-049-production-backup-20261120` (`br-steep-butterfly-b30wgjc3`), created from Production branch `br-damp-shape-b3xlh4nr`, ready at parent LSN `0/5F05C88` / parent timestamp `2026-11-20T13:15:05Z`. Account quota prevented marking the branch protected and prevented a manual snapshot; backup is a ready branch clone, not a manual snapshot or protected branch.
+- Verified the full 001–047 Production ledger against the committed manifest before mutation (47/47 exact rows).
+- Migration 048 applied atomically and verified: `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`.
+- Migration 049 applied atomically after 048 verification and verified: `f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780`.
+- Production migration ledger now 49/49. Rows 47–49 are `applied` with exact expected filenames and SHA-256 values.
+- Post-apply structural/security verification passed: task/event tables exist; both tables have forced RLS; six task permissions are active; PM role records receive all six task permissions and non-PM role records receive none; app runtime cannot delete work items or update/delete append-only events; Project Admin Finance mapping is `finance.view` only; task notification INSERT policy includes PM resolve authority.
+- Migration 048 checks also passed for inventory-hold table, forced RLS, insert policy, AR buyer-master column and permission-function presence.
+- No production mock/test/business records were created. Full authenticated role-switch and cross-Project positive/negative workflow UAT is still required; this remains the only substantive P0 validation gate after the database migrations. Do not mark P0 fully production-accepted until that UAT passes. No Vercel deployment or PR merge was performed.

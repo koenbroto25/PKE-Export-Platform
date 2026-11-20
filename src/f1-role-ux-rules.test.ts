@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const appSource = fs.readFileSync(path.join(process.cwd(), "frontend/src/App.tsx"), "utf8");
+const apiSource = fs.readFileSync(path.join(process.cwd(), "src/index.ts"), "utf8");
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from "../frontend/src/role-permissions.js";
 
 const member = { projectId: "project-a", isActive: true };

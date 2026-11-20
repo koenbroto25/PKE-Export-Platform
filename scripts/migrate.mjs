@@ -11,6 +11,7 @@ const mode = process.argv[2] || "dry-run";
 const migrationsDir = path.resolve("migrations");
 const manifestPath = path.resolve("migration_manifest_001_027.json");
 const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_047.json");
+const currentProductionHistoryManifestPath = path.resolve("migration_history_manifest_001_052.json");
 
 // REVISION 5.6 safety policy:
 // - Migrations 001-035 are immutable; no apply/baseline may rerun or mutate them.
@@ -51,6 +52,11 @@ function loadManifest() {
 function loadProductionHistoryManifest() {
   if (!fs.existsSync(productionHistoryManifestPath)) return null;
   try { return JSON.parse(fs.readFileSync(productionHistoryManifestPath, "utf8")); } catch { return null; }
+}
+
+function loadCurrentProductionHistoryManifest() {
+  if (!fs.existsSync(currentProductionHistoryManifestPath)) return null;
+  try { return JSON.parse(fs.readFileSync(currentProductionHistoryManifestPath, "utf8")); } catch { return null; }
 }
 
 function listSqlFiles() {
@@ -96,6 +102,7 @@ async function main() {
   const files = listSqlFiles();
   const manifest = loadManifest();
   const productionHistoryManifest = loadProductionHistoryManifest();
+  const currentProductionHistoryManifest = loadCurrentProductionHistoryManifest();
   const manifestMap = new Map((manifest?.baseline_migrations || []).map((m) => [m.file, m.sha256]));
 
   console.log(`Found ${files.length} numbered migration files in migrations/.`);
@@ -162,8 +169,9 @@ async function main() {
       const applied = await client.query("SELECT filename, sha256, status, applied_at FROM migration_history ORDER BY id");
       const appliedMap = new Map(applied.rows.map((r) => [r.filename, r]));
 
-      if (productionHistoryManifest) {
-        const expected = productionHistoryManifest.entries || [];
+      const statusManifest = currentProductionHistoryManifest || productionHistoryManifest;
+      if (statusManifest) {
+        const expected = statusManifest.entries || [];
         let exactLedgerMatch = expected.length === applied.rows.length &&
           expected.every((entry, i) => {
             const actual = applied.rows[i];

@@ -702,7 +702,73 @@ function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; a
     <div className="content-two"><Card><PanelHeading title="RAB proyek" description="Anggaran yang telah dicatat." action={<button className="icon-button" onClick={rab.refresh}><RefreshCw size={16} /></button>} />{rab.loading ? <Loading /> : rab.error ? <ErrorState message={rab.error} retry={rab.refresh} /> : <DataTable rows={(rab.data?.rab || []).filter(r => !projectId || r.project_id === projectId)} columns={[{ key: 'description', label: 'Deskripsi' }, { key: 'category', label: 'Kategori' }, { key: 'amount', label: 'Nilai', render: r => idr(r.amount) }, { key: 'created_at', label: 'Tanggal', render: r => dateTime(r.created_at) }]} />}</Card>
       <Card><PanelHeading title="Kurs FX" description="Referensi kurs yang tercatat." action={<button className="icon-button" onClick={fxRates.refresh}><RefreshCw size={16} /></button>} />{fxRates.loading ? <Loading /> : fxRates.error ? <ErrorState message={fxRates.error} retry={fxRates.refresh} /> : <DataTable rows={(fxRates.data?.fxRates || []).slice(0, 12)} columns={[{ key: 'from_currency', label: 'Pasangan', render: r => <strong>{r.from_currency}/{r.to_currency}</strong> }, { key: 'rate', label: 'Kurs', render: r => number(r.rate, 6) }, { key: 'rate_type', label: 'Jenis' }, { key: 'effective_date', label: 'Efektif', render: r => dateTime(r.effective_date || r.rate_date) }]} />}</Card></div>
     <Card><PanelHeading title="Eksposur valuta asing" description="Posisi eksposur yang tercatat untuk tiap proyek." action={<ActionButton variant="secondary" onClick={() => setForm('exposure')}><Plus size={15} /> Catat exposure</ActionButton>} />{exposure.loading ? <Loading /> : exposure.error ? <ErrorState message={exposure.error} retry={exposure.refresh} /> : <DataTable rows={(exposure.data?.fxExposure || []).filter(r => !projectId || r.project_id === projectId)} columns={[{ key: 'project_id', label: 'Proyek', render: r => shortId(r.project_id) }, { key: 'amount_idr', label: 'Nilai IDR', render: r => idr(r.amount_idr) }, { key: 'amount_fx', label: 'Nilai FX', render: r => number(r.amount_fx) }, { key: 'fx_rate', label: 'Kurs', render: r => number(r.fx_rate, 6) }, { key: 'exposure_type', label: 'Jenis', render: r => <StatusPill value={r.exposure_type} /> }]} />}</Card>
-    <div className="inline-warning"><CircleAlert size={17} /> Modul ini mencatat RAB dan eksposur FX. Alur AP/AR, pembayaran, kas, jurnal double-entry, dan rekonsiliasi settlement belum tersedia sebagai endpoint pada backend yang diterima.</div>
+    <FinanceSubledgerPanel projectId={projectId} canCreateFinance={canCreateFinance} onNotice={onNotice} />
+  </>;
+}
+
+function FinanceSubledgerPanel({ projectId, canCreateFinance, onNotice }: { projectId: string; canCreateFinance: boolean; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const ap = useLoad<{ apInvoices?: AnyRecord[] }>(() => projectId ? get(`/ap-invoices?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ apInvoices: [] }), [projectId]);
+  const ar = useLoad<{ arInvoices?: AnyRecord[] }>(() => projectId ? get(`/ar-invoices?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ arInvoices: [] }), [projectId]);
+  const vendors = useLoad<{ vendors?: AnyRecord[] }>(() => projectId ? get(`/vendors?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ vendors: [] }), [projectId]);
+  const buyers = useLoad<{ buyers?: AnyRecord[] }>(() => projectId ? get(`/buyers?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ buyers: [] }), [projectId]);
+  const [mode, setMode] = useState<'ap' | 'ar' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [apForm, setApForm] = useState({ supplierId: '', invoiceNumber: '', invoiceDate: new Date().toISOString().slice(0,10), dueDate: '', currencyCode: 'USD', invoiceAmount: '', taxAmount: '0' });
+  const [arForm, setArForm] = useState({ buyerMasterId: '', invoiceNumber: '', invoiceDate: new Date().toISOString().slice(0,10), dueDate: '', currencyCode: 'USD', invoiceAmount: '', acceptedQuantity: '', unit: 'MT', sellingPrice: '', relatedShipmentId: '' });
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!projectId || !mode) return;
+    setBusy(true);
+    try {
+      if (mode === 'ap') await post('/ap-invoices', { ...apForm, projectId, invoiceAmount: Number(apForm.invoiceAmount), taxAmount: Number(apForm.taxAmount) });
+      else await post('/ar-invoices', { ...arForm, projectId, invoiceAmount: Number(arForm.invoiceAmount), acceptedQuantity: arForm.acceptedQuantity ? Number(arForm.acceptedQuantity) : undefined, sellingPrice: arForm.sellingPrice ? Number(arForm.sellingPrice) : undefined, relatedShipmentId: arForm.relatedShipmentId || undefined });
+      onNotice('success', mode === 'ap' ? 'Tagihan pemasok tersimpan dengan status pending.' : 'Tagihan buyer tersimpan dengan status pending.');
+      setMode(null); ap.refresh(); ar.refresh();
+    } catch (error) { onNotice('error', error instanceof Error ? error.message : 'Invoice tidak dapat disimpan.'); }
+    finally { setBusy(false); }
+  };
+  return <>
+    <div className="content-two">
+      <Card><PanelHeading title="Accounts Payable" description="Tagihan pemasok per Project." action={canCreateFinance ? <ActionButton onClick={() => setMode('ap')}><Plus size={15} /> Catat AP</ActionButton> : undefined} />
+        {ap.loading ? <Loading /> : ap.error ? <ErrorState message={ap.error} retry={ap.refresh} /> : <DataTable rows={ap.data?.apInvoices || []} columns={[
+          { key: 'invoice_number', label: 'Invoice' }, { key: 'supplier_id', label: 'Pemasok', render: r => shortId(r.supplier_id) },
+          { key: 'total_amount', label: 'Total', render: r => number(r.total_amount, 2) }, { key: 'outstanding_amount', label: 'Outstanding', render: r => number(r.outstanding_amount, 2) },
+          { key: 'verification_status', label: 'Verifikasi', render: r => <StatusPill value={r.verification_status} /> },
+        ]} />}
+        <div className="inline-warning"><CircleAlert size={16} /> Verifikasi AP tetap dikunci sampai pencocokan Purchase Order, Goods Receipt, dan invoice pemasok dapat dibuktikan oleh sistem. Checkbox atau klaim dari browser tidak dianggap bukti.</div>
+      </Card>
+      <Card><PanelHeading title="Accounts Receivable" description="Tagihan buyer per Project." action={canCreateFinance ? <ActionButton onClick={() => setMode('ar')}><Plus size={15} /> Catat AR</ActionButton> : undefined} />
+        {ar.loading ? <Loading /> : ar.error ? <ErrorState message={ar.error} retry={ar.refresh} /> : <DataTable rows={ar.data?.arInvoices || []} columns={[
+          { key: 'invoice_number', label: 'Invoice' }, { key: 'buyer_master_id', label: 'Buyer', render: r => shortId(r.buyer_master_id) },
+          { key: 'total_amount', label: 'Total', render: r => number(r.total_amount, 2) }, { key: 'approval_status', label: 'Approval', render: r => <StatusPill value={r.approval_status} /> },
+          { key: 'settlement_status', label: 'Settlement', render: r => <StatusPill value={r.settlement_status} /> },
+        ]} />}
+      </Card>
+    </div>
+    {mode && <Card className="form-panel"><PanelHeading title={mode === 'ap' ? 'Buat AP Invoice' : 'Buat AR Invoice'} action={<button className="icon-button" onClick={() => setMode(null)}><X size={18} /></button>} />
+      <form className="form-grid" onSubmit={save}>
+        {mode === 'ap' ? <>
+          <FormField label="Pemasok"><select value={apForm.supplierId} onChange={e => setApForm(v => ({ ...v, supplierId: e.target.value }))} required><option value="">Pilih pemasok</option>{(vendors.data?.vendors || []).map(v => <option key={v.id} value={v.id}>{v.name} {v.code ? `· ${v.code}` : ''}</option>)}</select></FormField>
+          <FormField label="Nomor invoice"><input value={apForm.invoiceNumber} onChange={e => setApForm(v => ({ ...v, invoiceNumber: e.target.value }))} required /></FormField>
+          <FormField label="Tanggal invoice"><input type="date" value={apForm.invoiceDate} onChange={e => setApForm(v => ({ ...v, invoiceDate: e.target.value }))} required /></FormField>
+          <FormField label="Jatuh tempo"><input type="date" value={apForm.dueDate} onChange={e => setApForm(v => ({ ...v, dueDate: e.target.value }))} /></FormField>
+          <FormField label="Mata uang"><select value={apForm.currencyCode} onChange={e => setApForm(v => ({ ...v, currencyCode: e.target.value }))}><option>USD</option><option>IDR</option><option>EUR</option><option>CNY</option><option>PKR</option></select></FormField>
+          <FormField label="Nilai invoice"><input type="number" min="0.01" step="0.01" value={apForm.invoiceAmount} onChange={e => setApForm(v => ({ ...v, invoiceAmount: e.target.value }))} required /></FormField>
+          <FormField label="Pajak"><input type="number" min="0" step="0.01" value={apForm.taxAmount} onChange={e => setApForm(v => ({ ...v, taxAmount: e.target.value }))} /></FormField>
+        </> : <>
+          <FormField label="Buyer"><select value={arForm.buyerMasterId} onChange={e => setArForm(v => ({ ...v, buyerMasterId: e.target.value }))} required><option value="">Pilih buyer</option>{(buyers.data?.buyers || []).map(b => <option key={b.id} value={b.id}>{b.name} {b.code ? `· ${b.code}` : ''}</option>)}</select></FormField>
+          <FormField label="Nomor invoice"><input value={arForm.invoiceNumber} onChange={e => setArForm(v => ({ ...v, invoiceNumber: e.target.value }))} required /></FormField>
+          <FormField label="Tanggal invoice"><input type="date" value={arForm.invoiceDate} onChange={e => setArForm(v => ({ ...v, invoiceDate: e.target.value }))} required /></FormField>
+          <FormField label="Jatuh tempo"><input type="date" value={arForm.dueDate} onChange={e => setArForm(v => ({ ...v, dueDate: e.target.value }))} /></FormField>
+          <FormField label="Mata uang"><select value={arForm.currencyCode} onChange={e => setArForm(v => ({ ...v, currencyCode: e.target.value }))}><option>USD</option><option>IDR</option><option>EUR</option><option>CNY</option><option>PKR</option></select></FormField>
+          <FormField label="Nilai invoice"><input type="number" min="0.01" step="0.01" value={arForm.invoiceAmount} onChange={e => setArForm(v => ({ ...v, invoiceAmount: e.target.value }))} required /></FormField>
+          <FormField label="Kuantitas diterima (MT)"><input type="number" min="0.01" step="0.01" value={arForm.acceptedQuantity} onChange={e => setArForm(v => ({ ...v, acceptedQuantity: e.target.value }))} /></FormField>
+          <FormField label="Harga jual per unit"><input type="number" min="0" step="0.01" value={arForm.sellingPrice} onChange={e => setArForm(v => ({ ...v, sellingPrice: e.target.value }))} /></FormField>
+          <FormField label="Shipment ID (opsional)"><input value={arForm.relatedShipmentId} onChange={e => setArForm(v => ({ ...v, relatedShipmentId: e.target.value }))} /></FormField>
+        </>}
+        <div className="form-actions"><ActionButton variant="secondary" onClick={() => setMode(null)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan invoice'}</button></div>
+      </form>
+    </Card>}
   </>;
 }
 

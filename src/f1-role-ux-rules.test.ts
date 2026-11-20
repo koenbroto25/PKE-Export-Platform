@@ -48,6 +48,11 @@ describe("Project-scoped effective permission UX", () => {
     expect(pm).toContain("finance"); expect(pm).not.toContain("payment-instructions"); expect(pm).not.toContain("funder");
     expect(visiblePageKeys(user(["payment.view"]))).toContain("payment-instructions");
   });
+  it("shows My Work to active Project roles while keeping its data scoped by the API", () => {
+    expect(hasPageAccess("my-work", user(["inventory.view"]))).toBe(true);
+    expect(hasPageAccess("my-work", user(["buyer.shipment.view"]))).toBe(true);
+    expect(hasPageAccess("my-work", user(["inventory.view"], ""))).toBe(false);
+  });
   it("exposes action capabilities only from the selected Project effective permissions", () => {
     const financeReadOnly = user(["finance.view"]);
     expect(hasProjectPermission("finance.view", financeReadOnly)).toBe(true);

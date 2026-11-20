@@ -198,3 +198,15 @@ Source changes committed on the existing branch after the dashboard CI gate:
 3. Complete warehouse receipt-to-inventory movement reconciliation, weighbridge evidence integrity and duplicate receipt protection.
 4. Complete reservation/allocation/load reconciliation, including draft/allocated/partially-loaded/loaded/cancelled/reversed transitions and aggregate capacity under concurrency.
 5. Implement the missing source workflows listed in RD-05 through RD-12; do not invent database schemas or apply migrations without preflight, backup and owner-approved exact checksum.
+
+
+### Additional database-contract alignment
+
+Inspection of migration `005_inventory_and_receipts.sql` confirmed the allowed database enums:
+- `warehouse_receipts.status`: `pending | verified | partial`.
+- `inventory_movements.movement_type`: `receipt | issue | transfer | adjustment`.
+- `inventory_movements.status`: `posted | reversed | adjusted`.
+
+The API now validates these enums before attempting the INSERT/UPDATE, avoiding generic 500 responses for known constraint violations. Contract tests assert these enum sets alongside the positive quantity and unit checks.
+
+Latest executable source commit after this enum alignment: `b66d46c880fb91106a11707c6e2fbc2095e85a29`. CI for this exact head is pending at the time of this documentation update; the preceding `36aae87466983b1cf6aa6d86d7a279e28b12ec8d` run passed 224 tests (19 files), migration verifier/dry-run, backend/frontend typecheck, frontend build and dependency audit, but it predates the enum-only source/test refinements.

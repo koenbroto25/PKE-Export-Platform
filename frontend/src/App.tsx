@@ -698,7 +698,7 @@ function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; a
   const [rateForm, setRateForm] = useState({ fromCurrency: 'USD', toCurrency: 'IDR', rate: '', rateType: 'reference', source: '', effectiveDate: new Date().toISOString().slice(0, 10) });
   const [exposureForm, setExposureForm] = useState({ projectId: projectId || '', amountIdr: '', amountFx: '', fxRate: '', exposureType: 'open' });
   useEffect(() => { if (projectId) { setRabForm(v => ({ ...v, projectId })); setExposureForm(v => ({ ...v, projectId })); } }, [projectId]);
-  const save = async (e: FormEvent) => { e.preventDefault(); if (!form) return; setBusy(true); try {
+  const save = async (e: FormEvent) => { e.preventDefault(); if (!form || (form === 'rate' ? !canManageGlobalReference : !canCreateFinance)) return; setBusy(true); try {
     if (form === 'rab') await post('/rab', { ...rabForm, amount: Number(rabForm.amount) });
     if (form === 'rate') await post('/fx-rates', { ...rateForm, rate: Number(rateForm.rate) });
     if (form === 'exposure') await post('/fx-exposure', { ...exposureForm, amountIdr: Number(exposureForm.amountIdr), amountFx: exposureForm.amountFx ? Number(exposureForm.amountFx) : null, fxRate: exposureForm.fxRate ? Number(exposureForm.fxRate) : null });
@@ -708,7 +708,7 @@ function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; a
   return <>
     <PageTitle eyebrow="FINANCE CONTROL" title="Keuangan & eksposur FX" subtitle="RAB proyek, referensi kurs, dan eksposur mata uang asing." actions={<>{canManageGlobalReference && <ActionButton variant="secondary" onClick={() => setForm('rate')}><Plus size={15} /> Kurs FX</ActionButton>}{canCreateFinance && <><ActionButton onClick={() => setForm('rab')}><Plus size={15} /> Catat RAB</ActionButton><ActionButton variant="secondary" onClick={() => setForm('exposure')}><Plus size={15} /> Eksposur FX</ActionButton></>}</>} />
     <div className="metric-grid three"><Metric label="Total anggaran RAB" value={idr(budget)} foot="Sesuai filter proyek" icon={Wallet} tone="amber" /><Metric label="Data kurs aktif" value={number(fxRates.data?.fxRates?.length || 0, 0)} icon={Globe2} tone="blue" /><Metric label="Eksposur FX" value={number(exposure.data?.fxExposure?.length || 0, 0)} foot="Posisi tercatat" icon={TrendingUp} tone="green" /></div>
-    {form && <Card className="form-panel"><PanelHeading title={form === 'rab' ? 'Tambah RAB proyek' : form === 'rate' ? 'Catat kurs valuta' : 'Catat eksposur FX'} action={<button className="icon-button" onClick={() => setForm(null)}><X size={18} /></button>} />
+    {form && (form === 'rate' ? canManageGlobalReference : canCreateFinance) && <Card className="form-panel"><PanelHeading title={form === 'rab' ? 'Tambah RAB proyek' : form === 'rate' ? 'Catat kurs valuta' : 'Catat eksposur FX'} action={<button className="icon-button" onClick={() => setForm(null)}><X size={18} /></button>} />
       <form className="form-grid" onSubmit={save}>
         {form === 'rab' && <><FormField label="Proyek"><select value={rabForm.projectId} onChange={e => setRabForm(v => ({ ...v, projectId: e.target.value }))} required><ProjectOptions /></select></FormField><FormField label="Deskripsi"><input value={rabForm.description} onChange={e => setRabForm(v => ({ ...v, description: e.target.value }))} required /></FormField><FormField label="Nilai (IDR)"><input type="number" min="1" step="1" value={rabForm.amount} onChange={e => setRabForm(v => ({ ...v, amount: e.target.value }))} required /></FormField><FormField label="Kategori"><select value={rabForm.category} onChange={e => setRabForm(v => ({ ...v, category: e.target.value }))}><option value="fixed">Fixed</option><option value="variable">Variable</option><option value="contingency">Contingency</option><option value="tax">Tax</option><option value="overhead">Overhead</option></select></FormField></>}
         {form === 'rate' && <><FormField label="Dari mata uang"><select value={rateForm.fromCurrency} onChange={e => setRateForm(v => ({ ...v, fromCurrency: e.target.value }))}><option>USD</option><option>CNY</option><option>PKR</option><option>EUR</option><option>IDR</option></select></FormField><FormField label="Ke mata uang"><select value={rateForm.toCurrency} onChange={e => setRateForm(v => ({ ...v, toCurrency: e.target.value }))}><option>IDR</option><option>USD</option><option>CNY</option><option>PKR</option><option>EUR</option></select></FormField><FormField label="Nilai kurs"><input type="number" step="0.000001" value={rateForm.rate} onChange={e => setRateForm(v => ({ ...v, rate: e.target.value }))} required /></FormField><FormField label="Jenis kurs"><select value={rateForm.rateType} onChange={e => setRateForm(v => ({ ...v, rateType: e.target.value }))}><option value="reference">Reference</option><option value="buy">Buy</option><option value="sell">Sell</option><option value="transaction">Transaction</option></select></FormField><FormField label="Sumber"><input value={rateForm.source} onChange={e => setRateForm(v => ({ ...v, source: e.target.value }))} /></FormField><FormField label="Tanggal efektif"><input type="date" value={rateForm.effectiveDate} onChange={e => setRateForm(v => ({ ...v, effectiveDate: e.target.value }))} /></FormField></>}
@@ -718,7 +718,7 @@ function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; a
     </Card>}
     <div className="content-two"><Card><PanelHeading title="RAB proyek" description="Anggaran yang telah dicatat." action={<button className="icon-button" onClick={rab.refresh}><RefreshCw size={16} /></button>} />{rab.loading ? <Loading /> : rab.error ? <ErrorState message={rab.error} retry={rab.refresh} /> : <DataTable rows={(rab.data?.rab || []).filter(r => !projectId || r.project_id === projectId)} columns={[{ key: 'description', label: 'Deskripsi' }, { key: 'category', label: 'Kategori' }, { key: 'amount', label: 'Nilai', render: r => idr(r.amount) }, { key: 'created_at', label: 'Tanggal', render: r => dateTime(r.created_at) }]} />}</Card>
       <Card><PanelHeading title="Kurs FX" description="Referensi kurs yang tercatat." action={<button className="icon-button" onClick={fxRates.refresh}><RefreshCw size={16} /></button>} />{fxRates.loading ? <Loading /> : fxRates.error ? <ErrorState message={fxRates.error} retry={fxRates.refresh} /> : <DataTable rows={(fxRates.data?.fxRates || []).slice(0, 12)} columns={[{ key: 'from_currency', label: 'Pasangan', render: r => <strong>{r.from_currency}/{r.to_currency}</strong> }, { key: 'rate', label: 'Kurs', render: r => number(r.rate, 6) }, { key: 'rate_type', label: 'Jenis' }, { key: 'effective_date', label: 'Efektif', render: r => dateTime(r.effective_date || r.rate_date) }]} />}</Card></div>
-    <Card><PanelHeading title="Eksposur valuta asing" description="Posisi eksposur yang tercatat untuk tiap proyek." action={<ActionButton variant="secondary" onClick={() => setForm('exposure')}><Plus size={15} /> Catat exposure</ActionButton>} />{exposure.loading ? <Loading /> : exposure.error ? <ErrorState message={exposure.error} retry={exposure.refresh} /> : <DataTable rows={(exposure.data?.fxExposure || []).filter(r => !projectId || r.project_id === projectId)} columns={[{ key: 'project_id', label: 'Proyek', render: r => shortId(r.project_id) }, { key: 'amount_idr', label: 'Nilai IDR', render: r => idr(r.amount_idr) }, { key: 'amount_fx', label: 'Nilai FX', render: r => number(r.amount_fx) }, { key: 'fx_rate', label: 'Kurs', render: r => number(r.fx_rate, 6) }, { key: 'exposure_type', label: 'Jenis', render: r => <StatusPill value={r.exposure_type} /> }]} />}</Card>
+    <Card><PanelHeading title="Eksposur valuta asing" description="Posisi eksposur yang tercatat untuk tiap proyek." action={canCreateFinance ? <ActionButton variant="secondary" onClick={() => setForm('exposure')}><Plus size={15} /> Catat exposure</ActionButton> : undefined} />{exposure.loading ? <Loading /> : exposure.error ? <ErrorState message={exposure.error} retry={exposure.refresh} /> : <DataTable rows={(exposure.data?.fxExposure || []).filter(r => !projectId || r.project_id === projectId)} columns={[{ key: 'project_id', label: 'Proyek', render: r => shortId(r.project_id) }, { key: 'amount_idr', label: 'Nilai IDR', render: r => idr(r.amount_idr) }, { key: 'amount_fx', label: 'Nilai FX', render: r => number(r.amount_fx) }, { key: 'fx_rate', label: 'Kurs', render: r => number(r.fx_rate, 6) }, { key: 'exposure_type', label: 'Jenis', render: r => <StatusPill value={r.exposure_type} /> }]} />}</Card>
     <FinanceSubledgerPanel projectId={projectId} canCreateFinance={canCreateFinance} onNotice={onNotice} />
   </>;
 }
@@ -804,7 +804,7 @@ function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: st
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   const saveEntry = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!canCreateJournal) return; setBusy(true);
     try {
       const res: any = await post('/journal-entries', { ...entry, entryDate: entry.entryDate || new Date().toISOString() });
       setBusy(false);
@@ -817,7 +817,7 @@ function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: st
   };
 
   const addLine = (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); if (!canCreateJournal) return;
     if (!line.accountId || line.debit === undefined || line.credit === undefined) {
       onNotice('error', 'Account, debit, dan credit wajib diisi.');
       return;
@@ -835,6 +835,7 @@ function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: st
   };
 
   const saveLines = async () => {
+    if (!canCreateJournal) return;
     if (!editingEntryId || draftLines.length < 2) { onNotice('error', 'Minimal dua baris jurnal diperlukan.'); return; }
     if (Math.abs(totalDebit - totalCredit) > 0.005) { onNotice('error', 'Total debit dan kredit harus seimbang.'); return; }
     setBusy(true);
@@ -849,6 +850,7 @@ function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: st
   };
 
   const postEntry = async (entryId: string) => {
+    if (!canPostJournal) return;
     setBusy(true);
     try {
       await post(`/journal-entries/${encodeURIComponent(entryId)}/post`, {});
@@ -864,14 +866,14 @@ function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: st
   return <>
     <PageTitle eyebrow="AKUNTANSI" title="Jurnal Umum" subtitle="Buat dan posting jurnal double-entry per proyek." actions={canCreateJournal ? <ActionButton variant="secondary" onClick={() => setFormOpen(true)}><Plus size={15} /> Buat Jurnal Draft</ActionButton> : undefined} />
     <div className="metric-grid three"><Metric label="Jurnal" value={number(entries.data?.journalEntries?.length || 0, 0)} icon={FileText} tone="navy" /><Metric label="Total Debit Draft" value={idr(totalDebit)} foot="Belum diposting" icon={CircleDollarSign} tone="amber" /><Metric label="Total Kredit Draft" value={idr(totalCredit)} foot="Belum diposting" icon={CircleDollarSign} tone="amber" /></div>
-    {formOpen && <Card className="form-panel"><PanelHeading title="Jurnal Draft Baru" action={<button className="icon-button" onClick={() => setFormOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveEntry}>
+    {formOpen && canCreateJournal && <Card className="form-panel"><PanelHeading title="Jurnal Draft Baru" action={<button className="icon-button" onClick={() => setFormOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveEntry}>
       <FormField label="Proyek"><select value={entry.projectId} onChange={e => setEntry(v => ({ ...v, projectId: e.target.value }))} required><ProjectOptions /></select></FormField>
       <FormField label="Tipe Jurnal"><select value={entry.entryType} onChange={e => setEntry(v => ({ ...v, entryType: e.target.value }))}><option value="manual">Manual</option><option value="adjustment">Adjustment</option><option value="closing">Closing</option></select></FormField>
       <FormField label="Deskripsi"><input value={entry.description} onChange={e => setEntry(v => ({ ...v, description: e.target.value }))} required placeholder="Contoh: Pembelian bahan baku" /></FormField>
       <FormField label="Tanggal Jurnal"><input type="date" value={entry.entryDate} onChange={e => setEntry(v => ({ ...v, entryDate: e.target.value }))} required /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setFormOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan Draft'}</button></div>
     </form></Card>}
-    {editingEntryId && <Card className="form-panel"><PanelHeading title="Tambah Baris Jurnal" action={<button className="icon-button" onClick={() => setEditingEntryId(null)}><X size={18} /></button>} /><form className="form-grid" onSubmit={addLine}>
+    {editingEntryId && canCreateJournal && <Card className="form-panel"><PanelHeading title="Tambah Baris Jurnal" action={<button className="icon-button" onClick={() => setEditingEntryId(null)}><X size={18} /></button>} /><form className="form-grid" onSubmit={addLine}>
       <FormField label="Akun"><select value={line.accountId} onChange={e => setLine(v => ({ ...v, accountId: e.target.value }))} required>{(accounts.data?.accounts || []).map(a => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}</select></FormField>
       <FormField label="Debit"><input type="number" step="0.01" min="0" value={line.debit} onChange={e => setLine(v => ({ ...v, debit: e.target.value }))} /></FormField>
       <FormField label="Kredit"><input type="number" step="0.01" min="0" value={line.credit} onChange={e => setLine(v => ({ ...v, credit: e.target.value }))} /></FormField>
@@ -886,16 +888,18 @@ function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: st
   </>;
 }
 
-function ShipmentAllocationPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function ShipmentAllocationPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const canUpdateShipping = hasProjectPermission('shipping.update', activeUser);
+  const canReadInventory = hasProjectPermission('inventory.view', activeUser);
   const allocations = useLoad<{ shipmentAllocations?: AnyRecord[] }>(() => projectId ? get(`/shipment-allocations?projectId=${encodeURIComponent(projectId)}`) : get('/shipment-allocations'), [projectId]);
-  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => projectId ? get(`/inventory-lots?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryLots: [] }), [projectId]);
-  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => projectId ? get(`/inventory-reservations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryReservations: [] }), [projectId]);
+  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => projectId && canReadInventory ? get(`/inventory-lots?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryLots: [] }), [projectId, canReadInventory]);
+  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => projectId && canReadInventory ? get(`/inventory-reservations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryReservations: [] }), [projectId, canReadInventory]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ projectId: projectId || '', lotId: '', allocatedQuantity: '', unit: 'MT', idempotencyKey: '' });
 
   const save = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!canUpdateShipping || !canReadInventory) return; setBusy(true);
     try {
       await post('/shipment-allocations', { ...form, allocatedQuantity: Number(form.allocatedQuantity) });
       onNotice('success', 'Alokasi pengiriman berhasil dibuat.'); setOpen(false); allocations.refresh();
@@ -904,6 +908,7 @@ function ShipmentAllocationPage({ projectId, onNotice }: { projectId: string; on
   };
 
   const reverse = async (id: string) => {
+    if (!canUpdateShipping) return;
     if (!window.confirm('Batalkan alokasi ini?')) return;
     setBusy(true);
     try {
@@ -914,9 +919,9 @@ function ShipmentAllocationPage({ projectId, onNotice }: { projectId: string; on
   };
 
   return <>
-    <PageTitle eyebrow="P06 OPERASI" title="Alokasi Pengiriman" subtitle="Alokasi stok dari reservasi ke shipment dengan pelacakan kuantitas dan idempotensi." actions={<ActionButton onClick={() => setOpen(true)}><Plus size={15} /> Alokasi Baru</ActionButton>} />
+    <PageTitle eyebrow="P06 OPERASI" title="Alokasi Pengiriman" subtitle="Alokasi stok dari reservasi ke shipment dengan pelacakan kuantitas dan idempotensi." actions={canUpdateShipping && canReadInventory ? <ActionButton onClick={() => setOpen(true)}><Plus size={15} /> Alokasi Baru</ActionButton> : undefined} />
     <div className="metric-grid three"><Metric label="Total alokasi" value={number(allocations.data?.shipmentAllocations?.length || 0, 0)} icon={Ship} tone="navy" /><Metric label="Kuantitas dialokasi" value={number((allocations.data?.shipmentAllocations || []).reduce((s, a) => s + Number(a.allocated_quantity || 0), 0), 2)} foot="MT" icon={Boxes} tone="blue" /><Metric label="Status aktif" value={number((allocations.data?.shipmentAllocations || []).filter(a => a.status === 'active').length, 0)} icon={CheckCircle2} tone="green" /></div>
-    {open && <Card className="form-panel"><PanelHeading title="Alokasi Pengiriman Baru" action={<button className="icon-button" onClick={() => setOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={save}>
+    {open && canUpdateShipping && canReadInventory && <Card className="form-panel"><PanelHeading title="Alokasi Pengiriman Baru" action={<button className="icon-button" onClick={() => setOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={save}>
       <FormField label="Proyek"><select value={form.projectId} onChange={e => setForm(v => ({ ...v, projectId: e.target.value }))} required><ProjectOptions /></select></FormField>
       <FormField label="Lot ID"><select value={form.lotId} onChange={e => setForm(v => ({ ...v, lotId: e.target.value }))} required>{(lots.data?.inventoryLots || []).map(l => <option key={l.id} value={l.id}>{shortId(l.id)} ({l.quantity} {l.unit})</option>)}</select></FormField>
       <FormField label="Kuantitas dialokasikan"><input type="number" step="0.01" min="0.01" value={form.allocatedQuantity} onChange={e => setForm(v => ({ ...v, allocatedQuantity: e.target.value }))} required /></FormField>
@@ -931,7 +936,7 @@ function ShipmentAllocationPage({ projectId, onNotice }: { projectId: string; on
       { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
       { key: 'idempotency_key', label: 'Idempotency', render: r => r.idempotency_key ? shortId(r.idempotency_key) : '—' },
       { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
-      { key: 'actions', label: 'Aksi', render: r => r.status === 'active' ? <button className="text-button" onClick={() => reverse(r.id)}>Batalkan</button> : <span className="muted">—</span> },
+      { key: 'actions', label: 'Aksi', render: r => canUpdateShipping && r.status === 'active' ? <button className="text-button" onClick={() => reverse(r.id)}>Batalkan</button> : <span className="muted">—</span> },
     ]} />}</Card>
   </>;
 }

@@ -563,13 +563,21 @@ app.get("/api/v1/contract-programs", requireAuth, async (req: express.Request, r
 app.get("/api/v1/contract-programs/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   try {
-    const { rows } = await req.db.query("SELECT * FROM contract_programs WHERE id = $1::uuid AND is_active = true", [id]);
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Contract Program not found" });
-    }
-    res.json({ contractProgram: rows[0] });
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id FROM contract_programs WHERE id = $1::uuid AND is_active = true",
+      [id],
+    );
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Contract Program not found." });
+    const projectId = scopeRows[0].project_id;
+    if (!(await requireProjectPermission(req, res, projectId, "contract.view"))) return;
+    const { rows } = await req.db.query(
+      "SELECT * FROM contract_programs WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true",
+      [id, projectId],
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Contract Program not found." });
+    return res.json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -3192,6 +3200,7 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
   if (!projectId || !lotId || heldQuantity === undefined || !unit || !reason || !idempotencyKey) {
     return res.status(400).json({ error: "projectId, lotId, heldQuantity, unit, reason, idempotencyKey required" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.hold"))) return;
   try {
     const { rows: existing } = await req.db.query(
       "SELECT id FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
@@ -4164,25 +4173,21 @@ app.get("/api/v1/buyers/:id", requireAuth, async (req: express.Request, res: exp
 
 app.get("/api/v1/contracts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
-    const { rows } = await req.db.query("SELECT * FROM contracts WHERE id = $1::uuid", [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ error: "Contract not found" });
-    res.json({ contract: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load contract" });
-  }
-});
-
-app.patch("/api/v1/contracts/:id", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { code, name, startDate, endDate, isActive } = req.body;
-  try {
-    const { rows } = await req.db.query(
-      `UPDATE contracts SET code = COALESCE($2, code), name = COALESCE($3, name), start_date = COALESCE($4::timestamptz, start_date), end_date = COALESCE($5::timestamptz, end_date), is_active = COALESCE($6, is_active), updated_at = now() WHERE id = $1::uuid RETURNING *`,
-      [req.params.id, code ?? null, name ?? null, startDate || null, endDate || null, typeof isActive === "boolean" ? isActive : null],
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id FROM contracts WHERE id = $1::uuid AND project_id IS NOT NULL",
+      [req.params.id],
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Contract not found" });
-    res.json({ contract: rows[0] });
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Contract not found in an accessible Project." });
+    const projectId = scopeRows[0].project_id;
+    if (!(await requireProjectPermission(req, res, projectId, "contract.view"))) return;
+    const { rows } = await req.db.query(
+      "SELECT * FROM contracts WHERE id = $1::uuid AND project_id = $2::uuid",
+      [req.params.id, projectId],
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Contract not found in this Project." });
+    return res.json({ contract: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update contract" });
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

@@ -1,4 +1,3 @@
-
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci --include=dev && npm --prefix frontend ci --include=dev",
@@ -16,5 +15,10 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "f1/project-scoped-cob-20261119": false
+    }
+  }
 }

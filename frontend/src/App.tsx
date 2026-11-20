@@ -1300,6 +1300,14 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
   const canCreate = hasProjectPermission("project.tasks.create", activeUser);
   const canAssign = hasProjectPermission("project.tasks.assign", activeUser);
   const canResolve = hasProjectPermission("project.tasks.resolve", activeUser);
+  const canEscalate = hasProjectPermission("project.tasks.escalate", activeUser);
+  const selectedMembership = (activeUser?.projectMemberships || []).find((membership: AnyRecord) => membership.projectId === projectId && membership.isActive === true);
+  const activeRoleCodes = new Set((selectedMembership?.roleAssignments || [])
+    .filter((assignment: AnyRecord) => assignment.isActive === true && !assignment.revokedAt && assignment.roleIsActive === true
+      && (!assignment.expiresAt || new Date(assignment.expiresAt).getTime() > Date.now()))
+    .map((assignment: AnyRecord) => assignment.roleCode));
+  const isTaskOwner = (task: AnyRecord) => activeRoleCodes.has(task.owner_role_code)
+    && (!task.assignee_user_id || task.assignee_user_id === activeUser?.id);
   const detail = useLoad<{ roles?: AnyRecord[]; members?: AnyRecord[] }>(
     () => projectId && canCreate ? get("/projects/" + encodeURIComponent(projectId) + "/detail") : Promise.resolve({ roles: [], members: [] }),
     [projectId, canCreate],
@@ -1406,12 +1414,12 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
           {task.status === "submitted" && canResolve && <ActionButton onClick={() => act(task, "resolve")} disabled={busy}>Setujui penyelesaian</ActionButton>}
           {task.status === "resolved" && canResolve && <ActionButton onClick={() => act(task, "close")} disabled={busy}>Tutup tugas</ActionButton>}
           {["resolved","closed"].includes(task.status) && canResolve && <ActionButton variant="ghost" onClick={() => act(task, "reopen", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Buka kembali</ActionButton>}
-          {!["resolved","closed","cancelled"].includes(task.status) && <ActionButton variant="ghost" onClick={() => act(task, "escalate", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Eskalasi ke PM</ActionButton>}
-          {actionReason.trim().length >= 2 && <ActionButton variant="ghost" onClick={() => act(task, "comment", { comment: actionReason })} disabled={busy}>Catat komentar</ActionButton>}
+          {!["resolved","closed","cancelled"].includes(task.status) && (isTaskOwner(task) || canEscalate) && <ActionButton variant="ghost" onClick={() => act(task, "escalate", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Eskalasi ke PM</ActionButton>}
+          {actionReason.trim().length >= 2 && (isTaskOwner(task) || hasProjectPermission("project.tasks.update", activeUser)) && <ActionButton variant="ghost" onClick={() => act(task, "comment", { comment: actionReason })} disabled={busy}>Catat komentar</ActionButton>}
           {canAssign && !["closed","cancelled"].includes(task.status) && <ActionButton variant="secondary" onClick={() => { setAssignTaskId(task.id); setAssignDraft({ ownerRoleCode: task.owner_role_code, assigneeUserId: task.assignee_user_id || "", dueAt: task.due_at ? new Date(task.due_at).toISOString().slice(0,16) : "", priority: task.priority, reason: "" }); }}>Alihkan</ActionButton>}
           <ActionButton variant="ghost" onClick={() => setSelectedTaskId(task.id)}>Riwayat</ActionButton>
         </div>
-        {(["acknowledged","in_progress","blocked"].includes(task.status) || !["resolved","closed","cancelled"].includes(task.status)) && <FormField label="Catatan / alasan blokir / eskalasi / buka kembali"><input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Minimal 5 karakter" /></FormField>}
+        {(isTaskOwner(task) || canResolve || canEscalate) && <FormField label="Catatan / alasan blokir / eskalasi / buka kembali"><input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Minimal 5 karakter" /></FormField>}
         {assignTaskId === task.id && canAssign && <form className="form-grid" onSubmit={e => { e.preventDefault(); assign(task); }}>
           <FormField label="Role baru"><select value={assignDraft.ownerRoleCode} onChange={e => setAssignDraft(v => ({ ...v, ownerRoleCode: e.target.value, assigneeUserId: "" }))}>{activeRoles.map(role => <option key={role.id} value={role.role_code}>{role.name}</option>)}</select></FormField>
           <FormField label="User tertentu"><select value={assignDraft.assigneeUserId} onChange={e => setAssignDraft(v => ({ ...v, assigneeUserId: e.target.value }))}><option value="">Seluruh role</option>{eligibleMembers(assignDraft.ownerRoleCode).map(member => <option key={member.user_id} value={member.user_id}>{member.name || member.email}</option>)}</select></FormField>

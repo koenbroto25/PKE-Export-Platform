@@ -26,6 +26,16 @@ describe("Project-scoped effective permission UX", () => {
     const transporter = user(["logistics.view", "record_truck_trips", "verify_checkpoints"]);
     expect(hasPageAccess("transporter", transporter)).toBe(true); expect(hasPageAccess("dashboard", transporter)).toBe(false); expect(hasPageAccess("operations", transporter)).toBe(false);
   });
+  it("keeps internal procurement users out of external Buyer/Supplier portals", () => {
+    const procurement = user(["supplier.view", "supplier.manage", "buyer.requirement.view", "contract.view"]);
+    expect(hasPageAccess("buyer", procurement)).toBe(false); expect(hasPageAccess("supplier", procurement)).toBe(false);
+    expect(hasPageAccess("buyer", user(["buyer.shipment.view"]))).toBe(true);
+    expect(hasPageAccess("supplier", user(["supplier.view", "shipment.view"]))).toBe(true);
+  });
+  it("does not expose the Transporter portal from PM logistics read access alone", () => {
+    expect(hasPageAccess("transporter", user(["logistics.view"]))).toBe(false);
+    expect(hasPageAccess("transporter", user(["record_truck_trips", "verify_checkpoints"]))).toBe(true);
+  });
   it("requires shipping.view for internal shipment allocation access", () => {
     expect(hasPageAccess("shipment-allocations", user(["shipment.view"]))).toBe(false);
     expect(hasPageAccess("shipment-allocations", user(["shipping.view"]))).toBe(true);

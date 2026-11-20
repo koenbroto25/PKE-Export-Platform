@@ -69,8 +69,9 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
     return pageKey === 'dashboard' && !user.selectedProjectId && hasActiveProjectMembership(user);
   }
   if (pageKey === 'dashboard') {
-    const externalOnly = new Set(['supplier.view', 'buyer.requirement.view', 'buyer.shipment.view', 'product.view', 'documents.view', 'shipment.view', 'logistics.view', 'record_truck_trips', 'verify_checkpoints']);
-    return (user.projectPermissions || []).some(permission => !externalOnly.has(permission));
+    // Every active Project role receives a scoped landing dashboard. Domain data
+    // remains permission-gated by the dashboard and the API/RLS layer.
+    return (user.projectPermissions || []).length > 0;
   }
   const permissions = new Set(user.projectPermissions || []);
   if (pageKey === 'supplier') return permissions.has('supplier.view') && permissions.has('shipment.view');

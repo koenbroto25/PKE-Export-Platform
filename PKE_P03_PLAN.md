@@ -1007,3 +1007,5 @@ PASS on isolated PostgreSQL validation branch:
 
 
 - Follow-up refinement: runtime role-permission templates are immutable per Project. The API endpoint that previously allowed arbitrary per-role permission replacement now returns `409 ROLE_PERMISSION_TEMPLATES_IMMUTABLE`; canonical role activation remains insert-only and guarded by the database allowlist. This preserves project role activation while preventing partial/custom permission edits.
+
+- Exact Migration 054 SHA-256 pinned after the final SQL/API alignment: `821800c7a30a80a1a63bab1bfe458d29df393fc31026645f5c181660f853a0a2`. This is a prepared release artifact only; it has not been applied to UAT or Production.

@@ -183,3 +183,5 @@ These rows were present before this audit. No fixture was inserted or removed by
 
 
 - Follow-up API/DB alignment: canonical permission templates are runtime read-only. Runtime can only insert allowlisted permissions during canonical role activation; UPDATE/DELETE are revoked and the legacy arbitrary permission replacement endpoint now returns `409 ROLE_PERMISSION_TEMPLATES_IMMUTABLE`.
+
+- Final prepared Migration 054 SHA-256: `821800c7a30a80a1a63bab1bfe458d29df393fc31026645f5c181660f853a0a2`. This checksum is the release approval boundary; no Neon branch has received Migration 054 yet.

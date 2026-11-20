@@ -10,7 +10,7 @@ const roleSource=read("src/role-catalogue.ts");
 const api=read("src/index.ts");
 const ui=read("frontend/src/role-permissions.ts");
 const workflow=read(".github/workflows/unit-tests.yml");
-const expectedSha="9c1546ad4dfe785b07a590f80e0a6ae0c95930cd955f9c6b56b8fef188144380";
+const expectedSha="821800c7a30a80a1a63bab1bfe458d29df393fc31026645f5c181660f853a0a2";
 const actualSha=crypto.createHash("sha256").update(Buffer.from(migration,"utf8")).digest("hex");
 if(actualSha!==expectedSha)fail("Migration 054 SHA-256 mismatch.");
 if(!/^\s*--[^\n]*\n(?:--[^\n]*\n)*\s*BEGIN\s*;/i.test(migration)||!/COMMIT\s*;\s*$/.test(migration))fail("Migration 054 must retain explicit BEGIN/COMMIT wrapper.");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPageAccess, visiblePageKeys } from "../frontend/src/role-permissions.js";
+import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from "../frontend/src/role-permissions.js";
 
 const member = { projectId: "project-a", isActive: true };
 const user = (permissions: string[], selectedProjectId = "project-a") => ({ platformAdmin: false, selectedProjectId, projectPermissions: permissions, projectPermissionsLoading: false, projectPermissionsError: "", projectMemberships: [member] });
@@ -47,6 +47,17 @@ describe("Project-scoped effective permission UX", () => {
     const pm = visiblePageKeys(user(["project.view", "finance.view", "reports.view"]));
     expect(pm).toContain("finance"); expect(pm).not.toContain("payment-instructions"); expect(pm).not.toContain("funder");
     expect(visiblePageKeys(user(["payment.view"]))).toContain("payment-instructions");
+  });
+  it("exposes action capabilities only from the selected Project effective permissions", () => {
+    const financeReadOnly = user(["finance.view"]);
+    expect(hasProjectPermission("finance.view", financeReadOnly)).toBe(true);
+    expect(hasProjectPermission("finance.update", financeReadOnly)).toBe(false);
+    expect(hasAnyProjectPermission(["inventory.reserve", "inventory.hold"], user(["inventory.hold"]))).toBe(true);
+    expect(hasProjectPermission("inventory.hold", user(["inventory.hold"], "project-b"))).toBe(false);
+  });
+  it("does not expose action capabilities while permissions are loading or failed", () => {
+    expect(hasProjectPermission("finance.update", { ...user(["finance.update"]), projectPermissionsLoading: true })).toBe(false);
+    expect(hasProjectPermission("finance.update", { ...user(["finance.update"]), projectPermissionsError: "denied" })).toBe(false);
   });
   it("fails closed while Project permissions are loading or unavailable", () => {
     expect(hasPageAccess("finance", { ...user(["finance.view"]), projectPermissionsLoading: true })).toBe(false);

@@ -1685,7 +1685,7 @@ app.get("/api/v1/projects/:projectId/work-items", requireAuth, async (req: expre
     const result = await req.db.query(
       "SELECT wi.*, (wi.due_at IS NOT NULL AND wi.due_at < now() AND wi.status NOT IN ('resolved','closed','cancelled')) AS is_overdue " +
       "FROM public.project_work_items wi WHERE wi.project_id=$1::uuid " +
-      "AND ($2::boolean OR wi.assignee_user_id=$3::uuid OR public.pke_user_has_active_project_role(wi.project_id,wi.owner_role_code)) " +
+      "AND ($2::boolean OR (public.pke_user_has_active_project_role(wi.project_id,wi.owner_role_code) AND (wi.assignee_user_id IS NULL OR wi.assignee_user_id=$3::uuid))) " +
       "AND ($4::text IS NULL OR wi.status=$4::text) " +
       "ORDER BY CASE wi.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, wi.due_at ASC NULLS LAST, wi.created_at DESC LIMIT 250",
       [projectId, canViewAll, userId, status]
@@ -1779,7 +1779,7 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
       "SELECT public.pke_has_project_permission($1::uuid,'project.tasks.update') AS can_update, " +
       "public.pke_has_project_permission($1::uuid,'project.tasks.assign') AS can_assign, " +
       "public.pke_has_project_permission($1::uuid,'project.tasks.resolve') AS can_resolve, " +
-      "public.pke_user_has_active_project_role($1::uuid,$2::text) OR $3::uuid=$4::uuid AS is_assigned",
+      "public.pke_user_has_active_project_role($1::uuid,$2::text) AND ($4::uuid IS NULL OR $3::uuid=$4::uuid) AS is_assigned",
       [projectId,item.owner_role_code,actorId,item.assignee_user_id]
     );
     const access = checks.rows[0];

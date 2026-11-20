@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import crypto from "node:crypto";
 import { PrivateStorageAdapter } from "./storage";
 
 // Pure validation tests — no network, no Production access required.
@@ -241,6 +242,16 @@ describe("PrivateStorageAdapter validation (offline)", () => {
     });
     await expect(adapter.objectMetadata("projects/test/documents/invoice.pdf"))
       .rejects.toThrow("Storage metadata request failed (HTTP 403).");
+  });
+
+  it("verifies provider object size and SHA-256 after upload", async () => {
+    const payload=Buffer.from("PKE private export document"), digest=crypto.createHash("sha256").update(payload).digest("hex");
+    const fetchImpl=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=>init?.method==="HEAD"
+      ?new Response(null,{status:200,headers:{"content-length":String(payload.length),etag:'"provider-etag"'}})
+      :new Response(payload,{status:200}));
+    const adapter=new PrivateStorageAdapter({bucket:"pke-private-documents",region:"ap-southeast-1",endpoint:"https://storage.ap-southeast-1.neonpublic.com",accessKeyId:"test-access-key",secretAccessKey:"test-secret-key",fetchImpl});
+    await expect(adapter.verifyObject("projects/test/documents/invoice.pdf",payload.length,digest)).resolves.toMatchObject({size:payload.length,sha256:digest});
+    await expect(adapter.verifyObject("projects/test/documents/invoice.pdf",payload.length,"0".repeat(64))).rejects.toThrow(/SHA-256/);
   });
 
   it("keeps object deletion fail-closed until an approved deletion workflow exists", async () => {

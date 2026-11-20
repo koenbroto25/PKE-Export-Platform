@@ -546,6 +546,14 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
   }
 });
 
+app.get("/api/v1/projects/:projectId/my-permissions", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  try {
+    const { rows } = await req.db.query("SELECT public.pke_current_user_project_permissions($1::uuid) AS permissions", [projectId]);
+    return res.json({ projectId, permissions: Array.isArray(rows[0]?.permissions) ? rows[0].permissions : [] });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 // Role and permission endpoints
 
 // Contract Program management
@@ -591,7 +599,7 @@ app.get("/api/v1/buyers", requireAuth, async (req: express.Request, res: express
   }
 });
 
-app.post("/api/v1/buyers", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/buyers", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { name, code, countryCode } = req.body;
   if (!name) return res.status(400).json({ error: "name required" });
   try {
@@ -605,7 +613,7 @@ app.post("/api/v1/buyers", requireAuth, async (req: express.Request, res: expres
   }
 });
 
-app.patch("/api/v1/buyers/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+app.patch("/api/v1/buyers/:id", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { name, code, countryCode, isActive } = req.body;
   try {
     const { rows } = await req.db.query(
@@ -1486,14 +1494,11 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
 app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
   if (!(await requireProjectPermission(req, res, projectId, "documents.create"))) return;
-  const { projectRequirementId, fileReference, objectKey, originalFilename, mimeType, sha256Checksum, versionNo, expiryDate, notes } = req.body ?? {};
-  if (!projectRequirementId || !fileReference || !originalFilename) {
-    return res.status(400).json({ error: "Required fields: projectRequirementId, fileReference, originalFilename" });
-  }
-  if (objectKey && String(objectKey).indexOf(`projects/${projectId}/`) !== 0) {
-    return res.status(400).json({ error: "Invalid object key namespace", code: "INVALID_OBJECT_KEY" });
-  }
+  const { projectRequirementId, fileReference, objectKey, originalFilename, mimeType, sha256Checksum, contentLength, versionNo, expiryDate, notes } = req.body ?? {};
+  if (!projectRequirementId || !fileReference || !objectKey || !originalFilename || !sha256Checksum || contentLength === undefined) return res.status(400).json({ error: "Project requirement, private object key, filename, SHA-256 and content length are required." });
+  if (String(objectKey).indexOf(`projects/${projectId}/`) !== 0 || fileReference !== objectKey) return res.status(400).json({ error: "Document reference must match a project-namespaced private object key.", code: "INVALID_OBJECT_KEY" });
   try {
+    await privateStorage.verifyObject(String(objectKey), Number(contentLength), String(sha256Checksum));
     const { rows: reqRows } = await req.db.query(
       "SELECT id FROM project_export_document_requirements WHERE id = $1::uuid AND project_id = $2::uuid",
       [projectRequirementId, projectId],
@@ -1505,8 +1510,8 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
          sha256_checksum, version_no, status, uploaded_by, expiry_date, notes, created_at, updated_at)
        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, 'uploaded', $9::uuid, $10::date, $11, now(), now())
        RETURNING *`,
-      [projectId, projectRequirementId, fileReference, objectKey || null, originalFilename, mimeType || null,
-       sha256Checksum || null, versionNo !== undefined ? versionNo : 1, req.user?.id || null,
+      [projectId, projectRequirementId, fileReference, objectKey, originalFilename, mimeType || null,
+       sha256Checksum, versionNo !== undefined ? versionNo : 1, req.user?.id || null,
        expiryDate || null, notes || null],
     );
     res.status(201).json({ document: rows[0] });
@@ -3423,7 +3428,7 @@ app.get("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: expre
   }
 });
 
-app.post("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/fx-rates", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { fromCurrency, toCurrency, rate, rateType, source, effectiveDate } = req.body;
   if (!fromCurrency || !toCurrency || rate === undefined || !effectiveDate) return res.status(400).json({ error: "fromCurrency, toCurrency, rate, effectiveDate required" });
   try {
@@ -3447,14 +3452,17 @@ app.post("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: expr
 });
 
 app.get("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT e.id, e.project_id, e.exposure_type, e.original_currency_id, e.original_amount,
               e.functional_amount, e.fx_rate, e.fx_date, e.created_at, e.updated_at,
               c.code AS original_currency_code
-       FROM fx_exposures e
-       LEFT JOIN currencies c ON c.id = e.original_currency_id
-       ORDER BY e.created_at DESC LIMIT 100`,
+       FROM fx_exposures e LEFT JOIN currencies c ON c.id = e.original_currency_id
+       WHERE e.project_id = $1::uuid ORDER BY e.created_at DESC LIMIT 100`,
+      [projectId],
     );
     res.json({ fxExposure: rows.map((r: any) => ({
       id: r.id,
@@ -3504,8 +3512,11 @@ app.post("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: e
 
 
 app.get("/api/v1/journal-entries", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "accounting.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100");
+    const { rows } = await req.db.query("SELECT * FROM journal_entries WHERE project_id = $1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
     res.json({ journalEntries: rows });
   } catch (error) {
     res.status(500).json({ error: "Failed to load journal entries" });
@@ -3515,6 +3526,7 @@ app.get("/api/v1/journal-entries", requireAuth, async (req: express.Request, res
 app.post("/api/v1/journal-entries", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, entryType, referenceId, referenceType, description, entryDate } = req.body;
   if (!projectId || !entryType || !description) return res.status(400).json({ error: "projectId, entryType, description required" });
+  if (!(await requireProjectPermission(req, res, projectId, "accounting.create"))) return;
   try {
     const { rows } = await req.db.query(
       `INSERT INTO journal_entries (project_id, entry_type, reference_id, reference_type, description, entry_date, status, posted_by, created_at, updated_at)
@@ -3532,10 +3544,11 @@ app.post("/api/v1/journal-entries/:id/post", requireAuth, async (req: express.Re
   try {
     // Verify the journal exists and is in draft status
     const { rows: entryRows } = await req.db.query(
-      "SELECT id, status FROM journal_entries WHERE id = $1::uuid",
+      "SELECT id, project_id, status FROM journal_entries WHERE id = $1::uuid FOR UPDATE",
       [journalEntryId],
     );
     if (entryRows.length === 0) return res.status(404).json({ error: "Journal entry not found" });
+    if (!(await requireProjectPermission(req, res, entryRows[0].project_id, "accounting.update"))) return;
     if (entryRows[0].status !== "draft") {
       return res.status(400).json({ error: "Only draft journal entries can be posted" });
     }
@@ -3589,10 +3602,16 @@ app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res:
   try {
     // Verify the journal entry exists and is in draft status
     const { rows: entryRows } = await req.db.query(
-      "SELECT id, status FROM journal_entries WHERE id = $1::uuid",
+      "SELECT id, project_id, status FROM journal_entries WHERE id = $1::uuid",
       [journalEntryId],
     );
     if (entryRows.length === 0) return res.status(404).json({ error: "Journal entry not found" });
+    if (!(await requireProjectPermission(req, res, entryRows[0].project_id, "accounting.create"))) return;
+    const debitValue = Number(debit), creditValue = Number(credit);
+    if (!Number.isFinite(debitValue) || !Number.isFinite(creditValue) || debitValue < 0 || creditValue < 0 ||
+        (debitValue === 0 && creditValue === 0) || (debitValue > 0 && creditValue > 0)) {
+      return res.status(400).json({ error: "Each journal line must have one positive debit or credit amount, never both." });
+    }
     if (entryRows[0].status !== "draft") {
       return res.status(400).json({ error: "Cannot add lines to a posted journal entry" });
     }
@@ -3612,7 +3631,7 @@ app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res:
     const { rows } = await req.db.query(
       `INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_order, created_at)
        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, now()) RETURNING *`,
-      [journalEntryId, accountId, debit || 0, credit || 0, description || null, lineOrder !== undefined ? lineOrder : 1],
+      [journalEntryId, accountId, debitValue, creditValue, description || null, lineOrder !== undefined ? lineOrder : 1],
     );
     res.status(201).json({ journalLine: rows[0] });
   } catch (error) {
@@ -3620,6 +3639,82 @@ app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res:
   }
 });
 
+// AP/AR Project-scoped Finance endpoints; no bank payment execution.
+app.get("/api/v1/ap-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
+  try { const { rows } = await req.db.query("SELECT * FROM ap_invoices WHERE project_id=$1::uuid ORDER BY invoice_date DESC LIMIT 200",[projectId]); return res.json({apInvoices:rows}); }
+  catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+app.post("/api/v1/ap-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {projectId,supplierId,invoiceNumber,invoiceDate,dueDate,currencyCode,invoiceAmount,taxAmount=0}=req.body??{};
+  const amount=Number(invoiceAmount),tax=Number(taxAmount);
+  if(!projectId||!supplierId||!invoiceNumber||!invoiceDate||!currencyCode||!Number.isFinite(amount)||amount<=0||!Number.isFinite(tax)||tax<0)return res.status(400).json({error:"Valid Project, supplier, invoice/date, currency and amounts are required."});
+  if(!(await requireProjectPermission(req,res,projectId,"finance.create")))return;
+  try {
+    const {rows:v}=await req.db.query("SELECT id FROM vendors WHERE id=$1::uuid AND is_active=true",[supplierId]);
+    const {rows:c}=await req.db.query("SELECT id FROM currencies WHERE code=$1::text AND is_active=true",[currencyCode]);
+    if(!v.length||!c.length)return res.status(400).json({error:"Supplier or currency is invalid or inactive."});
+    const total=Math.round((amount+tax)*100)/100;
+    const {rows}=await req.db.query(`INSERT INTO ap_invoices
+      (project_id,supplier_id,invoice_number,invoice_date,due_date,currency_id,invoice_amount,tax_amount,total_amount,verification_status,three_way_match,paid_amount,outstanding_amount,created_by,created_at,updated_at)
+      VALUES ($1::uuid,$2::uuid,$3,$4::timestamptz,$5::timestamptz,$6::uuid,$7,$8,$9,'pending',false,0,$9,$10::uuid,now(),now()) RETURNING *`,
+      [projectId,supplierId,String(invoiceNumber).trim(),invoiceDate,dueDate||null,c[0].id,amount,tax,total,req.user?.id||null]);
+    return res.status(201).json({apInvoice:rows[0]});
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+app.patch("/api/v1/ap-invoices/:id/verification", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {verificationStatus,threeWayMatch,disputeReason}=req.body??{};
+  if(!["verified","disputed"].includes(verificationStatus)||(verificationStatus==="disputed"&&!String(disputeReason||"").trim()))return res.status(400).json({error:"Use verified or disputed; disputed requires a reason."});
+  try {
+    const {rows:s}=await req.db.query("SELECT id,project_id,three_way_match FROM ap_invoices WHERE id=$1::uuid",[req.params.id]);
+    if(!s.length)return res.status(404).json({error:"AP invoice not found."});
+    if(!(await requireProjectPermission(req,res,s[0].project_id,"finance.update")))return;
+    const matched=typeof threeWayMatch==="boolean"?threeWayMatch:s[0].three_way_match===true;
+    if(verificationStatus==="verified"&&!matched)return res.status(409).json({error:"Three-way match is required before verification.",code:"THREE_WAY_MATCH_REQUIRED"});
+    const {rows}=await req.db.query(`UPDATE ap_invoices SET verification_status=$1,three_way_match=$2,dispute_reason=CASE WHEN $1='disputed' THEN $3 ELSE NULL END,
+      verified_by=$4::uuid,verified_at=now(),updated_by=$4::uuid,updated_at=now() WHERE id=$5::uuid AND project_id=$6::uuid RETURNING *`,
+      [verificationStatus,matched,disputeReason?.trim()||null,req.user?.id||null,req.params.id,s[0].project_id]);
+    return res.json({apInvoice:rows[0]});
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+app.get("/api/v1/ar-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";
+  if(!projectId)return res.status(400).json({error:"projectId is required."});
+  if(!(await requireProjectPermission(req,res,projectId,"finance.view")))return;
+  try {const {rows}=await req.db.query("SELECT * FROM ar_invoices WHERE project_id=$1::uuid ORDER BY invoice_date DESC LIMIT 200",[projectId]);return res.json({arInvoices:rows});}
+  catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.post("/api/v1/ar-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {projectId,buyerMasterId,invoiceNumber,invoiceDate,dueDate,currencyCode,invoiceAmount,acceptedQuantity,unit="MT",sellingPrice,relatedShipmentId}=req.body??{};
+  const amount=Number(invoiceAmount),qty=acceptedQuantity===undefined?null:Number(acceptedQuantity),price=sellingPrice===undefined?null:Number(sellingPrice);
+  if(!projectId||!buyerMasterId||!invoiceNumber||!invoiceDate||!currencyCode||!Number.isFinite(amount)||amount<=0||(qty!==null&&(!Number.isFinite(qty)||qty<=0))||(price!==null&&(!Number.isFinite(price)||price<0)))return res.status(400).json({error:"Valid Project, buyer, invoice, currency and amount are required."});
+  if(!(await requireProjectPermission(req,res,projectId,"finance.create")))return;
+  try {
+    const {rows:b}=await req.db.query(`SELECT b.id FROM buyers b JOIN contracts c ON c.buyer_id=b.id JOIN projects p ON p.id=c.project_id WHERE b.id=$1::uuid AND p.id=$2::uuid AND b.is_active=true
+      UNION SELECT b.id FROM buyers b JOIN contract_programs cp ON cp.buyer_id=b.id JOIN projects p ON p.contract_program_id=cp.id WHERE b.id=$1::uuid AND p.id=$2::uuid AND b.is_active=true LIMIT 1`,[buyerMasterId,projectId]);
+    const {rows:c}=await req.db.query("SELECT id FROM currencies WHERE code=$1::text AND is_active=true",[currencyCode]);
+    if(!b.length||!c.length)return res.status(400).json({error:"Buyer is not assigned to this Project or currency is invalid."});
+    if(relatedShipmentId){const {rows}=await req.db.query("SELECT id FROM shipments WHERE id=$1::uuid AND project_id=$2::uuid",[relatedShipmentId,projectId]);if(!rows.length)return res.status(400).json({error:"Shipment is not part of this Project."});}
+    const {rows}=await req.db.query(`INSERT INTO ar_invoices (buyer_id,buyer_master_id,invoice_number,invoice_date,due_date,currency_id,invoice_amount,accepted_quantity,unit,selling_price,total_amount,project_id,related_shipment_id,approval_status,settlement_status,created_by,created_at,updated_at)
+      VALUES (NULL,$1::uuid,$2,$3::timestamptz,$4::timestamptz,$5::uuid,$6,$7,$8,$9,$6,$10::uuid,$11::uuid,'pending','open',$12::uuid,now(),now()) RETURNING *`,
+      [buyerMasterId,String(invoiceNumber).trim(),invoiceDate,dueDate||null,c[0].id,amount,qty,unit,price,projectId,relatedShipmentId||null,req.user?.id||null]);
+    return res.status(201).json({arInvoice:rows[0]});
+  } catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.patch("/api/v1/ar-invoices/:id/approval", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {approvalStatus,reason}=req.body??{};
+  if(!["approved","disputed"].includes(approvalStatus)||(approvalStatus==="disputed"&&!String(reason||"").trim()))return res.status(400).json({error:"Use approved or disputed; disputed requires a reason."});
+  try {
+    const {rows:s}=await req.db.query("SELECT id,project_id FROM ar_invoices WHERE id=$1::uuid",[req.params.id]);
+    if(!s.length)return res.status(404).json({error:"AR invoice not found."});
+    if(!(await requireProjectPermission(req,res,s[0].project_id,"finance.update")))return;
+    const {rows}=await req.db.query(`UPDATE ar_invoices SET approval_status=$1,dispute_reason=$2,approved_by=$3::uuid,approved_at=now(),updated_by=$3::uuid,updated_at=now()
+      WHERE id=$4::uuid AND project_id=$5::uuid RETURNING *`,[approvalStatus,reason?.trim()||null,req.user?.id||null,req.params.id,s[0].project_id]);
+    return res.json({arInvoice:rows[0]});
+  } catch{return res.status(500).json(internalServerErrorPayload());}
+});
 // ============================================
 // RAB routes (P07 Finance)
 // ============================================
@@ -3683,7 +3778,7 @@ app.get("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, r
   }
 });
 
-app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/chart-of-accounts", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { code, name, description, parentId, accountType } = req.body;
   if (!code || !name || !accountType) return res.status(400).json({ error: "Required fields: code, name, accountType" });
   try {

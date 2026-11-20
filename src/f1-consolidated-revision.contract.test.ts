@@ -55,7 +55,10 @@ describe("Consolidated PKE permission and integrity contracts", () => {
   it("exposes only the current user's effective Project permission set to the UI", () => {
     expect(api).toContain("pke_current_user_project_permissions($1::uuid)");
     expect(migration).toContain("REVOKE ALL ON FUNCTION public.pke_current_user_project_permissions(uuid) FROM PUBLIC");
-    expect(ui).toContain("projectRoleKeys");
+    expect(ui).toContain("visiblePageKeys(workspaceUser)");
+    expect(ui).toContain("hasPageAccess(key, activeUser)");
+    expect(ui).toContain("/my-permissions");
+    expect(ui).not.toContain("roleAccess[");
     expect(ui).toContain("projectPermissions.includes('finance.create')");
     expect(ui).toContain("projectPermissions.includes('accounting.update')");
   });

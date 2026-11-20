@@ -25,11 +25,11 @@ describe("Project-scoped effective permission UX", () => {
   });
   it("keeps external counterparties in their dedicated portals, not internal workbenches", () => {
     const buyer = user(["buyer.requirement.view", "buyer.shipment.view", "documents.view", "shipment.view"]);
-    expect(hasPageAccess("buyer", buyer)).toBe(true); expect(hasPageAccess("dashboard", buyer)).toBe(false);
+    expect(hasPageAccess("buyer", buyer)).toBe(true); expect(hasPageAccess("dashboard", buyer)).toBe(true);
     expect(hasPageAccess("operations", buyer)).toBe(false); expect(hasPageAccess("compliance", buyer)).toBe(false);
     expect(hasPageAccess("shipment-allocations", buyer)).toBe(false);
     const transporter = user(["logistics.view", "record_truck_trips", "verify_checkpoints"]);
-    expect(hasPageAccess("transporter", transporter)).toBe(true); expect(hasPageAccess("dashboard", transporter)).toBe(false); expect(hasPageAccess("operations", transporter)).toBe(false);
+    expect(hasPageAccess("transporter", transporter)).toBe(true); expect(hasPageAccess("dashboard", transporter)).toBe(true); expect(hasPageAccess("operations", transporter)).toBe(false);
   });
   it("keeps internal procurement users out of external Buyer/Supplier portals", () => {
     const procurement = user(["supplier.view", "supplier.manage", "buyer.requirement.view", "contract.view"]);
@@ -131,4 +131,16 @@ describe("Project-scoped effective permission UX", () => {
   it("requires an active membership to open the Project list without a Project selected", () => {
     expect(hasPageAccess("projects", { projectMemberships: [{ isActive: false }] })).toBe(false);
   });
+  it("provides a scoped role landing dashboard for every canonical Project role", () => {
+    const roleSource = fs.readFileSync(path.join(process.cwd(), "src/role-catalogue.ts"), "utf8");
+    const dashboardSource = fs.readFileSync(path.join(process.cwd(), "frontend/src/RoleDashboardPage.tsx"), "utf8");
+    const roleCodes = [...roleSource.matchAll(/role\("([^"]+)"/g)].map(match => match[1]);
+    expect(roleCodes.length).toBeGreaterThan(25);
+    for (const roleCode of roleCodes) expect(dashboardSource).toContain(`${roleCode}: { label:`);
+    expect(dashboardSource).toContain("Boolean(projectId)]");
+    expect(dashboardSource).toContain("activeUser?.platformAdmin === true ? false");
+    expect(dashboardSource).toContain("sourceFailed(key) ? '—'");
+    expect(dashboardSource).toContain("Antrean tugas saya");
+  });
+
 });

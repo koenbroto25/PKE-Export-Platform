@@ -1028,6 +1028,14 @@ async function requireProjectPermission(
         AND (pm.expires_at IS NULL OR pm.expires_at > now())
         AND pr.is_active = true
         AND perm.code = $3::text
+        AND NOT (
+          pr.role_code = 'funder'
+          AND $3::text = ANY(ARRAY[
+            'finance.view','finance.create','finance.update','finance.delete','finance.cash_advance.request',
+            'accounting.view','accounting.create','reports.view','reports.create','report.view',
+            'view_financial','view_rab','payment.view'
+          ]::text[])
+        )
       ORDER BY pr.role_code, a.assigned_at DESC
       LIMIT 1`,
     [pid, principalId, permissionCode],
@@ -1069,6 +1077,14 @@ async function findExplicitProjectPermission(req: express.Request, projectId: st
         AND (a.expires_at IS NULL OR a.expires_at>now())
         AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
         AND pr.is_active=true AND perm.code=ANY($3::text[])
+        AND NOT (
+          pr.role_code='funder'
+          AND perm.code=ANY(ARRAY[
+            'finance.view','finance.create','finance.update','finance.delete','finance.cash_advance.request',
+            'accounting.view','accounting.create','reports.view','reports.create','report.view',
+            'view_financial','view_rab','payment.view'
+          ]::text[])
+        )
       ORDER BY array_position($3::text[],perm.code),a.assigned_at DESC LIMIT 1`,
     [projectId,principalId,permissionCodes]);
   return rows[0]??null;
@@ -1956,7 +1972,21 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
       ({ rows } = await req.db.query(
         `SELECT rr.* FROM report_runs rr
           WHERE rr.project_id IN (
-            SELECT pm.project_id FROM project_members pm WHERE pm.user_id = $1::uuid AND pm.is_active = true
+            SELECT pm.project_id
+              FROM project_members pm
+             WHERE pm.user_id = $1::uuid AND pm.is_active = true
+               AND EXISTS (
+                 SELECT 1
+                   FROM project_role_assignments a
+                   JOIN project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+                   JOIN project_role_permissions prp ON prp.project_role_id = pr.id AND prp.project_id = pr.project_id
+                   JOIN permissions perm ON perm.id = prp.permission_id AND perm.is_active = true
+                  WHERE a.project_id = pm.project_id AND a.user_id = pm.user_id
+                    AND a.is_active = true AND a.revoked_at IS NULL
+                    AND (a.expires_at IS NULL OR a.expires_at > now())
+                    AND pr.is_active = true AND pr.role_code <> 'funder'
+                    AND perm.code = 'reports.view'
+               )
           )
           ORDER BY rr.generated_at DESC LIMIT 200`,
         [req.user?.id],
@@ -1985,6 +2015,7 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
 app.post("/api/v1/reports/generate", requireAuth, async (req: express.Request, res: express.Response) => {
   const { templateId, projectId, cutoff } = req.body ?? {};
   if (!templateId) return res.status(400).json({ error: "templateId required" });
+  if (!projectId && !req.user?.isAdmin) return res.status(400).json({ error: "projectId is required for non-platform report generation.", code: "PROJECT_ID_REQUIRED" });
   if (projectId && !(await requireProjectPermission(req, res, String(projectId), "reports.view"))) return;
   try {
     const templateVersion = reportTemplatesStore.find((t: any) => t.id === templateId)?.version || 1;

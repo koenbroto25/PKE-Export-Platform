@@ -227,3 +227,17 @@ These findings are material blockers for the next role-workbench pass. They are 
 - Shipment Allocations route now uses the explicit `shipment-allocations` key (`shipping.view`), not the broad Operations key.
 - Buyer portal visibility requires `buyer.shipment.view`; Supplier portal visibility requires both `supplier.view` and `shipment.view`; external Buyer/Supplier-only grants do not expose internal Operations, Compliance or Shipment Allocation pages. Transporter/Driver portal visibility requires both `record_truck_trips` and `verify_checkpoints`; PM `logistics.view` alone does not expose that portal. Checker remains eligible for the internal Operations page through `operations.view`, but its checkpoint-create API mismatch remains unresolved.
 - The PM/Finance boundary is unchanged; these are UI visibility corrections, not new backend grants.
+
+## 11. P0 implementation update (2026-11-20)
+
+The following are now source-implemented on the branch, subject to CI and runtime acceptance:
+- Action-level permission gates for Operations, Compliance, Finance, Accounting, Project creation, Contract Program management, Shipment Allocation, Project role/membership administration and platform identity governance.
+- Operations forms are scoped to the selected Project; transport-leg-dependent trip creation is withheld until a real transport-leg API exists.
+- Checker checkpoint API and prepared RLS policy use `verify_checkpoints`; trip lifecycle events still require `record_truck_trips`.
+- Project task/instruction tables, RLS, APIs, My Work workspace and PM Control Tower roll-up/readiness view are prepared. Assignment, blocked/submitted and PM resolution/closure produce recipient-specific in-app task notifications.
+- Explicitly assigned tasks are visible only to that user while their role assignment is active; role-wide tasks are visible only to active members of the owning Project role.
+- Production/QA, vessel/loading/laytime and LC presentation remain unavailable. The PM dashboard reports those gaps rather than implying readiness.
+
+Prepared Migration 049 SHA-256: `4d4cd7a877665986f10c3068ba8dd86332eff8c22b00214d45a45806fac276a8`. It depends on sequential Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. Neither migration is approved/applied; Production remains at Migration 047.
+
+Current source CI is pending. This design document is not evidence of runtime UAT or Production authorization.

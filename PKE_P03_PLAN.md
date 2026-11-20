@@ -744,3 +744,12 @@ PASS on isolated PostgreSQL validation branch:
 - Important: GitHub dry-run does not connect to PostgreSQL or parse/execute the migration SQL. CI static tests are not PostgreSQL migration execution or runtime RLS UAT.
 - Existing Neon recovery branch br-restless-sky-b38dsjol is pre-migration 042–044 and is not a current backup of Migration 047. Snapshot creation did not produce a new snapshot. Do not apply 048/049 until a verified current Production backup is available.
 - **Current P0 status:** source correction committed; awaiting CI on the corrected head. Migration 048/049 remain unapplied. Authenticated multi-role/multi-Project RLS UAT remains outstanding. No Production data mutation, Vercel deployment, PR merge, or new GitHub branch.
+
+
+### P0 migration dry-run checksum enforcement — 2026-11-20
+
+- Added a fail-closed dry-run gate in scripts/migrate.mjs: both prepared SQL files must exist and their byte-level SHA-256 must match the pinned release hashes before dry-run can pass. This remains offline and makes no database connection.
+- Migration 048 pin: 48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3.
+- Migration 049 pin: f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780.
+- The task-engine contract test now computes the actual Migration 049 file SHA-256 using Node crypto and asserts the corrected PostgreSQL DO-block delimiter and release-runner pin.
+- Await CI on the latest source head. This does not grant permission to apply either migration; backup and explicit exact-hash approvals remain prerequisites.

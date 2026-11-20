@@ -61,6 +61,7 @@ describe("Project work item task engine contract", () => {
 
   it("links task assignment notifications back to the task and PM escalation recipient", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS work_item_id uuid");
+    expect(migration).toContain("public.pke_has_project_permission(project_id, 'project.tasks.resolve')");
     expect(migration).toContain("pke_user_has_active_project_role(wi.project_id, wi.owner_role_code)");
     expect(api).toContain("work_item_id,recipient_user_id");
     expect(api).toContain("recordedEvent.rows[0].id");

@@ -111,6 +111,9 @@ describe("Project work item task engine contract", () => {
     expect(runner).toContain("MIGRATE_048_CONFIRM");
     expect(runner).toContain("MIGRATE_049_CONFIRM");
     expect(runner).toContain("MIGRATION_BACKUP_REFERENCE");
+    expect(runner).toContain("050_inventory_holds_legacy_schema_alignment.sql");
+    expect(runner).toContain("exact036to050");
+    expect(runner).toContain("Migration 050 is prepared only.");
   });
 
   it("aligns the pre-existing legacy inventory_holds table with the API contract", () => {

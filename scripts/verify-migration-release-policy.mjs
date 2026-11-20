@@ -145,6 +145,22 @@ if (!runner.includes("exact036to047") ||
   fail("Migration runner is missing the safe already-applied Migration 047 verification-only path.");
 }
 
+
+const preparedAndApplied = [
+  [48, "048_buyer_accounting_ap_ar_document_hardening.sql", "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3"],
+  [49, "049_project_work_item_task_engine.sql", "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780"],
+  [50, "050_inventory_holds_legacy_schema_alignment.sql", "e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab"],
+  [51, "051_task_notification_recipient_rls_helper.sql", "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927"],
+];
+for (const [id, file, sha] of preparedAndApplied) {
+  if (hashFile("migrations/" + file) !== sha) fail("Migration source checksum mismatch: " + file);
+  if (!runner.includes(file) || !runner.includes(sha)) fail("Migration runner is missing exact source pin: " + file);
+  if (!runner.includes("exact036to" + String(id))) fail("Migration runner is missing fail-closed release verification path through Migration " + id + ".");
+}
+if (!runner.includes("[49, 50, 51].includes(applied.rows.length)")) {
+  fail("Migration status mode does not accept exact verified Production ledger lengths 049-051.");
+}
+
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028 and verified Production history 001-047 are contiguous; exact source hashes 036-047 are pinned and no migrations remain pending.");
+console.log("PASS: baseline 001-028 and verified Production history 001-047 are contiguous; exact source hashes 036-051 are pinned; Production ledger extension 048-051 is checked by the release runner.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

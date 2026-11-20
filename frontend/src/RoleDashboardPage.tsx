@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, AlertCircle, ArrowRight, Boxes, BriefcaseBusiness, ClipboardList, Clock3, FileCheck2, RefreshCw, ShieldCheck, Ship, Truck, Wallet } from 'lucide-react';
 import { get } from './api';
+import './RoleDashboardPage.css';
 import { hasProjectPermission } from './role-permissions';
 
 type RecordData = Record<string, any>;

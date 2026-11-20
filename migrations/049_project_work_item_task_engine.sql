@@ -134,6 +134,15 @@ $function$;
 REVOKE ALL ON FUNCTION public.pke_user_has_active_project_role(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pke_user_has_active_project_role(uuid, text) TO app_runtime_secure;
 
+-- Checker may record a checkpoint only with verify_checkpoints; trip lifecycle events remain record_truck_trips.
+DROP POLICY IF EXISTS pke_tracking_events_insert ON public.tracking_events;
+CREATE POLICY pke_tracking_events_insert ON public.tracking_events
+  FOR INSERT TO app_runtime_secure WITH CHECK (
+    public.pke_has_truck_trip_permission(truck_trip_id, 'record_truck_trips')
+    OR (event_type = 'checkpoint' AND public.pke_has_truck_trip_permission(truck_trip_id, 'verify_checkpoints'))
+    OR (event_type = 'receipt' AND public.pke_has_truck_trip_permission(truck_trip_id, 'warehouse.receipt.create'))
+  );
+
 ALTER TABLE public.project_work_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_work_items FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.project_work_item_events ENABLE ROW LEVEL SECURITY;

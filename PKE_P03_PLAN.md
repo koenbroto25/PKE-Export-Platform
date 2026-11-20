@@ -713,3 +713,13 @@ PASS on isolated PostgreSQL validation branch:
 - Source implementation is in place, but P0 is **not declared Production-complete** until current HEAD CI is green, exact migration approvals are received, 048/049 are applied in order, and authenticated multi-role/multi-Project runtime UAT passes.
 - Required UAT: PM creates and reassigns tasks; active role members see only role-scoped work; explicit assignee isolation; expired/revoked role loses access; PM-only resolution; notifications to PM/owners; task event immutability; Checker checkpoint versus trip-event permission; Project Admin Finance read-only; and cross-Project isolation.
 - Project timezone/SLA calendar and scheduled overdue escalation remain explicit follow-up design items. Current overdue visibility is computed on read and escalation is a deliberate user action, not a background scheduler.
+### CI confirmation — source commit `fc25624ec288189bc1f33ece374422667c28d982`
+
+- Unit Tests: **213/213 PASS** across 18 test files.
+- Backend API TypeScript: PASS.
+- Frontend TypeScript: PASS.
+- Frontend production build: PASS.
+- Production migration ledger/release verifier: PASS; baseline 001–028 and verified Production history 001–047 are contiguous. The verifier retains the notice that authentic SQL for historical migrations 029–035 remains unrecovered.
+- Migration runner dry-run: PASS; no database connection attempted and no database changes made. Migrations 048 and 049 are reported `manifest=absent` and remain unapproved for apply.
+- Dependency Audit Evidence: PASS (root and frontend production dependency audits).
+- PR #2 remains OPEN / DRAFT. CI validates source/static/build gates, not authenticated browser UAT or runtime RLS integration.

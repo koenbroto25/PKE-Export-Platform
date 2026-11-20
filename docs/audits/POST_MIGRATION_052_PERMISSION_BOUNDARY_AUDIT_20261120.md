@@ -77,5 +77,6 @@ Finance role grants, payment permissions, PM permissions and other role grants a
 - Added `migrations/053_project_admin_accounting_reports_read_only.sql` to the existing branch.
 - The migration installs a SECURITY DEFINER trigger guard with restricted `search_path`, revokes PUBLIC EXECUTE, grants EXECUTE to `app_runtime_secure`, removes existing Project Admin Accounting/Reports mutation grants, and ensures read-only view grants.
 - Added canonical Project Admin template read permissions and explicit regression contract tests.
-- **PREPARED ONLY — NOT APPLIED TO NEON PRODUCTION.** Production DDL/permission DML requires a separate approval of the exact SQL SHA-256 after source CI and isolated backtest evidence.
+- Exact Migration 053 SHA-256: `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`.
+- **PREPARED ONLY — NOT APPLIED TO NEON PRODUCTION.** Production DDL/permission DML requires a separate approval of this exact SQL SHA-256 after source CI and isolated backtest evidence.
 - No Production role grants, role assignments, business data, or schema were changed for this policy decision.

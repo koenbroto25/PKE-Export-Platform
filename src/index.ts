@@ -1791,7 +1791,7 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
     if (["resolved","closed","cancelled"].includes(item.status) && action !== "reopen") return res.status(409).json({ error: "Terminal task must be reopened before further action." });
 
     let status = item.status, roleCode = item.owner_role_code, assignee = item.assignee_user_id, due = item.due_at, priority = item.priority;
-    let eventType = action;
+    let eventType = action === "escalate" ? "escalated" : action === "cancel" ? "cancelled" : action === "comment" ? "commented" : action === "acknowledge" ? "acknowledged" : action === "start" ? "started" : action;
     if (action === "assign") {
       if (typeof body.ownerRoleCode !== "string") return res.status(400).json({ error: "ownerRoleCode is required." });
       const role = await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",[projectId,body.ownerRoleCode]);
@@ -2011,7 +2011,7 @@ app.get("/api/v1/notifications", requireAuth, async (req: express.Request, res: 
   try {
     const userId = req.user?.id;
     const { rows } = await req.db.query(
-      `SELECT id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, read_at, created_at
+      `SELECT id, event_id, project_id, work_item_id, recipient_user_id, created_by, title, message, priority, category, read_at, created_at
          FROM user_notifications
         WHERE recipient_user_id = $1::uuid
         ORDER BY created_at DESC`,
@@ -2021,6 +2021,7 @@ app.get("/api/v1/notifications", requireAuth, async (req: express.Request, res: 
       id: r.id,
       eventId: r.event_id,
       projectId: r.project_id,
+      workItemId: r.work_item_id,
       recipient: r.recipient_user_id,
       createdBy: r.created_by,
       title: r.title,

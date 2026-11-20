@@ -9395,3 +9395,15 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Existing permission grants, role assignments, PM appointments, cash advance rows, and all Production data remain unchanged. No Neon SQL was executed and no Neon/GitHub branch was created.
 - The verified Production history manifest remains exactly 001–045 applied with zero pending entries; Migration 046 is prepared source, not an applied/pending Production ledger row. The release verifier pins the prepared SQL hash while ensuring the applied history remains unchanged. The migration runner has no 046 approval guard and therefore remains fail-closed for any attempt to apply it.
 - **Status: PREPARED / NOT APPLIED / OWNER APPROVAL REQUIRED.** This SHA authorizes no Production change. Before approval, perform a final static review and run the offline CI/release verifier. After approval, apply only this exact SQL and SHA in one atomic transaction with its ledger row.
+
+
+## 56.37 — Production Migration 046 applied: Finance-only Cash Advance decisions — 2026-11-20
+
+- Owner explicitly approved exact SQL SHA-256 `4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31`.
+- Applied to Neon Production project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, database `neondb`. The SQL and migration-history row 46 were committed atomically in one transaction after verifying the exact prior 45-row ledger and Migration 045 hash.
+- Post-apply read-back confirms contiguous migration ledger 001–046, row 46 exact filename/hash/status, helper `pke_has_active_project_role(uuid,text)` exists, and `pke_cash_advance_guard()` is replaced with Finance-role-only maker-checker enforcement.
+- Cash Advance UPDATE RLS now requires active Finance Project role, `finance.update`, a different requestor/decision actor, and non-platform-admin context. The SECURITY DEFINER role helper has fixed search_path; PUBLIC execute is revoked and `app_runtime_secure` execute is granted. Read-back confirms PUBLIC cannot execute and app_runtime_secure can execute.
+- Existing DELETE/INSERT/SELECT Cash Advance policies remain unchanged. Existing INSERT and UPDATE financial audit triggers remain present. Existing cash advance row count remains 1; no business data, permission grants, role assignments, or PM decisions were changed.
+- Neon snapshot creation was attempted immediately before apply but rejected because the project snapshot limit was exceeded. No branch was created. The migration and ledger insertion were still atomic; no partial migration state is possible from a failed transaction.
+- Updated the canonical Production history manifest to 001–046 and retained the 001–045 manifest as historical evidence. Updated runner and release verifier to recognize exact applied 046 as verification-only and prevent SQL replay.
+- **Status:** Migration 046 APPLIED / LEDGER VERIFIED. Runtime role-matrix DML testing remains outstanding; no synthetic Production business records were created. Vercel remains intentionally skipped.

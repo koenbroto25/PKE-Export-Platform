@@ -1665,7 +1665,7 @@ app.get("/api/v1/kpis", requireAuth, async (req: express.Request, res: express.R
   res.json({ kpis, dataFreshness: new Date().toISOString() });
 });
 
-app.get("/api/v1/reports/portfolio", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/portfolio", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows: projectRows } = await req.db.query("SELECT COUNT(*)::int AS count, COALESCE(SUM(target_quantity),0) AS volume FROM projects WHERE is_active = true");
     const { rows: rabRows } = await req.db.query("SELECT COALESCE(SUM(amount),0) AS budget FROM rab WHERE is_active = true");
@@ -1880,7 +1880,7 @@ app.patch("/api/v1/notifications/:id/read", requireAuth, async (req: express.Req
   }
 });
 
-app.get("/api/v1/reports/export/projects", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/export/projects", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT id, name, status, settlement_unit, target_quantity FROM projects WHERE is_active = true");
     const header = "id,name,status,settlement_unit,target_quantity";
@@ -1896,7 +1896,7 @@ app.get("/api/v1/reports/export/projects", requireAuth, async (req: express.Requ
 // Sprint 02E Finalization — Backend KPI Authority
 // ============================================
 
-app.get("/api/v1/reports/kpis/operational", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/kpis/operational", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows: tripRows } = await req.db.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'completed')::int AS completed FROM truck_trips");
     const { rows: receiptRows } = await req.db.query("SELECT COUNT(*)::int AS count FROM warehouse_receipts");
@@ -1915,7 +1915,7 @@ app.get("/api/v1/reports/kpis/operational", requireAuth, async (req: express.Req
   }
 });
 
-app.get("/api/v1/reports/kpis/financial", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/kpis/financial", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows: rabRows } = await req.db.query("SELECT COALESCE(SUM(amount),0) AS budget FROM rab WHERE is_active = true");
     const { rows: fxRows } = await req.db.query("SELECT COUNT(*)::int AS count FROM fx_exposures");
@@ -1931,7 +1931,7 @@ app.get("/api/v1/reports/kpis/financial", requireAuth, async (req: express.Reque
   }
 });
 
-app.get("/api/v1/reports/historical", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/historical", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT COUNT(*)::int AS sample_size, MIN(created_at) AS period_start, MAX(created_at) AS period_end FROM truck_trips");
     const sampleSize = rows[0]?.sample_size ?? 0;
@@ -2078,7 +2078,7 @@ app.post("/api/v1/reports/scheduler/run-due", requireAuth, requireAdmin, async (
   }
 });
 
-app.get("/api/v1/reports/scheduler/runs", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/scheduler/runs", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT * FROM report_runs WHERE schedule_id IS NOT NULL ORDER BY generated_at DESC LIMIT 200");
     res.json({ runs: rows.map((r: any) => ({ id: r.id, scheduleId: r.schedule_id, templateId: r.template_id, templateVersion: r.template_version, cutoff: r.cutoff_at, status: r.status, generatedAt: r.generated_at, idempotencyKey: r.idempotency_key, dataFreshness: r.data_freshness })) });
@@ -2755,6 +2755,7 @@ app.post("/api/v1/truck-trips", requireAuth, async (req: express.Request, res: e
   if (!projectId || !transportLegId || !licensePlate) {
     return res.status(400).json({ error: "Required fields: projectId, transportLegId, licensePlate" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "record_truck_trips"))) return;
   try {
     // Validate that the transport leg exists and belongs to the same project
     const { rows: legRows } = await req.db.query(
@@ -2795,6 +2796,12 @@ app.patch("/api/v1/truck-trips/:id", requireAuth, async (req: express.Request, r
     return res.status(400).json({ error: "Invalid status" });
   }
   try {
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id FROM truck_trips WHERE id = $1::uuid",
+      [req.params.id],
+    );
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Truck trip not found." });
+    if (!(await requireProjectPermission(req, res, scopeRows[0].project_id, "record_truck_trips"))) return;
     const { rows } = await req.db.query(
       `UPDATE truck_trips
           SET status = COALESCE($2, status),
@@ -2936,6 +2943,7 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
   if (typeof checkerId !== "string") {
     return res.status(401).json({ error: "Authenticated principal required" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "warehouse.receipt.create"))) return;
   try {
     if (truckTripId) {
       const { rows: tripRows } = await req.db.query(`SELECT id, project_id FROM truck_trips WHERE id = $1::uuid`, [truckTripId]);
@@ -2962,6 +2970,12 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
 app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { status, receivedQuantity, unit, conditionStatus, exceptionReason } = req.body ?? {};
   try {
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id FROM warehouse_receipts WHERE id = $1::uuid",
+      [req.params.id],
+    );
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Warehouse receipt not found." });
+    if (!(await requireProjectPermission(req, res, scopeRows[0].project_id, "warehouse.update"))) return;
     const { rows } = await req.db.query(
       `UPDATE warehouse_receipts
           SET status = COALESCE($2, status),
@@ -2992,6 +3006,7 @@ app.get("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res:
 app.post("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, pksSiteId, quantity, unit, location, status } = req.body;
   if (!projectId || quantity === undefined) return res.status(400).json({ error: "projectId, quantity required" });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.create"))) return;
   try {
     const { rows } = await req.db.query(
       `INSERT INTO inventory_lots (project_id, pks_site_id, quantity, unit, location, status, created_at, updated_at)
@@ -3010,6 +3025,7 @@ app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request
   if (!projectId || !lotId || !movementType || quantity === undefined || !unit || !actorId) {
     return res.status(400).json({ error: "projectId, lotId, movementType, quantity, unit required" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.update"))) return;
   try {
     const { rows: lotRows } = await req.db.query(`SELECT id, project_id FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
     if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
@@ -3461,6 +3477,7 @@ app.get("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: ex
 app.post("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, amountIdr, amountFx, fxRate, exposureType, originalCurrency } = req.body;
   if (!projectId) return res.status(400).json({ error: "projectId required" });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.create"))) return;
   try {
     // Resolve original currency (default to IDR)
     const currencyCode = originalCurrency || "IDR";
@@ -3607,14 +3624,16 @@ app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res:
 // RAB routes (P07 Finance)
 // ============================================
 app.get("/api/v1/rab", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId } = req.query;
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT id, project_id, description, category, amount, version, is_active, created_at, updated_at
        FROM rab
-       WHERE ($1::uuid IS NULL OR project_id = $1::uuid) AND is_active = true
+       WHERE project_id = $1::uuid AND is_active = true
        ORDER BY created_at DESC LIMIT 200`,
-      [projectId || null],
+      [projectId],
     );
     res.json({ rab: rows.map((r: any) => ({
       id: r.id,
@@ -3637,6 +3656,7 @@ app.post("/api/v1/rab", requireAuth, async (req: express.Request, res: express.R
   if (!projectId || !description || !category || amount === undefined) {
     return res.status(400).json({ error: "Required fields: projectId, description, category, amount" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "finance.create"))) return;
   try {
     const { rows } = await req.db.query(
       `INSERT INTO rab (project_id, description, category, amount, version, is_active, created_at, updated_at)
@@ -3937,7 +3957,7 @@ app.get("/api/v1/export-document-types", requireAuth, async (req: express.Reques
   }
 });
 
-app.post("/api/v1/export-document-types", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/export-document-types", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { documentTypeId, documentName, documentCategory, description } = req.body ?? {};
   if (!documentTypeId || !documentName) {
     return res.status(400).json({ error: "Required fields: documentTypeId, documentName" });
@@ -3987,7 +4007,7 @@ app.get("/api/v1/country-export-document-requirements", requireAuth, async (req:
   }
 });
 
-app.post("/api/v1/country-export-document-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/country-export-document-requirements", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { countryCode, documentTypeId, importingAuthority, mandatory, status, effectiveFrom, effectiveTo, officialSourceUrl, notes } = req.body ?? {};
   if (!countryCode || !documentTypeId) {
     return res.status(400).json({ error: "Required fields: countryCode, documentTypeId" });

@@ -39,4 +39,27 @@ describe("Parallel revision security contracts", () => {
     const admin = roles.match(/role\("project_admin"[\s\S]*?\n  \],/);
     expect(admin?.[0] ?? "").not.toContain('"inventory.hold"');
   });
+
+  it("requires operational project permissions before operational writes", () => {
+    const tripCreate = routeBlock("post", "/api/v1/truck-trips");
+    expect(tripCreate).toContain('requireProjectPermission(req, res, projectId, "record_truck_trips")');
+    const receiptCreate = routeBlock("post", "/api/v1/warehouse-receipts");
+    expect(receiptCreate).toContain('requireProjectPermission(req, res, projectId, "warehouse.receipt.create")');
+    const lotCreate = routeBlock("post", "/api/v1/inventory-lots");
+    expect(lotCreate).toContain('requireProjectPermission(req, res, projectId, "inventory.create")');
+    const movementCreate = routeBlock("post", "/api/v1/inventory-movements");
+    expect(movementCreate).toContain('requireProjectPermission(req, res, projectId, "inventory.update")');
+  });
+  it("requires project Finance permission for FX exposure and RAB writes", () => {
+    expect(routeBlock("post", "/api/v1/fx-exposure")).toContain('requireProjectPermission(req, res, projectId, "finance.create")');
+    expect(routeBlock("post", "/api/v1/rab")).toContain('requireProjectPermission(req, res, projectId, "finance.create")');
+    expect(routeBlock("get", "/api/v1/rab")).toContain('requireProjectPermission(req, res, projectId, "finance.view")');
+  });
+  it("limits platform-wide reports and global document reference writes to Platform Admin", () => {
+    for (const route of ["/api/v1/reports/portfolio", "/api/v1/reports/export/projects", "/api/v1/reports/kpis/operational", "/api/v1/reports/kpis/financial", "/api/v1/reports/historical", "/api/v1/reports/scheduler/runs"]) {
+      expect(routeBlock("get", route).split("\\n", 1)[0]).toContain("requireAdmin");
+    }
+    expect(routeBlock("post", "/api/v1/export-document-types").split("\\n", 1)[0]).toContain("requireAdmin");
+    expect(routeBlock("post", "/api/v1/country-export-document-requirements").split("\\n", 1)[0]).toContain("requireAdmin");
+  });
 });

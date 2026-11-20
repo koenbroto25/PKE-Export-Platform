@@ -2747,12 +2747,13 @@ app.get("/api/v1/projects/:id/module-readiness", requireAuth, async (req: expres
 // Operational workflow routes (P06)
 // ============================================
 app.get("/api/v1/truck-trips", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "logistics.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM truck_trips ORDER BY created_at DESC LIMIT 100");
-    res.json({ truckTrips: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load truck trips" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM truck_trips WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ truckTrips: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/truck-trips", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -2929,12 +2930,13 @@ app.get("/api/v1/tracking-events/trip/:tripId", requireAuth, async (req: express
 });
 
 app.get("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "warehouse.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM warehouse_receipts ORDER BY created_at DESC LIMIT 100");
-    res.json({ warehouseReceipts: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load warehouse receipts" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM warehouse_receipts WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ warehouseReceipts: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -2998,12 +3000,13 @@ app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Req
 });
 
 app.get("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM inventory_lots ORDER BY created_at DESC LIMIT 100");
-    res.json({ inventoryLots: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load inventory lots" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM inventory_lots WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ inventoryLots: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -3020,6 +3023,16 @@ app.post("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res
   } catch (error) {
     res.status(500).json({ error: "Failed to create inventory lot" });
   }
+});
+
+app.get("/api/v1/inventory-movements", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
+  try {
+    const { rows } = await req.db.query("SELECT * FROM inventory_movements WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ inventoryMovements: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -3205,12 +3218,13 @@ app.patch("/api/v1/inventory-reservations/:id/expire", requireAuth, async (req: 
 
 // Inventory holds
 app.get("/api/v1/inventory-holds", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM inventory_holds ORDER BY created_at DESC LIMIT 100");
-    res.json({ inventoryHolds: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load inventory holds" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM inventory_holds WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ inventoryHolds: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, res: express.Response) => {

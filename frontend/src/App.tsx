@@ -178,7 +178,7 @@ function App() {
         </header>
         <div className="page-content">
           <Routes>
-            <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={activeUser}><DashboardPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={activeUser}><DashboardPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectDetailPage onNotice={notify} /></RoleGuard>} />
@@ -314,10 +314,10 @@ function StatusPill({ value }: { value: unknown }) {
 function FormField({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) { return <label className={`form-field ${wide ? 'form-wide' : ''}`}><span>{label}</span>{children}</label>; }
 function ActionButton({ children, onClick, variant = 'primary', disabled = false }: { children: ReactNode; onClick?: () => void; variant?: 'primary' | 'secondary' | 'ghost'; disabled?: boolean }) { return <button type="button" className={`${variant}-button`} disabled={disabled} onClick={onClick}>{children}</button>; }
 
-function DashboardPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function DashboardPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const portfolio = useLoad<AnyRecord>(() => get('/reports/portfolio'), []);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
-  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => get('/truck-trips'), []);
+  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId]);
   const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId]);
   const recentTrips = (trips.data?.truckTrips || []).slice(0, 5);
   const p = portfolio.data || {};
@@ -447,13 +447,13 @@ function ContractsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'i
 }
 
 function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => get('/truck-trips'), []);
+  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId]);
   const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId]);
-  const receipts = useLoad<{ warehouseReceipts?: AnyRecord[] }>(() => get('/warehouse-receipts'), []);
-  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => get('/inventory-lots'), []);
-  const movements = useLoad<{ inventoryMovements?: AnyRecord[] }>(() => get('/inventory-movements'), []);
-  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => get('/inventory-reservations'), []);
-  const holds = useLoad<{ inventoryHolds?: AnyRecord[] }>(() => get('/inventory-holds'), []);
+  const receipts = useLoad<{ warehouseReceipts?: AnyRecord[] }>(() => projectId ? get(`/warehouse-receipts?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ warehouseReceipts: [] }), [projectId]);
+  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => projectId ? get(`/inventory-lots?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryLots: [] }), [projectId]);
+  const movements = useLoad<{ inventoryMovements?: AnyRecord[] }>(() => projectId ? get(`/inventory-movements?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryMovements: [] }), [projectId]);
+  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => projectId ? get(`/inventory-reservations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryReservations: [] }), [projectId]);
+  const holds = useLoad<{ inventoryHolds?: AnyRecord[] }>(() => projectId ? get(`/inventory-holds?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryHolds: [] }), [projectId]);
   const allocations = useLoad<{ shipmentAllocations?: AnyRecord[] }>(() => get('/shipment-allocations'), []);
   const legs = useLoad<{ transportLegs?: AnyRecord[] }>(() => projectId ? get(`/transport-legs?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ transportLegs: [] }), [projectId]);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
@@ -805,8 +805,8 @@ function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: st
 
 function ShipmentAllocationPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const allocations = useLoad<{ shipmentAllocations?: AnyRecord[] }>(() => projectId ? get(`/shipment-allocations?projectId=${encodeURIComponent(projectId)}`) : get('/shipment-allocations'), [projectId]);
-  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => get('/inventory-lots'), []);
-  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => get('/inventory-reservations'), []);
+  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => projectId ? get(`/inventory-lots?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryLots: [] }), [projectId]);
+  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => projectId ? get(`/inventory-reservations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryReservations: [] }), [projectId]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ projectId: projectId || '', lotId: '', allocatedQuantity: '', unit: 'MT', idempotencyKey: '' });

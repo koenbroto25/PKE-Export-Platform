@@ -98,7 +98,7 @@ describe("Project-scoped effective permission UX", () => {
   });
   it("hides privileged mutation actions from read-only Finance and Shipping users", () => {
     const app = appSource;
-    const finance = app.slice(app.indexOf("function FinancePage"), app.indexOf("function OperationsPage"));
+    const finance = app.slice(app.indexOf("function FinancePage"), app.indexOf("function FinanceSubledgerPanel"));
     expect(finance).toContain("form === 'rate' ? canManageGlobalReference : canCreateFinance");
     expect(finance).toContain("action={canCreateFinance ? <ActionButton");
     const allocation = app.slice(app.indexOf("function ShipmentAllocationPage"), app.indexOf("function CashAdvancesPage"));

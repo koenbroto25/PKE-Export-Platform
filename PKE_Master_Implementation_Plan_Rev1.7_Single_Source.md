@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.32 — Finance RBAC least-privilege migration applied
+# Master Implementation Plan Rev2.33 — Parallel revision wave 1–2
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.32 (20 November 2026 — Migration 047 applied and verified; see §56.38)  
+**Revision:** 2.33 (20 November 2026 — Parallel source revision wave 1–2; see §56.40)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -9431,3 +9431,43 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Release verifier now requires zero pending migrations after Migration 047. The active manifest is `migration_history_manifest_001_047.json`; the stale contradictory Migration 047 wording in `source_recovery_note` is corrected in this checkpoint. Historical authentic SQL source for 029–035 remains unrecovered and those reconstructions remain non-executable.
 - No synthetic Production business data, role grants, PM decisions, or workflow changes were made. No Production deployment was attempted. Vercel Preview remains skipped/canceled under owner instruction; its failure status is not treated as a code-test failure.
 - **Remaining acceptance boundary:** Production permission catalogs and guard are verified, but controlled direct-user Project Admin read-only and Finance CRUD runtime checks have not been executed. Do not claim live CRUD UAT PASS or overall F1 closure from catalog checks alone. Keep PR #2 OPEN / DRAFT and do not merge or deploy Production without the owner's explicit next decision.
+
+
+## 56.40 — Parallel revision wave 1–2 (2026-11-20)
+
+**Execution mode:** parallel source revision before consolidated blocker resolution. No Vercel deployment, no Production migration, and no synthetic Production business data.
+
+### Repository and deployment boundary
+- Repository: `koenbroto25/PKE-Export-Platform`.
+- Existing branch retained: `f1/project-scoped-cob-20261119`; no branch was created.
+- Latest code revision commit: `3c2cbabda8e1fcd02a47251091268ef83b12c0ca`.
+- PR #2 remains OPEN / DRAFT and unmerged.
+- Added a branch-specific `git.deploymentEnabled` false setting in `vercel.json` for this exact feature branch. Vercel deployment lookup for code commits `6a8226bc60b90b86d5f795a9897d4dcfd428409c` and `3c2cbabda8e1fcd02a47251091268ef83b12c0ca` returned zero deployment records. Other branches are not disabled by this setting.
+- No Vercel environment variables, project settings, production alias, or deployment were changed.
+
+### Parallel source revisions completed
+- **Security / RBAC:** Contract Program detail and Contract detail reads now require the active Project-scoped `contract.view` permission and constrain the final SELECT by both record ID and Project ID.
+- **Contract ownership:** Removed the duplicate legacy Admin-only `PATCH /contracts/:id` handler. The remaining route is the Project-scoped PM contract update path requiring `manage_contract_programs`, consistent with the owner-approved PM ownership rule.
+- **Inventory controls:** Inventory Hold creation now requires `inventory.hold`. Inventory Lot creation requires `inventory.create`; Inventory Movement creation requires `inventory.update`.
+- **Logistics / warehouse controls:** Truck Trip create/update requires `record_truck_trips`; Warehouse Receipt create requires `warehouse.receipt.create`; Warehouse Receipt update requires `warehouse.update`.
+- **Finance controls:** FX Exposure creation and RAB creation require Project-scoped `finance.create`. RAB reads now require a Project ID and Project-scoped `finance.view`, preserving Project Admin read-only Finance access.
+- **Reporting scope:** Platform-wide portfolio, project export, operational/financial KPI, historical and scheduler-run endpoints now require Platform Admin. Project-scoped reports continue to use their Project permission path.
+- **Global document reference data:** Export Document Type and Country Export Document Requirement creation now require Platform Admin.
+- Added `src/f1-parallel-revision.contract.test.ts` and registered it in the root test command. The test contract covers Project-scoped Contract reads, unique PM Contract PATCH route, Inventory Hold permission, operational write permissions, Finance/RAB permissions and Platform Admin-only global operations.
+
+### CI evidence and limitations
+- Revision commit `6a8226bc60b90b86d5f795a9897d4dcfd428409c`: GitHub Unit Tests and Dependency Audit both completed SUCCESS. This commit contained the first five parallel-revision contract assertions.
+- Latest revision commit `3c2cbabda8e1fcd02a47251091268ef83b12c0ca`: Unit Tests run `44710655266` and Dependency Audit run `44710655323` were observed IN PROGRESS. Unit job had completed root install, offline security/unit tests, Production migration release verifier, migration runner dry-run and backend TypeScript successfully; frontend dependency install was still running. Dependency Audit job was still running. Do not mark the latest commit CI PASS until both jobs complete successfully.
+- No Production DDL/DML, migration replay, role grant, PM decision, workflow business-state change or synthetic Production record was performed.
+- These are source-level and automated contract revisions, not direct-user database CRUD/UAT evidence. RLS remains the final database enforcement boundary; controlled live-user DML validation remains separate.
+
+### Remaining parallel revision domains before consolidated blocker resolution
+- Buyer master-data CRUD authority and project relationship need a confirmed permission owner; do not invent a global-vs-Project policy.
+- Global FX-rate and Chart-of-Accounts maintenance need explicit authority mapping distinct from Project-scoped Finance transaction permissions.
+- Journal entry / journal line posting and Accounting-vs-Finance permission mapping need reconciliation against the accounting workflow specification.
+- AP/AR API coverage and maker-checker/audit contracts require a complete source-to-schema review.
+- Remaining read/list endpoints need a full Project-scoped API/RLS parity pass; absence of an explicit route helper is not by itself proof of exposure because database RLS may still apply.
+- Document artifact integrity still requires provider-backed object metadata, checksum verification and report artifact reconciliation; static storage adapter checks are not provider E2E evidence.
+- Frontend permission-driven actions and API contracts still require a cross-module reconciliation.
+- No blocker is marked closed solely by this revision log. The next stage is consolidated audit after the parallel revision pass is complete, followed by grouped blocker remediation and final regression.
+

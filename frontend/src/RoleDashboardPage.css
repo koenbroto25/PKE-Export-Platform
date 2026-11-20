@@ -1,0 +1,39 @@
+.role-dashboard { display: grid; gap: 18px; }
+.role-dashboard .page-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.role-dashboard .page-heading h1 { margin:5px 0 6px; }
+.role-dashboard .page-heading p, .role-dashboard .role-focus-card p, .role-dashboard .role-focus-card small, .role-dashboard .section-heading p { color:var(--muted,#64748b); }
+.role-dashboard .role-identity { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:20px; }
+.role-dashboard .role-identity h2 { margin:5px 0; font-size:18px; }
+.role-dashboard .role-identity p { margin:0; color:var(--muted,#64748b); }
+.role-dashboard .role-chip-list, .role-dashboard .role-link-row { display:flex; flex-wrap:wrap; gap:8px; }
+.role-dashboard .role-chip { border:1px solid var(--border,#dbe2ea); border-radius:999px; padding:6px 10px; font-size:12px; font-weight:650; }
+.role-dashboard .role-focus-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; }
+.role-dashboard .role-focus-card { padding:16px; display:flex; flex-direction:column; gap:8px; }
+.role-dashboard .role-focus-card h3 { margin:0; font-size:16px; }
+.role-dashboard .role-focus-card p { margin:0; font-size:13px; line-height:1.5; }
+.role-dashboard .role-focus-card small { line-height:1.45; }
+.role-dashboard .role-link-row { margin-top:auto; padding-top:6px; }
+.role-dashboard .role-link-row a, .role-dashboard .section-heading a { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:650; color:var(--primary,#2457a7); text-decoration:none; }
+.role-dashboard .role-metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+.role-dashboard .role-metric { display:flex; flex-direction:column; gap:7px; padding:15px; color:inherit; text-decoration:none; }
+.role-dashboard .role-metric strong { font-size:25px; }
+.role-dashboard .role-metric span { font-size:13px; font-weight:650; }
+.role-dashboard .role-metric small { color:var(--muted,#64748b); line-height:1.4; }
+.role-dashboard .section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:12px; }
+.role-dashboard .section-heading h2 { margin:0 0 4px; font-size:17px; }
+.role-dashboard .section-heading p { margin:0; font-size:12px; }
+.role-dashboard .role-task-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(95px,1fr)); gap:8px; margin:12px 0; }
+.role-dashboard .role-task-stats div { border:1px solid var(--border,#dbe2ea); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:4px; }
+.role-dashboard .role-task-stats strong { font-size:20px; }
+.role-dashboard .role-task-stats span { color:var(--muted,#64748b); font-size:11px; text-transform:capitalize; }
+.role-dashboard .role-task-row, .role-dashboard .role-readiness-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0; border-top:1px solid var(--border,#e5eaf0); }
+.role-dashboard .role-task-row > div, .role-dashboard .role-readiness-row > div { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.role-dashboard .role-task-row small, .role-dashboard .role-readiness-row small { color:var(--muted,#64748b); font-size:12px; line-height:1.4; }
+.role-dashboard .role-status { border-radius:999px; padding:4px 8px; background:#edf2f7; font-size:11px; white-space:nowrap; text-transform:capitalize; }
+.role-dashboard .role-status.overdue { background:#fff0df; color:#9a4b00; }
+.role-dashboard .role-readiness-row > span { font-size:12px; font-weight:650; white-space:nowrap; }
+.role-dashboard .role-readiness-row.unavailable > span { color:#9a4b00; }
+.role-dashboard .role-empty { color:var(--muted,#64748b); font-size:13px; }
+.role-dashboard .role-boundary { display:flex; gap:12px; align-items:flex-start; padding:15px; }
+.role-dashboard .role-boundary p { margin:4px 0 0; color:var(--muted,#64748b); font-size:12px; line-height:1.5; }
+@media (max-width:700px) { .role-dashboard .page-heading, .role-dashboard .role-identity, .role-dashboard .section-heading { flex-direction:column; } .role-dashboard .role-task-row, .role-dashboard .role-readiness-row { align-items:flex-start; } .role-dashboard .role-readiness-row > span { white-space:normal; text-align:right; } }

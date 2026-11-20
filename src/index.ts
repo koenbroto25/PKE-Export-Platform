@@ -1671,6 +1671,194 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
 });
 
 
+// P0 Project Work Items API. Request-scoped RLS transaction is supplied by middleware.
+app.get("/api/v1/projects/:projectId/work-items", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authenticated principal required" });
+  try {
+    const permission = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid, 'project.tasks.view') AS allowed", [projectId]
+    );
+    const canViewAll = permission.rows[0]?.allowed === true;
+    const status = typeof req.query.status === "string" ? req.query.status : null;
+    const result = await req.db.query(
+      "SELECT wi.*, (wi.due_at IS NOT NULL AND wi.due_at < now() AND wi.status NOT IN ('resolved','closed','cancelled')) AS is_overdue " +
+      "FROM public.project_work_items wi WHERE wi.project_id=$1::uuid " +
+      "AND ($2::boolean OR wi.assignee_user_id=$3::uuid OR public.pke_user_has_active_project_role(wi.project_id,wi.owner_role_code)) " +
+      "AND ($4::text IS NULL OR wi.status=$4::text) " +
+      "ORDER BY CASE wi.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, wi.due_at ASC NULLS LAST, wi.created_at DESC LIMIT 250",
+      [projectId, canViewAll, userId, status]
+    );
+    return res.json({ workItems: result.rows, scope: canViewAll ? "project" : "assigned", dataFreshness: new Date().toISOString() });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.get("/api/v1/projects/:projectId/work-items/:id/events", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const result = await req.db.query(
+      "SELECT e.* FROM public.project_work_item_events e WHERE e.project_id=$1::uuid AND e.work_item_id=$2::uuid ORDER BY e.occurred_at ASC",
+      [req.params.projectId, req.params.id]
+    );
+    return res.json({ events: result.rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/work-items", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const actorId = req.user?.id;
+  const body = req.body ?? {};
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const ownerRoleCode = typeof body.ownerRoleCode === "string" ? body.ownerRoleCode : "";
+  if (!actorId) return res.status(401).json({ error: "Authenticated principal required" });
+  if (title.length < 3 || title.length > 240 || !/^[a-z][a-z0-9_]{1,63}$/.test(ownerRoleCode))
+    return res.status(400).json({ error: "A 3-240 character title and valid ownerRoleCode are required." });
+  if (!(await requireProjectPermission(req, res, projectId, "project.tasks.create"))) return;
+  if (body.priority && !["low","normal","high","critical"].includes(body.priority)) return res.status(400).json({ error: "Invalid priority." });
+  if (body.workItemType && !["task","instruction","exception","approval_request","follow_up"].includes(body.workItemType)) return res.status(400).json({ error: "Invalid workItemType." });
+  if ((body.sourceEntityType && !body.sourceEntityId) || (!body.sourceEntityType && body.sourceEntityId)) return res.status(400).json({ error: "sourceEntityType and sourceEntityId must be supplied together." });
+  if (body.dueAt && !Number.isFinite(Date.parse(body.dueAt))) return res.status(400).json({ error: "Invalid dueAt timestamp." });
+  try {
+    const role = await req.db.query(
+      "SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",
+      [projectId, ownerRoleCode]
+    );
+    if (role.rows.length !== 1) return res.status(422).json({ error: "Owner role is not active in this Project.", code: "PROJECT_ROLE_NOT_ACTIVE" });
+    const assignments = await req.db.query(
+      "SELECT DISTINCT a.user_id FROM public.project_role_assignments a JOIN public.project_members pm ON pm.id=a.project_member_id " +
+      "WHERE a.project_id=$1::uuid AND a.project_role_id=$2::uuid AND a.is_active=true AND a.revoked_at IS NULL " +
+      "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
+      "AND (pm.expires_at IS NULL OR pm.expires_at>now())",
+      [projectId, role.rows[0].id]
+    );
+    if (!assignments.rows.length) return res.status(422).json({ error: "No active assignee is assigned to the selected Project role.", code: "ROLE_HAS_NO_ACTIVE_ASSIGNEE" });
+    if (body.assigneeUserId && !assignments.rows.some((row: any) => row.user_id === body.assigneeUserId))
+      return res.status(422).json({ error: "Assignee does not hold the selected active Project role.", code: "ASSIGNEE_ROLE_MISMATCH" });
+    const inserted = await req.db.query(
+      "INSERT INTO public.project_work_items (project_id,source_entity_type,source_entity_id,work_item_type,title,description,priority,owner_role_code,assignee_user_id,created_by,due_at,dedupe_key) " +
+      "VALUES ($1::uuid,$2,$3::uuid,$4,$5,$6,$7,$8,$9::uuid,$10::uuid,$11::timestamptz,$12) " +
+      "ON CONFLICT (project_id,dedupe_key) DO NOTHING RETURNING *",
+      [projectId,body.sourceEntityType || null,body.sourceEntityId || null,body.workItemType || "task",title,
+       typeof body.description === "string" ? body.description.trim() : null,body.priority || "normal",ownerRoleCode,
+       body.assigneeUserId || null,actorId,body.dueAt || null,body.dedupeKey || null]
+    );
+    if (!inserted.rows.length) return res.status(409).json({ error: "A work item with this Project dedupe key already exists.", code: "WORK_ITEM_DUPLICATE" });
+    const item = inserted.rows[0];
+    await req.db.query(
+      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,'created',$3::uuid,'Work item created',$4::jsonb)",
+      [item.id,projectId,actorId,JSON.stringify({ ownerRoleCode, assigneeUserId: body.assigneeUserId || null })]
+    );
+    await req.db.query(
+      "INSERT INTO public.user_notifications (id,event_id,project_id,work_item_id,recipient_user_id,created_by,title,message,priority,category,created_at) " +
+      "SELECT gen_random_uuid(),gen_random_uuid(),wi.project_id,wi.id,a.user_id,$2::uuid,$3,$4,wi.priority,'task_assignment',now() " +
+      "FROM public.project_work_items wi JOIN public.project_roles pr ON pr.project_id=wi.project_id AND pr.role_code=wi.owner_role_code " +
+      "JOIN public.project_role_assignments a ON a.project_id=pr.project_id AND a.project_role_id=pr.id " +
+      "JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.user_id=a.user_id " +
+      "WHERE wi.id=$1::uuid AND (wi.assignee_user_id IS NULL OR wi.assignee_user_id=a.user_id) " +
+      "AND a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) " +
+      "AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now()) ON CONFLICT DO NOTHING",
+      [item.id,actorId,"Tugas baru: " + item.title,"Anda menerima tugas " + item.title + ". Tenggat: " + (item.due_at || "belum ditentukan") + "."]
+    );
+    return res.status(201).json({ workItem: item });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const actorId = req.user?.id;
+  const body = req.body ?? {};
+  const action = body.action;
+  if (!actorId) return res.status(401).json({ error: "Authenticated principal required" });
+  if (!["assign","acknowledge","start","block","submit","resolve","close","reopen","escalate","comment","cancel"].includes(action))
+    return res.status(400).json({ error: "Unsupported work item action." });
+  try {
+    const found = await req.db.query("SELECT * FROM public.project_work_items WHERE id=$1::uuid AND project_id=$2::uuid LIMIT 1",[req.params.id,projectId]);
+    if (!found.rows.length) return res.status(404).json({ error: "Work item not found." });
+    const item = found.rows[0];
+    const checks = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'project.tasks.update') AS can_update, " +
+      "public.pke_has_project_permission($1::uuid,'project.tasks.assign') AS can_assign, " +
+      "public.pke_has_project_permission($1::uuid,'project.tasks.resolve') AS can_resolve, " +
+      "public.pke_user_has_active_project_role($1::uuid,$2::text) OR $3::uuid=$4::uuid AS is_assigned",
+      [projectId,item.owner_role_code,actorId,item.assignee_user_id]
+    );
+    const access = checks.rows[0];
+    if (action === "assign" && !access.can_assign) return res.status(403).json({ error: "Task assignment requires project.tasks.assign." });
+    if (["resolve","close","reopen","cancel"].includes(action) && !access.can_resolve) return res.status(403).json({ error: "Task resolution requires project.tasks.resolve." });
+    if (action === "escalate" && !access.is_assigned && !access.can_update) return res.status(403).json({ error: "Only the assigned owner or PM may escalate this task." });
+    if (!["assign","resolve","close","reopen","cancel","escalate"].includes(action) && !access.is_assigned && !access.can_update)
+      return res.status(403).json({ error: "Only the assigned owner or PM may update this task." });
+    if (["resolved","closed","cancelled"].includes(item.status) && action !== "reopen") return res.status(409).json({ error: "Terminal task must be reopened before further action." });
+
+    let status = item.status, roleCode = item.owner_role_code, assignee = item.assignee_user_id, due = item.due_at, priority = item.priority;
+    let eventType = action;
+    if (action === "assign") {
+      if (typeof body.ownerRoleCode !== "string") return res.status(400).json({ error: "ownerRoleCode is required." });
+      const role = await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",[projectId,body.ownerRoleCode]);
+      if (!role.rows.length) return res.status(422).json({ error: "Owner role is not active in this Project." });
+      const assigned = await req.db.query(
+        "SELECT a.user_id FROM public.project_role_assignments a JOIN public.project_members pm ON pm.id=a.project_member_id " +
+        "WHERE a.project_id=$1::uuid AND a.project_role_id=$2::uuid AND a.is_active=true AND a.revoked_at IS NULL " +
+        "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
+        "AND (pm.expires_at IS NULL OR pm.expires_at>now())",[projectId,role.rows[0].id]);
+      if (!assigned.rows.length || (body.assigneeUserId && !assigned.rows.some((r: any) => r.user_id === body.assigneeUserId)))
+        return res.status(422).json({ error: "Assignee must hold the selected active Project role." });
+      roleCode=body.ownerRoleCode; assignee=body.assigneeUserId || null; status="open";
+      if (body.dueAt !== undefined) { if (body.dueAt && !Number.isFinite(Date.parse(body.dueAt))) return res.status(400).json({ error: "Invalid dueAt." }); due=body.dueAt || null; }
+      if (body.priority !== undefined) { if (!["low","normal","high","critical"].includes(body.priority)) return res.status(400).json({ error: "Invalid priority." }); priority=body.priority; }
+      eventType = item.owner_role_code === roleCode && item.assignee_user_id === assignee ? "assigned" : "reassigned";
+    } else if (action === "acknowledge") { if (item.status !== "open") return res.status(409).json({ error: "Only open tasks can be acknowledged." }); status="acknowledged";
+    } else if (action === "start") { if (!["acknowledged","blocked"].includes(item.status)) return res.status(409).json({ error: "Task must be acknowledged or blocked." }); status="in_progress";
+    } else if (action === "block") { if (!["acknowledged","in_progress"].includes(item.status) || typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "A reason of at least 5 characters is required to block a task." }); status="blocked";
+    } else if (action === "submit") { if (!["in_progress","blocked","acknowledged"].includes(item.status)) return res.status(409).json({ error: "Task must be acknowledged or in progress before submission." }); status="submitted";
+    } else if (action === "resolve") { if (item.status !== "submitted") return res.status(409).json({ error: "Only submitted tasks can be resolved by PM." }); status="resolved";
+    } else if (action === "close") { if (item.status !== "resolved") return res.status(409).json({ error: "Only resolved tasks can be closed." }); status="closed";
+    } else if (action === "reopen") { if (!["resolved","closed"].includes(item.status) || typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "A reason is required to reopen a task." }); status="open";
+    } else if (action === "cancel") { if (typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "A cancellation reason is required." }); status="cancelled";
+    } else if (action === "escalate") { if (["resolved","closed","cancelled"].includes(item.status) || typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "An escalation reason is required for an active task." });
+    } else if (action === "comment") { if (typeof body.comment !== "string" || body.comment.trim().length<2) return res.status(400).json({ error: "A comment is required." }); }
+
+    if (action === "escalate") {
+      await req.db.query("UPDATE public.project_work_items SET escalation_level=escalation_level+1,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid",[item.id,projectId]);
+    } else {
+      await req.db.query(
+        "UPDATE public.project_work_items SET status=$1,owner_role_code=$2,assignee_user_id=$3::uuid,due_at=$4::timestamptz,priority=$5," +
+        "acknowledged_at=CASE WHEN $1='acknowledged' AND acknowledged_at IS NULL THEN now() ELSE acknowledged_at END," +
+        "started_at=CASE WHEN $1='in_progress' AND started_at IS NULL THEN now() ELSE started_at END," +
+        "submitted_at=CASE WHEN $1='submitted' THEN now() ELSE submitted_at END," +
+        "resolved_at=CASE WHEN $1='resolved' THEN now() ELSE resolved_at END,resolved_by=CASE WHEN $1='resolved' THEN $6::uuid ELSE resolved_by END," +
+        "closed_at=CASE WHEN $1='closed' THEN now() ELSE closed_at END,closed_by=CASE WHEN $1='closed' THEN $6::uuid ELSE closed_by END,updated_at=now() " +
+        "WHERE id=$7::uuid AND project_id=$8::uuid",
+        [status,roleCode,assignee,due,priority,actorId,item.id,projectId]
+      );
+    }
+    await req.db.query(
+      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,$3,$4::uuid,$5,$6::jsonb)",
+      [item.id,projectId,eventType,actorId,body.reason || null,JSON.stringify({ action, comment: body.comment || null, status, ownerRoleCode: roleCode, assigneeUserId: assignee })]
+    );
+    if (["assign","escalate"].includes(action)) {
+      const targetRole = action === "escalate" ? "pm" : roleCode;
+      const targetUser = action === "escalate" ? null : assignee;
+      await req.db.query(
+        "INSERT INTO public.user_notifications (id,event_id,project_id,work_item_id,recipient_user_id,created_by,title,message,priority,category,created_at) " +
+        "SELECT gen_random_uuid(),gen_random_uuid(),$1::uuid,$2::uuid,a.user_id,$3::uuid,$4,$5,$6,'task_assignment',now() " +
+        "FROM public.project_roles pr JOIN public.project_role_assignments a ON a.project_role_id=pr.id AND a.project_id=pr.project_id " +
+        "JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.user_id=a.user_id " +
+        "WHERE pr.project_id=$1::uuid AND pr.role_code=$7 AND pr.is_active=true AND a.is_active=true AND a.revoked_at IS NULL " +
+        "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
+        "AND (pm.expires_at IS NULL OR pm.expires_at>now()) AND ($8::uuid IS NULL OR a.user_id=$8::uuid) ON CONFLICT DO NOTHING",
+        [projectId,item.id,actorId,action==="escalate" ? "Eskalasi tugas: "+item.title : "Penugasan: "+item.title,
+         action==="escalate" ? "Tugas dieskalasikan ke PM. Alasan: "+body.reason : "Anda menerima tugas "+item.title+".",
+         item.priority,targetRole,targetUser]
+      );
+    }
+    const updated = await req.db.query(
+      "SELECT wi.*, (wi.due_at IS NOT NULL AND wi.due_at<now() AND wi.status NOT IN ('resolved','closed','cancelled')) AS is_overdue " +
+      "FROM public.project_work_items wi WHERE wi.id=$1::uuid AND wi.project_id=$2::uuid",[item.id,projectId]);
+    return res.json({ workItem: updated.rows[0] });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 // ============================================
 // Sprint 02E — Reporting, Notifications & BI
 // ============================================

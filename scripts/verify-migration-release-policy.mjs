@@ -119,6 +119,13 @@ if (!runner.includes("Migrations 042-044 and all ledger rows committed atomicall
 if (!runner.includes("Migration package 042-044 failed and the entire transaction was rolled back")) fail("Migration runner is missing atomic rollback handling for 042-044.");
 if (!runner.includes("SOURCE_NAME_MISMATCH")) fail("Migration status mode does not flag local files that conflict with applied historical names.");
 
+// Migration 046 is prepared source only; it must never be counted as applied history.
+const prepared046 = "migrations/046_cash_advance_finance_role_guard.sql";
+const prepared046Sha = "4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31";
+if (hashFile(prepared046) !== prepared046Sha) fail("Prepared Migration 046 source/hash mismatch.");
+if (ledger.applied_count !== 45 || ledger.entries.length !== 45 || (ledger.pending_migrations || []).length !== 0) fail("Prepared Migration 046 must not alter the verified 001-045 Production history ledger.");
+if (runner.includes("MIGRATE_046_CONFIRM") || runner.includes(prepared046Sha)) fail("Migration 046 must not have an apply approval guard before separate owner approval.");
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log("PASS: baseline 001-028, verified Production history 001-045, and exact source hashes 036-045 are hash-pinned; migrations 042-045 are recorded applied.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

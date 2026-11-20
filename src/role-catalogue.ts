@@ -53,10 +53,10 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "project.view", "project.update", "project.members.view", "project.members.invite",
     "project.members.manage", "project.roles.manage", "project.configuration.manage",
     "project.change.view", "project.change.create", "project.change.update",
-    "audit.view", "reports.view", "documents.view", "workflow.view", "approvals.view", "finance.view",
+    "audit.view", "accounting.view", "reports.view", "report.view", "documents.view", "workflow.view", "approvals.view", "finance.view",
   ], [
     "Project-scoped administration only; no platform-wide user or role governance.",
-    "Finance access is strictly read-only; no Finance create, update, delete, or Cash Advance request authority.",
+    "Finance, Accounting and Reports access is strictly read-only; no create, update, delete, post, or Cash Advance request authority.",
     "No payment execution or independent technical approval.",
   ], { mandatory: true, legacyAliases: ["admin"] }),
   role("pm", "Project Manager", "governance", [

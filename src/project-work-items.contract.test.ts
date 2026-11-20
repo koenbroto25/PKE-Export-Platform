@@ -63,12 +63,14 @@ describe("Project work item task engine contract", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS work_item_id uuid");
     expect(migration).toContain("pke_user_has_active_project_role(wi.project_id, wi.owner_role_code)");
     expect(api).toContain("work_item_id,recipient_user_id");
+    expect(api).toContain("recordedEvent.rows[0].id");
+    expect(api).toContain("createdEvent.rows[0].id");
     expect(api).toContain('["assign","escalate","submit","block","resolve","close"].includes(action)');
     expect(api).toContain("Tugas menunggu review PM: ");
     expect(api).toContain("Tugas terblokir: ");
     expect(api).toContain('eventType === "checkpoint" ? "verify_checkpoints"');
     expect(migration).toContain("event_type = 'checkpoint' AND public.pke_has_truck_trip_permission(truck_trip_id, 'verify_checkpoints')");
-    expect(api).toContain('const targetRole = action === "escalate" ? "pm" : roleCode');
+    expect(api).toContain('const targetRole = notifyPm ? "pm" : roleCode');
     expect(api).toContain("work_item_id, recipient_user_id");
     expect(schema).toContain('work_item_id: uuid("work_item_id")');
     expect(schema).toContain('pgTable("project_work_items"');

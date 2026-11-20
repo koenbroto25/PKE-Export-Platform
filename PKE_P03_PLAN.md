@@ -964,3 +964,17 @@ PASS on isolated PostgreSQL validation branch:
 - Production remained unchanged: migration ledger remains 052 and Migration 053 guard function is absent. Project Admin write grants remain on Production pending separate approval.
 - No business records, role assignments, or memberships were created or modified. The existing UAT test branch is retained and was not deleted.
 - Migration 053 remains PREPARED / BACKTESTED, not applied to Production. A separate exact-SHA approval is required before Production application.
+
+## Production checkpoint — Migration 053 applied — 2026-11-21
+
+- Neon Production: project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, database `neondb`.
+- Owner approval: Migration 053 exact SHA-256 `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`.
+- Before apply, deleted only the owner-approved obsolete branch `br-still-fire-b3f62dmo` (`mcp-migration-2026-11-18T16-44-32`). Verified its ID returns 404 and it no longer appears in the branch list. No other branch was deleted.
+- Created fresh pre-053 Production clone: `br-still-mode-b3fs5q79`, `pke-production-pre-053-backup-20261121`, READY, parent Production, parent LSN `0/6283590`. Before apply, Production and backup matched on all 52 migration ledger rows/checksums/statuses, all 165 public base-table names, and selected core row counts (projects 2; project_roles 36; project_role_assignments 24; project_role_permissions 548; warehouse_receipts 1; inventory_movements 1; inventory_holds 0). Backup remains at ledger 052 and is retained.
+- Applied Migration 053 atomically to Neon Production after an in-transaction preflight requiring exact ledger 001–052 and Migration 052 SHA, and postcondition assertions. Recorded ledger row 53 with exact filename, approved SHA-256 and status `applied`; sequence advanced to 53.
+- Post-apply ledger: 53 rows, IDs 1–53 contiguous; row 53 checksum and filename exact.
+- Project Admin permission result: both Project Admin roles have 3 allowed read grants (`accounting.view`, `reports.view`, `report.view`) and zero Accounting/Reports mutation grants. The permission table count changed from 548 to 534, corresponding to removal of 14 forbidden Project Admin grants.
+- Finance role unchanged: 36 grants; fingerprint `f13bc444661ff8e4fe093e0c903f51e2` matches the pre-apply baseline.
+- Trigger/security verification: guard trigger exists; function is SECURITY DEFINER with `search_path=pg_catalog, public`; EXECUTE granted to `app_runtime_secure`; PUBLIC EXECUTE false. Production trigger backtest denied an `accounting.update` grant and accepted a no-op read permission update.
+- Backup branch remains pre-053 (ledger 052); existing UAT branch `br-young-boat-b3re832d` remains at ledger 053. No mock/business fixtures, project, membership, assignment, or finance changes were introduced by this migration.
+- No GitHub branch creation, PR merge, Vercel deployment, or Production promotion was performed.

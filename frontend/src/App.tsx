@@ -1313,7 +1313,7 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [actionReason, setActionReason] = useState("");
   const [draft, setDraft] = useState({ title: "", description: "", ownerRoleCode: "", assigneeUserId: "", priority: "normal", dueAt: "" });
-  const [assignDraft, setAssignDraft] = useState({ ownerRoleCode: "", assigneeUserId: "", dueAt: "", priority: "normal" });
+  const [assignDraft, setAssignDraft] = useState({ ownerRoleCode: "", assigneeUserId: "", dueAt: "", priority: "normal", reason: "" });
   const [assignTaskId, setAssignTaskId] = useState("");
   const events = useLoad<{ events?: AnyRecord[] }>(
     () => selectedTaskId && projectId
@@ -1360,6 +1360,7 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
     if (!assignDraft.ownerRoleCode) return;
     await act(task, "assign", {
       ownerRoleCode: assignDraft.ownerRoleCode,
+      reason: assignDraft.reason,
       assigneeUserId: assignDraft.assigneeUserId || null,
       dueAt: assignDraft.dueAt ? new Date(assignDraft.dueAt).toISOString() : task.due_at,
       priority: assignDraft.priority || task.priority,
@@ -1407,7 +1408,7 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
           {["resolved","closed"].includes(task.status) && canResolve && <ActionButton variant="ghost" onClick={() => act(task, "reopen", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Buka kembali</ActionButton>}
           {!["resolved","closed","cancelled"].includes(task.status) && <ActionButton variant="ghost" onClick={() => act(task, "escalate", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Eskalasi ke PM</ActionButton>}
           {actionReason.trim().length >= 2 && <ActionButton variant="ghost" onClick={() => act(task, "comment", { comment: actionReason })} disabled={busy}>Catat komentar</ActionButton>}
-          {canAssign && !["closed","cancelled"].includes(task.status) && <ActionButton variant="secondary" onClick={() => { setAssignTaskId(task.id); setAssignDraft({ ownerRoleCode: task.owner_role_code, assigneeUserId: task.assignee_user_id || "", dueAt: task.due_at ? new Date(task.due_at).toISOString().slice(0,16) : "", priority: task.priority }); }}>Alihkan</ActionButton>}
+          {canAssign && !["closed","cancelled"].includes(task.status) && <ActionButton variant="secondary" onClick={() => { setAssignTaskId(task.id); setAssignDraft({ ownerRoleCode: task.owner_role_code, assigneeUserId: task.assignee_user_id || "", dueAt: task.due_at ? new Date(task.due_at).toISOString().slice(0,16) : "", priority: task.priority, reason: "" }); }}>Alihkan</ActionButton>}
           <ActionButton variant="ghost" onClick={() => setSelectedTaskId(task.id)}>Riwayat</ActionButton>
         </div>
         {(["acknowledged","in_progress","blocked"].includes(task.status) || !["resolved","closed","cancelled"].includes(task.status)) && <FormField label="Catatan / alasan blokir / eskalasi / buka kembali"><input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Minimal 5 karakter" /></FormField>}
@@ -1415,7 +1416,8 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
           <FormField label="Role baru"><select value={assignDraft.ownerRoleCode} onChange={e => setAssignDraft(v => ({ ...v, ownerRoleCode: e.target.value, assigneeUserId: "" }))}>{activeRoles.map(role => <option key={role.id} value={role.role_code}>{role.name}</option>)}</select></FormField>
           <FormField label="User tertentu"><select value={assignDraft.assigneeUserId} onChange={e => setAssignDraft(v => ({ ...v, assigneeUserId: e.target.value }))}><option value="">Seluruh role</option>{eligibleMembers(assignDraft.ownerRoleCode).map(member => <option key={member.user_id} value={member.user_id}>{member.name || member.email}</option>)}</select></FormField>
           <FormField label="Tenggat baru"><input type="datetime-local" value={assignDraft.dueAt} onChange={e => setAssignDraft(v => ({ ...v, dueAt: e.target.value }))} /></FormField>
-          <div className="form-actions"><ActionButton variant="secondary" onClick={() => setAssignTaskId("")}>Batal</ActionButton><button className="primary-button" disabled={busy}>Simpan penugasan</button></div>
+          <FormField label="Alasan pengalihan"><input value={assignDraft.reason} onChange={e => setAssignDraft(v => ({ ...v, reason: e.target.value }))} minLength={5} required /></FormField>
+          <div className="form-actions"><ActionButton variant="secondary" onClick={() => setAssignTaskId("")}>Batal</ActionButton><button className="primary-button" disabled={busy || assignDraft.reason.trim().length < 5}>Simpan penugasan</button></div>
         </form>}
       </Card>)}</div>}
     {selectedTaskId && <Card><PanelHeading title="Riwayat tugas" description="Event append-only untuk penugasan, acknowledgment dan penyelesaian." action={<button className="icon-button" onClick={() => setSelectedTaskId("")}><X size={16} /></button>} />

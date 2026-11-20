@@ -33,6 +33,17 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   funder: ['funder.view'],
 };
 
+export function hasProjectPermission(permission: string, user?: WorkspaceAccessUser): boolean {
+  if (!user) return false;
+  if (user.platformAdmin === true) return true;
+  if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) return false;
+  return (user.projectPermissions || []).includes(permission);
+}
+
+export function hasAnyProjectPermission(permissions: readonly string[], user?: WorkspaceAccessUser): boolean {
+  return permissions.some(permission => hasProjectPermission(permission, user));
+}
+
 export function hasActiveProjectMembership(user: WorkspaceAccessUser): boolean {
   return (user.projectMemberships || []).some(membership => membership.isActive === true);
 }

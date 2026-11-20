@@ -79,7 +79,7 @@ function App() {
       : Promise.resolve({ projectId, permissions: [] }),
     [projectId, activeUser?.id, pkeIdentity.loading],
   );
-  const workspaceUser = activeUser ? {
+  const workspaceUser: AnyRecord | undefined = activeUser ? {
     ...activeUser,
     selectedProjectId: projectId,
     projectPermissions: projectAccess.data?.projectId === projectId ? projectAccess.data.permissions || [] : [],

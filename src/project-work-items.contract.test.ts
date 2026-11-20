@@ -100,9 +100,9 @@ describe("Project work item task engine contract", () => {
     expect(taskWorkspace).not.toContain("finance.update");
   });
   it("pins the final task migration checksum and rejects malformed PostgreSQL DO quoting", () => {
-    expect(migration).toContain("DO $$\\nBEGIN");
+    expect(migration).toContain("DO $\nBEGIN");
     expect(migration).toContain("END $$;");
-    expect(migration).not.toContain("DO $\\nBEGIN");
+    expect(migration).not.toContain("DO $\nBEGIN");
     expect(runner).toContain('const approved048Sha = "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3";');
     expect(runner).toContain('const approved049Sha = "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780";');
     expect(runner).toContain("MIGRATE_048_CONFIRM");

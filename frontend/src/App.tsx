@@ -1132,8 +1132,8 @@ function ProjectOptions() {
 function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const can = (permission: string) => hasProjectPermission(permission, activeUser);
   const canViewDocuments = can('documents.view');
-  const canCreateDocuments = can('documents.create');
-  const canUpdateDocuments = can('documents.update');
+  const canCreateDocuments = can('documents.create') && canViewDocuments;
+  const canUpdateDocuments = can('documents.update') && canViewDocuments;
   const canAdminRegulatory = activeUser?.platformAdmin === true;
   const knowledge = useLoad<{ regulatoryKnowledge?: AnyRecord[] }>(() => canAdminRegulatory ? get('/regulatory-knowledge') : Promise.resolve({ regulatoryKnowledge: [] }), [canAdminRegulatory]);
   const packs = useLoad<{ countryPacks?: AnyRecord[] }>(() => canAdminRegulatory ? get('/country-packs') : Promise.resolve({ countryPacks: [] }), [canAdminRegulatory]);

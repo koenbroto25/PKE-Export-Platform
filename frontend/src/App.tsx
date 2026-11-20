@@ -136,7 +136,7 @@ function App() {
         <div className="sidebar-label">OPERATIONS</div>
         <div className="sidebar-navigation">
         {['Workspace', 'Eksekusi', 'Kontrol', 'Sistem', 'Stakeholder'].map(group => {
-          const allowedKeys = visiblePageKeys(workspaceUser);
+          const allowedKeys = visiblePageKeys(workspaceUser || {});
           return (
             <div className="nav-group" key={group}>
               <div className="nav-group-title">{group}</div>

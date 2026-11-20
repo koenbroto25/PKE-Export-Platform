@@ -1779,6 +1779,7 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
       "SELECT public.pke_has_project_permission($1::uuid,'project.tasks.update') AS can_update, " +
       "public.pke_has_project_permission($1::uuid,'project.tasks.assign') AS can_assign, " +
       "public.pke_has_project_permission($1::uuid,'project.tasks.resolve') AS can_resolve, " +
+      "public.pke_has_project_permission($1::uuid,'project.tasks.escalate') AS can_escalate, " +
       "public.pke_user_has_active_project_role($1::uuid,$2::text) AND ($4::uuid IS NULL OR $3::uuid=$4::uuid) AS is_assigned",
       [projectId,item.owner_role_code,actorId,item.assignee_user_id]
     );

@@ -3255,14 +3255,18 @@ app.get("/api/v1/inventory-movements", requireAuth, async (req: express.Request,
 app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, lotId, movementType, quantity, unit, warehouseReceiptId, sourceLocation, destinationLocation, reason, referenceId, referenceType, status } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || !movementType || quantity === undefined || !unit || !actorId) {
-    return res.status(400).json({ error: "projectId, lotId, movementType, quantity, unit required" });
+  const movementQuantity = Number(quantity);
+  if (!projectId || !lotId || typeof movementType !== "string" || !movementType.trim() ||
+      quantity === undefined || !Number.isFinite(movementQuantity) || movementQuantity <= 0 ||
+      typeof unit !== "string" || !unit.trim() || !actorId) {
+    return res.status(400).json({ error: "projectId, lotId, movementType, positive quantity, unit and authenticated actor are required", code: "INVALID_INVENTORY_MOVEMENT" });
   }
   if (!(await requireProjectPermission(req, res, projectId, "inventory.update"))) return;
   try {
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
+    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE`, [lotId]);
     if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
     if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
+    if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Movement unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
     if (warehouseReceiptId) {
       const { rows: receiptRows } = await req.db.query(`SELECT id, project_id FROM warehouse_receipts WHERE id = $1::uuid`, [warehouseReceiptId]);
       if (receiptRows.length === 0) return res.status(400).json({ error: "Invalid warehouse receipt" });
@@ -3271,7 +3275,7 @@ app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request
     const { rows } = await req.db.query(
       `INSERT INTO inventory_movements (project_id, lot_id, warehouse_receipt_id, movement_type, quantity, unit, source_location, destination_location, reason, actor_id, reference_id, reference_type, status, created_at)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10::uuid, $11::uuid, $12, $13, now()) RETURNING *`,
-      [projectId, lotId, warehouseReceiptId || null, movementType, quantity, unit, sourceLocation || null, destinationLocation || null, reason || null, actorId, referenceId || null, referenceType || null, status || "posted"],
+      [projectId, lotId, warehouseReceiptId || null, movementType.trim(), movementQuantity, unit.trim(), sourceLocation || null, destinationLocation || null, reason || null, actorId, referenceId || null, referenceType || null, status || "posted"],
     );
     res.status(201).json({ inventoryMovement: rows[0] });
   } catch (error) {
@@ -3454,16 +3458,28 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
   }
   if (!(await requireProjectPermission(req, res, projectId, "inventory.hold"))) return;
   try {
+    const sameHoldRequest = (prior: any) =>
+      prior.project_id === projectId &&
+      prior.lot_id === lotId &&
+      Number(prior.held_quantity ?? prior.quantity) === quantity &&
+      String(prior.unit ?? prior.unit_code) === unit.trim() &&
+      String(prior.reason ?? "") === reason.trim() &&
+      String(prior.created_by ?? prior.placed_by ?? "") === String(actorId);
     const { rows: existing } = await req.db.query(
-      "SELECT id FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
+      "SELECT * FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
       [idempotencyKey.trim()],
     );
     if (existing.length > 0) {
-      return res.status(409).json({ error: "Hold with this idempotency key already exists" });
+      const prior = existing[0];
+      if (!sameHoldRequest(prior)) {
+        return res.status(409).json({ error: "Idempotency key was already used for a different inventory hold.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+      }
+      return res.status(200).json({ inventoryHold: prior, idempotentReplay: true });
     }
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
+    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE`, [lotId]);
     if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
     if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
+    if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Hold unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
     const { rows } = await req.db.query(
       `INSERT INTO inventory_holds
          (project_id, lot_id, hold_type, quantity, unit_code, reason, status, placed_by, placed_at,
@@ -3473,7 +3489,16 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
        ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
       [projectId, lotId, quantity, unit.trim(), reason.trim(), idempotencyKey.trim(), actorId],
     );
-    if (rows.length === 0) return res.status(409).json({ error: "Hold with this idempotency key already exists", code: "IDEMPOTENCY_CONFLICT" });
+    if (rows.length === 0) {
+      const { rows: replayRows } = await req.db.query(
+        "SELECT * FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
+        [idempotencyKey.trim()],
+      );
+      if (replayRows.length === 1 && sameHoldRequest(replayRows[0])) {
+        return res.status(200).json({ inventoryHold: replayRows[0], idempotentReplay: true });
+      }
+      return res.status(409).json({ error: "Idempotency key was already used for a different inventory hold.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+    }
     res.status(201).json({ inventoryHold: rows[0] });
   } catch (error) {
     res.status(500).json({ error: "Failed to create inventory hold" });

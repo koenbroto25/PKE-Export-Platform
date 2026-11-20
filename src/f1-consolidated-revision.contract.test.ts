@@ -59,4 +59,26 @@ describe("Consolidated PKE permission and integrity contracts", () => {
     expect(ui).toContain("projectPermissions.includes('finance.create')");
     expect(ui).toContain("projectPermissions.includes('accounting.update')");
   });
+  it("aligns Truck Trip and Warehouse Receipt API guards with database RLS", () => {
+    expect(routeBlock("post", "/api/v1/truck-trips")).toContain('"record_truck_trips"');
+    expect(routeBlock("patch", "/api/v1/truck-trips/:id")).toContain('"record_truck_trips"');
+    expect(routeBlock("post", "/api/v1/warehouse-receipts")).toContain('"warehouse.receipt.create"');
+    expect(routeBlock("patch", "/api/v1/warehouse-receipts/:id")).toContain('"warehouse.update"');
+    expect(migration).toContain("pke_truck_trips_insert");
+    expect(migration).toContain("pke_warehouse_receipts_insert");
+  });
+  it("creates and protects the previously unmigrated Inventory Hold table", () => {
+    expect(routeBlock("post", "/api/v1/inventory-holds")).toContain('"inventory.hold"');
+    expect(routeBlock("post", "/api/v1/inventory-holds")).toContain("ON CONFLICT (idempotency_key) DO NOTHING");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.inventory_holds");
+    expect(migration).toContain("pke_inventory_holds_insert");
+    expect(migration).toContain("FORCE ROW LEVEL SECURITY");
+  });
+  it("scopes tracking event feeds and writes by the trip Project permission", () => {
+    expect(routeBlock("get", "/api/v1/tracking-events")).toContain('"logistics.view"');
+    expect(routeBlock("get", "/api/v1/tracking-events")).toContain("tt.project_id = $1::uuid");
+    expect(routeBlock("post", "/api/v1/tracking-events")).toContain('"record_truck_trips"');
+    expect(migration).toContain("pke_tracking_events_insert");
+    expect(ui).toContain("/tracking-events?projectId=");
+  });
 });

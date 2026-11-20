@@ -279,3 +279,10 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - The no-connection dry-run now fails closed if either prepared SQL file is missing or its actual SHA-256 differs from the pinned Migration 048/049 release hashes. This closes the prior gap where dry-run only printed hashes without enforcing the approved values.
 - Migration 049's regression test now computes SHA-256 from the actual SQL bytes with Node crypto and compares it to the runner pin, in addition to checking PostgreSQL DO-block quoting.
 - The current CI run is required to validate these changes; previous green CI runs are historical evidence only.
+
+
+### Final source CI confirmation — 2026-11-20
+
+- Unit Tests run 44742140799 and Dependency Audit Evidence run 44742140665 both completed SUCCESS on source commit aec2c683a8b4b0825b351541b1300dd0b147d7e5. Unit Tests: 215/215 across 18 files; migration release verifier PASS; fail-closed migration dry-run PASS with exact 048/049 hashes; backend/frontend TypeScript PASS; frontend production build PASS; Dependency Audit PASS.
+- Dry-run reported 048 and 049 as manifest=absent (prepared, not applied), printed the exact pinned hashes, and ended with 'No database changes made. No target connection attempted.'
+- This confirms source/build/release-preflight gates only. It does not prove SQL execution, authenticated RLS runtime UAT, or Production activation.

@@ -616,3 +616,18 @@ PASS on isolated PostgreSQL validation branch:
 - MapLibre and PostGIS remain optional candidates; PostGIS requires isolated Neon compatibility testing.
 - Acceptance gates and detailed scope are in Master Implementation Plan Rev2.36 §56.43.
 - No Neon Production changes, Vercel deployment, or business data mutation were performed for this decision.
+
+
+## 2026-11-20 — Owner-approved direction: role dashboards, PM Control Tower and selective open-source
+
+- Owner agreed with the proposed development direction: PM is the operational controller for each Project; Admin App supports system governance and may explicitly appoint themself as PM.
+- PM determines the Project's required operational roles, assigned people and responsibility split. One account may hold multiple roles in one Project (e.g. Accounting + Finance) and a different role combination in another Project. Assignments remain Project-scoped and permission resolution remains governed by the approved role/permission catalog and backend RLS.
+- PM needs a consolidated Control Tower: all Project milestones, readiness, role task queues, overdue/blocked work, critical alerts, document/LC readiness, loading target-vs-actual, laytime/demurrage risk, decisions and instruction follow-up.
+- Each role needs a task-first dashboard with My Work, Needs Attention, Upcoming, its operational workbench, evidence/documents, progress/exceptions and actionable notifications. Role-specific alerts must be filtered by responsibility and effective Project permissions; PM receives the overall report.
+- Initial role/work-area discovery covers PM, Project Admin, Contract/Commercial, Procurement, Warehouse/Inventory, Quality/Survey, Master of Loading/Operations, Logistics/Trucking, Vessel/Port/Agent, Export Documentation/Shipping, Finance, Accounting, Cashier/Treasury, Funder, Buyer/external stakeholder and Platform Admin. This is a discovery baseline; validate against the actual repository role catalog and mark implemented/partial/missing.
+- Build PKE-native capabilities for Project authority, roles/permissions, workflows, task assignment, notifications, audit, export readiness, laytime/loading, LC compliance and authoritative finance/accounting data.
+- Prefer selective reusable components: Recharts (MIT) for charts and TanStack Table (MIT) for data tables are initial candidates. MapLibre and PostGIS remain optional for maps/geospatial work subject to earlier AIS scope and Neon compatibility checks.
+- ERPNext and OpenProject are benchmarks, not approved parallel systems. Superset/Metabase are possible later read-only BI candidates only after Project-level isolation and license review. Documenso is optional for appropriate signature workflows only; it does not replace official export documents. AGPL/GPL license obligations must be reviewed before integration/embedding/modification.
+- No open-source package, external application, BI server, workflow engine, cloud service, paid API, hardware, subscription or new infrastructure was installed or purchased. No Neon Production migration/data mutation or Vercel deployment was authorized or performed by this discussion.
+- Next work: inspect current role catalog, schema, APIs and pages; produce a verified role-responsibility-permission-task-dashboard-notification matrix; map end-to-end contract-to-LC-payment workflows; identify gaps; draft PM and role dashboard specs; score candidate libraries/tools for fit, license, security, maintenance, compatibility, cost and exit risk.
+- Detailed accepted design baseline: Master Implementation Plan Rev2.37 §56.44.

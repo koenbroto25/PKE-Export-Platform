@@ -9769,3 +9769,95 @@ Do not adopt a large external application merely because it has many features. T
 - No automatic bank-compliance guarantee or promise that LC proceeds will clear before vessel departure; PKE can validate configured document requirements and deadlines but the issuing/advising/nominated bank makes its own examination/payment decision.
 - Admin App may appoint themself PM; actual appointment remains an explicit, auditable Admin action, not an automatic side effect.
 - PM operational control does not remove Finance/Accounting permission boundaries or protected transaction controls.
+
+
+## 56.45 — Repository discovery audit: role UX, PM control tower and workflow readiness — 2026-11-20
+
+**Status:** READ-ONLY SOURCE DISCOVERY; no application code, dependency, database, Production data or deployment changed by this audit.  
+**Audited ref:** `f1/project-scoped-cob-20261119`.  
+**Audited HEAD before this documentation update:** `3a6391df5a4186d391dce1863ee66fafa5dd89da`.
+
+### A. Verified current architecture
+
+1. Multi-role persistence is already implemented in Migration 043:
+   - `project_role_assignments` stores role assignments independently under a Project membership.
+   - `project_role_assignment_events` records append-only assignment history.
+   - `pke_has_project_permission(project_id, permission_code)` resolves permissions across active assignments.
+   - API `GET /projects/:projectId/my-permissions` exists.
+   - API assignment/revocation endpoints exist at `POST /projects/:id/members/:memberId/role-assignments` and `POST /projects/:id/role-assignments/:assignmentId/revoke`.
+   - PM appointment remains a separate Platform Admin-controlled decision with one-active-PM safeguards. This is consistent with Admin App appointing the PM, while PM manages operational team assignments within allowed governance.
+2. Frontend multi-role UX is only partially connected:
+   - `RoleGuard` in `frontend/src/App.tsx` derives allowed page keys from active Project role assignments, but maps each role through a hard-coded `roleAccess` object.
+   - Sidebar navigation still derives its menu from only `roleAccess[activeUser.role]`; it does not union the active Project role assignments. A user with several Project roles may be allowed by a route guard but still not see the corresponding menu entries.
+   - `FinancePage` already reads `/projects/:projectId/my-permissions` for Finance create visibility. This is a useful pattern to generalize.
+   - The current static map contains legacy names and does not fully match `src/role-catalogue.ts` (e.g. canonical `master_of_loading` vs legacy `loading_manager`; `platform_admin` vs legacy `admin`; canonical operational roles not all represented in the UI map).
+3. Canonical role templates exist in `src/role-catalogue.ts`, including governance, procurement, quality, warehouse/logistics, shipping/loading, finance and external counterparties. It is a source-controlled template surface, while the legacy database role catalog is still being reconciled. Presence in the TypeScript catalogue is not proof that all permission codes exist or are granted in Production.
+4. Role management UI exists in `AccessPage`, including role assignment and a separate PM appointment flow. It requires an end-to-end UX review to ensure one user can be assigned multiple roles in the same Project, display each grant and expiry independently, and show effective permissions without collapsing the grants into one role label.
+5. The main operational UI is concentrated in the large `frontend/src/App.tsx` file. Several separately named files under `src/components` (AdminDashboard, FieldDashboard, FinanceWorkspace, NotificationCenter, ProjectSelector and WarehouseReceiptForm) are currently placeholder components; do not count them as implemented production dashboards merely because the files exist.
+6. Existing data/workflow foundations include Project/contract programs, AP/AR, cash advances, journals/FX, inventory lots/reservations/holds/movements, warehouse receipts, truck trips/checkpoints, shipment allocations, document requirements/documents, reports and in-app notifications. Existing loading tables also exist in the schema history, but the inspected UI/API route inventory does not establish a complete vessel-call, loading-plan, shift/hold execution and laytime control workbench.
+7. Notification APIs include list, create and mark-read endpoints; the current NotificationsPage displays an inbox and unread count and allows marking an item read. It also reports external email/SMS/WhatsApp providers as not configured. The inspected UI does not yet demonstrate full actionable notification lifecycle: acknowledge, assign/reassign, resolve, escalate, deduplicate/cooldown and PM-wide exception rollup.
+8. The current DashboardPage is a portfolio/operations summary (active projects, target volume, RAB, truck trips, recent checkpoints, service status and cost/compliance summary fields). It is not yet the accepted PM Control Tower with role work queues, readiness gates, loading forecast, LC discrepancy/presentation deadline, decision queue and instruction follow-up.
+9. The current OperationsPage has useful truck, tracking, warehouse receipt, lot, movement, reservation, hold and shipment-allocation work. This is a meaningful base for Logistics/Warehouse/Inventory dashboards, but not yet the complete role-specific workflow contract.
+10. The current FinancePage is a working Finance surface for RAB, FX rates/exposure and AP/AR subledger. A number of dedicated dashboard component files remain placeholders; Finance/Accounting/Cashier separation must continue to follow effective permissions and the previously accepted Finance boundaries.
+
+### B. Role-by-role status — source-level preliminary matrix
+
+| Role / work area | Existing source evidence | Main gap to validate/implement |
+|---|---|---|
+| Platform Admin / Admin App | Admin user lifecycle and AccessPage provisioning/role management | Global governance console, permission-template drift, audit/system health and explicit PM appointment UX |
+| Project Admin | Project role template and project access/config endpoints; Finance view-only boundary | Clear Project administration dashboard without Finance write controls |
+| PM | PM role template, Project reports, role assignments, report notifications recipient guard | Consolidated cross-workstream Control Tower, decision queue, instructions, blockers, due-time and role performance |
+| Contract / Commercial | Contract Programs, buyer master, Project operating profile and CoB cycle APIs | Contract clause/laytime/LC term capture and obligation calendar, amendment/version handling |
+| Procurement / Supplier | Supplier/Buyer master and role templates | Request-to-PO-to-delivery commitment lifecycle, supplier delivery risk and three-way matching prerequisites |
+| Production / PKS | PKS/site/facility master and Project operating profile foundations | Capacity/availability, source commitments and traceability to Project stock readiness |
+| Quality / Laboratory / QA | Quality role templates and document/quality-related schema foundations | Sample-to-result-to-release workflow, independent QA hold/release, evidence and certificate lifecycle |
+| Warehouse / Inventory | Warehouse receipts, lots, movements, reservations and holds | Role work queue, stock reconciliation, port-warehouse readiness, shortage forecast and controlled adjustments |
+| Logistics / Transport / Checker / Driver | Truck trips, transport legs, tracking events and checkpoints | Dispatch board, vehicle/driver availability, queue/cycle-time, exception resolution and task assignment UX |
+| Master of Loading / Loading Supervisor / Operator | Loading schema foundations, shipment allocations and loading ticket permission templates | Loading plan/version/signoff, vessel holds, equipment/manpower, shift handover, target-vs-actual, downtime, laytime forecast and close-out |
+| Vessel / Agent / Terminal / Surveyor / Ship Master | Role templates and shipment/voyage references; Indonesia-only AIS decision documented | Vessel call, source-stamped ETA/AIS, port geofence, terminal readiness, independent survey and object-scoped external access |
+| Export Documentation / Shipping | Project document requirements, document metadata/storage, document upload and role templates | LC-specific checklist extraction, issuer/original-copy rules, cross-document validation, discrepancy workflow and presentation deadline |
+| Finance | Finance workspace, AP/AR, FX, RAB, cash advances and notification reporting foundations | Role task queue, LC proceeds lifecycle, AP verification after PO/GRN workflow, exception and bank presentation tracking |
+| Accounting | Journal/COA and Accounting permissions/templates | Dedicated journal review/posting/reconciliation workbench, maker-checker and period close |
+| Cashier / Treasury | Cash advance/payment-related schema and role template | Custody-safe disbursement/receipt workflow and bank evidence/reconciliation separation |
+| Funder | Funder role and report surface | Explicit assigned-project funding dashboard with safe read-only projections |
+| Buyer / Supplier / Transporter external users | External role templates and dedicated portal pages/routes | Strict object-level sharing, approved evidence only, expiry and least-privilege external UX |
+
+**Important:** this is a source-level inventory, not a runtime acceptance matrix. It does not prove all listed endpoints are correctly authorized in live HTTP or that all schema paths are production-ready. The role-to-permission matrix must be reconciled against actual active database permission codes and RLS policies before implementation.
+
+### C. Confirmed UX/security gaps to prioritize
+
+- **P0 — Effective-permission navigation:** create one canonical effective Project access payload and use it for sidebar, route guards, page actions and role chips. Remove static role-name navigation as an authorization source; retain backend authorization/RLS as the security boundary.
+- **P0 — Multi-role assignment clarity:** show every active/expired/revoked role assignment separately, with grantor, reason, start/end time, and permission contribution. PM can assign allowed operational roles; Platform Admin alone appoints/replaces PM under the current approved governance.
+- **P0 — PM Control Tower:** aggregate Project-scoped tasks, deadlines, readiness blockers, role reports, loading/laytime risk, LC/document status, decisions and instruction acknowledgements.
+- **P0 — Actionable notification lifecycle:** define notification event types, recipients (PM plus responsible role), severity, deduplication, acknowledgement, assignment, resolution, escalation and immutable event history. Keep external delivery providers as a separate later integration.
+- **P1 — Role workbenches:** move from broad module pages to role-specific task queues and focused workbenches while reusing the current operational APIs.
+- **P1 — Loading readiness and performance:** add stock-before-arrival, equipment/manpower plan, loading plan version, hold/shift execution, actual MT, stop reasons, forecast finish and laytime thresholds.
+- **P1 — Export/LC document control:** structure each LC's exact requirements and owners; track draft/final/original/copy, consistency, discrepancy, presentation deadline and bank status.
+- **P1 — Report semantics:** every PM report number must drill through to source records and disclose freshness, missing data and whether a figure is actual, estimated or manually confirmed.
+
+### D. Open-source decision after repository inspection
+
+- Do not install ERPNext or OpenProject now. Their generic capabilities do not solve the current primary gap: PKE's own multi-role UX, PM command center and export-specific event/task orchestration. A parallel ERP or PM platform would add another data/permission authority and synchronization burden.
+- Keep Recharts and TanStack Table as candidate UI libraries only. The frontend currently has no direct dependencies on either; first verify whether existing native components already meet needs. Add only after a small bundle/security/maintenance review and approved implementation change.
+- Keep MapLibre as an optional renderer for Indonesian vessel/port/truck map views; it does not supply AIS data or base map tiles.
+- Keep PostGIS optional; do not add it until actual geofence/spatial query requirements and isolated Neon extension compatibility/performance are proven.
+- Superset/Metabase remain later read-only analytics candidates only after row-level Project isolation, identity propagation, export control and audit are proven. No direct broad database credential may be embedded in the browser.
+- Documenso remains optional only for appropriate internal signature/approval flows; it is not an official shipping-document issuer or a substitute for bank/carrier/surveyor documents.
+- No dependency or application was installed, no license accepted, no external provider contracted and no cloud resources purchased.
+
+### E. Next execution sequence
+
+1. Complete a route/API/schema/permission inventory and reconcile it with the live role catalog without changing Production.
+2. Build the authoritative role-to-permission-to-navigation/action matrix, including multi-role combinations and PM vs Admin App authority.
+3. Specify PM Control Tower and each role workbench from actual workflows, not role names alone.
+4. Specify notification event/recipient/escalation model and immutable audit requirements.
+5. Specify loading/laytime and LC/document workflow dependencies and readiness gates.
+6. Run static and isolated role-matrix tests; use synthetic fixtures only in isolated test environments.
+7. Implement P0 effective-permission UX and PM task/notification foundation before P1 domain work.
+8. Evaluate/add open-source libraries only where a measured gap remains; no parallel ERP/PM system.
+
+### F. Verification boundary
+
+- Evidence reviewed: GitHub source tree, `src/role-catalogue.ts`, Migration 043, API route declarations in `src/index.ts`, `frontend/src/App.tsx`, `frontend/package.json`, existing role/RLS design note and component files.
+- This was a read-only source inspection. No live database queries, authenticated HTTP UAT, UI browser test, dependency audit, or runtime role-matrix execution was performed during this discovery step.
+- Do not infer Production runtime behavior solely from source declarations. No Production schema/data, Vercel deployment, GitHub branch topology or installed dependencies were changed by this audit.

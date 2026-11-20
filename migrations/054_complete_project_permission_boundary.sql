@@ -412,7 +412,17 @@ END;$role_permission_rls$;
 DROP POLICY IF EXISTS pke_project_role_permissions_select ON public.project_role_permissions;
 CREATE POLICY pke_project_role_permissions_select ON public.project_role_permissions FOR SELECT TO app_runtime_secure
 USING(public.pke_is_platform_admin() OR public.pke_has_project_permission(project_id,'project.roles.manage'));
-REVOKE INSERT,UPDATE,DELETE ON public.project_role_permissions FROM PUBLIC,app_runtime,app_runtime_secure;
+CREATE POLICY pke_project_role_permissions_insert ON public.project_role_permissions FOR INSERT TO app_runtime_secure
+WITH CHECK(
+  (public.pke_is_platform_admin() AND EXISTS(
+    SELECT 1 FROM public.project_roles role
+     WHERE role.id=project_role_permissions.project_role_id
+       AND role.project_id=project_role_permissions.project_id AND role.role_code='pm'
+  ))
+  OR public.pke_has_project_permission(project_id,'project.roles.manage')
+);
+REVOKE UPDATE,DELETE ON public.project_role_permissions FROM PUBLIC,app_runtime,app_runtime_secure;
+GRANT SELECT,INSERT ON public.project_role_permissions TO app_runtime_secure;
 GRANT SELECT ON public.project_role_permissions TO app_runtime_secure;
 
 DO $rls$

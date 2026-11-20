@@ -2610,82 +2610,11 @@ app.get("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (re
   res.json({ permissions: rows });
 });
 
-app.put("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { id, roleId } = req.params;
-  const allowed = await requireProjectPermission(req, res, id, 'project.roles.manage');
-  if (!allowed) return;
-  const { permissionCodes } = req.body;
-  if (!Array.isArray(permissionCodes)) {
-    return res.status(400).json({ error: "permissionCodes array required" });
-  }
-  const { rows: targetRoleRows } = await req.db.query(
-    "SELECT role_code FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid",
-    [id, roleId]
-  );
-  if (!targetRoleRows.length) return res.status(404).json({ error: "Role not found" });
-  const targetRoleCode = String(targetRoleRows[0].role_code);
-  const financeMutationCodes = ["finance.create", "finance.update", "finance.delete"];
-  const forbiddenForProjectAdmin = permissionCodes.filter(
-    (code: string) => targetRoleCode === "project_admin" && code.startsWith("finance.") && code !== "finance.view"
-  );
-  if (forbiddenForProjectAdmin.length) {
-    return res.status(403).json({
-      error: "Project Admin is read-only for Finance; only finance.view may be assigned.",
-      code: "PROJECT_ADMIN_FINANCE_READ_ONLY",
-      forbiddenPermissionCodes: forbiddenForProjectAdmin,
-    });
-  }
-  const forbiddenFinanceMutation = permissionCodes.filter(
-    (code: string) => financeMutationCodes.includes(code) && targetRoleCode !== "finance"
-  );
-  if (forbiddenFinanceMutation.length) {
-    return res.status(403).json({
-      error: "Finance create, update and delete permissions may only be assigned to the Finance Project role.",
-      code: "FINANCE_MUTATION_ROLE_RESTRICTED",
-      forbiddenPermissionCodes: forbiddenFinanceMutation,
-    });
-  }
-  const userId = req.user?.id;
-  const { rows: validPerms } = await req.db.query(
-    "SELECT code FROM permissions WHERE is_active = true AND code = ANY($1::text[])",
-    [permissionCodes]
-  );
-  const validCodes = new Set(validPerms.map((r: any) => r.code));
-  const invalid = permissionCodes.filter((c: string) => !validCodes.has(c));
-  if (invalid.length > 0) {
-    return res.status(400).json({ error: "Invalid or inactive permission codes", invalid });
-  }
-  try {
-    // Use savepoint: req.db is request-scoped middleware-managed transaction.
-    await req.db.query("SAVEPOINT set_project_role_permissions");
-    try {
-      await req.db.query(
-        "DELETE FROM project_role_permissions WHERE project_role_id = $2::uuid AND project_id = $1::uuid",
-        [id, roleId]
-      );
-      for (const permCode of permissionCodes) {
-        const { rows: permRows } = await req.db.query(
-          "SELECT id FROM permissions WHERE code = $1::text AND is_active = true LIMIT 1",
-          [permCode]
-        );
-        if (permRows.length > 0) {
-          await req.db.query(
-            `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-             VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())`,
-            [id, roleId, permRows[0].id, userId]
-          );
-        }
-      }
-      await req.db.query("RELEASE SAVEPOINT set_project_role_permissions");
-      res.json({ ok: true, roleId, permissionCodes });
-    } catch (error) {
-      await req.db.query("ROLLBACK TO SAVEPOINT set_project_role_permissions").catch(() => {});
-      await req.db.query("RELEASE SAVEPOINT set_project_role_permissions").catch(() => {});
-      throw error;
-    }
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
-  }
+app.put("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (_req: express.Request, res: express.Response) => {
+  return res.status(409).json({
+    error: "Project role permission templates are centrally governed and cannot be edited per Project.",
+    code: "ROLE_PERMISSION_TEMPLATES_IMMUTABLE",
+  });
 });
 
 // ============================================

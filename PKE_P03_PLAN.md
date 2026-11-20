@@ -1004,3 +1004,6 @@ PASS on isolated PostgreSQL validation branch:
 - API `/me`, Project permission middleware, report generation/schedule access, and frontend permission gating no longer treat Platform Admin identity as a Project permission. The global Projects governance page remains visible; business pages require an active Project role assignment.
 - **Status: PREPARED / NOT PASS.** Migration 054 has not been applied to UAT or Production. UAT SQL backtest, exact role-grant parity, PM assignment invariant and RLS runtime tests remain mandatory. Do not begin dashboard UX until all backtests pass.
 - Production cleanup of existing TEST FIXTURE projects/users/memberships/assignments/receipts/movements remains a separate owner-approval gate; no fixture cleanup was performed by this checkpoint. Production Migration 054 requires exact SHA approval and a verified current backup.
+
+
+- Follow-up refinement: runtime role-permission templates are immutable per Project. The API endpoint that previously allowed arbitrary per-role permission replacement now returns `409 ROLE_PERMISSION_TEMPLATES_IMMUTABLE`; canonical role activation remains insert-only and guarded by the database allowlist. This preserves project role activation while preventing partial/custom permission edits.

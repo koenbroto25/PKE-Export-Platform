@@ -180,3 +180,6 @@ These rows were present before this audit. No fixture was inserted or removed by
 - UAT validation must cover all 38 canonical templates, every mapped legacy role, positive and negative grants, trigger enforcement, Funder helper parity, Project Admin read-only, Finance no-payment, Accounting no-post/reverse, Platform Admin governance-only, PM-only Platform Admin appointment, duplicate PM denial, expired/revoked memberships, cross-Project isolation, RLS and API denial.
 - Existing duplicate active PM fixture assignments and all TEST FIXTURE business records remain unchanged pending explicit owner-approved cleanup. Therefore the current Production dataset cannot yet be marked P0 PASS.
 - No Production SQL or data changes, no Vercel deployment, no PR merge and no new GitHub branch.
+
+
+- Follow-up API/DB alignment: canonical permission templates are runtime read-only. Runtime can only insert allowlisted permissions during canonical role activation; UPDATE/DELETE are revoked and the legacy arbitrary permission replacement endpoint now returns `409 ROLE_PERMISSION_TEMPLATES_IMMUTABLE`.

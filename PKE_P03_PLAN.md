@@ -578,3 +578,15 @@ PASS on isolated PostgreSQL validation branch:
 - Vercel deployment/latest-head preview: OWNER-WAIVED FOR THIS CHECKPOINT (not run).
 - F1 accepted for continuation under the owner's explicit waivers; do not claim either waived test was executed.
 - Continue with the next implementation backlog from the existing PKE Master Implementation Plan / phase work, on the existing GitHub production-intended branch and Neon Production only where separately authorized. No new GitHub branch; no Vercel deploy; no PM decisions by the application. Preserve the pre-apply backup branch until the next release checkpoint is safely closed.
+
+
+## Latest authoritative checkpoint — Migration 047 and repository CI (2026-11-20)
+
+- Production Neon target: project `purple-base-63944903`, branch `production` (`br-damp-shape-b3xlh4nr`), database `neondb`.
+- Direct `migration_history` read-back confirms 47 contiguous applied rows, zero pending. Migration 047 filename/hash/status match the owner-approved artifact: `047_project_admin_finance_read_only.sql`, SHA-256 `1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682`.
+- Production permission catalog read-back: Project Admin `finance.view` only (2 grants), no create/update/delete; Finance has view/create/update/delete (2 each); Accounting, Cashier, Funder and PM remain view-only. Database permission guard trigger is enabled. This is catalog verification, not a real-user CRUD UAT.
+- Existing GitHub branch remains `f1/project-scoped-cob-20261119`; no new branch was created. Latest code/release-verifier commit `cb863ccbfcdd46e55a188a0b9545caaac7c6096a` passed Unit Tests run `44706857443` and Dependency Audit run `44706856938`. Unit workflow completed offline security/unit tests, migration ledger verifier, runner dry-run, backend/frontend typechecks and frontend build. Reported test total: 14 files / 166 tests PASS.
+- Canonical manifest `migration_history_manifest_001_047.json` now has consistent applied-state wording and zero pending migrations. Migration 047 SQL source remains byte-for-byte unchanged because its exact hash is the applied Production artifact; its leading “PREPARED ONLY” comment is stale and documented in the Master Plan rather than edited.
+- Historical authentic SQL for migrations 029–035 is still unrecovered. Their reconstruction candidates must not be treated as executable migration sources.
+- No Production synthetic business data, role grants, PM decisions, or workflow decisions were introduced. No Vercel deployment/Production promotion was performed; automatic Preview activity remains canceled/skipped per owner instruction.
+- Remaining: controlled actual-user Project Admin read-only and Finance CRUD runtime validation. Until that is executed, mark live CRUD UAT as NOT RUN, not PASS. PR #2 remains OPEN / DRAFT and unmerged.

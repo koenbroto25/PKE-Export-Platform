@@ -660,3 +660,6 @@ PASS on isolated PostgreSQL validation branch:
 - Added unit coverage for permission union, Project Admin Finance read-only visibility, no cross-Project permission carry-over, fail-closed loading/error states, Platform Admin separation and inactive membership.
 - Frontend authorization UX only: no database permission, RLS, role assignment, Production data, migration or deployment changes.
 - Validation status: pending GitHub Actions on the implementation commit; no runtime HTTP UAT or browser acceptance is claimed until separately executed.
+
+- Permission-map refinement: `finance.view` alone does not expose Payment Instructions or Funder workspace. Payment Instructions requires the explicit `payment.view` capability; Funder requires `funder.view`. This avoids treating Finance read-only visibility as payment/funder workflow authority.
+- Added regression coverage for this separation. The latest CI run after this refinement is pending.

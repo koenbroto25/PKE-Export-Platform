@@ -886,3 +886,15 @@ PASS on isolated PostgreSQL validation branch:
 
 
 - Read-only Neon Production integrity preflight (branch `br-damp-shape-b3xlh4nr`, project `purple-base-63944903`): warehouse_receipts 1 row / 0 invalid; inventory_movements 1 row / 0 invalid; inventory_holds 0 rows / 0 invalid. No row values read, no data changed. Production is not literally empty in the first two tables; do not classify these rows as disposable test fixtures without provenance review. No DDL/migration 052 applied.
+
+
+### Funder external-role overgrant remediation — 2026-11-20
+
+- Read-only Production permission audit found 2 Funder role definitions with generic grants `finance.view`, `reports.view`, `report.view`, `view_financial`; 1 active Funder assignment inherits these grants. This is a material external-role overgrant.
+- Source guards now exclude Funder assignments from generic Finance/Accounting/Reports/payment permission attribution; generic report-run listing also excludes Funder-only memberships. Non-platform report generation now requires a Project ID.
+- Canonical Funder role template now grants no generic Finance/Accounting/Reports/payment permissions. Funder dashboard remains a scoped landing surface with no generic Finance/Reports metrics or links until explicit report sharing exists.
+- Added 7 contract tests in `src/funder-permission-isolation.contract.test.ts`; root npm test includes it.
+- Prepared `migrations/052_funder_finance_report_scope_isolation.sql`, which removes existing broad Funder grants and updates `pke_has_project_permission` so RLS denies those permission families for Funder. Exact SHA-256: `cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b`.
+- Migration 052 is pinned and release-source/dry-run verified but **not enabled for apply** and **not applied**. A fresh current-Production backup and explicit owner approval of this exact SHA are required before application. Until then, Production permission grants remain unchanged and the overgrant remains a live DB/RLS blocker despite source guards.
+- Exact source CI head `d18d8d267afcdfa0179b11e7408fa8cb9b43d607`: Unit Tests `44755729653` SUCCESS (20 files / 231 tests); Dependency Audit `44755729686` SUCCESS; migration verifier/dry-run, backend/frontend TypeScript and frontend production build PASS.
+- Full detail: `docs/audits/ROLE_DASHBOARD_IMPLEMENTATION_AUDIT_20261120.md`.

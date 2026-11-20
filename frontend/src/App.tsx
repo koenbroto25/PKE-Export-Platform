@@ -313,11 +313,21 @@ function ActionButton({ children, onClick, variant = 'primary', disabled = false
 
 function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const canViewTasks = hasProjectPermission('project.tasks.view', activeUser);
+  const canViewContracts = hasProjectPermission('contract.view', activeUser);
+  const canViewInventory = hasProjectPermission('inventory.view', activeUser);
+  const canViewDocuments = hasProjectPermission('documents.view', activeUser);
+  const canViewReports = hasProjectPermission('reports.view', activeUser);
   const portfolio = useLoad<AnyRecord>(() => activeUser?.platformAdmin === true ? get('/reports/portfolio') : Promise.resolve({}), [activeUser?.platformAdmin]);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const canViewLogistics = activeUser?.platformAdmin === true || activeUser?.projectPermissions?.includes('logistics.view') === true;
   const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId && canViewLogistics ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId, canViewLogistics]);
   const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId && canViewLogistics ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId, canViewLogistics]);
+  const projectReport = useLoad<AnyRecord>(() => projectId && canViewTasks && canViewReports ? get(`/reports/project/${encodeURIComponent(projectId)}`) : Promise.resolve({}), [projectId, canViewTasks, canViewReports]);
+  const contractPrograms = useLoad<{ contractPrograms?: AnyRecord[] }>(() => projectId && canViewTasks && canViewContracts ? get(`/contract-programs?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ contractPrograms: [] }), [projectId, canViewTasks, canViewContracts]);
+  const contracts = useLoad<{ contracts?: AnyRecord[] }>(() => projectId && canViewTasks && canViewContracts ? get(`/contracts?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ contracts: [] }), [projectId, canViewTasks, canViewContracts]);
+  const inventoryLots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => projectId && canViewTasks && canViewInventory ? get(`/inventory-lots?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryLots: [] }), [projectId, canViewTasks, canViewInventory]);
+  const documentRequirements = useLoad<{ documentRequirements?: AnyRecord[] }>(() => projectId && canViewTasks && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/document-requirements`) : Promise.resolve({ documentRequirements: [] }), [projectId, canViewTasks, canViewDocuments]);
+  const projectDocuments = useLoad<{ documents?: AnyRecord[] }>(() => projectId && canViewTasks && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/documents`) : Promise.resolve({ documents: [] }), [projectId, canViewTasks, canViewDocuments]);
   const workItems = useLoad<{ workItems?: AnyRecord[] }>(() => projectId && canViewTasks ? get(`/projects/${encodeURIComponent(projectId)}/work-items`) : Promise.resolve({ workItems: [] }), [projectId, canViewTasks]);
   const recentTrips = (trips.data?.truckTrips || []).slice(0, 5);
   const p = portfolio.data || {};
@@ -326,7 +336,7 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
   const visibleContractVolume = p.contractVolume ?? visibleProjects.reduce((sum, project) => sum + Number(project.target_quantity || 0), 0);
   const visibleTripCount = p.shipmentCount ?? trips.data?.truckTrips?.length ?? 0;
   const loading = portfolio.loading || projects.loading || trips.loading;
-  const refresh = () => { portfolio.refresh(); projects.refresh(); trips.refresh(); events.refresh(); workItems.refresh(); };
+  const refresh = () => { portfolio.refresh(); projects.refresh(); trips.refresh(); events.refresh(); workItems.refresh(); projectReport.refresh(); contractPrograms.refresh(); contracts.refresh(); inventoryLots.refresh(); documentRequirements.refresh(); projectDocuments.refresh(); };
   return <>
     <PageTitle eyebrow="EXECUTIVE OVERVIEW" title="Ringkasan operasional" subtitle="Pantau portofolio ekspor dan aktivitas terbaru dari satu tempat." actions={<ActionButton variant="secondary" onClick={refresh}><RefreshCw size={16} /> Segarkan</ActionButton>} />
     {loading && <Loading />}
@@ -342,6 +352,18 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
         <div className="metric-grid four"><Metric label="Open" value={number((workItems.data?.workItems || []).filter(t => t.status === "open").length, 0)} icon={ClipboardCheck} tone="blue" /><Metric label="Overdue" value={number((workItems.data?.workItems || []).filter(t => t.is_overdue).length, 0)} icon={Clock3} tone="amber" /><Metric label="Blocked" value={number((workItems.data?.workItems || []).filter(t => t.status === "blocked").length, 0)} icon={CircleAlert} tone="amber" /><Metric label="Menunggu review PM" value={number((workItems.data?.workItems || []).filter(t => t.status === "submitted").length, 0)} icon={CheckCircle2} tone="green" /></div>
         {(workItems.data?.workItems || []).slice(0, 5).map(task => <div className="activity-item" key={task.id}><div className="activity-icon"><ClipboardCheck size={16} /></div><div className="activity-copy"><strong>{task.title}</strong><span>{task.owner_role_code} · {task.status} · {task.priority}</span><small>{task.is_overdue ? "Terlambat · " : "Tenggat · "}{dateTime(task.due_at)}</small></div></div>)}
         {!workItems.data?.workItems?.length && <EmptyState title="Belum ada tugas aktif" desc="Instruksi dan tindak lanjut Project akan muncul di sini setelah dibuat." />}</>}</Card>}
+    {canViewTasks && <Card><PanelHeading title="Kesiapan Project · sumber data" description="Status berikut hanya mencerminkan data yang tersedia pada aplikasi; keberadaan record bukan persetujuan atau readiness operasional." action={<span className="muted">Cut-off: {dateTime(projectReport.data?.dataFreshness)}</span>} />
+      <div className="service-list">
+        <div><span>Kontrak & Contract Program</span><strong>{number(contracts.data?.contracts?.length || 0, 0)} kontrak · {number(contractPrograms.data?.contractPrograms?.length || 0, 0)} program</strong><small>{contracts.error || contractPrograms.error ? "Sumber tidak dapat diverifikasi" : (contracts.data?.contracts?.length || contractPrograms.data?.contractPrograms?.length) ? "Data tersedia · perlu review siklus/CoB" : "Belum ada data kontrak/program"}</small></div>
+        <div><span>Warehouse & inventory</span><strong>{number(inventoryLots.data?.inventoryLots?.length || 0, 0)} lot tercatat</strong><small>{inventoryLots.error ? "Sumber tidak dapat diverifikasi" : inventoryLots.data?.inventoryLots?.length ? "Lot tersedia · status hold/reservation perlu diperiksa" : "Belum ada lot inventori"}</small></div>
+        <div><span>Inland logistics</span><strong>{number(trips.data?.truckTrips?.length || 0, 0)} perjalanan</strong><small>{trips.error ? "Sumber tidak dapat diverifikasi" : trips.data?.truckTrips?.length ? "Trip tercatat · cek checkpoint dan keterlambatan" : "Belum ada trip tercatat"}</small></div>
+        <div><span>Export documents</span><strong>{number(projectDocuments.data?.documents?.length || 0, 0)} dokumen / {number(documentRequirements.data?.documentRequirements?.length || 0, 0)} persyaratan</strong><small>{projectDocuments.error || documentRequirements.error ? "Sumber tidak dapat diverifikasi" : documentRequirements.data?.documentRequirements?.length ? "Checklist tersedia · verifikasi status dan bukti" : "Persyaratan dokumen belum dikonfigurasi"}</small></div>
+        <div><span>Finance & RAB</span><strong>{projectReport.data?.approvedBudget !== undefined ? idr(projectReport.data.approvedBudget) : "Tidak tersedia"}</strong><small>{projectReport.error ? "Sumber laporan tidak dapat diverifikasi" : Number(projectReport.data?.approvedBudget || 0) > 0 ? "RAB tercatat · bukan bukti pembayaran/LC cair" : "Belum ada RAB yang tercatat"}</small></div>
+        <div><span>Production & QA release</span><strong>Belum terintegrasi</strong><small>Belum tersedia sumber batch produksi, hasil QC/Lab dan keputusan QA release yang dapat dijadikan readiness.</small></div>
+        <div><span>Vessel, loading & laytime</span><strong>Belum terintegrasi</strong><small>Vessel call, berth, shift loading, survey dan laytime planner belum tersedia sebagai workflow operasional.</small></div>
+        <div><span>LC discrepancy & presentation</span><strong>Belum terintegrasi</strong><small>LC clause checker, discrepancy resolution dan deadline presentasi bank belum tersedia sebagai workflow.</small></div>
+      </div>
+    </Card>}
     <div className="dashboard-grid">
       <Card className="span-2"><PanelHeading title="Proyek berjalan" description="Ringkasan proyek aktif dalam portofolio." action={<Link className="inline-link" to="/projects">Lihat proyek <ArrowRight size={14} /></Link>} />
         {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={visibleProjects.slice(0, 6)} columns={[

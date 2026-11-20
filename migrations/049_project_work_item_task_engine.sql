@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS public.project_work_item_events (
     FOREIGN KEY (work_item_id, project_id)
     REFERENCES public.project_work_items(id, project_id) ON DELETE CASCADE
 );
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'user_notifications_work_item_fkey'
@@ -103,7 +103,7 @@ BEGIN
       ADD CONSTRAINT user_notifications_work_item_fkey
       FOREIGN KEY (work_item_id) REFERENCES public.project_work_items(id) ON DELETE SET NULL;
   END IF;
-END $;
+END $$;
 CREATE INDEX IF NOT EXISTS user_notifications_work_item_id_idx
   ON public.user_notifications (work_item_id) WHERE work_item_id IS NOT NULL;
 

@@ -681,3 +681,35 @@ PASS on isolated PostgreSQL validation branch:
 - This CI result validates source/build/static gates only. It does not replace authenticated browser UAT, live multi-user permission isolation tests, or runtime verification against Neon Production. No Production DB or deployment action was taken.
 - External portal visibility was further narrowed: Buyer requires `buyer.shipment.view`; Supplier requires both `supplier.view` and `shipment.view`; Transporter/Driver require both `record_truck_trips` and `verify_checkpoints`. PM `logistics.view` alone no longer exposes the Transporter portal. Checker remains a separate unresolved API mismatch: it has `verify_checkpoints` and `operations.view`, but tracking-event POST currently requires `record_truck_trips` for non-receipt events.
 - **Latest source CI (commit `8ed5ce3a860bf5f6c91b69271e48699685174f51`): PASS.** 196/196 tests across 17 files, backend/frontend TypeScript, frontend build, migration ledger verifier, migration dry-run and Dependency Audit Evidence all passed. Browser UAT and live multi-role runtime tests remain pending.
+---
+
+## 2026-11-20 — P0 Action-level UX, Task Engine & PM Control Tower implementation
+
+### Source implementation
+- Added action-level checks and permission-aware data loading for Operations and Compliance panels. Inventory receipt/lot/reservation/hold/movement, shipping allocation, logistics and document actions are independently gated; no action is exposed merely because a page is visible.
+- Operations forms are locked to the explicitly selected Project. The frontend no longer queries `/projects` to populate cross-Project form selectors. New truck-trip creation remains hidden because the source still has no verified transport-leg read endpoint; no synthetic transport-leg IDs are used.
+- Checker checkpoint creation now uses `verify_checkpoints` in the API, and Migration 049 replaces the tracking-event insert policy to allow only `event_type='checkpoint'` under that permission. Other trip lifecycle events continue to require `record_truck_trips`.
+- Project creation is Platform Admin-only and now creates a Project shell without a Contract Program. Contract Program creation is gated by `manage_contract_programs`; the PM/Contract Manager attaches commercial setup after Project provisioning.
+- Project detail/edit/configuration, role and membership routes now have distinct permission gates. Platform-wide account provisioning, global account status, password reset, role catalogue and PM appointment are separated from Project membership/role administration. PM appointment remains Platform Admin-only.
+- Finance exposure and FX-rate forms are gated by Finance create / Platform Admin authority. Journal draft/line creation and posting are separated (`accounting.create` versus `accounting.update`). Shipment allocation create/reversal requires `shipping.update` and inventory read access. Cash Advance request/decision handlers enforce the server-returned request/approval capabilities.
+- Added `hasProjectPermission` and `hasAnyProjectPermission` fail-closed helpers. Project Admin remains Finance read-only; no Finance mutation or approval capability was added.
+
+### Project Task & Instruction Engine
+- Added `project_work_items` and append-only `project_work_item_events` in prepared Migration 049, with forced RLS, explicit table grants, no app-runtime DELETE, same-Project foreign keys and active-role/assignee visibility.
+- Added task permissions `project.tasks.view/create/assign/update/resolve/escalate`; Project-wide governance is granted only to canonical PM role records. Assigned users see tasks only while their active Project role remains valid; an explicit assignee further narrows visibility to that user.
+- Added Project-scoped GET/POST/PATCH APIs for work items and event history. Creation/reassignment validates an active role and active assignee. State transitions cover open, acknowledged, in progress, blocked, submitted, resolved, closed, reopened, cancelled and escalation/comment events.
+- Assignment/reassignment sends in-app notifications to the selected user or active role. Blocked/submitted tasks notify PM; PM resolution/closure notifies the owner. Notifications include `work_item_id` and deep-link to My Work; read status is separate from task acknowledgement.
+- Added My Work UI for PM task creation/assignment, role queues, acknowledgement, start, block, submit, PM resolve/close/reopen, comments, escalation and append-only history.
+- PM Control Tower now includes task totals, overdue, blocked and submitted-review counts plus source-backed readiness indicators for contracts/programs, warehouse lots, truck trips, export document requirements/documents and RAB. Production/QA release, vessel/loading/laytime and LC presentation are explicitly marked unavailable rather than inferred.
+
+### Migration approval and release boundary
+- Migration 048 `048_buyer_accounting_ap_ar_document_hardening.sql` SHA-256: `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`.
+- Migration 049 `049_project_work_item_task_engine.sql` SHA-256: `4d4cd7a877665986f10c3068ba8dd86332eff8c22b00214d45a45806fac276a8`.
+- Both migrations are prepared and listed as `manifest=absent` in the dry-run. They must be approved and applied sequentially (048 before 049); neither has been applied to Neon Production. The applied Production ledger remains through Migration 047.
+- No Production mock data, migration application, Vercel deployment, package installation, branch creation, PR merge or external open-source installation was performed.
+- Source CI for the latest implementation is pending at the time of this documentation update. Earlier P0 baseline commit `8ed5ce3a860bf5f6c91b69271e48699685174f51` passed 196/196 tests and all static/build gates; this does not certify the new Task Engine runtime.
+
+### P0 completion gate
+- Source implementation is in place, but P0 is **not declared Production-complete** until current HEAD CI is green, exact migration approvals are received, 048/049 are applied in order, and authenticated multi-role/multi-Project runtime UAT passes.
+- Required UAT: PM creates and reassigns tasks; active role members see only role-scoped work; explicit assignee isolation; expired/revoked role loses access; PM-only resolution; notifications to PM/owners; task event immutability; Checker checkpoint versus trip-event permission; Project Admin Finance read-only; and cross-Project isolation.
+- Project timezone/SLA calendar and scheduled overdue escalation remain explicit follow-up design items. Current overdue visibility is computed on read and escalation is a deliberate user action, not a background scheduler.

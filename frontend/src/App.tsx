@@ -1412,10 +1412,10 @@ function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; ac
         </div>
         {task.is_overdue && <div className="inline-warning"><Clock3 size={15} /> Melewati tenggat.</div>}
         <div className="form-actions">
-          {task.status === "open" && <ActionButton onClick={() => act(task, "acknowledge")} disabled={busy}>Akui tugas</ActionButton>}
-          {["acknowledged","blocked"].includes(task.status) && <ActionButton onClick={() => act(task, "start")} disabled={busy}>Mulai</ActionButton>}
-          {["acknowledged","in_progress"].includes(task.status) && <ActionButton variant="secondary" onClick={() => act(task, "submit")} disabled={busy}>Kirim selesai</ActionButton>}
-          {["acknowledged","in_progress"].includes(task.status) && <ActionButton variant="ghost" onClick={() => act(task, "block", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Blokir</ActionButton>}
+          {task.status === "open" && isTaskOwner(task) && <ActionButton onClick={() => act(task, "acknowledge")} disabled={busy}>Akui tugas</ActionButton>}
+          {["acknowledged","blocked"].includes(task.status) && isTaskOwner(task) && <ActionButton onClick={() => act(task, "start")} disabled={busy}>Mulai</ActionButton>}
+          {["acknowledged","in_progress"].includes(task.status) && isTaskOwner(task) && <ActionButton variant="secondary" onClick={() => act(task, "submit")} disabled={busy}>Kirim selesai</ActionButton>}
+          {["acknowledged","in_progress"].includes(task.status) && isTaskOwner(task) && <ActionButton variant="ghost" onClick={() => act(task, "block", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Blokir</ActionButton>}
           {task.status === "submitted" && canResolve && <ActionButton onClick={() => act(task, "resolve")} disabled={busy}>Setujui penyelesaian</ActionButton>}
           {task.status === "resolved" && canResolve && <ActionButton onClick={() => act(task, "close")} disabled={busy}>Tutup tugas</ActionButton>}
           {["resolved","closed"].includes(task.status) && canResolve && <ActionButton variant="ghost" onClick={() => act(task, "reopen", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Buka kembali</ActionButton>}

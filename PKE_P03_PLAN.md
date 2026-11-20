@@ -730,3 +730,17 @@ PASS on isolated PostgreSQL validation branch:
 - Latest dry-run exact hashes: Migration 048 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; Migration 049 `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Both remain `manifest=absent`, require explicit approval, and were not applied.
 - No Neon connection was attempted; no backup, SQL apply, production data, Vercel deployment, GitHub branch creation, merge or mock-data insertion was performed in this pass.
 - Remaining P0 release gate: explicit approval and sequential application of 048 then 049 after a verified Production backup, followed by authenticated multi-role/multi-Project runtime UAT. Static CI is not runtime RLS evidence. PR #2 remains OPEN/DRAFT.
+
+---
+
+## P0 final source audit correction — 2026-11-20
+
+- Current source branch remains f1/project-scoped-cob-20261119; no GitHub branch was created and PR #2 remains unmerged.
+- Re-read Neon Production public.migration_history: exactly 47 contiguous rows, Migration 047 applied with SHA-256 1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682.
+- GitHub Actions for source/documentation head 3d4616a09005badf9035b0ff98cab1e03b4419da: Unit Tests SUCCESS and Dependency Audit SUCCESS; every reported job step completed successfully. This evidence predates the SQL/runner/test corrections in this checkpoint and must not be reused as current-head CI.
+- Corrected Migration 049's malformed PostgreSQL anonymous-block delimiter from DO $ ... END $; to DO $$ ... END $$;.
+- Corrected final Migration 049 SHA-256: f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780. Updated the hard-coded approved049Sha in scripts/migrate.mjs to match. Migration 048 remains pinned to 48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3.
+- Added regression coverage in src/project-work-items.contract.test.ts for SQL delimiter validity, final 049 checksum pin, and the exact 048/049 owner-approval and backup-reference gates.
+- Important: GitHub dry-run does not connect to PostgreSQL or parse/execute the migration SQL. CI static tests are not PostgreSQL migration execution or runtime RLS UAT.
+- Existing Neon recovery branch br-restless-sky-b38dsjol is pre-migration 042–044 and is not a current backup of Migration 047. Snapshot creation did not produce a new snapshot. Do not apply 048/049 until a verified current Production backup is available.
+- **Current P0 status:** source correction committed; awaiting CI on the corrected head. Migration 048/049 remain unapplied. Authenticated multi-role/multi-Project RLS UAT remains outstanding. No Production data mutation, Vercel deployment, PR merge, or new GitHub branch.

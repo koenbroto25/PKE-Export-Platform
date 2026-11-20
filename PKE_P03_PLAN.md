@@ -949,3 +949,18 @@ PASS on isolated PostgreSQL validation branch:
 - Migration release verifier, Migration 052 applied-state/backup verifier, migration runner dry-run, backend typecheck, frontend typecheck and frontend production build all PASS.
 - Dependency Audit run `44766201241`: SUCCESS; root/frontend production audit and full dependency-tree audit/evidence steps completed.
 - Migration 053 is still PREPARED ONLY pending separate exact-SHA approval. No Production migration, role grant, assignment or business-data mutation was performed.
+
+
+## Migration 053 Neon isolated backtest — 2026-11-20
+
+- Result: PASS on Neon test branch `br-young-boat-b3re832d` (`p0-preview-uat-20261120`).
+- Neon refused a new branch because the project branch limit was reached. To avoid deleting/overwriting another branch, reused the existing UAT clone after confirming it was a Production clone with 0 written bytes before the test.
+- Brought the UAT clone from ledger 051 to 052 using the already-approved Migration 052 exact SHA, then applied Migration 053 exact SHA `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`. Test ledger now records 52 and 53 as applied.
+- Both Project Admin roles now have 3 view grants and 0 Accounting/Reports mutation grants.
+- Backtest denied 4 forbidden permission inserts and 2 permission-escalation updates; positive view-grant tests passed.
+- Effective permission helper: Project Admin view permissions allowed; Finance update, Accounting create/update/delete/post, and Reports create/update/delete denied.
+- Security audit passed: SECURITY DEFINER, restricted search_path, runtime EXECUTE granted, PUBLIC EXECUTE revoked.
+- Finance role grants and all other non-Funder/non-Project-Admin role grants matched Production exactly (200 grants on both branches).
+- Production remained unchanged: migration ledger remains 052 and Migration 053 guard function is absent. Project Admin write grants remain on Production pending separate approval.
+- No business records, role assignments, or memberships were created or modified. The existing UAT test branch is retained and was not deleted.
+- Migration 053 remains PREPARED / BACKTESTED, not applied to Production. A separate exact-SHA approval is required before Production application.

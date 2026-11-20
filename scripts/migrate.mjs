@@ -15,7 +15,8 @@ const currentProductionHistoryManifestPath = path.resolve("migration_history_man
 
 // REVISION 5.6 safety policy:
 // - Migrations 001-035 are immutable; no apply/baseline may rerun or mutate them.
-// - 036-047 are pinned to verified Production history; 048-049 require exact per-migration owner approval, backup reference and a verified 001-047 ledger.
+// - 036-047 remain pinned to verified historical Production history; 048-051 are verified applied extensions.
+// - 052 is applied through the dedicated fail-closed scripts/apply-migration-052.mjs path and is never replayed by this generic runner.
 // - Single-branch mandated target only, no local/legacy/alternate hosts or roles.
 const EXPECTED_HOST = "ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech";
 const EXPECTED_DB = "neondb";
@@ -144,7 +145,7 @@ async function main() {
       const inManifest = manifestMap.has(file) ? "manifest=known" : "manifest=absent";
       console.log(`${file} sha256=${sha} ${inManifest}`);
     }
-    if (has036Plus) console.log("DRY-RUN NOTE: 036-047 are pinned to the immutable Production baseline; 048-051 are reconciled from the verified 001-051 Production ledger. Migration 052 is separately gated by scripts/apply-migration-052.mjs, exact owner SHA approval and fresh backup evidence.");
+    if (has036Plus) console.log("DRY-RUN NOTE: 036-047 are pinned to the immutable Production baseline; 048-051 are reconciled from the verified Production history and Migration 052 is verified in canonical ledger 001-052. The generic runner never replays Migration 052.");
     console.log("Dry-run complete. No database changes made. No target connection attempted.");
     return;
   }
@@ -337,8 +338,8 @@ async function main() {
         const exact036to049 = newFiles.length === 14 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049].every((f) => newFiles.includes(f));
         const exact036to050 = newFiles.length === 15 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050].every((f) => newFiles.includes(f));
         const exact036to051 = newFiles.length === 16 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050, approved051].every((f) => newFiles.includes(f));
-        // Migration 052 is checksum-pinned and dry-run verified, but intentionally not
-        // enabled for apply until the owner approves its exact SHA and a fresh backup.
+        // Migration 052 is checksum-pinned and already applied through the dedicated release runner.
+        // This generic runner intentionally does not replay or mutate Migration 052.
         const exact036to052 = newFiles.length === 17 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050, approved051, approved052].every((f) => newFiles.includes(f));
         if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !exact036to046 && !exact036to047 && !exact036to049 && !exact036to050 && !exact036to051 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
           fail("Apply is restricted to exact pinned migration sequences; 042-044 require separate exact owner approval and a verified 001-041 Production ledger.");

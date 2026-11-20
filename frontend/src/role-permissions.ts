@@ -52,6 +52,12 @@ export function hasActiveProjectMembership(user: WorkspaceAccessUser): boolean {
   return (user.projectMemberships || []).some(membership => membership.isActive === true);
 }
 
+function hasSelectedProjectMembership(user: WorkspaceAccessUser): boolean {
+  return (user.projectMemberships || []).some(membership =>
+    membership.isActive === true && (!user.selectedProjectId || membership.projectId === user.selectedProjectId)
+  );
+}
+
 function activeProjectRoleCodes(user: WorkspaceAccessUser): string[] {
   const membership = (user.projectMemberships || []).find(item =>
     item.isActive === true && (!user.selectedProjectId || item.projectId === user.selectedProjectId)
@@ -92,7 +98,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   if (pageKey === 'dashboard') {
     // Every active Project role receives a scoped landing dashboard. Domain data
     // remains permission-gated by the dashboard and the API/RLS layer.
-    return hasActiveProjectMembership(user);
+    return hasSelectedProjectMembership(user);
   }
   const permissions = new Set(user.projectPermissions || []);
   if (pageKey === 'supplier') return permissions.has('supplier.view') && permissions.has('shipment.view');

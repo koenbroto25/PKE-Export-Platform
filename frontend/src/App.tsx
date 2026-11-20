@@ -369,11 +369,9 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
 function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const canCreateProject = activeUser?.platformAdmin === true;
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
-  const programs = useLoad<{ contractPrograms?: AnyRecord[] }>(() => get('/contract-programs'), []);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ contractProgramId: '', name: '', description: '', settlementUnit: 'MT', targetQuantity: '', status: 'draft' });
+  const [form, setForm] = useState({ name: '', description: '', settlementUnit: 'MT', targetQuantity: '', status: 'draft' });
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (!form.contractProgramId && programs.data?.contractPrograms?.[0]) setForm((v: any) => ({ ...v, contractProgramId: programs.data!.contractPrograms![0].id })); }, [programs.data, form.contractProgramId]);
   const save = async (e: FormEvent) => {
     e.preventDefault(); setBusy(true);
     try { await post('/projects', { ...form, targetQuantity: Number(form.targetQuantity) }); onNotice('success', 'Proyek berhasil dibuat.'); setShowForm(false); setForm((v: any) => ({ ...v, name: '', description: '', targetQuantity: '' })); projects.refresh(); }
@@ -382,16 +380,15 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
   };
   return <>
     <PageTitle eyebrow="PROJECT PORTFOLIO" title="Proyek ekspor" subtitle="Setiap project instance mewakili satu unit pemenuhan atau settlement buyer." actions={canCreateProject ? <ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Proyek baru</ActionButton> : undefined} />
-    {showForm && canCreateProject && <Card className="form-panel"><PanelHeading title="Buat project instance" description="Pilih program kontrak yang menjadi dasar proyek." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
-      {!programs.data?.contractPrograms?.length ? <div className="inline-warning"><CircleAlert size={17} /> Buat program kontrak terlebih dahulu pada menu Program Kontrak.</div> : <form className="form-grid" onSubmit={save}>
-        <FormField label="Program kontrak"><select value={form.contractProgramId} onChange={e => setForm((v: any) => ({ ...v, contractProgramId: e.target.value }))} required>{(programs.data?.contractPrograms || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+    {showForm && canCreateProject && <Card className="form-panel"><PanelHeading title="Buat project instance" description="Admin membuat shell Project terlebih dahulu. PM menambahkan Contract Program setelah Project tersedia." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
+      <form className="form-grid" onSubmit={save}>
         <FormField label="Nama proyek"><input value={form.name} onChange={e => setForm((v: any) => ({ ...v, name: e.target.value }))} required placeholder="Contoh: PKE China Cycle 01" /></FormField>
         <FormField label="Target kuantitas"><input type="number" min="0.01" step="0.01" value={form.targetQuantity} onChange={e => setForm((v: any) => ({ ...v, targetQuantity: e.target.value }))} required /></FormField>
         <FormField label="Satuan settlement"><select value={form.settlementUnit} onChange={e => setForm((v: any) => ({ ...v, settlementUnit: e.target.value }))}><option>MT</option><option>Ton</option><option>Shipment</option><option>Tranche</option></select></FormField>
         <FormField label="Status"><select value={form.status} onChange={e => setForm((v: any) => ({ ...v, status: e.target.value }))}><option value="draft">Draft</option><option value="active">Active</option></select></FormField>
         <FormField label="Deskripsi" wide><textarea rows={2} value={form.description} onChange={e => setForm((v: any) => ({ ...v, description: e.target.value }))} /></FormField>
         <div className="form-actions"><ActionButton variant="secondary" onClick={() => setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan proyek'}</button></div>
-      </form>}
+      </form>
     </Card>}
     <Card><PanelHeading title="Daftar proyek" description="Status, target volume, dan waktu pembuatan." action={<button className="icon-button" onClick={() => projects.refresh()} title="Refresh"><RefreshCw size={16} /></button>} />
       {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={projects.data?.projects || []} columns={[
@@ -473,7 +470,6 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
   const holds = useLoad<{ inventoryHolds?: AnyRecord[] }>(() => projectId && canInventoryView ? get(`/inventory-holds?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryHolds: [] }), [projectId, canInventoryView]);
   const allocations = useLoad<{ shipmentAllocations?: AnyRecord[] }>(() => projectId && canShippingView ? get(`/shipment-allocations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ shipmentAllocations: [] }), [projectId, canShippingView]);
   const legs = useLoad<{ transportLegs?: AnyRecord[] }>(() => Promise.resolve({ transportLegs: [] }), []);
-  const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const [formOpen, setFormOpen] = useState(false); const [eventOpen, setEventOpen] = useState(false); const [busy, setBusy] = useState(false);
   const [trip, setTrip] = useState({ projectId: projectId || '', transportLegId: '', licensePlate: '', driverName: '', pksSiteId: '', vehicleId: '', departureTime: new Date().toISOString().slice(0, 16), arrivalTime: '' });
   const [event, setEvent] = useState({ truckTripId: '', eventType: 'checkpoint', checkerId: '', latitude: '', longitude: '', gpsAccuracy: '', source: 'checker_device', captureTimestamp: new Date().toISOString().slice(0, 16), notes: '' });
@@ -489,7 +485,6 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
   const [movementOpen, setMovementOpen] = useState(false);
   const [movement, setMovement] = useState({ projectId: projectId || '', lotId: '', movementType: 'receipt', quantity: '', unit: 'MT', warehouseReceiptId: '', sourceLocation: '', destinationLocation: '', reason: '', referenceId: '', referenceType: '' });
   useEffect(() => { if (projectId) { setTrip(v => ({ ...v, projectId })); setReceipt(v => ({ ...v, projectId })); setLot(v => ({ ...v, projectId })); setReservation(v => ({ ...v, projectId })); setHold(v => ({ ...v, projectId })); setAllocation(v => ({ ...v, projectId })); setMovement(v => ({ ...v, projectId })); } }, [projectId]);
-  useEffect(() => { if (!trip.projectId && projects.data?.projects?.[0]) setTrip(v => ({ ...v, projectId: projects.data!.projects![0].id })); }, [projects.data, trip.projectId]);
   useEffect(() => { if (!trip.transportLegId) setTrip(v => ({ ...v, transportLegId: '' })); }, []);
   useEffect(() => { if (!event.truckTripId && trips.data?.truckTrips?.[0]) setEvent(v => ({ ...v, truckTripId: trips.data!.truckTrips![0].id })); }, [trips.data, event.truckTripId]);
   useEffect(() => { if (!receipt.checkerId) setReceipt(v => ({ ...v, checkerId: '' })); }, []);
@@ -580,7 +575,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
     <PageTitle eyebrow="FIELD & LOGISTICS" title="Operasional pengiriman" subtitle="Panel dan tindakan ditampilkan sesuai permission Project aktif." actions={<>{(can("record_truck_trips") || can("verify_checkpoints")) && <ActionButton variant="secondary" onClick={() => setEventOpen(v => !v)}><MapPin size={16} /> Catat checkpoint</ActionButton>}{can("inventory.reserve") && <ActionButton variant="ghost" onClick={() => setReservationOpen(v => !v)}><Plus size={14} /> Reservasi</ActionButton>}{can("inventory.hold") && <ActionButton variant="ghost" onClick={() => setHoldOpen(v => !v)}><Plus size={14} /> Tahanan</ActionButton>}{can("shipping.update") && <ActionButton variant="ghost" onClick={() => setAllocationOpen(v => !v)}><Plus size={14} /> Alokasi</ActionButton>}{can("inventory.update") && <ActionButton variant="ghost" onClick={() => setMovementOpen(v => !v)}><Plus size={14} /> Gerakan</ActionButton>}</>} />
     <div className="metric-grid three"><Metric label="Total perjalanan" value={number(trips.data?.truckTrips?.length || 0, 0)} icon={Truck} tone="navy" /><Metric label="Checkpoint tercatat" value={number(events.data?.trackingEvents?.length || 0, 0)} icon={MapPin} tone="blue" /><Metric label="Proyek terhubung" value={number(new Set((trips.data?.truckTrips || []).map(t => t.project_id)).size, 0)} icon={BriefcaseBusiness} tone="green" /></div>
     {formOpen && <Card className="form-panel"><PanelHeading title="Perjalanan truk baru" action={<button className="icon-button" onClick={() => setFormOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveTrip}>
-      <FormField label="Proyek"><select value={trip.projectId} onChange={e => setTrip(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+      <FormField label="Project aktif"><input value={projectId} readOnly /></FormField>
       <FormField label="Transport leg ID"><select value={trip.transportLegId} onChange={e => setTrip(v => ({ ...v, transportLegId: e.target.value }))} required><option value="">Pilih transport leg</option>{(legs.data?.transportLegs || []).map(l => <option key={l.id} value={l.id}>{l.origin} → {l.destination} ({l.status})</option>)}</select></FormField>
       <FormField label="Nomor polisi"><input value={trip.licensePlate} onChange={e => setTrip(v => ({ ...v, licensePlate: e.target.value.toUpperCase() }))} required /></FormField>
       <FormField label="Nama sopir"><input value={trip.driverName} onChange={e => setTrip(v => ({ ...v, driverName: e.target.value }))} /></FormField>
@@ -600,7 +595,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
       <div className="form-actions"><ActionButton variant="secondary" onClick={captureLocation}><MapPin size={15} /> Ambil GPS perangkat</ActionButton><ActionButton variant="secondary" onClick={() => setEventOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || !event.truckTripId}>{busy ? 'Mengirim…' : 'Kirim checkpoint'}</button></div>
     </form><div className="source-note">Unggah foto bukti belum tersedia di endpoint saat ini. Koordinat dan catatan dapat dikirim melalui form ini.</div></Card>}
     {can("warehouse.receipt.create") && (<Card className="span-2"><PanelHeading title="Terima gudang baru" description="Catatan penerimaan barang dari perjalanan truk." action={<ActionButton onClick={() => setReceipt(v => ({ ...v, projectId: projectId || '', status: 'pending' }))}><Plus size={16} /> Terima baru</ActionButton>} /><form className="form-grid" onSubmit={saveReceipt}>
-      <FormField label="Proyek"><select value={receipt.projectId} onChange={e => setReceipt(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+      <FormField label="Project aktif"><input value={projectId} readOnly /></FormField>
       <FormField label="Perjalanan ID"><input value={receipt.truckTripId} onChange={e => setReceipt(v => ({ ...v, truckTripId: e.target.value }))} /></FormField>
       <FormField label="Lot ID"><input value={receipt.lotId} onChange={e => setReceipt(v => ({ ...v, lotId: e.target.value }))} /></FormField>
       <FormField label="Kuantitas diterima"><input type="number" step="0.01" value={receipt.receivedQuantity} onChange={e => setReceipt(v => ({ ...v, receivedQuantity: e.target.value }))} required /></FormField>
@@ -612,7 +607,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setReceipt(v => ({ ...v, receivedQuantity: '', conditionStatus: '', exceptionReason: '', weighbridgeTicketKey: '', status: 'pending' }))}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan terima gudang'}</button></div>
     </form></Card>)} 
     {can("inventory.create") && (<Card className="span-2"><PanelHeading title="Lot inventori baru" description="Buat lot inventori dari penerimaan yang sah." action={<ActionButton onClick={() => setLot(v => ({ ...v, projectId: projectId || '', status: 'incoming' }))}><Plus size={16} /> Lot baru</ActionButton>} /><form className="form-grid" onSubmit={saveLot}>
-      <FormField label="Proyek"><select value={lot.projectId} onChange={e => setLot(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+      <FormField label="Project aktif"><input value={projectId} readOnly /></FormField>
       <FormField label="PKS site ID"><input value={lot.pksSiteId} onChange={e => setLot(v => ({ ...v, pksSiteId: e.target.value }))} /></FormField>
       <FormField label="Kuantitas"><input type="number" step="0.01" value={lot.quantity} onChange={e => setLot(v => ({ ...v, quantity: e.target.value }))} required /></FormField>
       <FormField label="Satuan"><input value={lot.unit} onChange={e => setLot(v => ({ ...v, unit: e.target.value }))} required /></FormField>
@@ -620,7 +615,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setLot(v => ({ ...v, quantity: '', location: '', status: 'incoming' }))}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan lot'}</button></div>
     </form></Card>)} 
     {reservationOpen && can("inventory.reserve") && <Card className="form-panel"><PanelHeading title="Reservasi inventori baru" action={<button className="icon-button" onClick={() => setReservationOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveReservation}>
-      <FormField label="Proyek"><select value={reservation.projectId} onChange={e => setReservation(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+      <FormField label="Project aktif"><input value={projectId} readOnly /></FormField>
       <FormField label="Lot ID"><select value={reservation.lotId} onChange={e => setReservation(v => ({ ...v, lotId: e.target.value }))} required>{(lots.data?.inventoryLots || []).map(l => { const lqty = Number(l.quantity || 0); const used = (reservations.data?.inventoryReservations || []).filter(r => r.lot_id === l.id && r.status === 'active').reduce((s, r) => s + (Number(r.reserved_quantity || 0) - Number(r.fulfilled_quantity || 0)), 0); const avail = Math.max(0, lqty - used); return <option key={l.id} value={l.id} disabled={avail <= 0}>{l.id.slice(0, 8)}… (tersedia ${number(avail)} ${l.unit || 'MT'})</option>; })}</select></FormField>
       <FormField label="Kuantitas yang dipesan"><input type="number" step="0.01" value={reservation.reservedQuantity} onChange={e => setReservation(v => ({ ...v, reservedQuantity: e.target.value }))} required /></FormField>
       {reservation.lotId && <div className="source-note">Stok tersedia untuk lot ini: <strong>{number(reservationAvailableQty)}</strong> {reservation.unit || 'MT'}</div>}
@@ -630,7 +625,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setReservationOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || Number(reservation.reservedQuantity || 0) > reservationAvailableQty}>{busy ? 'Menyimpan…' : Number(reservation.reservedQuantity || 0) > reservationAvailableQty ? 'Kuantitas melebihi stok' : 'Simpan reservasi'}</button></div>
     </form></Card>}
     {holdOpen && can("inventory.hold") && <Card className="form-panel"><PanelHeading title="Tahanan inventori baru" action={<button className="icon-button" onClick={() => setHoldOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveHold}>
-      <FormField label="Proyek"><select value={hold.projectId} onChange={e => setHold(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+      <FormField label="Project aktif"><input value={projectId} readOnly /></FormField>
       <FormField label="Lot ID"><input value={hold.lotId} onChange={e => setHold(v => ({ ...v, lotId: e.target.value }))} required /></FormField>
       <FormField label="Kuantitas yang ditahan"><input type="number" step="0.01" value={hold.heldQuantity} onChange={e => setHold(v => ({ ...v, heldQuantity: e.target.value }))} required /></FormField>
       <FormField label="Satuan"><input value={hold.unit} onChange={e => setHold(v => ({ ...v, unit: e.target.value }))} required /></FormField>
@@ -639,7 +634,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setHoldOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan tahanan'}</button></div>
     </form></Card>}
     {allocationOpen && can("shipping.update") && <Card className="form-panel"><PanelHeading title="Alokasi pengiriman baru" action={<button className="icon-button" onClick={() => setAllocationOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveAllocation}>
-      <FormField label="Proyek"><select value={allocation.projectId} onChange={e => setAllocation(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+      <FormField label="Project aktif"><input value={projectId} readOnly /></FormField>
       <FormField label="Lot ID"><input value={allocation.lotId} onChange={e => setAllocation(v => ({ ...v, lotId: e.target.value }))} required /></FormField>
       <FormField label="Kuantitas dialokasikan"><input type="number" step="0.01" value={allocation.allocatedQuantity} onChange={e => setAllocation(v => ({ ...v, allocatedQuantity: e.target.value }))} required /></FormField>
       <FormField label="Satuan"><input value={allocation.unit} onChange={e => setAllocation(v => ({ ...v, unit: e.target.value }))} required /></FormField>
@@ -647,7 +642,7 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setAllocationOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan alokasi'}</button></div>
     </form></Card>}
     {movementOpen && can("inventory.update") && <Card className="form-panel"><PanelHeading title="Gerakan inventori baru" action={<button className="icon-button" onClick={() => setMovementOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveMovement}>
-      <FormField label="Proyek"><select value={movement.projectId} onChange={e => setMovement(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+      <FormField label="Project aktif"><input value={projectId} readOnly /></FormField>
       <FormField label="Lot ID"><select value={movement.lotId} onChange={e => setMovement(v => ({ ...v, lotId: e.target.value }))} required>{(lots.data?.inventoryLots || []).map(l => <option key={l.id} value={l.id}>{shortId(l.id)} ({l.quantity} {l.unit})</option>)}</select></FormField>
       <FormField label="Tipe gerakan"><select value={movement.movementType} onChange={e => setMovement(v => ({ ...v, movementType: e.target.value }))} required><option value="receipt">Penerimaan</option><option value="transfer">Transfer</option><option value="issue">Pengeluaran</option><option value="adjustment">Penyesuaian</option><option value="return">Retur</option></select></FormField>
       <FormField label="Kuantitas"><input type="number" step="0.01" min="0.01" value={movement.quantity} onChange={e => setMovement(v => ({ ...v, quantity: e.target.value }))} required /></FormField>

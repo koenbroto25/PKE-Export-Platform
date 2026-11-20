@@ -60,7 +60,11 @@ async function main() {
       !Array.isArray(manifest.entries) || manifest.entries.length !== 51) {
     stop("The verified Production ledger manifest must identify this exact Production target and contain 51 entries.");
   }
-  if (!Array.isArray(manifest.pending_migrations) || manifest.pending_migrations.length !== 1 ||\n      manifest.pending_migrations[0]?.id !== 52 || manifest.pending_migrations[0]?.sha256 !== EXPECTED_SHA) {\n    stop("The 001-051 manifest must list only the exact Migration 052 as pending.");\n  }\n  if (manifest.entries.some((entry, i) => Number(entry.id) !== i + 1) ||
+  if (!Array.isArray(manifest.pending_migrations) || manifest.pending_migrations.length !== 1 ||
+      manifest.pending_migrations[0]?.id !== 52 || manifest.pending_migrations[0]?.sha256 !== EXPECTED_SHA) {
+    stop("The 001-051 manifest must list only the exact Migration 052 as pending.");
+  }
+  if (manifest.entries.some((entry, i) => Number(entry.id) !== i + 1) ||
       manifest.entries[50]?.filename !== "051_task_notification_recipient_rls_helper.sql" ||
       manifest.entries[50]?.sha256 !== "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927" ||
       manifest.entries[50]?.status !== "applied") {

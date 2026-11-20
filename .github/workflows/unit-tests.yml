@@ -30,6 +30,8 @@ jobs:
         run: npm test
       - name: Verify Production migration ledger and release gates
         run: npm run verify:release-migrations
+      - name: Verify applied Migration 052 and pre-apply backup evidence
+        run: npm run verify:migration-052
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
       - name: Typecheck backend API

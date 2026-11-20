@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
-import { hasPageAccess, visiblePageKeys } from './role-permissions';
+import { hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 
 type AnyRecord = Record<string, any>;
 type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
@@ -185,9 +185,9 @@ function App() {
             <Route path="/projects/:id/roles" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><ProjectRolesPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id/members" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><ProjectMembersPage onNotice={notify} /></RoleGuard>} />
             <Route path="/contracts" element={<RoleGuard allowedKeys={['contracts']} activeUser={workspaceUser}><ContractsPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><OperationsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><OperationsPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
-            <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/journal-entries" element={<RoleGuard allowedKeys={['journal-entries']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={workspaceUser}><ReportsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={workspaceUser}><NotificationsPage onNotice={notify} /></RoleGuard>} />
@@ -372,7 +372,7 @@ function ProjectsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'in
   };
   return <>
     <PageTitle eyebrow="PROJECT PORTFOLIO" title="Proyek ekspor" subtitle="Setiap project instance mewakili satu unit pemenuhan atau settlement buyer." actions={<ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Proyek baru</ActionButton>} />
-    {showForm && <Card className="form-panel"><PanelHeading title="Buat project instance" description="Pilih program kontrak yang menjadi dasar proyek." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
+    {showForm && canCreateDocuments && <Card className="form-panel"><PanelHeading title="Buat project instance" description="Pilih program kontrak yang menjadi dasar proyek." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
       {!programs.data?.contractPrograms?.length ? <div className="inline-warning"><CircleAlert size={17} /> Buat program kontrak terlebih dahulu pada menu Program Kontrak.</div> : <form className="form-grid" onSubmit={save}>
         <FormField label="Program kontrak"><select value={form.contractProgramId} onChange={e => setForm((v: any) => ({ ...v, contractProgramId: e.target.value }))} required>{(programs.data?.contractPrograms || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
         <FormField label="Nama proyek"><input value={form.name} onChange={e => setForm((v: any) => ({ ...v, name: e.target.value }))} required placeholder="Contoh: PKE China Cycle 01" /></FormField>
@@ -447,16 +447,21 @@ function ContractsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'i
   </>;
 }
 
-function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId]);
-  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId]);
-  const receipts = useLoad<{ warehouseReceipts?: AnyRecord[] }>(() => projectId ? get(`/warehouse-receipts?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ warehouseReceipts: [] }), [projectId]);
-  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => projectId ? get(`/inventory-lots?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryLots: [] }), [projectId]);
-  const movements = useLoad<{ inventoryMovements?: AnyRecord[] }>(() => projectId ? get(`/inventory-movements?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryMovements: [] }), [projectId]);
-  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => projectId ? get(`/inventory-reservations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryReservations: [] }), [projectId]);
-  const holds = useLoad<{ inventoryHolds?: AnyRecord[] }>(() => projectId ? get(`/inventory-holds?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryHolds: [] }), [projectId]);
-  const allocations = useLoad<{ shipmentAllocations?: AnyRecord[] }>(() => get('/shipment-allocations'), []);
-  const legs = useLoad<{ transportLegs?: AnyRecord[] }>(() => projectId ? get(`/transport-legs?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ transportLegs: [] }), [projectId]);
+function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const can = (permission: string) => hasProjectPermission(permission, activeUser);
+  const canLogisticsView = can('logistics.view');
+  const canWarehouseView = can('warehouse.view');
+  const canInventoryView = can('inventory.view');
+  const canShippingView = can('shipping.view');
+  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId && canLogisticsView ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId, canLogisticsView]);
+  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId && canLogisticsView ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId, canLogisticsView]);
+  const receipts = useLoad<{ warehouseReceipts?: AnyRecord[] }>(() => projectId && canWarehouseView ? get(`/warehouse-receipts?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ warehouseReceipts: [] }), [projectId, canWarehouseView]);
+  const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => projectId && canInventoryView ? get(`/inventory-lots?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryLots: [] }), [projectId, canInventoryView]);
+  const movements = useLoad<{ inventoryMovements?: AnyRecord[] }>(() => projectId && canInventoryView ? get(`/inventory-movements?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryMovements: [] }), [projectId, canInventoryView]);
+  const reservations = useLoad<{ inventoryReservations?: AnyRecord[] }>(() => projectId && canInventoryView ? get(`/inventory-reservations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryReservations: [] }), [projectId, canInventoryView]);
+  const holds = useLoad<{ inventoryHolds?: AnyRecord[] }>(() => projectId && canInventoryView ? get(`/inventory-holds?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ inventoryHolds: [] }), [projectId, canInventoryView]);
+  const allocations = useLoad<{ shipmentAllocations?: AnyRecord[] }>(() => projectId && canShippingView ? get(`/shipment-allocations?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ shipmentAllocations: [] }), [projectId, canShippingView]);
+  const legs = useLoad<{ transportLegs?: AnyRecord[] }>(() => Promise.resolve({ transportLegs: [] }), []);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const [formOpen, setFormOpen] = useState(false); const [eventOpen, setEventOpen] = useState(false); const [busy, setBusy] = useState(false);
   const [trip, setTrip] = useState({ projectId: projectId || '', transportLegId: '', licensePlate: '', driverName: '', pksSiteId: '', vehicleId: '', departureTime: new Date().toISOString().slice(0, 16), arrivalTime: '' });
@@ -561,7 +566,7 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
   };
   const captureLocation = () => { if (!navigator.geolocation) { onNotice('error', 'Browser tidak mendukung geolocation.'); return; } navigator.geolocation.getCurrentPosition(pos => setEvent(v => ({ ...v, latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude), gpsAccuracy: String(Math.round(pos.coords.accuracy)) })), err => onNotice('error', `Lokasi tidak tersedia: ${err.message}`), { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }); };
   return <>
-    <PageTitle eyebrow="FIELD & LOGISTICS" title="Operasional pengiriman" subtitle="Catat perjalanan truk dan checkpoint terverifikasi. Lokasi menunjukkan checkpoint terakhir, bukan live GPS kendaraan." actions={<><ActionButton variant="secondary" onClick={() => setEventOpen(v => !v)}><MapPin size={16} /> Catat checkpoint</ActionButton><ActionButton onClick={() => setFormOpen(v => !v)}><Plus size={16} /> Perjalanan baru</ActionButton><ActionButton variant="ghost" onClick={() => setReservationOpen(v => !v)}><Plus size={14} /> Reservasi</ActionButton><ActionButton variant="ghost" onClick={() => setHoldOpen(v => !v)}><Plus size={14} /> Tahanan</ActionButton><ActionButton variant="ghost" onClick={() => setAllocationOpen(v => !v)}><Plus size={14} /> Alokasi</ActionButton><ActionButton variant="ghost" onClick={() => setMovementOpen(v => !v)}><Plus size={14} /> Gerakan</ActionButton></>} />
+    <PageTitle eyebrow="FIELD & LOGISTICS" title="Operasional pengiriman" subtitle="Panel dan tindakan ditampilkan sesuai permission Project aktif." actions={<>{can("record_truck_trips") && <ActionButton variant="secondary" onClick={() => setEventOpen(v => !v)}><MapPin size={16} /> Catat checkpoint</ActionButton>}{can("inventory.reserve") && <ActionButton variant="ghost" onClick={() => setReservationOpen(v => !v)}><Plus size={14} /> Reservasi</ActionButton>}{can("inventory.hold") && <ActionButton variant="ghost" onClick={() => setHoldOpen(v => !v)}><Plus size={14} /> Tahanan</ActionButton>}{can("shipping.update") && <ActionButton variant="ghost" onClick={() => setAllocationOpen(v => !v)}><Plus size={14} /> Alokasi</ActionButton>}{can("inventory.update") && <ActionButton variant="ghost" onClick={() => setMovementOpen(v => !v)}><Plus size={14} /> Gerakan</ActionButton>}</>} />
     <div className="metric-grid three"><Metric label="Total perjalanan" value={number(trips.data?.truckTrips?.length || 0, 0)} icon={Truck} tone="navy" /><Metric label="Checkpoint tercatat" value={number(events.data?.trackingEvents?.length || 0, 0)} icon={MapPin} tone="blue" /><Metric label="Proyek terhubung" value={number(new Set((trips.data?.truckTrips || []).map(t => t.project_id)).size, 0)} icon={BriefcaseBusiness} tone="green" /></div>
     {formOpen && <Card className="form-panel"><PanelHeading title="Perjalanan truk baru" action={<button className="icon-button" onClick={() => setFormOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveTrip}>
       <FormField label="Proyek"><select value={trip.projectId} onChange={e => setTrip(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
@@ -574,16 +579,16 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
       <FormField label="Waktu kedatangan"><input type="datetime-local" value={trip.arrivalTime} onChange={e => setTrip(v => ({ ...v, arrivalTime: e.target.value }))} /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setFormOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan perjalanan'}</button></div>
     </form></Card>}
-    {eventOpen && <Card className="form-panel"><PanelHeading title="Checkpoint perjalanan" description="Ambil koordinat dari perangkat checker saat checkpoint terjadi." action={<button className="icon-button" onClick={() => setEventOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveEvent}>
+    {eventOpen && can("record_truck_trips") && <Card className="form-panel"><PanelHeading title="Checkpoint perjalanan" description="Ambil koordinat dari perangkat checker saat checkpoint terjadi." action={<button className="icon-button" onClick={() => setEventOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveEvent}>
       <FormField label="Perjalanan"><select value={event.truckTripId} onChange={e => setEvent(v => ({ ...v, truckTripId: e.target.value }))} required>{(trips.data?.truckTrips || []).map(t => <option key={t.id} value={t.id}>{t.license_plate || shortId(t.id)}</option>)}</select></FormField>
       <FormField label="Checker ID"><input value={event.checkerId} onChange={e => setEvent(v => ({ ...v, checkerId: e.target.value }))} required /></FormField>
-      <FormField label="Jenis event"><select value={event.eventType} onChange={e => setEvent(v => ({ ...v, eventType: e.target.value }))}><option value="departure">Departure</option><option value="checkpoint">Checkpoint</option><option value="arrival">Arrival</option><option value="weighbridge">Weighbridge</option><option value="receipt">Receipt</option><option value="exception">Exception</option></select></FormField>
+      <FormField label="Jenis event"><select value={event.eventType} onChange={e => setEvent(v => ({ ...v, eventType: e.target.value }))}><option value="departure">Departure</option><option value="checkpoint">Checkpoint</option><option value="arrival">Arrival</option><option value="weighbridge">Weighbridge</option><option value="exception">Exception</option></select></FormField>
       <FormField label="Latitude"><input value={event.latitude} onChange={e => setEvent(v => ({ ...v, latitude: e.target.value }))} required /></FormField><FormField label="Longitude"><input value={event.longitude} onChange={e => setEvent(v => ({ ...v, longitude: e.target.value }))} required /></FormField><FormField label="Akurasi GPS (meter)"><input value={event.gpsAccuracy} onChange={e => setEvent(v => ({ ...v, gpsAccuracy: e.target.value }))} required /></FormField>
       <FormField label="Waktu capture"><input type="datetime-local" value={event.captureTimestamp} onChange={e => setEvent(v => ({ ...v, captureTimestamp: e.target.value }))} required /></FormField>
       <FormField label="Catatan" wide><textarea rows={2} value={event.notes} onChange={e => setEvent(v => ({ ...v, notes: e.target.value }))} /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={captureLocation}><MapPin size={15} /> Ambil GPS perangkat</ActionButton><ActionButton variant="secondary" onClick={() => setEventOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || !event.truckTripId}>{busy ? 'Mengirim…' : 'Kirim checkpoint'}</button></div>
     </form><div className="source-note">Unggah foto bukti belum tersedia di endpoint saat ini. Koordinat dan catatan dapat dikirim melalui form ini.</div></Card>}
-    <Card className="span-2"><PanelHeading title="Terima gudang baru" description="Catatan penerimaan barang dari perjalanan truk." action={<ActionButton onClick={() => setReceipt(v => ({ ...v, projectId: projectId || '', status: 'pending' }))}><Plus size={16} /> Terima baru</ActionButton>} /><form className="form-grid" onSubmit={saveReceipt}>
+    {can("warehouse.receipt.create") && (<Card className="span-2"><PanelHeading title="Terima gudang baru" description="Catatan penerimaan barang dari perjalanan truk." action={<ActionButton onClick={() => setReceipt(v => ({ ...v, projectId: projectId || '', status: 'pending' }))}><Plus size={16} /> Terima baru</ActionButton>} /><form className="form-grid" onSubmit={saveReceipt}>
       <FormField label="Proyek"><select value={receipt.projectId} onChange={e => setReceipt(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
       <FormField label="Perjalanan ID"><input value={receipt.truckTripId} onChange={e => setReceipt(v => ({ ...v, truckTripId: e.target.value }))} /></FormField>
       <FormField label="Lot ID"><input value={receipt.lotId} onChange={e => setReceipt(v => ({ ...v, lotId: e.target.value }))} /></FormField>
@@ -594,16 +599,16 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
       <FormField label="No. tiket timbang"><input value={receipt.weighbridgeTicketKey} onChange={e => setReceipt(v => ({ ...v, weighbridgeTicketKey: e.target.value }))} /></FormField>
       <FormField label="Waktu check"><input type="datetime-local" value={receipt.checkTimestamp} onChange={e => setReceipt(v => ({ ...v, checkTimestamp: e.target.value }))} /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setReceipt(v => ({ ...v, receivedQuantity: '', conditionStatus: '', exceptionReason: '', weighbridgeTicketKey: '', status: 'pending' }))}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan terima gudang'}</button></div>
-    </form></Card>
-    <Card className="span-2"><PanelHeading title="Lot inventori baru" description="Buat lot inventori dari penerimaan yang sah." action={<ActionButton onClick={() => setLot(v => ({ ...v, projectId: projectId || '', status: 'incoming' }))}><Plus size={16} /> Lot baru</ActionButton>} /><form className="form-grid" onSubmit={saveLot}>
+    </form></Card>)} 
+    {can("inventory.create") && (<Card className="span-2"><PanelHeading title="Lot inventori baru" description="Buat lot inventori dari penerimaan yang sah." action={<ActionButton onClick={() => setLot(v => ({ ...v, projectId: projectId || '', status: 'incoming' }))}><Plus size={16} /> Lot baru</ActionButton>} /><form className="form-grid" onSubmit={saveLot}>
       <FormField label="Proyek"><select value={lot.projectId} onChange={e => setLot(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
       <FormField label="PKS site ID"><input value={lot.pksSiteId} onChange={e => setLot(v => ({ ...v, pksSiteId: e.target.value }))} /></FormField>
       <FormField label="Kuantitas"><input type="number" step="0.01" value={lot.quantity} onChange={e => setLot(v => ({ ...v, quantity: e.target.value }))} required /></FormField>
       <FormField label="Satuan"><input value={lot.unit} onChange={e => setLot(v => ({ ...v, unit: e.target.value }))} required /></FormField>
       <FormField label="Lokasi"><input value={lot.location} onChange={e => setLot(v => ({ ...v, location: e.target.value }))} /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setLot(v => ({ ...v, quantity: '', location: '', status: 'incoming' }))}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan lot'}</button></div>
-    </form></Card>
-    {reservationOpen && <Card className="form-panel"><PanelHeading title="Reservasi inventori baru" action={<button className="icon-button" onClick={() => setReservationOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveReservation}>
+    </form></Card>)} 
+    {reservationOpen && can("inventory.reserve") && <Card className="form-panel"><PanelHeading title="Reservasi inventori baru" action={<button className="icon-button" onClick={() => setReservationOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveReservation}>
       <FormField label="Proyek"><select value={reservation.projectId} onChange={e => setReservation(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
       <FormField label="Lot ID"><select value={reservation.lotId} onChange={e => setReservation(v => ({ ...v, lotId: e.target.value }))} required>{(lots.data?.inventoryLots || []).map(l => { const lqty = Number(l.quantity || 0); const used = (reservations.data?.inventoryReservations || []).filter(r => r.lot_id === l.id && r.status === 'active').reduce((s, r) => s + (Number(r.reserved_quantity || 0) - Number(r.fulfilled_quantity || 0)), 0); const avail = Math.max(0, lqty - used); return <option key={l.id} value={l.id} disabled={avail <= 0}>{l.id.slice(0, 8)}… (tersedia ${number(avail)} ${l.unit || 'MT'})</option>; })}</select></FormField>
       <FormField label="Kuantitas yang dipesan"><input type="number" step="0.01" value={reservation.reservedQuantity} onChange={e => setReservation(v => ({ ...v, reservedQuantity: e.target.value }))} required /></FormField>
@@ -613,7 +618,7 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
       <FormField label="Idempotency key"><input value={reservation.idempotencyKey} onChange={e => setReservation(v => ({ ...v, idempotencyKey: e.target.value }))} required placeholder="Kunci unik untuk idempotensi" /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setReservationOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || Number(reservation.reservedQuantity || 0) > reservationAvailableQty}>{busy ? 'Menyimpan…' : Number(reservation.reservedQuantity || 0) > reservationAvailableQty ? 'Kuantitas melebihi stok' : 'Simpan reservasi'}</button></div>
     </form></Card>}
-    {holdOpen && <Card className="form-panel"><PanelHeading title="Tahanan inventori baru" action={<button className="icon-button" onClick={() => setHoldOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveHold}>
+    {holdOpen && can("inventory.hold") && <Card className="form-panel"><PanelHeading title="Tahanan inventori baru" action={<button className="icon-button" onClick={() => setHoldOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveHold}>
       <FormField label="Proyek"><select value={hold.projectId} onChange={e => setHold(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
       <FormField label="Lot ID"><input value={hold.lotId} onChange={e => setHold(v => ({ ...v, lotId: e.target.value }))} required /></FormField>
       <FormField label="Kuantitas yang ditahan"><input type="number" step="0.01" value={hold.heldQuantity} onChange={e => setHold(v => ({ ...v, heldQuantity: e.target.value }))} required /></FormField>
@@ -622,7 +627,7 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
       <FormField label="Idempotency key"><input value={hold.idempotencyKey} onChange={e => setHold(v => ({ ...v, idempotencyKey: e.target.value }))} required placeholder="Kunci unik untuk idempotensi" /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setHoldOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan tahanan'}</button></div>
     </form></Card>}
-    {allocationOpen && <Card className="form-panel"><PanelHeading title="Alokasi pengiriman baru" action={<button className="icon-button" onClick={() => setAllocationOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveAllocation}>
+    {allocationOpen && can("shipping.update") && <Card className="form-panel"><PanelHeading title="Alokasi pengiriman baru" action={<button className="icon-button" onClick={() => setAllocationOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveAllocation}>
       <FormField label="Proyek"><select value={allocation.projectId} onChange={e => setAllocation(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
       <FormField label="Lot ID"><input value={allocation.lotId} onChange={e => setAllocation(v => ({ ...v, lotId: e.target.value }))} required /></FormField>
       <FormField label="Kuantitas dialokasikan"><input type="number" step="0.01" value={allocation.allocatedQuantity} onChange={e => setAllocation(v => ({ ...v, allocatedQuantity: e.target.value }))} required /></FormField>
@@ -630,7 +635,7 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
       <FormField label="Idempotency key"><input value={allocation.idempotencyKey} onChange={e => setAllocation(v => ({ ...v, idempotencyKey: e.target.value }))} required placeholder="Kunci unik untuk idempotensi" /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setAllocationOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan alokasi'}</button></div>
     </form></Card>}
-    {movementOpen && <Card className="form-panel"><PanelHeading title="Gerakan inventori baru" action={<button className="icon-button" onClick={() => setMovementOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveMovement}>
+    {movementOpen && can("inventory.update") && <Card className="form-panel"><PanelHeading title="Gerakan inventori baru" action={<button className="icon-button" onClick={() => setMovementOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveMovement}>
       <FormField label="Proyek"><select value={movement.projectId} onChange={e => setMovement(v => ({ ...v, projectId: e.target.value }))} required>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
       <FormField label="Lot ID"><select value={movement.lotId} onChange={e => setMovement(v => ({ ...v, lotId: e.target.value }))} required>{(lots.data?.inventoryLots || []).map(l => <option key={l.id} value={l.id}>{shortId(l.id)} ({l.quantity} {l.unit})</option>)}</select></FormField>
       <FormField label="Tipe gerakan"><select value={movement.movementType} onChange={e => setMovement(v => ({ ...v, movementType: e.target.value }))} required><option value="receipt">Penerimaan</option><option value="transfer">Transfer</option><option value="issue">Pengeluaran</option><option value="adjustment">Penyesuaian</option><option value="return">Retur</option></select></FormField>
@@ -642,30 +647,30 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
       <FormField label="Alasan"><input value={movement.reason} onChange={e => setMovement(v => ({ ...v, reason: e.target.value }))} /></FormField>
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setMovementOpen(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan gerakan'}</button></div>
     </form></Card>}
-    <Card><PanelHeading title="Daftar perjalanan" description="Perjalanan yang tercatat pada seluruh proyek." action={<button className="icon-button" onClick={trips.refresh}><RefreshCw size={16} /></button>} />{trips.loading ? <Loading /> : trips.error ? <ErrorState message={trips.error} retry={trips.refresh} /> : <DataTable rows={(trips.data?.truckTrips || []).filter(t => !projectId || t.project_id === projectId)} columns={[
+    {can("logistics.view") && (<Card><PanelHeading title="Daftar perjalanan" description="Perjalanan yang tercatat pada seluruh proyek." action={<button className="icon-button" onClick={trips.refresh}><RefreshCw size={16} /></button>} />{trips.loading ? <Loading /> : trips.error ? <ErrorState message={trips.error} retry={trips.refresh} /> : <DataTable rows={(trips.data?.truckTrips || []).filter(t => !projectId || t.project_id === projectId)} columns={[
       { key: 'id', label: 'Trip ID', render: r => <div className="primary-cell"><strong>{shortId(r.id)}</strong><small>{r.license_plate || '—'}</small></div> }, { key: 'driver_name', label: 'Sopir' }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> }, { key: 'departure_time', label: 'Berangkat', render: r => dateTime(r.departure_time) },
-    ]} />}</Card>
-    <Card><PanelHeading title="Riwayat checkpoint" description="Lokasi dan event yang dikirim checker." action={<button className="icon-button" onClick={events.refresh}><RefreshCw size={16} /></button>} />{events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : <DataTable rows={(events.data?.trackingEvents || []).filter(e => !projectId || e.project_id === projectId || (trips.data?.truckTrips || []).some(t => t.id === e.truck_trip_id && t.project_id === projectId))} columns={[
+    ]} />}</Card>)} 
+    {can("logistics.view") && (<Card><PanelHeading title="Riwayat checkpoint" description="Lokasi dan event yang dikirim checker." action={<button className="icon-button" onClick={events.refresh}><RefreshCw size={16} /></button>} />{events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : <DataTable rows={(events.data?.trackingEvents || []).filter(e => !projectId || e.project_id === projectId || (trips.data?.truckTrips || []).some(t => t.id === e.truck_trip_id && t.project_id === projectId))} columns={[
       { key: 'event_type', label: 'Event', render: r => <StatusPill value={r.event_type} /> }, { key: 'checker_id', label: 'Checker', render: r => shortId(r.checker_id) }, { key: 'latitude', label: 'Koordinat', render: r => r.latitude != null && r.longitude != null ? `${r.latitude}, ${r.longitude}` : '—' }, { key: 'server_received_timestamp', label: 'Waktu server', render: r => dateTime(r.server_received_timestamp) },
-    ]} />}</Card>
-    <Card><PanelHeading title="Terima gudang" description="Penerimaan barang dari perjalanan truk." action={<button className="icon-button" onClick={receipts.refresh}><RefreshCw size={16} /></button>} />{receipts.loading ? <Loading /> : receipts.error ? <ErrorState message={receipts.error} retry={receipts.refresh} /> : <DataTable rows={(receipts.data?.warehouseReceipts || []).filter(r => !projectId || r.project_id === projectId)} columns={[
+    ]} />}</Card>)} 
+    {can("warehouse.view") && (<Card><PanelHeading title="Terima gudang" description="Penerimaan barang dari perjalanan truk." action={<button className="icon-button" onClick={receipts.refresh}><RefreshCw size={16} /></button>} />{receipts.loading ? <Loading /> : receipts.error ? <ErrorState message={receipts.error} retry={receipts.refresh} /> : <DataTable rows={(receipts.data?.warehouseReceipts || []).filter(r => !projectId || r.project_id === projectId)} columns={[
       { key: 'id', label: 'Receipt ID', render: r => shortId(r.id) }, { key: 'received_quantity', label: 'Kuantitas', render: r => `${number(r.received_quantity)} ${r.unit || 'MT'}` }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> }, { key: 'check_timestamp', label: 'Waktu check', render: r => dateTime(r.check_timestamp) },
-    ]} />}</Card>
-    <Card><PanelHeading title="Lot inventori" description="Lot inventori yang tersedia per proyek." action={<button className="icon-button" onClick={lots.refresh}><RefreshCw size={16} /></button>} />{lots.loading ? <Loading /> : lots.error ? <ErrorState message={lots.error} retry={lots.refresh} /> : <DataTable rows={(lots.data?.inventoryLots || []).filter(l => !projectId || l.project_id === projectId)} columns={[
+    ]} />}</Card>)} 
+    {can("inventory.view") && (<Card><PanelHeading title="Lot inventori" description="Lot inventori yang tersedia per proyek." action={<button className="icon-button" onClick={lots.refresh}><RefreshCw size={16} /></button>} />{lots.loading ? <Loading /> : lots.error ? <ErrorState message={lots.error} retry={lots.refresh} /> : <DataTable rows={(lots.data?.inventoryLots || []).filter(l => !projectId || l.project_id === projectId)} columns={[
       { key: 'id', label: 'Lot ID', render: r => shortId(r.id) }, { key: 'quantity', label: 'Kuantitas', render: r => `${number(r.quantity)} ${r.unit || 'MT'}` }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> }, { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
-    ]} />}</Card>
-    <Card><PanelHeading title="Gerakan inventori" description="Pencatan pergerakan stok antar lot." action={<button className="icon-button" onClick={movements.refresh}><RefreshCw size={16} /></button>} />{movements.loading ? <Loading /> : movements.error ? <ErrorState message={movements.error} retry={movements.refresh} /> : <DataTable rows={(movements.data?.inventoryMovements || []).filter(m => !projectId || m.project_id === projectId)} columns={[
+    ]} />}</Card>)} 
+    {can("inventory.view") && (<Card><PanelHeading title="Gerakan inventori" description="Pencatan pergerakan stok antar lot." action={<button className="icon-button" onClick={movements.refresh}><RefreshCw size={16} /></button>} />{movements.loading ? <Loading /> : movements.error ? <ErrorState message={movements.error} retry={movements.refresh} /> : <DataTable rows={(movements.data?.inventoryMovements || []).filter(m => !projectId || m.project_id === projectId)} columns={[
       { key: 'id', label: 'Movement ID', render: r => shortId(r.id) }, { key: 'movement_type', label: 'Tipe', render: r => r.movement_type }, { key: 'quantity', label: 'Kuantitas', render: r => `${number(r.quantity)} ${r.unit || 'MT'}` }, { key: 'timestamp', label: 'Waktu', render: r => dateTime(r.timestamp) },
-    ]} />}</Card>
-    <Card><PanelHeading title="Reservasi inventori" description="Penguncian stok untuk alokasi pengiriman." action={<button className="icon-button" onClick={reservations.refresh}><RefreshCw size={16} /></button>} />{reservations.loading ? <Loading /> : reservations.error ? <ErrorState message={reservations.error} retry={reservations.refresh} /> : <DataTable rows={(reservations.data?.inventoryReservations || []).filter(r => !projectId || r.project_id === projectId)} columns={[
+    ]} />}</Card>)} 
+    {can("inventory.view") && (<Card><PanelHeading title="Reservasi inventori" description="Penguncian stok untuk alokasi pengiriman." action={<button className="icon-button" onClick={reservations.refresh}><RefreshCw size={16} /></button>} />{reservations.loading ? <Loading /> : reservations.error ? <ErrorState message={reservations.error} retry={reservations.refresh} /> : <DataTable rows={(reservations.data?.inventoryReservations || []).filter(r => !projectId || r.project_id === projectId)} columns={[
       { key: 'id', label: 'Reservation ID', render: r => shortId(r.id) }, { key: 'reserved_quantity', label: 'Dipesan', render: r => `${number(r.reserved_quantity)} ${r.unit || 'MT'}` }, { key: 'fulfilled_quantity', label: 'Terpenuhi', render: r => `${number(r.fulfilled_quantity || 0)} ${r.unit || 'MT'}` }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
-    ]} />}</Card>
-    <Card><PanelHeading title="Tahanan inventori (Hold)" description="Stok yang ditahan sementara untuk alasan tertentu." action={<button className="icon-button" onClick={holds.refresh}><RefreshCw size={16} /></button>} />{holds.loading ? <Loading /> : holds.error ? <ErrorState message={holds.error} retry={holds.refresh} /> : <DataTable rows={(holds.data?.inventoryHolds || []).filter(r => !projectId || r.project_id === projectId)} columns={[
+    ]} />}</Card>)} 
+    {can("inventory.view") && (<Card><PanelHeading title="Tahanan inventori (Hold)" description="Stok yang ditahan sementara untuk alasan tertentu." action={<button className="icon-button" onClick={holds.refresh}><RefreshCw size={16} /></button>} />{holds.loading ? <Loading /> : holds.error ? <ErrorState message={holds.error} retry={holds.refresh} /> : <DataTable rows={(holds.data?.inventoryHolds || []).filter(r => !projectId || r.project_id === projectId)} columns={[
       { key: 'id', label: 'Hold ID', render: r => shortId(r.id) }, { key: 'held_quantity', label: 'Ditahan', render: r => `${number(r.held_quantity)} ${r.unit || 'MT'}` }, { key: 'reason', label: 'Alasan' }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
-    ]} />}</Card>
-    <Card><PanelHeading title="Alokasi pengiriman" description="Alokasi stok yang tersedia untuk shipment." action={<button className="icon-button" onClick={allocations.refresh}><RefreshCw size={16} /></button>} />{allocations.loading ? <Loading /> : allocations.error ? <ErrorState message={allocations.error} retry={allocations.refresh} /> : <DataTable rows={(allocations.data?.shipmentAllocations || []).filter(r => !projectId || r.project_id === projectId)} columns={[
+    ]} />}</Card>)} 
+    {can("shipping.view") && (<Card><PanelHeading title="Alokasi pengiriman" description="Alokasi stok yang tersedia untuk shipment." action={<button className="icon-button" onClick={allocations.refresh}><RefreshCw size={16} /></button>} />{allocations.loading ? <Loading /> : allocations.error ? <ErrorState message={allocations.error} retry={allocations.refresh} /> : <DataTable rows={(allocations.data?.shipmentAllocations || []).filter(r => !projectId || r.project_id === projectId)} columns={[
       { key: 'id', label: 'Allocation ID', render: r => shortId(r.id) }, { key: 'allocated_quantity', label: 'Dialokasikan', render: r => `${number(r.allocated_quantity)} ${r.unit || 'MT'}` }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> }, { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
-    ]} />}</Card>
+    ]} />}</Card>)} 
   </>;
 }
 
@@ -1085,12 +1090,17 @@ function ProjectOptions() {
   return <>{(data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</>;
 }
 
-function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const knowledge = useLoad<{ regulatoryKnowledge?: AnyRecord[] }>(() => get('/regulatory-knowledge'), []);
-  const packs = useLoad<{ countryPacks?: AnyRecord[] }>(() => get('/country-packs'), []);
-  const requirements = useLoad<{ documentRequirements?: AnyRecord[] }>(() => projectId ? get(`/projects/${encodeURIComponent(projectId)}/document-requirements`) : Promise.resolve({ documentRequirements: [] }), [projectId]);
-  const docs = useLoad<{ documents?: AnyRecord[] }>(() => projectId ? get(`/projects/${encodeURIComponent(projectId)}/documents`) : Promise.resolve({ documents: [] }), [projectId]);
-  const storage = useLoad<{ available: boolean; bucket: string; reason?: string }>(() => get('/storage/status'), []);
+function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const can = (permission: string) => hasProjectPermission(permission, activeUser);
+  const canViewDocuments = can('documents.view');
+  const canCreateDocuments = can('documents.create');
+  const canUpdateDocuments = can('documents.update');
+  const canAdminRegulatory = activeUser?.platformAdmin === true;
+  const knowledge = useLoad<{ regulatoryKnowledge?: AnyRecord[] }>(() => canAdminRegulatory ? get('/regulatory-knowledge') : Promise.resolve({ regulatoryKnowledge: [] }), [canAdminRegulatory]);
+  const packs = useLoad<{ countryPacks?: AnyRecord[] }>(() => canAdminRegulatory ? get('/country-packs') : Promise.resolve({ countryPacks: [] }), [canAdminRegulatory]);
+  const requirements = useLoad<{ documentRequirements?: AnyRecord[] }>(() => projectId && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/document-requirements`) : Promise.resolve({ documentRequirements: [] }), [projectId, canViewDocuments]);
+  const docs = useLoad<{ documents?: AnyRecord[] }>(() => projectId && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/documents`) : Promise.resolve({ documents: [] }), [projectId, canViewDocuments]);
+  const storage = useLoad<{ available: boolean; bucket: string; reason?: string }>(() => canCreateDocuments ? get('/storage/status') : Promise.resolve({ available: false, bucket: 'pke-private-documents', reason: 'Permission documents.create tidak tersedia.' }), [canCreateDocuments]);
   const [showForm, setShowForm] = useState(false); const [busy, setBusy] = useState(false);
   const [doc, setDoc] = useState({ projectRequirementId: '', originalFilename: '', mimeType: '', sha256Checksum: '', expiryDate: '', notes: '', objectKey: '', contentLength: 0 });
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -1101,7 +1111,7 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
   const [editStatus, setEditStatus] = useState('');
 
   const saveDoc = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!canCreateDocuments) return onNotice('error', 'Permission documents.create diperlukan.'); setBusy(true);
     try {
       if (!doc.objectKey || !doc.contentLength || !doc.sha256Checksum) throw new Error('Unggah file terlebih dahulu.');
       await post(`/projects/${encodeURIComponent(projectId)}/documents`, {
@@ -1115,7 +1125,7 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
     finally { setBusy(false); }
   };
   const requestUpload = async () => {
-    if (!uploadFile || !projectId) return;
+    if (!canCreateDocuments || !uploadFile || !projectId) return;
     setUploadBusy(true);
     try {
       const digest = await crypto.subtle.digest('SHA-256', await uploadFile.arrayBuffer());
@@ -1135,7 +1145,7 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
   };
 
   const updateDocStatus = async (id: string) => {
-    if (!editStatus) return;
+    if (!canUpdateDocuments || !editStatus) return;
     setBusy(true);
     try {
       await patch(`/documents/${encodeURIComponent(id)}`, { status: editStatus, notes: '' });
@@ -1147,7 +1157,7 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
   };
 
   const runCheck = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault(); if (!canAdminRegulatory) return onNotice('error', 'Pemeriksaan regulasi hanya tersedia untuk Platform Admin.'); setBusy(true);
     try {
       const result = await post<{ complianceResult: AnyRecord }>('/compliance-check', check);
       setCheckResult(result.complianceResult);
@@ -1176,9 +1186,9 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
   });
 
   return <>
-    <PageTitle eyebrow="EXPORT COMPLIANCE" title="Dokumen & kepatuhan" subtitle="Persyaratan dokumen ekspor per proyek, referensi regulasi, dan status siklus hidup dokumen." actions={<><ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Catat dokumen</ActionButton>{!storage.data?.available && <ActionButton variant="ghost" disabled><CircleAlert size={16} /></ActionButton>}</>} />
+    <PageTitle eyebrow="EXPORT COMPLIANCE" title="Dokumen & kepatuhan" subtitle="Persyaratan dokumen dan status siklus hidup sesuai hak akses Project." actions={<>{canCreateDocuments && <ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Catat dokumen</ActionButton>}</>} />
     {!storage.data?.available && <div className="inline-warning"><CircleAlert size={17} /> Penyimpanan objek pribadi ({storage.data?.bucket || 'pke-private-documents'}) belum tersedia: {storage.data?.reason || 'Kredensial server belum dikonfigurasi.'}. Unggah file fisik dinonaktifkan sampai kredensial penyimpanan disediakan.</div>}
-    <div className="metric-grid three"><Metric label="Paket negara" value={number(packs.data?.countryPacks?.length || 0, 0)} icon={Globe2} tone="blue" /><Metric label="Referensi regulasi" value={number(knowledge.data?.regulatoryKnowledge?.length || 0, 0)} icon={ShieldCheck} tone="green" /><Metric label="Dokumen tercatat" value={number(docs.data?.documents?.length || 0, 0)} icon={FileCheck2} tone="amber" /></div>
+    {canViewDocuments && <div className="metric-grid"><Metric label="Dokumen tercatat" value={number(docs.data?.documents?.length || 0, 0)} icon={FileCheck2} tone="amber" /></div>}
     {showForm && <Card className="form-panel"><PanelHeading title="Catat referensi dokumen" description="Pilih persyaratan dokumen proyek dan berikan referensi berkas, checksum SHA-256, dan metadata. Unggah file fisik melalui penyimpanan pribadi saat tersedia." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveDoc}>
       <FormField label="Persyaratan dokumen proyek"><select value={doc.projectRequirementId} onChange={e => setDoc(v => ({ ...v, projectRequirementId: e.target.value }))} required>{(requirements.data?.documentRequirements || []).map((r: any) => <option key={r.id} value={r.id}>{r.documentCode} · {r.countryName} ({r.status})</option>)}</select></FormField>
       <FormField label="Nama berkas asli"><input value={doc.originalFilename} onChange={e => setDoc(v => ({ ...v, originalFilename: e.target.value }))} required placeholder="Contoh: invoice-001.pdf" /></FormField>
@@ -1192,9 +1202,9 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
       </> : <span className="muted">Unggah file fisik dinonaktifkan — kredensial penyimpanan belum dikonfigurasi.</span>}
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || !storage.data?.available || !doc.objectKey}>{busy ? 'Menyimpan…' : 'Verifikasi & simpan dokumen'}</button>{!storage.data?.available && <span style={{ marginLeft: 8, fontSize: '12px', color: '#dc2626' }}>Tidak tersedia</span>}</div>
     </form></Card>}
-    <div className="content-two"><Card><PanelHeading title="Paket negara tujuan" description="Persyaratan dokumen per negara tujuan dari katalog regulasi." />{packs.loading ? <Loading /> : packs.error ? <ErrorState message={packs.error} retry={packs.refresh} /> : <div className="country-list">{(packs.data?.countryPacks || []).map((pack, i) => <div className="country-card" key={pack.countryCode || i}><div className="country-flag">{pack.countryCode === 'CN' ? 'CN' : pack.countryCode === 'PK' ? 'PK' : 'ID'}</div><div className="country-copy"><strong>{pack.country}</strong><span>{pack.packName}</span><small>{(pack.requirements || []).join(' · ')}</small></div><div className="country-tax">{number(Number(pack.taxRate || 0) * 100, 1)}%<small>indikatif</small></div></div>)}</div>}</Card>
-      <Card><PanelHeading title="Referensi regulasi" description="Sumber regulasi terverifikasi dari regulatory_sources." />{knowledge.loading ? <Loading /> : knowledge.error ? <ErrorState message={knowledge.error} retry={knowledge.refresh} /> : <div className="activity-list">{(knowledge.data?.regulatoryKnowledge || []).map((item, i) => <div className="activity-item" key={item.id || i}><div className="activity-icon"><Globe2 size={16} /></div><div className="activity-copy"><strong>{item.title}</strong><span>{item.issuingAuthority} · {item.jurisdiction}</span><small><StatusPill value={item.verificationStatus || item.status} /></small></div></div>)}</div>}</Card></div>
-    <Card><PanelHeading title="Persyaratan dokumen proyek" description="Setiap baris menunjukkan dokumen yang diwajibkan untuk proyek ini dan status berkas terkait." action={<button className="icon-button" onClick={() => { requirements.refresh(); docs.refresh(); }}><RefreshCw size={16} /></button>} />
+    {canAdminRegulatory && <div className="content-two"><Card><PanelHeading title="Paket negara tujuan" description="Persyaratan dokumen per negara tujuan dari katalog regulasi." />{packs.loading ? <Loading /> : packs.error ? <ErrorState message={packs.error} retry={packs.refresh} /> : <div className="country-list">{(packs.data?.countryPacks || []).map((pack, i) => <div className="country-card" key={pack.countryCode || i}><div className="country-flag">{pack.countryCode === 'CN' ? 'CN' : pack.countryCode === 'PK' ? 'PK' : 'ID'}</div><div className="country-copy"><strong>{pack.country}</strong><span>{pack.packName}</span><small>{(pack.requirements || []).join(' · ')}</small></div><div className="country-tax">{number(Number(pack.taxRate || 0) * 100, 1)}%<small>indikatif</small></div></div>)}</div>}</Card>
+      <Card><PanelHeading title="Referensi regulasi" description="Sumber regulasi terverifikasi dari regulatory_sources." />{knowledge.loading ? <Loading /> : knowledge.error ? <ErrorState message={knowledge.error} retry={knowledge.refresh} /> : <div className="activity-list">{(knowledge.data?.regulatoryKnowledge || []).map((item, i) => <div className="activity-item" key={item.id || i}><div className="activity-icon"><Globe2 size={16} /></div><div className="activity-copy"><strong>{item.title}</strong><span>{item.issuingAuthority} · {item.jurisdiction}</span><small><StatusPill value={item.verificationStatus || item.status} /></small></div></div>)}</div>}</Card></div>}
+    {canViewDocuments && <Card><PanelHeading title="Persyaratan dokumen proyek" description="Setiap baris menunjukkan dokumen yang diwajibkan untuk proyek ini dan status berkas terkait." action={<button className="icon-button" onClick={() => { requirements.refresh(); docs.refresh(); }}><RefreshCw size={16} /></button>} />
       {requirements.loading ? <Loading /> : requirements.error ? <ErrorState message={requirements.error} retry={requirements.refresh} /> : <div className="document-lifecycle">
         {requirementRows.length === 0 && <EmptyState title="Belum ada persyaratan dokumen" desc="Persyaratan dokumen akan muncul setelah negara tujuan dan produk proyek ditetapkan." />}
         {requirementRows.map((r: any) => {
@@ -1208,14 +1218,14 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
               {!latest && r.isRequired && <div className="document-requirement-missing"><CircleAlert size={14} /> Berkas belum diunggah — referensi dokumen belum tercantum.</div>}
             </div>
             <div className="document-requirement-actions">
-              {latest && <div className="document-status-select"><label>Status</label><select value={editDocId === r.id ? editStatus : latest.status} onChange={e => { if (editDocId === r.id) setEditStatus(e.target.value); }} disabled={editDocId !== null && editDocId !== r.id}><option value="uploaded">Uploaded</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="expired">Expired</option><option value="superseded">Superseded</option></select>{editDocId === r.id && <button className="text-button" onClick={() => updateDocStatus(latest.id)}>Simpan</button>}</div>}
-              {!latest && <ActionButton variant="ghost" onClick={() => setDoc(v => ({ ...v, projectRequirementId: r.id }))}><Plus size={14} /> Catat berkas</ActionButton>}
+              {latest && canUpdateDocuments && <div className="document-status-select"><label>Status</label><select value={editDocId === r.id ? editStatus : latest.status} onChange={e => { if (editDocId === r.id) setEditStatus(e.target.value); }} disabled={editDocId !== null && editDocId !== r.id}><option value="uploaded">Uploaded</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="expired">Expired</option><option value="superseded">Superseded</option></select>{editDocId === r.id && <button className="text-button" onClick={() => updateDocStatus(latest.id)}>Simpan</button>}</div>}
+              {!latest && canCreateDocuments && <ActionButton variant="ghost" onClick={() => { setDoc(v => ({ ...v, projectRequirementId: r.id })); setShowForm(true); }}><Plus size={14} /> Catat berkas</ActionButton>}
             </div>
           </div>
         })}
       </div>}
     </Card>
-    <Card><PanelHeading title="Pemeriksaan kepatuhan" description="Hasil pemeriksaan memerlukan review manusia karena aturan kepatuhan belum sepenuhnya diverifikasi." /><form className="form-grid" onSubmit={runCheck}><FormField label="Jenis entitas"><select value={check.entityType} onChange={e => setCheck(v => ({ ...v, entityType: e.target.value }))}><option value="project">Project</option><option value="shipment">Shipment</option><option value="contract">Contract</option></select></FormField><FormField label="ID entitas"><input value={check.entityId} onChange={e => setCheck(v => ({ ...v, entityId: e.target.value }))} required placeholder="UUID entitas" /></FormField><FormField label="Negara tujuan"><select value={check.targetCountry} onChange={e => setCheck(v => ({ ...v, targetCountry: e.target.value }))}><option value="CN">China</option><option value="PK">Pakistan</option></select></FormField><FormField label="Jenis pemeriksaan"><select value={check.checkType} onChange={e => setCheck(v => ({ ...v, checkType: e.target.value }))}><option value="document_readiness">Document readiness</option><option value="shipment_compliance">Shipment compliance</option><option value="contract_compliance">Contract compliance</option></select></FormField><div className="form-actions"><button className="primary-button" disabled={busy}>{busy ? 'Memproses…' : 'Buat hasil review'}</button></div></form>{checkResult && <div className="review-result"><div className="review-result-head"><CircleAlert size={18} /><strong>Perlu review manusia</strong></div><p>{checkResult.message}</p><small>Target: {checkResult.targetCountry} · Entitas: {shortId(checkResult.entityId)}</small></div>}</Card>
+    {canAdminRegulatory && <Card><PanelHeading title="Pemeriksaan kepatuhan" description="Hasil pemeriksaan memerlukan review manusia karena aturan kepatuhan belum sepenuhnya diverifikasi." /><form className="form-grid" onSubmit={runCheck}><FormField label="Jenis entitas"><select value={check.entityType} onChange={e => setCheck(v => ({ ...v, entityType: e.target.value }))}><option value="project">Project</option><option value="shipment">Shipment</option><option value="contract">Contract</option></select></FormField><FormField label="ID entitas"><input value={check.entityId} onChange={e => setCheck(v => ({ ...v, entityId: e.target.value }))} required placeholder="UUID entitas" /></FormField><FormField label="Negara tujuan"><select value={check.targetCountry} onChange={e => setCheck(v => ({ ...v, targetCountry: e.target.value }))}><option value="CN">China</option><option value="PK">Pakistan</option></select></FormField><FormField label="Jenis pemeriksaan"><select value={check.checkType} onChange={e => setCheck(v => ({ ...v, checkType: e.target.value }))}><option value="document_readiness">Document readiness</option><option value="shipment_compliance">Shipment compliance</option><option value="contract_compliance">Contract compliance</option></select></FormField><div className="form-actions"><button className="primary-button" disabled={busy}>{busy ? 'Memproses…' : 'Buat hasil review'}</button></div></form>{checkResult && <div className="review-result"><div className="review-result-head"><CircleAlert size={18} /><strong>Perlu review manusia</strong></div><p>{checkResult.message}</p><small>Target: {checkResult.targetCountry} · Entitas: {shortId(checkResult.entityId)}</small></div>}</Card>}
   </>;
 }
 

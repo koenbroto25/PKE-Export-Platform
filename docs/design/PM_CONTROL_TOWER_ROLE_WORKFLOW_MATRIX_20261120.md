@@ -301,3 +301,14 @@ Current source CI is pending. This design document is not evidence of runtime UA
 
 - Source CI on the checkpoint head: Unit Tests run `44744075411` SUCCESS (215/215 tests across 18 files; migration release verifier, migration runner dry-run, backend/frontend TypeScript and frontend build PASS); Dependency Audit run `44744075357` SUCCESS. These results do not replace authenticated runtime UAT.
 - Backup caveat: the Neon branch clone is verified by provider state, parent LSN and timestamp; no independent dump/archive SHA-256 was produced. Snapshot quota and protected-branch quota were exhausted. Do not claim a protected backup or a checksummed SQL archive.
+
+
+## 15. P0 follow-up — legacy inventory-holds compatibility fix (2026-11-20)
+
+- Catalog inspection after migrations 048/049 found a pre-existing legacy `inventory_holds` table. Its required columns are `hold_type, quantity, unit_code, placed_by, placed_at`; the API expects `held_quantity, unit, idempotency_key, created_by`. Migration 048's `CREATE TABLE IF NOT EXISTS` did not alter the existing table. Production currently has zero inventory-hold rows.
+- Prepared additive Migration 050 `050_inventory_holds_legacy_schema_alignment.sql`, exact SHA-256 `e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab`. It backfills aliases, adds constraints and the unique idempotency index while retaining legacy columns.
+- API now requires authenticated actor identity and writes both legacy-required and API-facing fields, using valid `hold_type='operational'`.
+- Migration 050 was prepared on Neon temporary branch `br-proud-thunder-b3ny6nku`. Schema/index/backfill checks passed. Isolated DML backtest successfully exercised warehouse receipt verification, stock receipt movement, hold creation and duplicate idempotency rejection. All test fixture writes were rolled back; follow-up confirmed zero test rows remain.
+- Production has not received Migration 050. Exact owner approval of SHA-256 `e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab` is required before the Neon completion action applies it and deletes the temporary branch. Production ledger remains 49/49; the API-facing columns remain absent there until approval.
+- Source CI on commit `3777149461c4d55584b8f2a5fe4a45e7a6366a2b`: 216/216 unit tests across 18 files; release verifier, dry-run with exact 050 pin, backend/frontend TypeScript, frontend build and dependency audit PASS.
+- P0 is not accepted as complete until Migration 050 is applied and authenticated multi-role / cross-Project runtime UAT passes. No Vercel deployment or PR merge.

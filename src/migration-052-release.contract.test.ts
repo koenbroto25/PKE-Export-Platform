@@ -46,7 +46,7 @@ describe("Migration 052 release safety contract", () => {
 
   it("executes migration and ledger write atomically, then backtests Funder denial", () => {
     expect(runner).toContain('await client.query("BEGIN")');
-    expect(runner).toContain('await client.query("INSERT INTO public.migration_history');
+    expect(runner).toContain('"INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, \'applied\')"');
     expect(runner).toContain('await client.query("COMMIT")');
     expect(runner).toContain('await client.query("ROLLBACK")');
     expect(runner).toContain("Funder generic Finance/Accounting/Reports/Payment grants = 0");

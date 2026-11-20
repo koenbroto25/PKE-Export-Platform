@@ -2103,7 +2103,7 @@ app.get("/api/v1/notifications/providers", requireAuth, async (req: express.Requ
 });
 
 // Export audit
-app.post("/api/v1/reports/export/audit", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/reports/export/audit", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   res.status(201).json({ status: "recorded", timestamp: new Date().toISOString() });
 });
 
@@ -2855,12 +2855,16 @@ app.get("/api/v1/transport-legs", requireAuth, async (req: express.Request, res:
 });
 
 app.get("/api/v1/tracking-events", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "logistics.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM tracking_events ORDER BY created_at DESC LIMIT 100");
-    res.json({ trackingEvents: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load tracking events" });
-  }
+    const { rows } = await req.db.query(
+      "SELECT te.* FROM tracking_events te JOIN truck_trips tt ON tt.id = te.truck_trip_id WHERE tt.project_id = $1::uuid ORDER BY te.created_at DESC LIMIT 100",
+      [projectId],
+    );
+    return res.json({ trackingEvents: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/tracking-events", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -2900,15 +2904,8 @@ app.post("/api/v1/tracking-events", requireAuth, async (req: express.Request, re
       return res.status(404).json({ error: "Truck trip not found" });
     }
     const tripProjectId = tripRows[0].project_id as string;
-    if (!req.user?.isAdmin) {
-      const { rows: memberRows } = await req.db.query(
-        `SELECT 1 FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid`,
-        [tripProjectId, req.user.id],
-      );
-      if (memberRows.length === 0) {
-        return res.status(403).json({ error: "Forbidden - not a member of the trip's project" });
-      }
-    }
+    const requiredPermission = eventType === "receipt" ? "warehouse.receipt.create" : "record_truck_trips";
+    if (!(await requireProjectPermission(req, res, tripProjectId, requiredPermission))) return;
     const effectiveCapture = captureTimestamp || new Date().toISOString();
     const { rows } = await req.db.query(
       `INSERT INTO tracking_events (truck_trip_id, event_type, checker_id, latitude, longitude, gps_accuracy, source, capture_timestamp, status, notes, created_at)
@@ -2923,11 +2920,12 @@ app.post("/api/v1/tracking-events", requireAuth, async (req: express.Request, re
 
 app.get("/api/v1/tracking-events/trip/:tripId", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
+    const { rows: trips } = await req.db.query("SELECT project_id FROM truck_trips WHERE id = $1::uuid", [req.params.tripId]);
+    if (!trips.length) return res.status(404).json({ error: "Truck trip not found." });
+    if (!(await requireProjectPermission(req, res, trips[0].project_id, "logistics.view"))) return;
     const { rows } = await req.db.query("SELECT * FROM tracking_events WHERE truck_trip_id = $1::uuid ORDER BY created_at DESC", [req.params.tripId]);
-    res.json({ trackingEvents: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load tracking events" });
-  }
+    return res.json({ trackingEvents: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.get("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -3218,8 +3216,10 @@ app.get("/api/v1/inventory-holds", requireAuth, async (req: express.Request, res
 app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, lotId, heldQuantity, unit, reason, idempotencyKey } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || heldQuantity === undefined || !unit || !reason || !idempotencyKey) {
-    return res.status(400).json({ error: "projectId, lotId, heldQuantity, unit, reason, idempotencyKey required" });
+  const quantity = Number(heldQuantity);
+  if (!projectId || !lotId || !Number.isFinite(quantity) || quantity <= 0 || typeof unit !== "string" || !unit.trim() ||
+      typeof reason !== "string" || !reason.trim() || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    return res.status(400).json({ error: "projectId, lotId, positive heldQuantity, unit, reason and idempotencyKey are required" });
   }
   if (!(await requireProjectPermission(req, res, projectId, "inventory.hold"))) return;
   try {
@@ -3234,10 +3234,12 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
     if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
     if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
     const { rows } = await req.db.query(
-      `INSERT INTO inventory_holds (project_id, lot_id, held_quantity, unit, reason, idempotency_key, status, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text, 'active', now(), now()) RETURNING *`,
-      [projectId, lotId, Number(heldQuantity), unit, reason, idempotencyKey],
+      `INSERT INTO inventory_holds (project_id, lot_id, held_quantity, unit, reason, idempotency_key, status, created_by, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text, 'active', $7::uuid, now(), now())
+       ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
+      [projectId, lotId, quantity, unit.trim(), reason.trim(), idempotencyKey.trim(), actorId],
     );
+    if (rows.length === 0) return res.status(409).json({ error: "Hold with this idempotency key already exists", code: "IDEMPOTENCY_CONFLICT" });
     res.status(201).json({ inventoryHold: rows[0] });
   } catch (error) {
     res.status(500).json({ error: "Failed to create inventory hold" });

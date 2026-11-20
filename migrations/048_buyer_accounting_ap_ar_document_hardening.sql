@@ -6,6 +6,58 @@ ALTER TABLE public.ar_invoices ALTER COLUMN buyer_id DROP NOT NULL;
 ALTER TABLE public.ar_invoices ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id), ADD COLUMN IF NOT EXISTS updated_by uuid REFERENCES public.users(id), ADD COLUMN IF NOT EXISTS approved_by uuid REFERENCES public.users(id), ADD COLUMN IF NOT EXISTS approved_at timestamptz, ADD COLUMN IF NOT EXISTS dispute_reason text;
 ALTER TABLE public.ap_invoices ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id), ADD COLUMN IF NOT EXISTS updated_by uuid REFERENCES public.users(id), ADD COLUMN IF NOT EXISTS verified_by uuid REFERENCES public.users(id), ADD COLUMN IF NOT EXISTS verified_at timestamptz;
 CREATE INDEX IF NOT EXISTS idx_ar_invoices_buyer_master_project ON public.ar_invoices (buyer_master_id, project_id);
+
+-- Inventory Hold API existed without a canonical table migration; add the missing Project-scoped table.
+CREATE TABLE IF NOT EXISTS public.inventory_holds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  lot_id uuid NOT NULL REFERENCES public.inventory_lots(id) ON DELETE RESTRICT,
+  held_quantity numeric(15,2) NOT NULL CHECK (held_quantity > 0),
+  unit text NOT NULL CHECK (length(btrim(unit)) > 0),
+  reason text NOT NULL CHECK (length(btrim(reason)) > 0),
+  idempotency_key text NOT NULL UNIQUE,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','released','cancelled')),
+  created_by uuid REFERENCES public.users(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.inventory_holds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_holds FORCE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory_holds TO app_runtime_secure;
+DROP POLICY IF EXISTS pke_inventory_holds_select ON public.inventory_holds;
+DROP POLICY IF EXISTS pke_inventory_holds_insert ON public.inventory_holds;
+CREATE POLICY pke_inventory_holds_select ON public.inventory_holds
+  FOR SELECT TO app_runtime_secure USING (public.pke_has_project_permission(project_id,'inventory.view'));
+CREATE POLICY pke_inventory_holds_insert ON public.inventory_holds
+  FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_has_project_permission(project_id,'inventory.hold'));
+
+-- Align generic RLS policies with the permissions already checked by the API and role catalogue.
+DROP POLICY IF EXISTS pke_truck_trips_insert ON public.truck_trips;
+DROP POLICY IF EXISTS pke_truck_trips_update ON public.truck_trips;
+CREATE POLICY pke_truck_trips_insert ON public.truck_trips
+  FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_has_project_permission(project_id,'record_truck_trips'));
+CREATE POLICY pke_truck_trips_update ON public.truck_trips
+  FOR UPDATE TO app_runtime_secure USING (public.pke_has_project_permission(project_id,'record_truck_trips'))
+  WITH CHECK (public.pke_has_project_permission(project_id,'record_truck_trips'));
+
+DROP POLICY IF EXISTS pke_warehouse_receipts_select ON public.warehouse_receipts;
+DROP POLICY IF EXISTS pke_warehouse_receipts_insert ON public.warehouse_receipts;
+DROP POLICY IF EXISTS pke_warehouse_receipts_update ON public.warehouse_receipts;
+DROP POLICY IF EXISTS pke_warehouse_receipts_delete ON public.warehouse_receipts;
+CREATE POLICY pke_warehouse_receipts_select ON public.warehouse_receipts
+  FOR SELECT TO app_runtime_secure USING (public.pke_has_project_permission(project_id,'warehouse.view'));
+CREATE POLICY pke_warehouse_receipts_insert ON public.warehouse_receipts
+  FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_has_project_permission(project_id,'warehouse.receipt.create'));
+CREATE POLICY pke_warehouse_receipts_update ON public.warehouse_receipts
+  FOR UPDATE TO app_runtime_secure USING (public.pke_has_project_permission(project_id,'warehouse.update'))
+  WITH CHECK (public.pke_has_project_permission(project_id,'warehouse.update'));
+
+DROP POLICY IF EXISTS pke_tracking_events_insert ON public.tracking_events;
+CREATE POLICY pke_tracking_events_insert ON public.tracking_events
+  FOR INSERT TO app_runtime_secure WITH CHECK (
+    public.pke_has_truck_trip_permission(truck_trip_id,'record_truck_trips')
+    OR (event_type = 'receipt' AND public.pke_has_truck_trip_permission(truck_trip_id,'warehouse.receipt.create'))
+  );
 DROP POLICY IF EXISTS pke_buyers_insert_platform_admin ON public.buyers;
 DROP POLICY IF EXISTS pke_buyers_update_platform_admin ON public.buyers;
 DROP POLICY IF EXISTS pke_buyers_delete_platform_admin ON public.buyers;

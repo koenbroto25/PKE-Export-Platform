@@ -323,3 +323,16 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Production ledger remains 49/49. Migrations 050 and 051 remain unapplied. Exact owner approval is required for 050 SHA `e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab` and 051 SHA `acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927`.
 - CI on commit `172eb7e74ffd629dcbd33f3007932d47c3194995`: 217/217 tests; migration verifier/dry-run, backend/frontend TypeScript, frontend build and dependency audit PASS.
 - Do not mark P0 production-accepted until both migrations are applied and Production post-apply verification plus remaining role-by-role workflow UAT passes. No PR merge or Vercel deployment.
+
+
+## 16. Production migrations 050/051 and P0 verification checkpoint — 2026-11-20
+
+- Migration 050 applied atomically to Neon Production: SHA-256 `e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab`.
+- Migration 051 applied atomically to Neon Production after 050: SHA-256 `acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927`.
+- Production migration ledger is 51/51. Both migration rows have exact expected hashes and `applied` status.
+- Production verification passed for four API-facing inventory-hold columns, three checks, unique idempotency index, zero incomplete/hold rows, fixed task notification recipient policy, FORCE RLS on work item/event tables, and runtime denial of destructive work-item/event grants.
+- Isolated database-level RLS UAT passed for PM project-wide task visibility/create/resolve, active assignee update/event append, another role's inability to update another user's assigned task, revoked assignment losing visibility, cross-Project reads returning no rows, non-PM task creation denial, and PM resolution notification after helper-policy correction. Inventory receipt/movement/hold + idempotency duplicate rejection passed with rollback and zero fixture leftovers.
+- Test branch `br-proud-thunder-b3ny6nku` is isolated and remains pending separate user confirmation before deletion; it contains temporary UAT fixtures. Production contains no mock or test data.
+- Source CI: Unit Tests and Dependency Audit passed on source head `172eb7e74ffd629dcbd33f3007932d47c3194995` (216/216 tests; release verifier, migration dry-run, TypeScript and frontend build passed).
+- Pre-migration backup is ready branch clone `br-steep-butterfly-b30wgjc3` at LSN `0/5F05C88`, but not a protected branch or checksummed SQL archive due Neon account quotas.
+- Remaining full acceptance gate: authenticated end-to-end API/browser UAT with real provisioned role accounts. No Vercel deployment or PR merge.

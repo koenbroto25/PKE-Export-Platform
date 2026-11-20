@@ -22,8 +22,8 @@ describe("Funder external-role isolation", () => {
     for (const source of [requirePermission, explicitPermission]) {
       expect(source).toContain("pr.role_code");
       expect(source).toContain("'funder'");
-      expect(source).toContain("'finance.view'");
-      expect(source).toContain("'reports.view'");
+      expect(source).toContain("LIKE 'finance.%'");
+      expect(source).toContain("LIKE 'reports.%'");
       expect(source).toContain("'view_financial'");
     }
   });

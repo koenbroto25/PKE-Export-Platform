@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - phase0/reconcile-source-20261117
+      - f1/project-scoped-cob-20261119
   pull_request:
     branches:
       - main

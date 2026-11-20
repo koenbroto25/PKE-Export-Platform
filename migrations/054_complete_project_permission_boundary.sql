@@ -2,8 +2,8 @@
 BEGIN;
 CREATE TABLE IF NOT EXISTS public.pke_project_role_policy(role_code text PRIMARY KEY,canonical_role_code text NOT NULL,template_version integer NOT NULL DEFAULT 1 CHECK(template_version>0),created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS public.pke_project_role_permission_allowlist(role_code text NOT NULL REFERENCES public.pke_project_role_policy(role_code) ON DELETE CASCADE,permission_code text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(role_code,permission_code));
-REVOKE ALL ON public.pke_project_role_policy FROM PUBLIC,app_runtime_secure;
-REVOKE ALL ON public.pke_project_role_permission_allowlist FROM PUBLIC,app_runtime_secure;
+REVOKE ALL ON public.pke_project_role_policy FROM PUBLIC,app_runtime,app_runtime_secure;
+REVOKE ALL ON public.pke_project_role_permission_allowlist FROM PUBLIC,app_runtime,app_runtime_secure;
 INSERT INTO public.pke_project_role_policy(role_code,canonical_role_code,template_version) VALUES
  ('platform_admin','platform_admin',1),
  ('project_admin','project_admin',1),
@@ -328,7 +328,7 @@ END;$function$;
 REVOKE ALL ON FUNCTION public.pke_guard_project_role_code_policy() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pke_guard_project_role_code_policy() TO app_runtime_secure;
 DROP TRIGGER IF EXISTS pke_project_role_code_policy_guard ON public.project_roles;
-CREATE TRIGGER pke_project_role_code_policy_guard BEFORE UPDATE OF role_code ON public.project_roles FOR EACH ROW WHEN(OLD.role_code IS DISTINCT FROM NEW.role_code) EXECUTE FUNCTION public.pke_guard_project_role_code_policy();
+CREATE TRIGGER pke_project_role_code_policy_guard BEFORE INSERT OR UPDATE OF role_code ON public.project_roles FOR EACH ROW EXECUTE FUNCTION public.pke_guard_project_role_code_policy();
 
 -- Normalize all existing grants to exact canonical role templates.
 DELETE FROM public.project_role_permissions prp USING public.project_roles pr,public.permissions perm WHERE prp.project_role_id=pr.id AND prp.project_id=pr.project_id AND prp.permission_id=perm.id AND NOT EXISTS(SELECT 1 FROM public.pke_project_role_permission_allowlist a WHERE a.role_code=pr.role_code AND a.permission_code=perm.code);
@@ -401,10 +401,18 @@ END;$regulatory$;
 
 -- Permission templates are system-governed; Platform Admin and Project roles cannot edit grants.
 DROP POLICY IF EXISTS pke_admin_all ON public.project_role_permissions;
+DO $role_permission_rls$
+DECLARE policy_name text;
+BEGIN
+ FOR policy_name IN SELECT polname FROM pg_catalog.pg_policy WHERE polrelid='public.project_role_permissions'::regclass AND polcmd IN ('*','a','w','d')
+ LOOP
+  EXECUTE pg_catalog.format('DROP POLICY %I ON public.project_role_permissions',policy_name);
+ END LOOP;
+END;$role_permission_rls$;
 DROP POLICY IF EXISTS pke_project_role_permissions_select ON public.project_role_permissions;
 CREATE POLICY pke_project_role_permissions_select ON public.project_role_permissions FOR SELECT TO app_runtime_secure
 USING(public.pke_is_platform_admin() OR public.pke_has_project_permission(project_id,'project.roles.manage'));
-REVOKE INSERT,UPDATE,DELETE ON public.project_role_permissions FROM app_runtime_secure;
+REVOKE INSERT,UPDATE,DELETE ON public.project_role_permissions FROM PUBLIC,app_runtime,app_runtime_secure;
 GRANT SELECT ON public.project_role_permissions TO app_runtime_secure;
 
 DO $rls$
@@ -460,5 +468,11 @@ BEGIN
  AND pg_catalog.pg_get_functiondef(p.oid) ILIKE '%pke_is_platform_admin()%';
  IF v_helpers<>0 THEN RAISE EXCEPTION 'Project/object permission helpers still contain Platform Admin bypasses: %.',v_helpers; END IF;
  IF EXISTS(SELECT 1 FROM public.project_role_permissions prp JOIN public.project_roles pr ON pr.id=prp.project_role_id AND pr.project_id=prp.project_id JOIN public.permissions perm ON perm.id=prp.permission_id WHERE NOT EXISTS(SELECT 1 FROM public.pke_project_role_permission_allowlist a WHERE a.role_code=pr.role_code AND a.permission_code=perm.code)) THEN RAISE EXCEPTION 'Non-canonical Project role permission grants remain.'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+   WHERE n.nspname='public' AND p.proname IN('pke_payment_approval_guard','pke_payment_evidence_guard','pke_payment_instruction_guard','pke_payment_reconciliation_guard','pke_guard_journal_entry')
+     AND pg_catalog.pg_get_functiondef(p.oid) ILIKE '%pke_is_platform_admin()%') THEN
+  RAISE EXCEPTION 'A payment or Accounting transaction guard still contains a Platform Admin bypass.';
+ END IF;
+
 END;$post$;
 COMMIT;

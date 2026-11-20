@@ -993,3 +993,14 @@ PASS on isolated PostgreSQL validation branch:
 - UAT after probes remains ledger 53, 534 project-role grants, 24 role assignments, zero Funder generic Finance/Accounting/Reports/Payment grants and 196 Project Admin grants across both Projects. All probes rolled back. Production was read-only throughout.
 - No new GitHub branch, PR merge, Vercel deployment or Production DDL/DML was performed.
 - Next required work: obtain owner authorization for dependency-aware cleanup of pre-existing Production TEST FIXTURE data; resolve four unmapped legacy roles; prepare Platform Admin governance-only/Funder/Project Admin/role-domain permission migrations and API/frontend controls; UAT positive/negative tests across the 34 canonical roles; exact-head CI; fresh backup and separate exact-SHA approval before Production migrations. **Do not begin role dashboard UX/frontend until every permission gate passes.**
+
+
+## 2026-11-21 — P0 permission remediation implementation checkpoint
+
+- Added Migration 054 on the existing `f1/project-scoped-cob-20261119` branch. It introduces a source-derived allowlist for 38 explicit canonical role templates plus two legacy aliases: `warehouse → warehouse_manager` and `loading_manager → master_of_loading`. All 88 distinct permission codes were confirmed active in Neon UAT.
+- The four previously unmapped legacy role codes (`document_officer`, `external_provider`, `field_manager`, `viewer`) now have explicit least-privilege templates of their own; they are not silently mapped to unrelated roles.
+- Migration 054 normalizes current Project role grants to exact templates and blocks future non-canonical grant inserts/updates. Permission templates are system-governed and runtime read-only.
+- Platform Admin project/object helper wildcard bypasses are removed; RLS admin-all policies are removed outside the explicit global governance table set; Project Admin remains read-only for Finance/Accounting/Reports; Finance has no payment grants; Accounting has no post/reverse; Funder has no generic grants.
+- API `/me`, Project permission middleware, report generation/schedule access, and frontend permission gating no longer treat Platform Admin identity as a Project permission. The global Projects governance page remains visible; business pages require an active Project role assignment.
+- **Status: PREPARED / NOT PASS.** Migration 054 has not been applied to UAT or Production. UAT SQL backtest, exact role-grant parity, PM assignment invariant and RLS runtime tests remain mandatory. Do not begin dashboard UX until all backtests pass.
+- Production cleanup of existing TEST FIXTURE projects/users/memberships/assignments/receipts/movements remains a separate owner-approval gate; no fixture cleanup was performed by this checkpoint. Production Migration 054 requires exact SHA approval and a verified current backup.

@@ -167,3 +167,16 @@ These rows were present before this audit. No fixture was inserted or removed by
 8. Only after all permission tests pass, resume role-specific dashboard UX/frontend work.
 
 **Decision:** Permission audit is NOT PASS. Dashboard UX/frontend revision is intentionally blocked pending the above closure gates.
+
+
+## 10. P0 remediation package prepared — 2026-11-21
+
+**Status: PREPARED / NOT PASS.** The source remediation is committed to the existing GitHub branch `f1/project-scoped-cob-20261119` at commit `775622d2552ffcf4db6ad29e70addfc0b29fa4e0`; follow-up RLS/runtime hardening and CI-trigger updates are being staged. No Migration 054 SQL has been applied to Neon UAT or Production at this point.
+
+- Canonical matrix expanded from 34 to 38 explicit templates. The four previously unmapped legacy codes now have independent least-privilege definitions; `warehouse` and `loading_manager` map only to the matching canonical `warehouse_manager` and `master_of_loading` templates.
+- Migration 054 creates an owner-controlled role policy/allowlist, normalizes existing grants to exact templates, and rejects future non-canonical grants. Platform Admin is excluded from Project permission helpers; project/object permission helpers and RLS policies are being hardened to remove global business-data bypasses.
+- Project Admin is read-only for Finance, Accounting and Reports. Finance receives no payment.* permissions. Accounting receives no `accounting.post` or `accounting.reverse`. Funder receives no generic Finance/Accounting/Reports/Payment permission. Payment instruction, approval, issue, execution, evidence verification and reconciliation guards no longer rely on a Platform Admin bypass.
+- API and frontend permission checks no longer grant Project access merely because `platformAdmin=true`. The Platform Admin Projects governance surface remains accessible; Project business pages require a real active Project role.
+- UAT validation must cover all 38 canonical templates, every mapped legacy role, positive and negative grants, trigger enforcement, Funder helper parity, Project Admin read-only, Finance no-payment, Accounting no-post/reverse, Platform Admin governance-only, PM-only Platform Admin appointment, duplicate PM denial, expired/revoked memberships, cross-Project isolation, RLS and API denial.
+- Existing duplicate active PM fixture assignments and all TEST FIXTURE business records remain unchanged pending explicit owner-approved cleanup. Therefore the current Production dataset cannot yet be marked P0 PASS.
+- No Production SQL or data changes, no Vercel deployment, no PR merge and no new GitHub branch.

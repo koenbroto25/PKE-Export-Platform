@@ -12,26 +12,28 @@ const fail = (message) => { console.error("FAIL: " + message); process.exitCode 
 const file = "052_funder_finance_report_scope_isolation.sql";
 const expectedSha = "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b";
 const runner = read("scripts/apply-migration-052.mjs").toString("utf8");
-const latest = json("migration_history_manifest_001_051.json");
+const preApply = json("migration_history_manifest_001_051.json");
+const latest = json("migration_history_manifest_001_052.json");
 const backup = json("docs/audits/NEON_PRE_052_BACKUP_MANIFEST_20261120.json");
 
 if (hash("migrations/" + file) !== expectedSha) fail("Migration 052 SQL hash mismatch.");
 if (latest.project_id !== "purple-base-63944903" ||
     latest.branch_id !== "br-damp-shape-b3xlh4nr" ||
     latest.database !== "neondb" ||
-    latest.applied_count !== 51 ||
-    latest.entries?.length !== 51) fail("Latest verified Production ledger manifest target/count mismatch.");
-for (let i = 0; i < 51; i++) {
+    latest.applied_count !== 52 ||
+    latest.entries?.length !== 52) fail("Latest verified Production ledger manifest target/count mismatch.");
+for (let i = 0; i < 52; i++) {
   const row = latest.entries[i];
   if (row?.id !== i + 1 || !/^[a-f0-9]{64}$/.test(row.sha256) ||
       !["applied", "baselined"].includes(row.status)) fail("Latest Production manifest invalid at sequence " + (i + 1) + ".");
 }
 if (latest.entries[50]?.filename !== "051_task_notification_recipient_rls_helper.sql" ||
     latest.entries[50]?.sha256 !== "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927" ||
-    latest.entries[50]?.status !== "applied") fail("Migration 051 ledger tail is not exact.");
-if (latest.pending_migrations?.length !== 1 ||
-    latest.pending_migrations[0]?.id !== 52 ||
-    latest.pending_migrations[0]?.sha256 !== expectedSha) fail("Migration 052 must be the only exact pending migration.");
+    latest.entries[50]?.status !== "applied" ||
+    latest.entries[51]?.filename !== "052_funder_finance_report_scope_isolation.sql" ||
+    latest.entries[51]?.sha256 !== expectedSha || latest.entries[51]?.status !== "applied") fail("Migration 051/052 ledger tail is not exact.");
+if (latest.pending_migrations?.length !== 0) fail("No pending migration may remain after Migration 052.");
+if (preApply.applied_count !== 51 || preApply.pending_migrations?.[0]?.sha256 !== expectedSha) fail("Pre-apply 001-051 approval ledger evidence is missing.");
 
 if (backup.project_id !== latest.project_id ||
     backup.production_branch_id !== latest.branch_id ||

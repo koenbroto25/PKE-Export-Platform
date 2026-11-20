@@ -3448,15 +3448,15 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
   const { projectId, lotId, heldQuantity, unit, reason, idempotencyKey } = req.body ?? {};
   const actorId = req.user?.id;
   const quantity = Number(heldQuantity);
-  if (!projectId || !lotId || !Number.isFinite(quantity) || quantity <= 0 || typeof unit !== "string" || !unit.trim() ||
+  if (!projectId || !lotId || !actorId || !Number.isFinite(quantity) || quantity <= 0 || typeof unit !== "string" || !unit.trim() ||
       typeof reason !== "string" || !reason.trim() || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
-    return res.status(400).json({ error: "projectId, lotId, positive heldQuantity, unit, reason and idempotencyKey are required" });
+    return res.status(400).json({ error: "projectId, lotId, authenticated actor, positive heldQuantity, unit, reason and idempotencyKey are required" });
   }
   if (!(await requireProjectPermission(req, res, projectId, "inventory.hold"))) return;
   try {
     const { rows: existing } = await req.db.query(
       "SELECT id FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
-      [idempotencyKey],
+      [idempotencyKey.trim()],
     );
     if (existing.length > 0) {
       return res.status(409).json({ error: "Hold with this idempotency key already exists" });
@@ -3465,8 +3465,11 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
     if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
     if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
     const { rows } = await req.db.query(
-      `INSERT INTO inventory_holds (project_id, lot_id, held_quantity, unit, reason, idempotency_key, status, created_by, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text, 'active', $7::uuid, now(), now())
+      `INSERT INTO inventory_holds
+         (project_id, lot_id, hold_type, quantity, unit_code, reason, status, placed_by, placed_at,
+          held_quantity, unit, idempotency_key, created_by, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, 'operational', $3, $4, $5, 'active', $7::uuid, now(),
+               $3, $4, $6::text, $7::uuid, now(), now())
        ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
       [projectId, lotId, quantity, unit.trim(), reason.trim(), idempotencyKey.trim(), actorId],
     );

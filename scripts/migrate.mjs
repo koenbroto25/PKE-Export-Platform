@@ -19,6 +19,11 @@ const productionHistoryManifestPath = path.resolve("migration_history_manifest_0
 const EXPECTED_HOST = "ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech";
 const EXPECTED_DB = "neondb";
 const EXPECTED_PORT = 5432;
+const PREPARED_MIGRATION_PINS = Object.freeze({
+  "048_buyer_accounting_ap_ar_document_hardening.sql": "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3",
+  "049_project_work_item_task_engine.sql": "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780",
+});
+
 const LEGACY_HOST_HINTS = [
   "ep-restless-hat-b35j9x0d", "ep-blue-rice-b3ywrqrq",
   "br-calm-glade-b3nrleet", "br-billowing-math-b31f4wos",
@@ -118,6 +123,11 @@ async function main() {
   }
 
   if (mode === "dry-run") {
+    for (const [file, expectedSha] of Object.entries(PREPARED_MIGRATION_PINS)) {
+      if (!files.includes(file)) fail(`Required prepared migration file missing: ${file}`);
+      const actualSha = sha256File(path.join(migrationsDir, file));
+      if (actualSha !== expectedSha) fail(`Prepared migration checksum mismatch: ${file}`);
+    }
     for (const file of files) {
       const fullPath = path.join(migrationsDir, file);
       const sha = sha256File(fullPath);
@@ -243,9 +253,9 @@ async function main() {
       const approved047 = "047_project_admin_finance_read_only.sql";
       const approved047Sha = "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682";
       const approved048 = "048_buyer_accounting_ap_ar_document_hardening.sql";
-      const approved048Sha = "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3";
+      const approved048Sha = PREPARED_MIGRATION_PINS[approved048];
       const approved049 = "049_project_work_item_task_engine.sql";
-      const approved049Sha = "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780";
+      const approved049Sha = PREPARED_MIGRATION_PINS[approved049];
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });

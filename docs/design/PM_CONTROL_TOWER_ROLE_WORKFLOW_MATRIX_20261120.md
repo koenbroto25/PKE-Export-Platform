@@ -241,3 +241,13 @@ The following are now source-implemented on the branch, subject to CI and runtim
 Prepared Migration 049 SHA-256: `4d4cd7a877665986f10c3068ba8dd86332eff8c22b00214d45a45806fac276a8`. It depends on sequential Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. Neither migration is approved/applied; Production remains at Migration 047.
 
 Current source CI is pending. This design document is not evidence of runtime UAT or Production authorization.
+### CI confirmation — source commit `fc25624ec288189bc1f33ece374422667c28d982`
+
+- Unit Tests: **213/213 PASS** across 18 test files.
+- Backend API TypeScript: PASS.
+- Frontend TypeScript: PASS.
+- Frontend production build: PASS.
+- Production migration ledger/release verifier: PASS; baseline 001–028 and verified Production history 001–047 are contiguous. The verifier retains the notice that authentic SQL for historical migrations 029–035 remains unrecovered.
+- Migration runner dry-run: PASS; no database connection attempted and no database changes made. Migrations 048 and 049 are reported `manifest=absent` and remain unapproved for apply.
+- Dependency Audit Evidence: PASS (root and frontend production dependency audits).
+- PR #2 remains OPEN / DRAFT. CI validates source/static/build gates, not authenticated browser UAT or runtime RLS integration.

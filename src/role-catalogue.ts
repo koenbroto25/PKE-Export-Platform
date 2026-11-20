@@ -64,6 +64,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "contract.view", "manage_contract_programs", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
     "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view",
+    "project.tasks.view", "project.tasks.create", "project.tasks.assign", "project.tasks.update", "project.tasks.resolve", "project.tasks.escalate",
   ], [
     "PM is appointed per Project by Platform Admin; one PM may serve multiple Projects.",
     "Read-all is SELECT-only; no QA release, warehouse verification, Finance approval, payment, loading sign-off or delete authority.",

@@ -174,7 +174,7 @@ async function main() {
           });
       // The committed 001-047 manifest remains the immutable baseline.
       // After the explicitly approved 048/049 pair is applied, verify its exact extension from local SQL.
-      if (!exactLedgerMatch && expected.length === 47 && [49, 50].includes(applied.rows.length)) {
+      if (!exactLedgerMatch && expected.length === 47 && [49, 50, 51].includes(applied.rows.length)) {
         const migration048 = files.find((file) => parseMigrationNumber(file) === 48);
         const migration049 = files.find((file) => parseMigrationNumber(file) === 49);
         const migration050 = files.find((file) => parseMigrationNumber(file) === 50);

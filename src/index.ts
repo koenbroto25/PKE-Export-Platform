@@ -1791,7 +1791,7 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
     if (["resolved","closed","cancelled"].includes(item.status) && action !== "reopen") return res.status(409).json({ error: "Terminal task must be reopened before further action." });
 
     let status = item.status, roleCode = item.owner_role_code, assignee = item.assignee_user_id, due = item.due_at, priority = item.priority;
-    let eventType = action === "escalate" ? "escalated" : action === "cancel" ? "cancelled" : action === "comment" ? "commented" : action === "acknowledge" ? "acknowledged" : action === "start" ? "started" : action;
+    let eventType = action === "escalate" ? "escalated" : action === "cancel" ? "cancelled" : action === "comment" ? "commented" : action === "reopen" ? "reopened" : action === "acknowledge" ? "acknowledged" : action === "start" ? "started" : action;
     if (action === "assign") {
       if (typeof body.ownerRoleCode !== "string") return res.status(400).json({ error: "ownerRoleCode is required." });
       const role = await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",[projectId,body.ownerRoleCode]);
@@ -1823,11 +1823,11 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
     } else {
       await req.db.query(
         "UPDATE public.project_work_items SET status=$1,owner_role_code=$2,assignee_user_id=$3::uuid,due_at=$4::timestamptz,priority=$5," +
-        "acknowledged_at=CASE WHEN $1='acknowledged' AND acknowledged_at IS NULL THEN now() ELSE acknowledged_at END," +
-        "started_at=CASE WHEN $1='in_progress' AND started_at IS NULL THEN now() ELSE started_at END," +
-        "submitted_at=CASE WHEN $1='submitted' THEN now() ELSE submitted_at END," +
-        "resolved_at=CASE WHEN $1='resolved' THEN now() ELSE resolved_at END,resolved_by=CASE WHEN $1='resolved' THEN $6::uuid ELSE resolved_by END," +
-        "closed_at=CASE WHEN $1='closed' THEN now() ELSE closed_at END,closed_by=CASE WHEN $1='closed' THEN $6::uuid ELSE closed_by END,updated_at=now() " +
+        "acknowledged_at=CASE WHEN $1='open' THEN NULL WHEN $1='acknowledged' AND acknowledged_at IS NULL THEN now() ELSE acknowledged_at END," +
+        "started_at=CASE WHEN $1='open' THEN NULL WHEN $1='in_progress' AND started_at IS NULL THEN now() ELSE started_at END," +
+        "submitted_at=CASE WHEN $1='open' THEN NULL WHEN $1='submitted' THEN now() ELSE submitted_at END," +
+        "resolved_at=CASE WHEN $1='open' THEN NULL WHEN $1='resolved' THEN now() ELSE resolved_at END,resolved_by=CASE WHEN $1='open' THEN NULL WHEN $1='resolved' THEN $6::uuid ELSE resolved_by END," +
+        "closed_at=CASE WHEN $1='open' THEN NULL WHEN $1='closed' THEN now() ELSE closed_at END,closed_by=CASE WHEN $1='open' THEN NULL WHEN $1='closed' THEN $6::uuid ELSE closed_by END,updated_at=now() " +
         "WHERE id=$7::uuid AND project_id=$8::uuid",
         [status,roleCode,assignee,due,priority,actorId,item.id,projectId]
       );

@@ -1703,7 +1703,7 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
           <FormField label="Alasan penetapan akses"><input value={memberAddReason} onChange={e => setMemberAddReason(e.target.value)} minLength={5} maxLength={500} required placeholder="Dasar pemberian role pada proyek ini" /></FormField>
           <FormField label="Masa berlaku role (opsional)"><input type="datetime-local" value={memberAddExpiresAt} onChange={e => setMemberAddExpiresAt(e.target.value)} min={new Date(Date.now() + 60_000).toISOString().slice(0,16)} /></FormField>
           <div className="form-actions"><button className="primary-button" disabled={memberAddBusy || projectDetail.loading || !users.data?.users?.length}>{memberAddBusy ? 'Menyimpan…' : 'Tambahkan ke proyek'}</button></div>
-        </form>
+        </form>}
         {canPlatformAdmin && <div className="panel-subsection">
           <PanelHeading title="Penunjukan Project Manager" description="Keputusan penunjukan dan penonaktifan PM sepenuhnya milik Admin. Jika Project masih memiliki PM aktif, nonaktifkan penugasan PM yang dipilih Admin terlebih dahulu." />
           <form className="form-grid" onSubmit={appointProjectManager}>

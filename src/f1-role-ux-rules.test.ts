@@ -7,7 +7,21 @@ const apiSource = fs.readFileSync(path.join(process.cwd(), "src/index.ts"), "utf
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from "../frontend/src/role-permissions.js";
 
 const member = { projectId: "project-a", isActive: true };
-const user = (permissions: string[], selectedProjectId = "project-a") => ({ platformAdmin: false, selectedProjectId, projectPermissions: permissions, projectPermissionsLoading: false, projectPermissionsError: "", projectMemberships: [member] });
+const user = (permissions: string[], selectedProjectId = "project-a") => ({
+  platformAdmin: false, selectedProjectId, projectPermissions: permissions,
+  projectPermissionsLoading: false, projectPermissionsError: "",
+  projectMemberships: [{
+    ...member,
+    roleAssignments: [{
+      roleCode: permissions.includes("finance.view") || permissions.includes("reports.view") || permissions.includes("report.view")
+        ? "pm"
+        : permissions.includes("buyer.shipment.view") ? "buyer"
+        : permissions.includes("record_truck_trips") ? "transporter"
+        : "warehouse_manager",
+      isActive: true, roleIsActive: true,
+    }],
+  }],
+});
 
 describe("Project-scoped effective permission UX", () => {
   it("combines permissions resolved from multiple active roles in the selected Project", () => {

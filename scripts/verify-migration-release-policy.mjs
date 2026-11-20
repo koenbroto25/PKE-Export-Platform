@@ -162,8 +162,8 @@ for (const [id, file, sha] of preparedAndApplied) {
   const gate = id <= 49 ? "exact036to049" : "exact036to" + String(id).padStart(3, "0");
   if (!runner.includes(gate)) fail("Migration runner is missing fail-closed release verification path through Migration " + id + ".");
 }
-if (!runner.includes("[49, 50, 51].includes(applied.rows.length)")) {
-  fail("Migration status mode does not accept exact verified Production ledger lengths 049-051.");
+if (!runner.includes("[49, 50, 51, 52].includes(applied.rows.length)")) {
+  fail("Migration status mode does not accept exact verified Production ledger lengths 049-052.");
 }
 
 if (latestLedger.project_id !== "purple-base-63944903" ||

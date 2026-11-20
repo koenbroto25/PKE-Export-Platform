@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { getCanonicalRoleTemplate } from "./role-catalogue.js";
 import { hasPageAccess } from "../frontend/src/role-permissions.js";
@@ -7,6 +8,7 @@ import { hasPageAccess } from "../frontend/src/role-permissions.js";
 const api = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
 const pagePermissions = readFileSync(join(process.cwd(), "frontend/src/role-permissions.ts"), "utf8");
 const dashboard = readFileSync(join(process.cwd(), "frontend/src/RoleDashboardPage.tsx"), "utf8");
+const migration052 = readFileSync(join(process.cwd(), "migrations/052_funder_finance_report_scope_isolation.sql"), "utf8");
 
 describe("Funder external-role isolation", () => {
   it("does not grant generic Finance or Reports permissions in the canonical Funder template", () => {
@@ -61,6 +63,15 @@ describe("Funder external-role isolation", () => {
     expect(hasPageAccess("dashboard", funder)).toBe(true);
     expect(hasPageAccess("finance", funder)).toBe(false);
     expect(hasPageAccess("reports", funder)).toBe(false);
+  });
+
+  it("pins the prepared database-level Funder isolation migration and removes legacy grants", () => {
+    expect(createHash("sha256").update(migration052).digest("hex")).toBe("cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b");
+    expect(migration052).toContain("DELETE FROM public.project_role_permissions");
+    expect(migration052).toContain("pr.role_code = 'funder'");
+    expect(migration052).toContain("p_permission_code LIKE 'finance.%'");
+    expect(migration052).toContain("p_permission_code LIKE 'reports.%'");
+    expect(migration052).toContain("CREATE OR REPLACE FUNCTION public.pke_has_project_permission");
   });
 
 });

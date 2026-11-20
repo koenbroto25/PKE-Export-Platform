@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCanonicalRoleTemplate } from "./role-catalogue.js";
+import { hasPageAccess } from "../frontend/src/role-permissions.js";
 
 const api = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
 const pagePermissions = readFileSync(join(process.cwd(), "frontend/src/role-permissions.ts"), "utf8");
@@ -48,4 +49,18 @@ describe("Funder external-role isolation", () => {
     expect(dashboard).toContain("reportReadRoles.has(role)");
     expect(dashboard).toContain("links: []");
   });
+  it("hides generic Finance and Reports pages even when legacy Funder grants remain in the permission union", () => {
+    const funder = {
+      selectedProjectId: "project-a",
+      projectPermissions: ["finance.view", "reports.view", "report.view"],
+      projectMemberships: [{
+        projectId: "project-a", isActive: true,
+        roleAssignments: [{ roleCode: "funder", isActive: true, roleIsActive: true }],
+      }],
+    };
+    expect(hasPageAccess("dashboard", funder)).toBe(true);
+    expect(hasPageAccess("finance", funder)).toBe(false);
+    expect(hasPageAccess("reports", funder)).toBe(false);
+  });
+
 });

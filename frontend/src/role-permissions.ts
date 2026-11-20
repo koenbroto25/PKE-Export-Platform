@@ -44,6 +44,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
     return pageKey === 'dashboard' && !user.selectedProjectId && hasActiveProjectMembership(user);
   }
+  if (pageKey === 'dashboard') return (user.projectPermissions || []).length > 0;
   const required = PAGE_PERMISSION_REQUIREMENTS[pageKey];
   if (!required) return false;
   const permissions = new Set(user.projectPermissions || []);

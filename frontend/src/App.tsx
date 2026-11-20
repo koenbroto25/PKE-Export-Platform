@@ -426,8 +426,9 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
 
 function ContractsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const canManagePrograms = hasProjectPermission('manage_contract_programs', activeUser);
-  const programs = useLoad<{ contractPrograms?: AnyRecord[] }>(() => get('/contract-programs'), []);
-  const cycles = useLoad<{ cyclePolicies?: AnyRecord[] }>(() => get('/cycle-policies'), []);
+  const canViewContracts = hasProjectPermission('contract.view', activeUser);
+  const programs = useLoad<{ contractPrograms?: AnyRecord[] }>(() => canViewContracts ? get('/contract-programs') : Promise.resolve({ contractPrograms: [] }), [canViewContracts]);
+  const cycles = useLoad<{ cyclePolicies?: AnyRecord[] }>(() => canViewContracts ? get('/cycle-policies') : Promise.resolve({ cyclePolicies: [] }), [canViewContracts]);
   const [mode, setMode] = useState<'program' | 'cycle'>('program');
   const [showForm, setShowForm] = useState(false); const [busy, setBusy] = useState(false);
   const [program, setProgram] = useState({ name: '', description: '', settlementUnit: 'MT', targetQuantity: '', cadence: 'monthly', generationMode: 'scheduled_draft' });

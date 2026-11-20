@@ -210,3 +210,21 @@ Inspection of migration `005_inventory_and_receipts.sql` confirmed the allowed d
 The API now validates these enums before attempting the INSERT/UPDATE, avoiding generic 500 responses for known constraint violations. Contract tests assert these enum sets alongside the positive quantity and unit checks.
 
 Latest executable source commit after this enum alignment: `b66d46c880fb91106a11707c6e2fbc2095e85a29`. CI for this exact head is pending at the time of this documentation update; the preceding `36aae87466983b1cf6aa6d86d7a279e28b12ec8d` run passed 224 tests (19 files), migration verifier/dry-run, backend/frontend typecheck, frontend build and dependency audit, but it predates the enum-only source/test refinements.
+
+
+### Latest Wave C source CI evidence
+
+Exact executable source head: `b66d46c880fb91106a11707c6e2fbc2095e85a29`.
+
+- Unit Tests run `44754247718`: **SUCCESS**.
+  - 19/19 test files passed.
+  - 224/224 tests passed, including all 6 new inventory/warehouse contract tests.
+  - Migration release verifier and migration runner dry-run passed.
+  - Backend API TypeScript check passed.
+  - Frontend TypeScript check passed.
+  - Frontend production build passed.
+- Dependency Audit run `44754247664`: **SUCCESS**.
+  - Root and frontend production dependency audits passed.
+  - Both dependency-tree audit steps passed.
+- This is source/static CI only. It does not verify concurrent DB behavior, live API RLS, real warehouse receipts, inventory balances, or Preview/browser acceptance.
+- Source status for this checkpoint: **PASS**. DB/API integration and authenticated UAT remain **NOT VERIFIED / BLOCKED EXTERNAL**.

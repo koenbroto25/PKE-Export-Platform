@@ -1791,7 +1791,7 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
     if (["resolved","closed","cancelled"].includes(item.status) && action !== "reopen") return res.status(409).json({ error: "Terminal task must be reopened before further action." });
 
     let status = item.status, roleCode = item.owner_role_code, assignee = item.assignee_user_id, due = item.due_at, priority = item.priority;
-    let eventType = action === "escalate" ? "escalated" : action === "cancel" ? "cancelled" : action === "comment" ? "commented" : action === "reopen" ? "reopened" : action === "acknowledge" ? "acknowledged" : action === "start" ? "started" : action;
+    let eventType = action === "escalate" ? "escalated" : action === "cancel" ? "cancelled" : action === "comment" ? "commented" : action === "reopen" ? "reopened" : action === "acknowledge" ? "acknowledged" : action === "start" ? "started" : action === "block" ? "blocked" : action === "submit" ? "submitted" : action === "resolve" ? "resolved" : action === "close" ? "closed" : action;
     if (action === "assign") {
       if (typeof body.ownerRoleCode !== "string") return res.status(400).json({ error: "ownerRoleCode is required." });
       const role = await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",[projectId,body.ownerRoleCode]);

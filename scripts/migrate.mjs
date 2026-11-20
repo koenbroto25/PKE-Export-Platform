@@ -137,7 +137,7 @@ async function main() {
       const inManifest = manifestMap.has(file) ? "manifest=known" : "manifest=absent";
       console.log(`${file} sha256=${sha} ${inManifest}`);
     }
-    if (has036Plus) console.log("DRY-RUN NOTE: 036-047 are pinned to the verified Production history; 048/049 require explicit per-migration SHA approvals, a verified 001-047 ledger and a recorded backup before apply.");
+    if (has036Plus) console.log("DRY-RUN NOTE: 036-047 are pinned to the immutable Production baseline; 048-051 are reconciled from the verified 001-051 Production ledger. Migration 052 is separately gated by scripts/apply-migration-052.mjs, exact owner SHA approval and fresh backup evidence.");
     console.log("Dry-run complete. No database changes made. No target connection attempted.");
     return;
   }
@@ -175,11 +175,12 @@ async function main() {
           });
       // The committed 001-047 manifest remains the immutable baseline.
       // After the explicitly approved 048/049 pair is applied, verify its exact extension from local SQL.
-      if (!exactLedgerMatch && expected.length === 47 && [49, 50, 51].includes(applied.rows.length)) {
+      if (!exactLedgerMatch && expected.length === 47 && [49, 50, 51, 52].includes(applied.rows.length)) {
         const migration048 = files.find((file) => parseMigrationNumber(file) === 48);
         const migration049 = files.find((file) => parseMigrationNumber(file) === 49);
         const migration050 = files.find((file) => parseMigrationNumber(file) === 50);
         const migration051 = files.find((file) => parseMigrationNumber(file) === 51);
+        const migration052 = files.find((file) => parseMigrationNumber(file) === 52);
         const prefixMatches = expected.every((entry, i) => {
           const actual = applied.rows[i];
           return actual && Number(actual.id) === Number(entry.id) &&
@@ -200,7 +201,11 @@ async function main() {
           (migration051 && applied.rows[50]?.filename === migration051 &&
             applied.rows[50]?.sha256 === sha256File(path.join(migrationsDir, migration051)) &&
             applied.rows[50]?.status === "applied");
-        exactLedgerMatch = Boolean(prefixMatches && extension048049Matches && extension050Matches && extension051Matches);
+        const extension052Matches = applied.rows.length < 52 ||
+          (migration052 && applied.rows[51]?.filename === migration052 &&
+            applied.rows[51]?.sha256 === sha256File(path.join(migrationsDir, migration052)) &&
+            applied.rows[51]?.status === "applied");
+        exactLedgerMatch = Boolean(prefixMatches && extension048049Matches && extension050Matches && extension051Matches && extension052Matches);
       }
         console.log(`Production history ledger: ${exactLedgerMatch ? "PASS" : "MISMATCH"} (expected=${expected.length}, actual=${applied.rows.length}).`);
         console.log("Historical authentic SQL source for migrations 029-035: NOT RECOVERED; apply is permitted only when the exact Production ledger 001-047 manifest is independently verified.");

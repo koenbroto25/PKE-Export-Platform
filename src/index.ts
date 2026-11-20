@@ -3159,8 +3159,10 @@ app.get("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request, 
 app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, truckTripId, lotId, receivedQuantity, unit, conditionStatus, exceptionReason, weighbridgeTicketKey, checkTimestamp, status } = req.body ?? {};
   const checkerId = req.user?.id;
-  if (!projectId || receivedQuantity === undefined || !unit) {
-    return res.status(400).json({ error: "Required fields: projectId, receivedQuantity, unit" });
+  const receivedAmount = Number(receivedQuantity);
+  if (!projectId || receivedQuantity === undefined || !Number.isFinite(receivedAmount) || receivedAmount <= 0 ||
+      typeof unit !== "string" || !unit.trim()) {
+    return res.status(400).json({ error: "Required fields: projectId, positive receivedQuantity and unit.", code: "INVALID_WAREHOUSE_RECEIPT" });
   }
   if (typeof checkerId !== "string") {
     return res.status(401).json({ error: "Authenticated principal required" });
@@ -3173,15 +3175,16 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
       if (tripRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden" });
     }
     if (lotId) {
-      const { rows: lotRows } = await req.db.query(`SELECT id, project_id FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
+      const { rows: lotRows } = await req.db.query(`SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE`, [lotId]);
       if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
       if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden" });
+      if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Receipt unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
     }
     const effectiveCheck = checkTimestamp || new Date().toISOString();
     const { rows } = await req.db.query(
       `INSERT INTO warehouse_receipts (project_id, truck_trip_id, lot_id, received_quantity, unit, condition_status, exception_reason, weighbridge_ticket_key, checker_id, check_timestamp, status, created_at, updated_at)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9::uuid, $10::timestamptz, $11, now(), now()) RETURNING *`,
-      [projectId, truckTripId || null, lotId || null, receivedQuantity, unit, conditionStatus || null, exceptionReason || null, weighbridgeTicketKey || null, checkerId, effectiveCheck, status || "pending"],
+      [projectId, truckTripId || null, lotId || null, receivedAmount, unit.trim(), conditionStatus || null, exceptionReason || null, weighbridgeTicketKey || null, checkerId, effectiveCheck, status || "pending"],
     );
     res.status(201).json({ warehouseReceipt: rows[0] });
   } catch (error) {
@@ -3191,13 +3194,28 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
 
 app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { status, receivedQuantity, unit, conditionStatus, exceptionReason } = req.body ?? {};
+  if (receivedQuantity !== undefined && (!Number.isFinite(Number(receivedQuantity)) || Number(receivedQuantity) <= 0)) {
+    return res.status(400).json({ error: "receivedQuantity must be a positive finite number.", code: "INVALID_RECEIVED_QUANTITY" });
+  }
+  if (unit !== undefined && (typeof unit !== "string" || !unit.trim())) {
+    return res.status(400).json({ error: "unit must be a non-empty string.", code: "INVALID_RECEIPT_UNIT" });
+  }
   try {
     const { rows: scopeRows } = await req.db.query(
-      "SELECT project_id FROM warehouse_receipts WHERE id = $1::uuid",
+      "SELECT project_id, lot_id FROM warehouse_receipts WHERE id = $1::uuid",
       [req.params.id],
     );
     if (scopeRows.length === 0) return res.status(404).json({ error: "Warehouse receipt not found." });
     if (!(await requireProjectPermission(req, res, scopeRows[0].project_id, "warehouse.update"))) return;
+    if (unit !== undefined && scopeRows[0].lot_id) {
+      const { rows: lotRows } = await req.db.query(
+        "SELECT unit FROM inventory_lots WHERE id = $1::uuid AND project_id = $2::uuid",
+        [scopeRows[0].lot_id, scopeRows[0].project_id],
+      );
+      if (lotRows.length !== 1 || lotRows[0].unit !== unit.trim()) {
+        return res.status(400).json({ error: "Receipt unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
+      }
+    }
     const { rows } = await req.db.query(
       `UPDATE warehouse_receipts
           SET status = COALESCE($2, status),
@@ -3207,7 +3225,7 @@ app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Req
               exception_reason = COALESCE($6, exception_reason),
               updated_at = now()
         WHERE id = $1::uuid RETURNING *`,
-      [req.params.id, status ?? null, receivedQuantity ?? null, unit ?? null, conditionStatus ?? null, exceptionReason ?? null],
+      [req.params.id, status ?? null, receivedQuantity === undefined ? null : Number(receivedQuantity), unit === undefined ? null : unit.trim(), conditionStatus ?? null, exceptionReason ?? null],
     );
     if (rows.length === 0) return res.status(404).json({ error: "Warehouse receipt not found" });
     res.json({ warehouseReceipt: rows[0] });

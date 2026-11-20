@@ -96,6 +96,21 @@ describe("Project-scoped effective permission UX", () => {
     expect(compliance).toContain("if (!canUpdateDocuments || !editStatus)");
     expect(compliance).toContain('canAdminRegulatory && <Card><PanelHeading title="Pemeriksaan kepatuhan"');
   });
+  it("hides privileged mutation actions from read-only Finance and Shipping users", () => {
+    const app = appSource;
+    const finance = app.slice(app.indexOf("function FinancePage"), app.indexOf("function OperationsPage"));
+    expect(finance).toContain("form === 'rate' ? canManageGlobalReference : canCreateFinance");
+    expect(finance).toContain("action={canCreateFinance ? <ActionButton");
+    const allocation = app.slice(app.indexOf("function ShipmentAllocationPage"), app.indexOf("function CashAdvancesPage"));
+    expect(allocation).toContain("canUpdateShipping && canReadInventory");
+    expect(allocation).toContain("canUpdateShipping && r.status === 'active'");
+  });
+  it("restricts Project creation and contract program mutation to their explicit owners", () => {
+    expect(appSource).toContain("const canCreateProject = activeUser?.platformAdmin === true");
+    expect(appSource).toContain("const canManagePrograms = hasProjectPermission('manage_contract_programs', activeUser)");
+    expect(appSource).toContain("showForm && canCreateProject");
+    expect(appSource).toContain("showForm && canManagePrograms");
+  });
   it("keeps Platform Admin access separate from Project permissions", () => {
     expect(hasPageAccess("access", { platformAdmin: true, selectedProjectId: "", projectPermissions: [] })).toBe(true);
   });

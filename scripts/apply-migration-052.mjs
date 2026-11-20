@@ -15,6 +15,7 @@ const EXPECTED_DB = "neondb";
 const PROJECT_ID = "purple-base-63944903";
 const PRODUCTION_BRANCH_ID = "br-damp-shape-b3xlh4nr";
 const BACKUP_BRANCH_ID = "br-snowy-credit-b336z950";
+const EXPECTED_BACKUP_EVIDENCE_SHA = "cbb6216e1c86a238d97e9e7bd400c2073fda75d3dd7224a707ee0bbdcc4d8a7a";
 
 function stop(message) {
   console.error("BLOCKED: " + message);
@@ -86,6 +87,7 @@ async function main() {
   if (process.env.MIGRATION_BACKUP_REFERENCE !== BACKUP_BRANCH_ID) {
     stop("MIGRATION_BACKUP_REFERENCE must equal the verified fresh backup branch ID.");
   }
+  if (backupSha !== EXPECTED_BACKUP_EVIDENCE_SHA) stop("Committed backup evidence manifest SHA-256 mismatch.");
   if (process.env.MIGRATION_BACKUP_SHA256 !== backupSha) {
     stop("MIGRATION_BACKUP_SHA256 must equal the SHA-256 of the committed backup evidence manifest.");
   }

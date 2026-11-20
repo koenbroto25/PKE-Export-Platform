@@ -85,7 +85,7 @@ describe("Project-scoped effective permission UX", () => {
     expect(operations).toContain('can("inventory.hold")');
     expect(operations).toContain('can("inventory.update")');
     expect(operations).toContain('can("shipping.update")');
-    expect(operations).not.toContain("/transport-legs?projectId=");
+    expect(operations).toContain("projectId && canLogisticsView ? get(`/transport-legs?projectId=");
     expect(operations).not.toContain("get('/shipment-allocations')");
   });
   it("keeps Admin-only regulatory endpoints out of Project user document workflows", () => {

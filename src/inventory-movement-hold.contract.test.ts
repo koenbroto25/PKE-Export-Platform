@@ -33,4 +33,18 @@ describe("Inventory movement and hold API contracts", () => {
     expect(movementRoute).toContain("Movement unit must match inventory lot unit.");
     expect(movementRoute).toContain("movementQuantity, unit.trim()");
   });
+  it("requires positive receipt quantities and matching lot units on create", () => {
+    const route = api.slice(api.indexOf('app.post("/api/v1/warehouse-receipts"'), api.indexOf('app.patch("/api/v1/warehouse-receipts/:id"'));
+    expect(route).toContain("!Number.isFinite(receivedAmount) || receivedAmount <= 0");
+    expect(route).toContain("SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE");
+    expect(route).toContain("Receipt unit must match inventory lot unit.");
+  });
+
+  it("rejects invalid receipt updates and validates unit against the linked lot", () => {
+    const route = api.slice(api.indexOf('app.patch("/api/v1/warehouse-receipts/:id"'), api.indexOf('app.get("/api/v1/inventory-lots"'));
+    expect(route).toContain("Number(receivedQuantity) <= 0");
+    expect(route).toContain("SELECT project_id, lot_id FROM warehouse_receipts");
+    expect(route).toContain("lotRows[0].unit !== unit.trim()");
+  });
+
 });

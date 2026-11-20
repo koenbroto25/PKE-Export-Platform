@@ -336,3 +336,6 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Source CI: Unit Tests and Dependency Audit passed on source head `172eb7e74ffd629dcbd33f3007932d47c3194995` (216/216 tests; release verifier, migration dry-run, TypeScript and frontend build passed).
 - Pre-migration backup is ready branch clone `br-steep-butterfly-b30wgjc3` at LSN `0/5F05C88`, but not a protected branch or checksummed SQL archive due Neon account quotas.
 - Remaining full acceptance gate: authenticated end-to-end API/browser UAT with real provisioned role accounts. No Vercel deployment or PR merge.
+
+- Final release gate CI on `627da45ad26719f95ee4d86eac083eab5ec91f06`: 217/217 tests across 18 files; Production migration verifier, no-connection dry-run, backend/frontend TypeScript, frontend build and dependency audit all PASS. Runner's live-history gate now accepts contiguous 049–051 and pins all exact 048–051 source checksums.
+- Live Production permission-function verification: Project Admin has Finance view and no Finance create/update/delete; Finance role has Finance view/update. Finance table RLS policies require matching Finance mutation permissions for insert/update/delete. Migration ledger is contiguous 1–51 (35 applied, 16 baselined); migrations 047–051 are applied.

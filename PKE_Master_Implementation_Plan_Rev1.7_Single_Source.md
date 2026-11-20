@@ -9934,3 +9934,9 @@ Do not adopt a large external application merely because it has many features. T
 - Migration runner dry-run: PASS; no database connection attempted and no database changes made. Migrations 048 and 049 are reported `manifest=absent` and remain unapproved for apply.
 - Dependency Audit Evidence: PASS (root and frontend production dependency audits).
 - PR #2 remains OPEN / DRAFT. CI validates source/static/build gates, not authenticated browser UAT or runtime RLS integration.
+### §56.48 — P0 follow-up audit (2026-11-20)
+- Fixed Migration 049 task-notification RLS so PM `project.tasks.resolve` can notify the task owner after resolution/closure.
+- Secured `/transport-legs`: Project ID required, `logistics.view` required, no global/unscoped list. Operations loads transport legs only for the active Project; trip creation is available to `record_truck_trips` users and disabled if no actual leg exists.
+- Latest PR #2 CI head `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f`: 214/214 tests, backend/frontend TypeScript, frontend build, ledger verification, dry-run and dependency audit all PASS.
+- Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; Migration 049 SHA-256 `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Both unapproved and not applied. Production remains at 047.
+- No Production database connection or Vercel deployment was made. P0 remains pending exact migration approvals, sequential apply after backup, and runtime role/Project isolation UAT.

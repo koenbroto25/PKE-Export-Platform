@@ -11,6 +11,9 @@ const fail = (message) => { console.error("FAIL: " + message); process.exitCode 
 const baseline = readJson("migration_manifest_001_027.json");
 const ledger = readJson("migration_history_manifest_001_047.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
+const migration052Runner = fs.readFileSync(path.join(root, "scripts/apply-migration-052.mjs"), "utf8");
+const latestLedger = JSON.parse(fs.readFileSync(path.join(root, "migration_history_manifest_001_051.json"), "utf8"));
+const backupEvidence = JSON.parse(fs.readFileSync(path.join(root, "docs/audits/NEON_PRE_052_BACKUP_MANIFEST_20261120.json"), "utf8"));
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
 if (ledger.applied_count !== 47 || ledger.entries.length !== 47) fail("Production history ledger must contain exactly 47 entries.");
@@ -163,6 +166,32 @@ if (!runner.includes("[49, 50, 51].includes(applied.rows.length)")) {
   fail("Migration status mode does not accept exact verified Production ledger lengths 049-051.");
 }
 
+if (latestLedger.project_id !== "purple-base-63944903" ||
+    latestLedger.branch_id !== "br-damp-shape-b3xlh4nr" ||
+    latestLedger.applied_count !== 51 || latestLedger.entries?.length !== 51 ||
+    latestLedger.entries[50]?.filename !== "051_task_notification_recipient_rls_helper.sql" ||
+    latestLedger.entries[50]?.sha256 !== "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927") {
+  fail("Migration 052 release requires the exact verified 001-051 Production ledger.");
+}
+if (backupEvidence.backup_branch_id !== "br-snowy-credit-b336z950" ||
+    backupEvidence.backup_branch_state !== "ready" ||
+    backupEvidence.migration_052_applied !== false ||
+    JSON.stringify(backupEvidence.production_counts) !== JSON.stringify(backupEvidence.backup_counts)) {
+  fail("Migration 052 release requires verified fresh Production backup parity evidence.");
+}
+for (const token of [
+  "MIGRATE_052_CONFIRM", "MIGRATION_052_APPROVED_SHA256",
+  "MIGRATION_052_APPROVAL_REFERENCE", "MIGRATION_BACKUP_REFERENCE",
+  "MIGRATION_BACKUP_SHA256", "pg_advisory_lock", "await client.query(body)",
+  'await client.query("COMMIT")', 'await client.query("ROLLBACK")',
+]) {
+  if (!migration052Runner.includes(token)) fail("Dedicated Migration 052 runner missing safety guard: " + token);
+}
+if (hashFile("migrations/052_funder_finance_report_scope_isolation.sql") !==
+    "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b") {
+  fail("Migration 052 exact approved SHA-256 mismatch.");
+}
+
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028 and verified Production history 001-047 are contiguous; exact source hashes 036-052 are pinned; Production ledger extension 048-051 is checked by the release runner; Migration 052 is prepared-only pending exact owner approval and backup.");
+console.log("PASS: baseline 001-028, verified Production history 001-047, exact ledger 048-051, fresh backup evidence and dedicated fail-closed Migration 052 runner are verified.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

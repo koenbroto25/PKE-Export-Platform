@@ -54,3 +54,28 @@ Migration 047's `pke_guard_finance_role_permissions()` trigger restricts `financ
 - Backup evidence SHA-256: `cbb6216e1c86a238d97e9e7bd400c2073fda75d3dd7224a707ee0bbdcc4d8a7a`.
 - Canonical post-apply ledger: `migration_history_manifest_001_052.json`.
 - No Vercel deployment, Production promotion, or PR merge was performed.
+
+
+## Owner-policy resolution and Migration 053 preparation
+
+### Decision adopted for the source policy
+The Project Admin boundary is **Project administration and access/configuration only**, not broad business-data administration. This follows the approved role-governance design baseline: Platform/App Admin appoints the PM and governs central security ceilings; PM configures the operational role composition; technical role owners retain their domain authority. Project Admin therefore remains read-only for Accounting and Reports, just as it is read-only for Finance.
+
+Allowed Project Admin read permissions:
+- `accounting.view`
+- `reports.view`
+- legacy `report.view`
+- existing `finance.view`
+
+Denied Project Admin mutation permissions:
+- all `accounting.*` except `accounting.view` (including create/update/delete/post)
+- all `reports.*` except `reports.view` (including create/update/delete)
+
+Finance role grants, payment permissions, PM permissions and other role grants are not changed by this policy package. This is deliberately least-privilege and preserves domain ownership rather than making Project Admin a second Finance/Accounting operator.
+
+### Migration 053 source status
+- Added `migrations/053_project_admin_accounting_reports_read_only.sql` to the existing branch.
+- The migration installs a SECURITY DEFINER trigger guard with restricted `search_path`, revokes PUBLIC EXECUTE, grants EXECUTE to `app_runtime_secure`, removes existing Project Admin Accounting/Reports mutation grants, and ensures read-only view grants.
+- Added canonical Project Admin template read permissions and explicit regression contract tests.
+- **PREPARED ONLY — NOT APPLIED TO NEON PRODUCTION.** Production DDL/permission DML requires a separate approval of the exact SQL SHA-256 after source CI and isolated backtest evidence.
+- No Production role grants, role assignments, business data, or schema were changed for this policy decision.

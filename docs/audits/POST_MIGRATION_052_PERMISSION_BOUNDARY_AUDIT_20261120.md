@@ -88,3 +88,27 @@ Finance role grants, payment permissions, PM permissions and other role grants a
 - Within the same Unit Tests workflow: Production migration release verifier PASS; applied Migration 052 + pre-apply backup verifier PASS; migration runner dry-run PASS; backend TypeScript PASS; frontend TypeScript PASS; frontend production build PASS.
 - Dependency Audit Evidence run `44766201241`: SUCCESS — root and frontend production dependency audit steps plus full dependency-tree audit/evidence upload completed.
 - Migration 053 remains prepared-only. This CI is a source/static contract backtest; no SQL was applied to Neon Production, no role grants were changed, and no isolated Neon branch was modified.
+
+
+## Migration 053 isolated Neon backtest — 2026-11-20
+
+### Test environment
+- Neon project: `purple-base-63944903`.
+- Neon test branch used: `br-young-boat-b3re832d` (`p0-preview-uat-20261120`), an existing UAT clone of Production.
+- Attempt to create a separate temporary branch was blocked by Neon `branches limit exceeded`. To avoid deleting or overwriting another branch, the existing UAT clone was used as the isolated test branch. It was confirmed to have 0 written bytes before testing.
+- The UAT clone was initially at migration ledger 051. Applied the already-approved Migration 052 to the UAT clone only, recorded exact row 52 and SHA, then applied Migration 053. This made the test stack 001–053 without touching Production.
+- Migration 053 exact SHA-256: `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`.
+
+### Backtest results
+- Test branch migration ledger: contiguous through 053; row 52 and row 53 filenames/SHA/status verified.
+- Both Project Admin role definitions: exactly 3 read grants (`accounting.view`, `reports.view`, `report.view`) and 0 Accounting/Reports write/post grants.
+- Trigger negative tests: denied 4 forbidden inserts (accounting.update and reports.delete on each Project Admin role) and denied 2 privilege-escalation updates.
+- Trigger positive tests: allowed read-only permission rows to remain/update; no test rows persisted.
+- Effective permission helper for the active Project Admin assignment: Finance/Accounting/Reports view allowed; Finance update, Accounting create/update/delete/post and Reports create/update/delete denied.
+- Function security: SECURITY DEFINER true; `search_path=pg_catalog, public`; EXECUTE granted to `app_runtime_secure`; PUBLIC EXECUTE false.
+- Finance role grant matrix matched Production exactly. All other non-Funder, non-Project-Admin role grants also matched Production exactly (200 permission grants on each side).
+- Production isolation check: Production ledger remains 052; no Migration 053 guard function exists there; Project Admin still has 7 write grants per Project, confirming no test DDL/DML leaked to Production.
+- No business records, assignments, memberships, or Project rows were created or modified. The test branch retains Migration 053 for review; it was not deleted because it is the pre-existing UAT branch, not a newly created disposable branch.
+
+### Result
+**PASS — isolated Migration 053 database backtest.** This is evidence for a separate Production release approval; it does not authorize applying Migration 053 to Neon Production.

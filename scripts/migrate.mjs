@@ -245,7 +245,7 @@ async function main() {
       const approved048 = "048_buyer_accounting_ap_ar_document_hardening.sql";
       const approved048Sha = "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3";
       const approved049 = "049_project_work_item_task_engine.sql";
-      const approved049Sha = "4d4cd7a877665986f10c3068ba8dd86332eff8c22b00214d45a45806fac276a8";
+      const approved049Sha = "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });

@@ -30,7 +30,7 @@ describe("Migration 052 release safety contract", () => {
     expect(manifest.entries).toHaveLength(51);
     expect(manifest.entries[50]).toMatchObject({
       id: 51,
-      filename: "051_task_notification_rls_helper.sql",
+      filename: "051_task_notification_recipient_rls_helper.sql",
       sha256: "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927",
       status: "applied",
     });

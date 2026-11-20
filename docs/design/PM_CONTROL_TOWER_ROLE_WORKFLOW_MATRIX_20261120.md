@@ -145,18 +145,18 @@ Do not display zero for missing data. Distinguish `0`, `not reported`, `not inte
 
 Use `user_notifications` as the recipient inbox/delivery projection, not the task record. Notifications carry `work_item_id`; read status is distinct from task acknowledgement or completion.
 
-### Proposed permission boundaries (require catalogue/DB review before implementation)
+### Implemented/prepared permission boundaries (Migration 049; Production activation gated)
 
-| Permission | PM | Assigned operational role/user | Project Admin | Internal Auditor |
+| Permission / capability | PM | Assigned operational role/user | Project Admin | Internal Auditor |
 |---|---|---|---|---|
-| `project.tasks.view` | Project-wide queue | Own/assigned-role queue only | Read-only governance view only if explicitly approved | Read-only audit view |
-| `project.tasks.create` | Yes | No, except approved system-generated exception | No by default | No |
-| `project.tasks.assign` | Yes, within Project's active role assignments | No | No by default | No |
-| `project.tasks.acknowledge` | Yes for own/PM-assigned items | Yes for assigned item | No by default | No |
-| `project.tasks.update` | Coordination status/comment, not source transaction | Own assigned work item only | No by default | No |
-| `project.tasks.resolve` | Confirm closure where permitted | Submit completion evidence; closure rules depend on work type | No by default | No |
-| `project.tasks.escalate` | Yes | Raise blocker to PM | No by default | View event only |
-| `project.tasks.audit.view` | Project-level summary | No | Governance read only if approved | Yes, read only |
+| Project-wide task visibility (project.tasks.view) | Yes, within the selected Project | No project-wide list; row visibility is limited by active owner role and assignee | No implicit grant | No implicit grant; audit access requires a separately approved policy |
+| Create (project.tasks.create) | Yes | No | No | No |
+| Assign/reassign (project.tasks.assign) | Yes, only to active Project role assignments | No | No | No |
+| Acknowledge/start/block/submit/comment (project.tasks.update plus active owner-role/assignee check) | Coordination/comment where API allows | Yes, only for own active assigned-role task; explicit assignee narrows to that user | No | No |
+| Resolve/close/reopen/cancel (project.tasks.resolve) | Yes; resolve only after submission, close only after resolution | No | No | No |
+| Escalate (project.tasks.escalate) | Yes | Assigned owner may escalate own task; PM may escalate Project tasks | No | No |
+
+There is no separate project.tasks.acknowledge or project.tasks.audit.view permission in the current implementation. Acknowledgement is an action under project.tasks.update; Project Admin and Internal Auditor receive no implicit task permissions.
 
 Role-specific task permissions must not be confused with source-record permissions. For example, acknowledging a QA task does not grant `quality.result.review`; completing a Finance task does not grant `finance.update`.
 
@@ -178,7 +178,7 @@ Role-specific task permissions must not be confused with source-record permissio
 5. Define source adapters and event triggers for current entities: contract/cycle, CoB, inventory/holds/reservations, truck trip/checkpoints, shipment allocations, documents, AP/AR, Cash Advance and journals.
 6. Keep quality/production, vessel/loading/laytime, LC discrepancy/presentation, payment execution and bank reconciliation as `unavailable` until their source workflows exist.
 7. Complete the release gate for the implemented task engine: review/approve exact Migration 048 and 049 SQL hashes, verify backup, apply sequentially, then run authenticated RLS and workflow UAT before enabling Production use.
-8. Build role work queues from the same task engine; do not create separate task silos per dashboard.
+8. Verify that My Work and PM queues consume the same task engine and preserve active-role, explicit-assignee and Project isolation; do not create separate task silos per dashboard.
 9. Add isolated synthetic backtests for multi-role, multi-Project, expired/revoked assignment, PM reassignment, role queue isolation, due-date escalation, duplicate events, Finance maker-checker, QA independence and external object scope.
 10. Only after native workflows are complete, re-evaluate optional chart/table/map libraries. No ERP/PM platform replacement is recommended at this stage.
 

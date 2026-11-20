@@ -1785,9 +1785,11 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
     const access = checks.rows[0];
     if (action === "assign" && !access.can_assign) return res.status(403).json({ error: "Task assignment requires project.tasks.assign." });
     if (["resolve","close","reopen","cancel"].includes(action) && !access.can_resolve) return res.status(403).json({ error: "Task resolution requires project.tasks.resolve." });
-    if (action === "escalate" && !access.is_assigned && !access.can_update) return res.status(403).json({ error: "Only the assigned owner or PM may escalate this task." });
-    if (!["assign","resolve","close","reopen","cancel","escalate"].includes(action) && !access.is_assigned && !access.can_update)
-      return res.status(403).json({ error: "Only the assigned owner or PM may update this task." });
+    if (action === "escalate" && !access.is_assigned && !access.can_escalate) return res.status(403).json({ error: "Only the assigned owner or PM may escalate this task." });
+    if (["acknowledge","start","block","submit"].includes(action) && !access.is_assigned)
+      return res.status(403).json({ error: "Operational status transitions must be performed by the assigned active role/user." });
+    if (action === "comment" && !access.is_assigned && !access.can_update)
+      return res.status(403).json({ error: "Only the assigned owner or PM may comment on this task." });
     if (["resolved","closed","cancelled"].includes(item.status) && action !== "reopen") return res.status(409).json({ error: "Terminal task must be reopened before further action." });
 
     let status = item.status, roleCode = item.owner_role_code, assignee = item.assignee_user_id, due = item.due_at, priority = item.priority;

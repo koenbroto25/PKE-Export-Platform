@@ -228,3 +228,12 @@ Exact executable source head: `b66d46c880fb91106a11707c6e2fbc2095e85a29`.
   - Both dependency-tree audit steps passed.
 - This is source/static CI only. It does not verify concurrent DB behavior, live API RLS, real warehouse receipts, inventory balances, or Preview/browser acceptance.
 - Source status for this checkpoint: **PASS**. DB/API integration and authenticated UAT remain **NOT VERIFIED / BLOCKED EXTERNAL**.
+
+
+### Production data preflight — read-only, 2026-11-20
+
+Read-only aggregate query on Neon Production branch `br-damp-shape-b3xlh4nr` (project `purple-base-63944903`) checked receipt/movement/hold integrity predicates:
+- `warehouse_receipts`: 1 row; 0 invalid (received quantity positive, unit non-empty, status in allowed enum).
+- `inventory_movements`: 1 row; 0 invalid (quantity positive, unit non-empty, movement type/status in allowed enums).
+- `inventory_holds`: 0 rows; 0 invalid.
+No row values were read or changed. This confirms Production is not literally empty in the first two tables, even though no invalid values were found. Do not assume these rows are disposable test data; inspect provenance/ownership before any cleanup or backfill. No migration 052 or other DDL was applied.

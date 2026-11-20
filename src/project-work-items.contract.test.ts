@@ -121,6 +121,7 @@ describe("Project work item task engine contract", () => {
     expect(inventoryMigration).toContain("created_by = COALESCE(created_by, placed_by)");
     expect(inventoryMigration).toContain("ALTER COLUMN idempotency_key SET NOT NULL");
     expect(inventoryMigration).toContain("CREATE UNIQUE INDEX IF NOT EXISTS inventory_holds_idempotency_key_uidx");
+    expect(crypto.createHash("sha256").update(inventoryMigration).digest("hex")).toBe("e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab");
     const holdApi = api.slice(api.indexOf('app.post("/api/v1/inventory-holds"'), api.indexOf("// Shipment allocations (P06)"));
     expect(holdApi).toContain("!actorId");
     expect(holdApi).toContain("hold_type, quantity, unit_code, reason, status, placed_by, placed_at");

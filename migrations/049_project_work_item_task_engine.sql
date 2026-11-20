@@ -65,7 +65,9 @@ CREATE TABLE IF NOT EXISTS public.project_work_items (
   CONSTRAINT project_work_items_source_pair_check
     CHECK ((source_entity_type IS NULL) = (source_entity_id IS NULL)),
   CONSTRAINT project_work_items_dedupe_unique
-    UNIQUE (project_id, dedupe_key)
+    UNIQUE (project_id, dedupe_key),
+  CONSTRAINT project_work_items_id_project_unique
+    UNIQUE (id, project_id)
 );
 
 CREATE INDEX IF NOT EXISTS project_work_items_project_status_due_idx
@@ -77,7 +79,7 @@ CREATE INDEX IF NOT EXISTS project_work_items_role_status_idx
 
 CREATE TABLE IF NOT EXISTS public.project_work_item_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  work_item_id uuid NOT NULL REFERENCES public.project_work_items(id) ON DELETE RESTRICT,
+  work_item_id uuid NOT NULL,
   project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   event_type text NOT NULL
     CHECK (event_type IN (
@@ -87,8 +89,24 @@ CREATE TABLE IF NOT EXISTS public.project_work_item_events (
   actor_user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
   reason text,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  occurred_at timestamptz NOT NULL DEFAULT now()
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT project_work_item_events_same_project_fkey
+    FOREIGN KEY (work_item_id, project_id)
+    REFERENCES public.project_work_items(id, project_id) ON DELETE CASCADE
 );
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'user_notifications_work_item_fkey'
+  ) THEN
+    ALTER TABLE public.user_notifications
+      ADD CONSTRAINT user_notifications_work_item_fkey
+      FOREIGN KEY (work_item_id) REFERENCES public.project_work_items(id) ON DELETE SET NULL;
+  END IF;
+END $;
+CREATE INDEX IF NOT EXISTS user_notifications_work_item_id_idx
+  ON public.user_notifications (work_item_id) WHERE work_item_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS project_work_item_events_item_time_idx
   ON public.project_work_item_events (work_item_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS project_work_item_events_project_time_idx

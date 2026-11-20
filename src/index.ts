@@ -3702,17 +3702,18 @@ app.post("/api/v1/ap-invoices", requireAuth, async (req: express.Request, res: e
   } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 app.patch("/api/v1/ap-invoices/:id/verification", requireAuth, async (req: express.Request, res: express.Response) => {
-  const {verificationStatus,threeWayMatch,disputeReason}=req.body??{};
+  const {verificationStatus,disputeReason}=req.body??{};
   if(!["verified","disputed"].includes(verificationStatus)||(verificationStatus==="disputed"&&!String(disputeReason||"").trim()))return res.status(400).json({error:"Use verified or disputed; disputed requires a reason."});
   try {
     const {rows:s}=await req.db.query("SELECT id,project_id,three_way_match FROM ap_invoices WHERE id=$1::uuid",[req.params.id]);
     if(!s.length)return res.status(404).json({error:"AP invoice not found."});
     if(!(await requireProjectPermission(req,res,s[0].project_id,"finance.update")))return;
-    const matched=typeof threeWayMatch==="boolean"?threeWayMatch:s[0].three_way_match===true;
-    if(verificationStatus==="verified"&&!matched)return res.status(409).json({error:"Three-way match is required before verification.",code:"THREE_WAY_MATCH_REQUIRED"});
-    const {rows}=await req.db.query(`UPDATE ap_invoices SET verification_status=$1,three_way_match=$2,dispute_reason=CASE WHEN $1='disputed' THEN $3 ELSE NULL END,
-      verified_by=$4::uuid,verified_at=now(),updated_by=$4::uuid,updated_at=now() WHERE id=$5::uuid AND project_id=$6::uuid RETURNING *`,
-      [verificationStatus,matched,disputeReason?.trim()||null,req.user?.id||null,req.params.id,s[0].project_id]);
+    // Never trust a client-supplied threeWayMatch flag. The current schema has no Purchase Order master/workflow.
+    const matched=s[0].three_way_match===true;
+    if(verificationStatus==="verified"&&!matched)return res.status(409).json({error:"Verification is blocked until the Purchase Order + Goods Receipt + Supplier Invoice matching workflow is implemented and system-verified.",code:"THREE_WAY_MATCH_WORKFLOW_REQUIRED"});
+    const {rows}=await req.db.query(`UPDATE ap_invoices SET verification_status=$1,dispute_reason=CASE WHEN $1='disputed' THEN $2 ELSE NULL END,
+      verified_by=$3::uuid,verified_at=now(),updated_by=$3::uuid,updated_at=now() WHERE id=$4::uuid AND project_id=$5::uuid RETURNING *`,
+      [verificationStatus,disputeReason?.trim()||null,req.user?.id||null,req.params.id,s[0].project_id]);
     return res.json({apInvoice:rows[0]});
   } catch { return res.status(500).json(internalServerErrorPayload()); }
 });

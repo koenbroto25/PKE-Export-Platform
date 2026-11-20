@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.34 — Parallel revision wave 1–2 CI verified
+# Master Implementation Plan Rev2.35 — Consolidated Finance, RLS and document revision
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.34 (20 November 2026 — Parallel source revision wave 1–2 and CI verified; see §56.40–56.41)  
+**Revision:** 2.35 (20 November 2026 — Consolidated Finance, RLS, documents and OSS evaluation; see §56.42)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -9481,3 +9481,87 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - No test count is asserted here because the returned job-step summary does not include a test count. Use the run logs/artifacts if an exact count is required.
 - Latest code commit has no corresponding Vercel deployment record. The branch-specific Vercel deployment skip remains in effect. No Production deployment or migration was performed.
 - Current status: **parallel revision wave 1–2 source/CI PASS**. This is not consolidated audit PASS, not direct-user CRUD UAT, not provider-backed document integrity PASS, and not overall PKE/F1 completion. The next stage remains consolidated cross-module audit, followed by grouped blocker resolution and final regression.
+
+
+## 56.42 — Consolidated Finance, RLS, document integrity and maritime data architecture — 2026-11-20
+
+**Source branch:** `f1/project-scoped-cob-20261119` (existing branch retained; no new branch).  
+**Code commit validated by CI:** `0268a3dbb055ac38ecf12fa85c13e5b665342986`.  
+**PR #2:** OPEN / DRAFT; no merge.  
+**Production boundary:** No Neon Production DDL/DML, no migration replay, no Vercel deployment, and no synthetic Production business records.
+
+### A. Buyer master-data authority
+- Buyer master records are global legal/commercial reference data. Create/update/delete endpoints require Platform Admin.
+- Project Finance can read only buyers linked to the selected Project through its Contract Program, using Project-scoped `finance.view`; Contract users retain the existing contract-scoped read path.
+- AR invoice creation validates that the Buyer belongs to the Project's Contract Program. It no longer relies on an arbitrary Auth user identity for the Buyer foreign key.
+- Migration 048 adds `ar_invoices.buyer_master_id` and relaxes the legacy `buyer_id` NOT NULL constraint without deleting legacy values.
+
+### B. FX Rates and Chart of Accounts
+- FX Rates and Chart of Accounts are global reference catalogs. Mutations are Platform Admin only; they are not Project Finance transaction CRUD.
+- Project FX Exposure reads/writes use `finance.view/create/update/delete` consistently in the API and the prepared RLS replacement policies.
+- Finance users can read the global FX/COA reference data needed by their Project; they cannot change the shared master catalogs.
+
+### C. Journal Entries and Accounting
+- Journal list and draft creation require Project-scoped `accounting.view` / `accounting.create`.
+- Journal lines can be inserted as a batch, validate one-sided debit/credit values and active COA accounts, and remain attached to a draft entry.
+- Posting requires `accounting.update`, separately assigned per Project. It is intentionally NOT granted automatically to every Accounting role and is not granted to Finance or Project Admin by this revision.
+- Migration 048 adds the missing journal-line INSERT RLS policy tied to the parent Journal Entry and `accounting.create`.
+- Posting remains unavailable to an Accounting user until the owner/admin explicitly assigns the posting permission through the existing Project role-permission process.
+
+### D. Accounts Payable / Accounts Receivable
+- Added Project-scoped AP/AR list/create and status endpoints, Finance permission checks, supplier/Buyer-to-Project validation, and AP/AR panels in the Finance UI.
+- AP invoice verification is fail-closed. The client cannot set a `threeWayMatch` boolean to self-certify a match. Verification returns `THREE_WAY_MATCH_WORKFLOW_REQUIRED` until the system has a real Purchase Order + Goods Receipt + Supplier Invoice matching workflow.
+- AP payment execution, bank reconciliation, AR receipt allocation and settlement posting are not claimed complete by these endpoints. They remain separate accounting/payment workflow work.
+- AR uses `buyer_master_id`; no Auth user is required to represent a legal buyer.
+
+### E. Endpoint/RLS parity audit
+- Added Project-scoped reads for Truck Trips, Warehouse Receipts, Inventory Lots, Inventory Movements, Inventory Holds, Tracking Events and FX Exposures.
+- Corrected API/RLS permission vocabulary mismatches:
+  - Truck Trip create/update: `record_truck_trips`.
+  - Warehouse Receipt create/update/read: `warehouse.receipt.create`, `warehouse.update`, `warehouse.view`.
+  - FX Exposure: `finance.*` rather than the old `fx.*` vocabulary.
+  - Inventory Hold insert: `inventory.hold`.
+  - Tracking Event insert: `record_truck_trips`, or `warehouse.receipt.create` for receipt events.
+- The API referenced an `inventory_holds` table that had no canonical migration. Migration 048 now defines the Project-scoped table, constraints, idempotency key and RLS policies.
+- Added static contract tests for these route/RLS parity requirements. This is not a substitute for controlled runtime role-matrix tests using actual Project Admin, Finance, Accounting, warehouse and logistics identities.
+
+### F. Document and Object Storage integrity
+- Frontend upload flow now computes SHA-256, uses a unique Project-namespaced object key, checks the provider PUT response, and registers the object using the same key.
+- API registration verifies provider HEAD size and streams the actual object bytes through SHA-256 before inserting the document record. A client-provided checksum alone is not accepted as proof.
+- Fixed frontend API path construction for storage presign and document status update calls.
+- Provider verification has automated mock coverage. A live Neon Object Storage end-to-end checksum round-trip is still required before this is called provider-E2E PASS. Failed registration may leave an unreferenced uploaded object; lifecycle cleanup/retention policy is still required.
+
+### G. Frontend/backend permission consistency
+- Added `GET /projects/:projectId/my-permissions`, backed by the prepared SECURITY DEFINER function `pke_current_user_project_permissions`, which returns only the caller's effective permission codes for the requested Project.
+- Finance RAB/FX Exposure actions, AP/AR creation and Journal draft/post actions now use Project permission data for visibility. Backend authorization and RLS remain authoritative; hidden buttons are not treated as security controls.
+- Project role navigation now recognizes active Project role assignments as well as the global account role.
+- Logistics and inventory list requests now carry the selected Project ID; tracking feeds are no longer requested globally.
+
+### H. Migration 048 status — PREPARED ONLY
+- File: `migrations/048_buyer_accounting_ap_ar_document_hardening.sql`.
+- Exact SHA-256: `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`.
+- The SQL is not in the Production applied-migration manifest and has NOT been applied to Neon Production. It is not authorized for execution by this revision.
+- It contains additive AP/AR columns, the missing Inventory Hold table, Buyer/Vendor read/write RLS, global FX/COA master RLS, FX Exposure permission alignment, Truck Trip/Warehouse Receipt/Tracking Event RLS alignment, Journal Line INSERT RLS, and the per-Project permission read function.
+- Before any apply: inspect the exact SQL against the current Production schema and policy names, perform a read-only preflight/backup feasibility check, run on an isolated test database, then request separate owner approval of this exact SHA-256. Do not silently alter the file after approval.
+
+### I. CI evidence
+- Unit Tests run `44715075371`: SUCCESS. All job steps succeeded, including offline security/unit tests, Production migration release verifier, migration runner dry-run (no database connection), backend TypeScript, frontend TypeScript and frontend build.
+- Dependency Audit run `44715075190`: SUCCESS. Root/frontend production dependency audits and full dependency-tree audits completed; evidence uploaded.
+- CI validates the code commit `0268a3dbb055ac38ecf12fa85c13e5b665342986`. It does not validate a Neon Production migration or a live Object Storage round-trip.
+- No Vercel deployment record was requested or created for this branch. PR remains OPEN / DRAFT.
+
+### J. Open-source / external data evaluation — no installation authorized or performed
+1. **AIS-catcher (GPL-3.0)** — candidate for a shore-side AIS receiver using SDR hardware. It outputs AIS/NMEA and supports forwarding to network/database consumers. Its own README labels it a research/hobby project and explicitly says not to rely on it for navigation or safety-of-life. It is suitable only as an experimental local receiver/secondary operational signal, subject to Indonesian radio-reception rules and GPL compliance; it is not a reliable global ship-position feed.
+2. **Global AIS feed** — if the business needs vessel positions across international voyages and multiple oceans, a licensed AIS data provider/feed is the dependable integration path. Evaluate coverage, update latency, historical retention, API SLA, commercial display/redistribution rights, vessel identity quality and cost before choosing a provider. Open-source software alone cannot create global reception coverage.
+3. **MapLibre GL JS** — recommended open-source browser map renderer for vessel, port, PKS, warehouse, truck and shipment views. A separate tile/style provider or self-hosted tile infrastructure is still required; MapLibre is the renderer, not the map-data source.
+4. **PostGIS** — recommended spatial capability for geofences, port/terminal polygons, route geometry, distance and proximity queries, and vessel-position history. Test extension availability and query performance on an isolated Neon test database first; do not issue `CREATE EXTENSION postgis` on Production without explicit approval.
+5. **Finance/ERP** — no second ERP or accounting engine is installed. Keep one authoritative ledger. Complete PKE AP/AR, PO/GRN matching, journal posting, payment obligations, cash/bank reconciliation and audit trails before considering a separate ERP integration; avoid duplicate GL and inconsistent balances.
+
+### Remaining acceptance gates
+- AP three-way matching requires a real Purchase Order and Goods Receipt workflow before invoice verification can be enabled.
+- Accounting posting permission assignment and controlled maker-checker tests remain pending.
+- Execute controlled Project Admin Finance SELECT-only and Finance create/update/delete tests against an isolated runtime role matrix; do not use Production business records as fixtures.
+- Run provider-backed Neon Object Storage checksum E2E, object retention/deletion and orphan cleanup tests.
+- Run full API/RLS runtime matrix across multiple Projects, including cross-Project ID substitution and revoked/expired assignments.
+- Validate PostGIS extension availability and choose an AIS source/coverage model before installing map/geospatial/AIS dependencies.
+- Do not mark overall PKE/F1 complete from this source/CI pass alone.

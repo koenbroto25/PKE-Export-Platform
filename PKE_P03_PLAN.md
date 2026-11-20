@@ -590,3 +590,16 @@ PASS on isolated PostgreSQL validation branch:
 - Historical authentic SQL for migrations 029–035 is still unrecovered. Their reconstruction candidates must not be treated as executable migration sources.
 - No Production synthetic business data, role grants, PM decisions, or workflow decisions were introduced. No Vercel deployment/Production promotion was performed; automatic Preview activity remains canceled/skipped per owner instruction.
 - Remaining: controlled actual-user Project Admin read-only and Finance CRUD runtime validation. Until that is executed, mark live CRUD UAT as NOT RUN, not PASS. PR #2 remains OPEN / DRAFT and unmerged.
+
+
+## 2026-11-20 — Consolidated Finance / RLS / document revision handoff
+
+- Active branch retained: `f1/project-scoped-cob-20261119`; no branch created.
+- Latest code commit: `0268a3dbb055ac38ecf12fa85c13e5b665342986`; GitHub Unit Tests and Dependency Audit both SUCCESS.
+- PR #2 remains OPEN / DRAFT. No merge, Vercel deployment, Neon Production DDL/DML, or synthetic Production business data.
+- Revised Buyer master-data authority, global FX/COA controls, Project Finance FX Exposure, Accounting journal permissions, AP/AR APIs and Finance UI, logistics/inventory RLS parity, Project-scoped read endpoints, and document upload checksum verification.
+- AP verification deliberately remains blocked until the actual Purchase Order + Goods Receipt + Supplier Invoice three-way matching workflow exists. Do not treat a browser-supplied boolean as a match.
+- Prepared Migration 048: `migrations/048_buyer_accounting_ap_ar_document_hardening.sql`, SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. NOT applied and NOT authorized for Production.
+- Open-source evaluation: AIS-catcher (local experimental receiver only; GPL-3.0 and not safety-reliable), MapLibre GL JS (web map renderer), and PostGIS (spatial database extension, subject to Neon test availability). No packages or services installed. Global AIS coverage requires a licensed data feed; source and commercial usage terms must be approved before integration.
+- Remaining gates: AP three-way matching, Accounting posting permission assignment, live Finance role-matrix tests, provider-backed Object Storage E2E, cross-Project RLS runtime matrix, PostGIS/Neon compatibility test, and AIS source selection.
+- Canonical detailed evidence is in Master Implementation Plan Rev2.35 §56.42. Do not declare F1/PKE complete from CI alone.

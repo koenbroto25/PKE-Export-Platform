@@ -318,7 +318,7 @@ function DashboardPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'i
   const portfolio = useLoad<AnyRecord>(() => get('/reports/portfolio'), []);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => get('/truck-trips'), []);
-  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => get('/tracking-events'), []);
+  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId]);
   const recentTrips = (trips.data?.truckTrips || []).slice(0, 5);
   const p = portfolio.data || {};
   const loading = portfolio.loading || projects.loading || trips.loading;
@@ -448,7 +448,7 @@ function ContractsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'i
 
 function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => get('/truck-trips'), []);
-  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => get('/tracking-events'), []);
+  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId]);
   const receipts = useLoad<{ warehouseReceipts?: AnyRecord[] }>(() => get('/warehouse-receipts'), []);
   const lots = useLoad<{ inventoryLots?: AnyRecord[] }>(() => get('/inventory-lots'), []);
   const movements = useLoad<{ inventoryMovements?: AnyRecord[] }>(() => get('/inventory-movements'), []);

@@ -112,3 +112,32 @@ Finance role grants, payment permissions, PM permissions and other role grants a
 
 ### Result
 **PASS — isolated Migration 053 database backtest.** This is evidence for a separate Production release approval; it does not authorize applying Migration 053 to Neon Production.
+
+## Migration 053 Production application and verification — 2026-11-21
+
+### Approval and backup
+- Owner approved exact Migration 053 SHA-256: `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`.
+- The obsolete branch `br-still-fire-b3f62dmo` (`mcp-migration-2026-11-18T16-44-32`) was deleted only after explicit owner confirmation. Follow-up lookup returned branch not found (404), and it was absent from the current branch list.
+- Fresh Production pre-053 backup clone: `br-still-mode-b3fs5q79`, name `pke-production-pre-053-backup-20261121`, state READY, parent Production, parent LSN `0/6283590`.
+- Before applying Migration 053, Production and backup had identical 52-row migration ledgers including SHA/status, identical 165 public base-table inventory, and matching selected core counts: projects 2, project_roles 36, project_role_assignments 24, project_role_permissions 548, warehouse_receipts 1, inventory_movements 1, inventory_holds 0. This is clone/structural parity evidence, not a row-by-row cryptographic data dump.
+- Backup is retained at Migration 052; it is the recovery point immediately before Migration 053.
+
+### Atomic Production application
+- Applied Migration 053 to Production branch `br-damp-shape-b3xlh4nr` in one transaction.
+- Transaction preflight required exactly 52 existing ledger rows, no row 53, and exact Migration 052 filename/SHA/status.
+- Created the SECURITY DEFINER guard function, revoked PUBLIC EXECUTE, granted EXECUTE to `app_runtime_secure`, installed the trigger, removed forbidden Project Admin Accounting/Reports write grants, ensured read-only grants, inserted ledger row 53 and advanced the sequence.
+- In-transaction postconditions checked the two Project Admin role definitions, allowed read-grant count, absence of forbidden grants, unchanged Finance grant fingerprint, function security/privileges, trigger existence, and exact Migration 053 ledger row.
+
+### Post-apply verification
+- Production ledger: 53 rows, IDs 1–53 contiguous and unique.
+- Row 53: `053_project_admin_accounting_reports_read_only.sql`, SHA-256 `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`, status `applied`.
+- Both Project Admin roles: 3 read grants (`accounting.view`, `reports.view`, `report.view`) and 0 Accounting/Reports mutation grants.
+- Project-role permission count: 548 before, 534 after; 14 prohibited grants removed.
+- Finance role: 36 grants; fingerprint `f13bc444661ff8e4fe093e0c903f51e2` unchanged from pre-apply.
+- Guard function: SECURITY DEFINER true; `search_path=pg_catalog, public`; runtime EXECUTE true; PUBLIC EXECUTE false; trigger exists.
+- Production trigger backtest: attempted `accounting.update` grant was rejected by the guard; a no-op update on an allowed `accounting.view` permission completed. Test was contained in a DO block and did not add a permission grant.
+- Backup branch still has ledger 052 and no row 053. UAT test branch remains separately at ledger 053.
+- No Production project, membership, role assignment, warehouse receipt, inventory movement, or business fixture was added by Migration 053. Finance permissions remained unchanged.
+- No Vercel deployment, PR merge, or GitHub branch creation was performed.
+
+**Result: PASS — Migration 053 applied and Production postconditions verified.**

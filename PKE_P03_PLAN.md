@@ -936,7 +936,7 @@ PASS on isolated PostgreSQL validation branch:
 - Policy decision: Project Admin is a Project administration/access-configuration role, not a broad business-data administrator. PM configures Project operational role composition within central security ceilings; technical role owners retain their domain authority.
 - Project Admin may read `finance.view`, `accounting.view`, `reports.view` and legacy `report.view`. Project Admin may not create, update, delete or post Accounting records, nor create/update/delete Reports.
 - Finance role permissions and payment authority are not expanded or changed by this decision.
-- Prepared Migration 053 on the existing F1 branch to enforce the database permission boundary and clean existing Project Admin write grants. Source regression tests and canonical role-template changes are included.
+- Prepared Migration 053 on the existing F1 branch to enforce the database permission boundary and clean existing Project Admin write grants. Exact SHA-256: `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`. Source regression tests and canonical role-template changes are included.
 - Migration 053 is PREPARED ONLY. Do not apply to Neon Production until the exact SHA-256 is reviewed and separately approved.
 - Source CI on previous head `f8aa58491049e6169d029868ee176cacfbd41992`: Unit Tests run `44765235288` SUCCESS (all steps including 052 release verifier, dry-run, backend/frontend typecheck and frontend build); Dependency Audit run `44765235210` SUCCESS. Subsequent Migration 053 changes require a fresh CI run on the new head.
 - PR #2 remains OPEN / DRAFT; no merge or Vercel deployment/promotion.

@@ -33,6 +33,8 @@ jobs:
         run: npm run verify:release-migrations
       - name: Verify applied Migration 052 and pre-apply backup evidence
         run: npm run verify:migration-052
+      - name: Verify prepared Migration 054 permission boundary contract
+        run: npm run verify:migration-054
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
       - name: Typecheck backend API

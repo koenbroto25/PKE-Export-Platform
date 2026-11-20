@@ -56,7 +56,10 @@ describe("Parallel revision security contracts", () => {
     expect(routeBlock("get", "/api/v1/rab")).toContain('requireProjectPermission(req, res, projectId, "finance.view")');
   });
   it("limits platform-wide reports and global document reference writes to Platform Admin", () => {
-    for (const route of ["/api/v1/reports/portfolio", "/api/v1/reports/export/projects", "/api/v1/reports/kpis/operational", "/api/v1/reports/kpis/financial", "/api/v1/reports/historical", "/api/v1/reports/scheduler/runs"]) {
+    const portfolio = routeBlock("get", "/api/v1/reports/portfolio");
+    expect(portfolio).toContain("GLOBAL_PORTFOLIO_REPORT_OUT_OF_SCOPE");
+    expect(portfolio).not.toContain("requireAdmin");
+    for (const route of ["/api/v1/reports/export/projects", "/api/v1/reports/kpis/operational", "/api/v1/reports/kpis/financial", "/api/v1/reports/historical", "/api/v1/reports/scheduler/runs"]) {
       expect(routeBlock("get", route).split("\\n", 1)[0]).toContain("requireAdmin");
     }
     expect(routeBlock("post", "/api/v1/export-document-types").split("\\n", 1)[0]).toContain("requireAdmin");

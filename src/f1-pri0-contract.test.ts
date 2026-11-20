@@ -243,9 +243,9 @@ describe("F1 / PRI-0 multi-role Admin UI contract", () => {
     expect(FRONTEND_APP_SRC).toContain("Keanggotaan dan role lain tetap dipertahankan.");
     expect(FRONTEND_APP_SRC).toContain("/admin/projects/${selectedProjectId}/pm-appointment");
     expect(FRONTEND_APP_SRC).toContain("Tunjuk Project Manager");
-    expect(FRONTEND_APP_SRC).toContain("Masa berlaku role (opsional)");
-    expect(FRONTEND_APP_SRC).toContain("expiresAt: new Date(memberAddExpiresAt).toISOString()");
-    expect(FRONTEND_APP_SRC).toContain("role.role_code !== 'pm'");
+    expect(FRONTEND_APP_SRC).toContain("Platform Admin hanya menunjuk atau mengganti Project Manager.");
+    expect(FRONTEND_APP_SRC).toContain("/admin/projects/${selectedProjectId}/pm-governance");
+    expect(FRONTEND_APP_SRC).not.toContain("Masa berlaku role (opsional)");
   });
 });
 
@@ -298,11 +298,12 @@ describe("F1 / PRI-0 multi-role security backtest", () => {
     const adminStart = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/members"');
     const pmStart = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
     const adminBlock = INDEX_SRC.slice(adminStart, pmStart);
-    expect(adminBlock).toContain("before.is_active !== true");
-    expect(adminBlock).not.toContain("SET is_active = true, expires_at = NULL");
+    expect(adminBlock).toContain("PLATFORM_ADMIN_PM_APPOINTMENT_ONLY");
+    expect(adminBlock).not.toContain("INSERT INTO public.project_role_assignments");
     const pmEnd = INDEX_SRC.indexOf('app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate"', pmStart);
     const pmBlock = INDEX_SRC.slice(pmStart, pmEnd);
     expect(pmBlock).toContain("candidateMembership.deactivated_at");
+    expect(pmBlock).toContain("MEMBERSHIP_REACTIVATION_REQUIRED");
     expect(pmBlock).not.toContain("SET is_active = true, expires_at = NULL");
   });
 

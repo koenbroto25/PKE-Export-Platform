@@ -151,7 +151,7 @@ describe("Project-scoped effective permission UX", () => {
     const roleCodes = [...roleSource.matchAll(/role\("([^"]+)"/g)].map(match => match[1]);
     expect(roleCodes.length).toBeGreaterThan(25);
     for (const roleCode of roleCodes) expect(dashboardSource).toContain(`${roleCode}: { label:`);
-    expect(dashboardSource).toContain("Boolean(projectId)]");
+    expect(dashboardSource).toContain("Boolean(projectId && canViewTasks)]");
     expect(dashboardSource).toContain("activeUser?.platformAdmin === true ? false");
     expect(dashboardSource).toContain("sourceFailed(key) ? '—'");
     expect(dashboardSource).toContain("Antrean tugas saya");

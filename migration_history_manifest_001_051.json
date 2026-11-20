@@ -1,0 +1,378 @@
+{
+  "schema_version": 1,
+  "purpose": "verified_production_history_only_not_sql_source",
+  "project_id": "purple-base-63944903",
+  "branch_id": "br-damp-shape-b3xlh4nr",
+  "database": "neondb",
+  "verified_at": "2026-11-20",
+  "applied_count": 51,
+  "source_recovery_note": "Production migration_history was re-read directly on 2026-11-20 and contains 47 contiguous rows through Migration 047. Migrations 029-035 remain recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migrations 042-047 are applied in Production with exact SHA-256 source verification. Migration 047 was applied atomically to Neon Production on 2026-11-20 after explicit owner approval; exact source SHA-256 verified before execution and ledger row 47 verified after commit. No pending migrations remain. Production migration_history was re-read on 2026-11-20 and confirmed contiguous through Migration 051; rows 048-051 match exact source SHA-256 pins and applied statuses. Migration 052 remains pending explicit owner SHA approval.",
+  "entries": [
+    {
+      "id": 1,
+      "filename": "001_initial_schema.sql",
+      "sha256": "ccbd616845ba0536f871fe3ff359ae366a0aa553e4313252252f2771220cf15e",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 2,
+      "filename": "002_phase2_business_foundations.sql",
+      "sha256": "ec17f4d384856e35ccc27a0e0eba274dc2c05ad2b7fbabaf4a33a4f59f6fa85a",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 3,
+      "filename": "003_rls_policies.sql",
+      "sha256": "2e713822b80c2aa90a8d9c38cf9a6fd4676bb2a53ed10119ccaa05b123e6082e",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 4,
+      "filename": "004_operational_workflow.sql",
+      "sha256": "5ce63825b19627f675d3c2b9565d3e2c4a29310490ac1fcabe9ee65ca71477c6",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 5,
+      "filename": "005_inventory_and_receipts.sql",
+      "sha256": "7c7c3d235ff34ac89f626a038589aefa8b2c143ce963b6967c6e2e53433f159d",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 6,
+      "filename": "006_workflows_and_stages.sql",
+      "sha256": "5cf15ff15587ed92d35cb620ea7bb32cc70adeb72fd82ba7197cb0717e0a4432",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 7,
+      "filename": "007_rls_operational_policies.sql",
+      "sha256": "52f4fe940c04ed0209b6d2f6f421bee43f906cbf0acedea36c798c664dd0f313",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 8,
+      "filename": "008_financial_master_data.sql",
+      "sha256": "5d2d954dfd6914a160d4bb523854f09c31bd481bc186a0d94270a13217058146",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 9,
+      "filename": "009_cost_obligations_and_payment.sql",
+      "sha256": "0838345126b741db7824141d7c730ad1d99bbe54983f373514f3896770294099",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 10,
+      "filename": "010_ap_ar_cash.sql",
+      "sha256": "5a43330a656752974718fd0aa10d2f1209a6ee337e424795c713008c4f9c0b51",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 11,
+      "filename": "011_cash_advances_and_schedules.sql",
+      "sha256": "fef8eaab7410c2dcde8c040d5a0640f262fe93dffdc333dd762b1b54f68fd030",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 12,
+      "filename": "012_accounting_ledger_and_fx.sql",
+      "sha256": "0f91fc9c29dbcc696e3729e2c77bad8163bfd0a8bda9d000587fd4772e80d03d",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 13,
+      "filename": "013_fx_management.sql",
+      "sha256": "8458d61adbf26910bf6ca8190cffe04b4ce4e48862433455acc0399e5b24d75b",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 14,
+      "filename": "014_settlement_and_profitability.sql",
+      "sha256": "124b7536de59efa7f47d7e1bad21cec89d296915bfa4fb208fcbfeee6b14d277",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 15,
+      "filename": "015_regulatory_source_registry.sql",
+      "sha256": "5663504dc1393f683d337c631b08889f0e844eee786f7ee4950c08395f730638",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 16,
+      "filename": "016_reporting_bi.sql",
+      "sha256": "78513bce29a7df12ce283e9c9eef088622592d3d12646a2cf9acffbebb76d0d1",
+      "status": "baselined",
+      "source_sha_verified": true
+    },
+    {
+      "id": 17,
+      "filename": "017_neon_auth_identity_mapping.sql",
+      "sha256": "ca5cda943326a8873958cab083054d4b7912ba11111c3642bc5f4d67d42c9f4d",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 18,
+      "filename": "018_rls_request_transaction.sql",
+      "sha256": "f7185310a2391a14921eca2b68c31bd778948d03c7cd67104de716cf798464c6",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 19,
+      "filename": "019_project_auth_rbac_export_ops.sql",
+      "sha256": "84b2d789cf234cb30a2ba09260c19ee47518fab3554f965545a5d9fbb429e0ed",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 20,
+      "filename": "020_runtime_default_privileges.sql",
+      "sha256": "65006cff08490d8cd987d781633e921fa5763ab2422dd830c6e7bfb4bdb82778",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 21,
+      "filename": "021_secure_runtime_auth_resolver.sql",
+      "sha256": "ec01b5bc695ce1b8839ce59bd1532d751338351446d594d8d1e1d404ae23e054",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 22,
+      "filename": "022_persistent_user_notifications.sql",
+      "sha256": "8f5f762ac52152d022f6d5c8444304307b5b0ae623c61a6ed43f0203537c7475",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 23,
+      "filename": "023_accept_project_invitation.sql",
+      "sha256": "f1ad644c003a39401743e445651722e75050d6c61148711edee3fd48d9400906",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 24,
+      "filename": "024_tracking_evidence_write_policies.sql",
+      "sha256": "6879e593729d93e661d0222f3f0d3975b02a598180f82947bf3ea2402afc566e",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 25,
+      "filename": "025_project_rbac_read_after_write.sql",
+      "sha256": "4b03a64bd628ce11e6a7dd4223e8a60b49a8f1e1c0af332bcf2cc7e6a6c49f35",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 26,
+      "filename": "026_fix_invitation_acceptance_ambiguity.sql",
+      "sha256": "c01f4a1f6012946c2c68c6403ff6eb3bfa63a17f8c0324066be121bdb5adf669",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 27,
+      "filename": "027_workflow_and_shipment_child_rls.sql",
+      "sha256": "c7c4b09ae3a18dc94a9a9787bfefcfa2f658312e689d1d27c2be8ab397ca3c0d",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 28,
+      "filename": "028_project_foundation_module_config.sql",
+      "sha256": "2d9c5edcf8a46e850e1948ce0fc9cabd2c299a07edbae50eaa4c0bf6ba927812",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 29,
+      "filename": "029_restrict_set_rls_context_public_execute.sql",
+      "sha256": "d7b9376495a36e5bf5e90539403b674eb39f1df01308744a262eb6519f4ea5d1",
+      "status": "applied",
+      "source_sha_verified": false
+    },
+    {
+      "id": 30,
+      "filename": "030_validate_production_foreign_keys.sql",
+      "sha256": "2bb2f8fcc9f947669b1712214d425679e9b6385269d4e471f77f09a028b6b499",
+      "status": "applied",
+      "source_sha_verified": false
+    },
+    {
+      "id": 31,
+      "filename": "031_harden_rls_context_function.sql",
+      "sha256": "90a07b35c9b40758ad33c4e6c28407c341dcdd67310c8ead76fe5fe965bde788",
+      "status": "applied",
+      "source_sha_verified": false
+    },
+    {
+      "id": 32,
+      "filename": "032_seed_core_currency_reference_data.sql",
+      "sha256": "1944c163d1185e8bf606b411b305f36a0c732d76118934db0a9c57dbb5328f48",
+      "status": "applied",
+      "source_sha_verified": false
+    },
+    {
+      "id": 33,
+      "filename": "033_candidate_tenant_scoped_relations_rls_gps_reports.sql",
+      "sha256": "bc759884315ecf3b0716f04581b7677e3ca4ec1dec2c683fab777ca848523029",
+      "status": "applied",
+      "source_sha_verified": false
+    },
+    {
+      "id": 34,
+      "filename": "034_harden_trigger_function_execute_privileges.sql",
+      "sha256": "c0265dfe554e55bebe5061ea90a41e74c10e1ff353616174cbfd0f590d46596a",
+      "status": "applied",
+      "source_sha_verified": false
+    },
+    {
+      "id": 35,
+      "filename": "035_remove_redundant_ai_rls_policies.sql",
+      "sha256": "6f4425f297202a5618e4914705ea610d2058ef0fe01ebab5468af5824a84fa45",
+      "status": "applied",
+      "source_sha_verified": false
+    },
+    {
+      "id": 36,
+      "filename": "036_validate_production_schema_invariants.sql",
+      "sha256": "4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 37,
+      "filename": "037_restrict_security_definer_execute.sql",
+      "sha256": "c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 38,
+      "filename": "038_admin_managed_neon_auth_user_lifecycle.sql",
+      "sha256": "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 39,
+      "filename": "039_project_scoped_contract_cob_cycles.sql",
+      "sha256": "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 40,
+      "filename": "040_finance_reporting_notifications.sql",
+      "sha256": "3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 41,
+      "filename": "041_finance_notification_rls_recipient_guard.sql",
+      "sha256": "96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 42,
+      "filename": "042_inventory_reservation_release_reason.sql",
+      "sha256": "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 43,
+      "filename": "043_project_role_assignments_and_history.sql",
+      "sha256": "15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 44,
+      "filename": "044_project_change_delete_permission.sql",
+      "sha256": "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 45,
+      "filename": "045_cash_advance_financial_audit.sql",
+      "sha256": "da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 46,
+      "filename": "046_cash_advance_finance_role_guard.sql",
+      "sha256": "4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 47,
+      "filename": "047_project_admin_finance_read_only.sql",
+      "sha256": "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 48,
+      "filename": "048_buyer_accounting_ap_ar_document_hardening.sql",
+      "sha256": "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 49,
+      "filename": "049_project_work_item_task_engine.sql",
+      "sha256": "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 50,
+      "filename": "050_inventory_holds_legacy_schema_alignment.sql",
+      "sha256": "e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab",
+      "status": "applied",
+      "source_sha_verified": true
+    },
+    {
+      "id": 51,
+      "filename": "051_task_notification_recipient_rls_helper.sql",
+      "sha256": "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927",
+      "status": "applied",
+      "source_sha_verified": true
+    }
+  ],
+  "pending_migrations": [
+    {
+      "id": 52,
+      "file": "migrations/052_funder_finance_report_scope_isolation.sql",
+      "sha256": "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b",
+      "status": "prepared_only_pending_owner_approval"
+    }
+  ],
+  "verification_note": "Production migration_history read-back on 2026-11-20 confirms contiguous ledger through 047; exact source hashes for 042-047 were verified against the existing F1 GitHub branch and match."
+}

@@ -24,6 +24,7 @@ const PREPARED_MIGRATION_PINS = Object.freeze({
   "049_project_work_item_task_engine.sql": "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780",
   "050_inventory_holds_legacy_schema_alignment.sql": "e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab",
   "051_task_notification_recipient_rls_helper.sql": "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927",
+  "052_funder_finance_report_scope_isolation.sql": "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b",
 });
 
 const LEGACY_HOST_HINTS = [
@@ -270,8 +271,10 @@ async function main() {
       const approved049Sha = PREPARED_MIGRATION_PINS[approved049];
       const approved050 = "050_inventory_holds_legacy_schema_alignment.sql";
       const approved050Sha = PREPARED_MIGRATION_PINS[approved050];
-      const approved051 = "051_task_notification_recipient_rls_helper.sql";
+      const approved051 = "051_task_notification_rls_helper.sql";
       const approved051Sha = PREPARED_MIGRATION_PINS[approved051];
+      const approved052 = "052_funder_finance_report_scope_isolation.sql";
+      const approved052Sha = PREPARED_MIGRATION_PINS[approved052];
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -321,6 +324,9 @@ async function main() {
         const exact036to049 = newFiles.length === 14 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049].every((f) => newFiles.includes(f));
         const exact036to050 = newFiles.length === 15 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050].every((f) => newFiles.includes(f));
         const exact036to051 = newFiles.length === 16 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050, approved051].every((f) => newFiles.includes(f));
+        // Migration 052 is checksum-pinned and dry-run verified, but intentionally not
+        // enabled for apply until the owner approves its exact SHA and a fresh backup.
+        const exact036to052 = newFiles.length === 17 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050, approved051, approved052].every((f) => newFiles.includes(f));
         if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !exact036to046 && !exact036to047 && !exact036to049 && !exact036to050 && !exact036to051 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
           fail("Apply is restricted to exact pinned migration sequences; 042-044 require separate exact owner approval and a verified 001-041 Production ledger.");
         }

@@ -151,6 +151,7 @@ const preparedAndApplied = [
   [49, "049_project_work_item_task_engine.sql", "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780"],
   [50, "050_inventory_holds_legacy_schema_alignment.sql", "e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab"],
   [51, "051_task_notification_recipient_rls_helper.sql", "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927"],
+  [52, "052_funder_finance_report_scope_isolation.sql", "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b"],
 ];
 for (const [id, file, sha] of preparedAndApplied) {
   if (hashFile("migrations/" + file) !== sha) fail("Migration source checksum mismatch: " + file);
@@ -163,5 +164,5 @@ if (!runner.includes("[49, 50, 51].includes(applied.rows.length)")) {
 }
 
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028 and verified Production history 001-047 are contiguous; exact source hashes 036-051 are pinned; Production ledger extension 048-051 is checked by the release runner.");
+console.log("PASS: baseline 001-028 and verified Production history 001-047 are contiguous; exact source hashes 036-052 are pinned; Production ledger extension 048-051 is checked by the release runner; Migration 052 is prepared-only pending exact owner approval and backup.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

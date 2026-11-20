@@ -753,3 +753,12 @@ PASS on isolated PostgreSQL validation branch:
 - Migration 049 pin: f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780.
 - The task-engine contract test now computes the actual Migration 049 file SHA-256 using Node crypto and asserts the corrected PostgreSQL DO-block delimiter and release-runner pin.
 - Await CI on the latest source head. This does not grant permission to apply either migration; backup and explicit exact-hash approvals remain prerequisites.
+
+
+### Final source CI acceptance — 2026-11-20
+
+- Source commit: aec2c683a8b4b0825b351541b1300dd0b147d7e5.
+- Unit Tests run 44742140799 and Dependency Audit Evidence run 44742140665 both completed SUCCESS on source commit aec2c683a8b4b0825b351541b1300dd0b147d7e5. Unit Tests: 215/215 across 18 files; migration release verifier PASS; fail-closed migration dry-run PASS with exact 048/049 hashes; backend/frontend TypeScript PASS; frontend production build PASS; Dependency Audit PASS.
+- Exact dry-run SQL hashes: Migration 048 48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3; Migration 049 f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780. Both remain manifest=absent / prepared only.
+- Dry-run explicitly confirms no DB connection and no database changes. Production ledger remains 47/47.
+- P0 source implementation and CI gate: PASS. P0 Production activation remains BLOCKED by unavailable current backup, exact owner approvals for both migrations, and authenticated multi-role/multi-Project runtime UAT. No Production writes, Vercel deployment, PR merge or new GitHub branch.

@@ -53,7 +53,7 @@ for (const token of [
 ]) if (!runner.includes(token)) fail("Dedicated Migration 052 runner is missing safety contract: " + token);
 
 const sql = read("migrations/" + file).toString("utf8");
-if (!/^\\s*--[^\\n]*\\n(?:--[^\\n]*\\n)*\\s*BEGIN\\s*;/i.test(sql) || !/COMMIT\\s*;\\s*$/.test(sql)) {
+if (!/^\s*--[^\n]*\n(?:--[^\n]*\n)*\s*BEGIN\s*;/i.test(sql) || !/COMMIT\s*;\s*$/.test(sql)) {
   fail("Migration 052 must keep an explicit transaction wrapper for safe atomic composition.");
 }
 if (process.exitCode) process.exit(process.exitCode);

@@ -155,7 +155,7 @@ const preparedAndApplied = [
 for (const [id, file, sha] of preparedAndApplied) {
   if (hashFile("migrations/" + file) !== sha) fail("Migration source checksum mismatch: " + file);
   if (!runner.includes(file) || !runner.includes(sha)) fail("Migration runner is missing exact source pin: " + file);
-  if (!runner.includes("exact036to" + String(id))) fail("Migration runner is missing fail-closed release verification path through Migration " + id + ".");
+  if (!runner.includes("exact036to" + String(id).padStart(3, "0"))) fail("Migration runner is missing fail-closed release verification path through Migration " + id + ".");
 }
 if (!runner.includes("[49, 50, 51].includes(applied.rows.length)")) {
   fail("Migration status mode does not accept exact verified Production ledger lengths 049-051.");

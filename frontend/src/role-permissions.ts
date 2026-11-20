@@ -15,10 +15,10 @@ export interface WorkspaceAccessUser {
 
 const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   dashboard: ['project.view', 'reports.view', 'report.view', 'operations.view', 'logistics.view', 'finance.view', 'inventory.view', 'warehouse.view', 'shipment.view', 'shipping.view', 'documents.view', 'accounting.view', 'workflow.view', 'audit.view', 'supplier.view'],
-  contracts: ['contract.view', 'manage_contract_programs'],
+  contracts: ['contract.view'],
   operations: ['operations.view', 'logistics.create', 'logistics.update', 'warehouse.view', 'inventory.view', 'shipping.view'],
   finance: ['finance.view', 'finance.create', 'finance.update', 'finance.delete'],
-  compliance: ['documents.review', 'documents.verify', 'documents.create', 'documents.update', 'compliance.view', 'compliance.assess', 'audit.view', 'workflow.view', 'project.view', 'quality.result.review'],
+  compliance: ['documents.view', 'documents.review', 'documents.verify', 'documents.create', 'documents.update', 'compliance.view', 'compliance.assess', 'audit.view', 'workflow.view', 'project.view', 'quality.result.review'],
   reports: ['reports.view', 'report.view'],
   access: ['project.members.view', 'project.members.manage', 'project.roles.manage'],
   'journal-entries': ['accounting.view'],

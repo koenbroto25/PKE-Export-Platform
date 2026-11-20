@@ -49,6 +49,9 @@ describe("Project work item task engine contract", () => {
       expect(api).toContain('"' + state + '"');
     }
     expect(api).toContain("Only submitted tasks can be resolved by PM.");
+    expect(api).toContain("Operational status transitions must be performed by the assigned active role/user.");
+    expect(ui).toContain("const isTaskOwner = (task: AnyRecord)");
+    expect(ui).toContain("isTaskOwner(task) && <ActionButton");
     expect(api).toContain("An escalation reason is required");
     expect(api).toContain('action === "block" ? "blocked"');
     expect(api).toContain('action === "submit" ? "submitted"');

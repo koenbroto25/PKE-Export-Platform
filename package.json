@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "vitest run src/f1-role-ux-rules.test.ts src/runtime-security.test.ts src/storage-fx-gl.test.ts src/http-errors.test.ts src/neon-auth-webhook.test.ts src/admin-user-lifecycle.contract.test.ts src/f1-contract-program-authorization.test.ts src/runtime-readiness.test.ts src/serverless-handler.test.ts src/f1-pri0-contract.test.ts src/f1-role-assignment-rules.test.ts src/migration-ledger-44.contract.test.ts src/f1-cash-advance-rules.test.ts src/f1-cash-advance-vertical-slice.contract.test.ts src/finance-role-permission-policy.test.ts src/f1-parallel-revision.contract.test.ts src/f1-consolidated-revision.contract.test.ts",
+    "test": "vitest run src/project-work-items.contract.test.ts src/f1-role-ux-rules.test.ts src/runtime-security.test.ts src/storage-fx-gl.test.ts src/http-errors.test.ts src/neon-auth-webhook.test.ts src/admin-user-lifecycle.contract.test.ts src/f1-contract-program-authorization.test.ts src/runtime-readiness.test.ts src/serverless-handler.test.ts src/f1-pri0-contract.test.ts src/f1-role-assignment-rules.test.ts src/migration-ledger-44.contract.test.ts src/f1-cash-advance-rules.test.ts src/f1-cash-advance-vertical-slice.contract.test.ts src/finance-role-permission-policy.test.ts src/f1-parallel-revision.contract.test.ts src/f1-consolidated-revision.contract.test.ts",
     "test:integration": "node scripts/test-db/run-integration.mjs",
     "test:integration:preflight": "node scripts/test-db/preflight.mjs",
     "frontend:dev": "cd frontend && npm run dev",

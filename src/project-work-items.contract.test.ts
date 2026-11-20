@@ -102,7 +102,7 @@ describe("Project work item task engine contract", () => {
   });
   it("pins the final task migration checksum and rejects malformed PostgreSQL DO quoting", () => {
     expect(migration).toContain("DO $$\nBEGIN");
-    expect(migration).toContain("END $;");
+    expect(migration).toContain("END $$;");
     expect(crypto.createHash("sha256").update(migration).digest("hex")).toBe("f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780");
     expect(migration).not.toContain("DO $\nBEGIN");
     expect(runner).toContain("PREPARED_MIGRATION_PINS");

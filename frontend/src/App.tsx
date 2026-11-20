@@ -366,7 +366,8 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
   </>;
 }
 
-function ProjectsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const canCreateProject = activeUser?.platformAdmin === true;
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const programs = useLoad<{ contractPrograms?: AnyRecord[] }>(() => get('/contract-programs'), []);
   const [showForm, setShowForm] = useState(false);
@@ -380,8 +381,8 @@ function ProjectsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'in
     finally { setBusy(false); }
   };
   return <>
-    <PageTitle eyebrow="PROJECT PORTFOLIO" title="Proyek ekspor" subtitle="Setiap project instance mewakili satu unit pemenuhan atau settlement buyer." actions={<ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Proyek baru</ActionButton>} />
-    {showForm && <Card className="form-panel"><PanelHeading title="Buat project instance" description="Pilih program kontrak yang menjadi dasar proyek." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
+    <PageTitle eyebrow="PROJECT PORTFOLIO" title="Proyek ekspor" subtitle="Setiap project instance mewakili satu unit pemenuhan atau settlement buyer." actions={canCreateProject ? <ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Proyek baru</ActionButton> : undefined} />
+    {showForm && canCreateProject && <Card className="form-panel"><PanelHeading title="Buat project instance" description="Pilih program kontrak yang menjadi dasar proyek." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
       {!programs.data?.contractPrograms?.length ? <div className="inline-warning"><CircleAlert size={17} /> Buat program kontrak terlebih dahulu pada menu Program Kontrak.</div> : <form className="form-grid" onSubmit={save}>
         <FormField label="Program kontrak"><select value={form.contractProgramId} onChange={e => setForm((v: any) => ({ ...v, contractProgramId: e.target.value }))} required>{(programs.data?.contractPrograms || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
         <FormField label="Nama proyek"><input value={form.name} onChange={e => setForm((v: any) => ({ ...v, name: e.target.value }))} required placeholder="Contoh: PKE China Cycle 01" /></FormField>
@@ -404,7 +405,8 @@ function ProjectsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'in
   </>;
 }
 
-function ContractsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function ContractsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const canManagePrograms = hasProjectPermission('manage_contract_programs', activeUser);
   const programs = useLoad<{ contractPrograms?: AnyRecord[] }>(() => get('/contract-programs'), []);
   const cycles = useLoad<{ cyclePolicies?: AnyRecord[] }>(() => get('/cycle-policies'), []);
   const [mode, setMode] = useState<'program' | 'cycle'>('program');
@@ -423,9 +425,9 @@ function ContractsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'i
     finally { setBusy(false); }
   };
   return <>
-    <PageTitle eyebrow="COMMERCIAL FOUNDATION" title="Program kontrak" subtitle="Kelola kerangka kontrak buyer dan aturan recurring delivery cycle." actions={<ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Tambah data</ActionButton>} />
+    <PageTitle eyebrow="COMMERCIAL FOUNDATION" title="Program kontrak" subtitle="Kelola kerangka kontrak buyer dan aturan recurring delivery cycle." actions={canManagePrograms ? <ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Tambah data</ActionButton> : undefined} />
     <div className="segmented"><button className={mode === 'program' ? 'selected' : ''} onClick={() => setMode('program')}>Program kontrak</button><button className={mode === 'cycle' ? 'selected' : ''} onClick={() => setMode('cycle')}>Kebijakan siklus</button></div>
-    {showForm && <Card className="form-panel"><PanelHeading title={mode === 'program' ? 'Program kontrak baru' : 'Kebijakan siklus baru'} action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
+    {showForm && canManagePrograms && <Card className="form-panel"><PanelHeading title={mode === 'program' ? 'Program kontrak baru' : 'Kebijakan siklus baru'} action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
       <form className="form-grid" onSubmit={save}>
         {mode === 'program' ? <>
           <FormField label="Nama program"><input value={program.name} onChange={e => setProgram(v => ({ ...v, name: e.target.value }))} required placeholder="Framework PKE Buyer" /></FormField>

@@ -243,6 +243,7 @@ CREATE POLICY pke_user_notifications_task_assignment_insert ON public.user_notif
     AND (
       public.pke_has_project_permission(project_id, 'project.tasks.assign')
       OR public.pke_has_project_permission(project_id, 'project.tasks.escalate')
+      OR public.pke_has_project_permission(project_id, 'project.tasks.resolve')
       OR EXISTS (
         SELECT 1 FROM public.project_work_items wi
          WHERE wi.id = user_notifications.work_item_id

@@ -9646,3 +9646,126 @@ Required operational fields include:
 - AIS-catcher is optional for a small, lawful receiver pilot only; it is not the national coverage strategy.
 - A commercial/partner Indonesian AIS feed may be more reliable and cheaper operationally than deploying/maintaining a nationwide receiver network. Compare total cost and coverage before deciding.
 - International third-party tracking links do not require ingestion or storage of global AIS tracks in PKE.
+
+
+## 56.44 — Owner discussion: role-centered UX, PM control tower and selective open-source strategy — 2026-11-20
+
+**Status:** ACCEPTED DIRECTION FOR DISCOVERY AND DESIGN; not an authorization to install software, replace existing PKE modules, purchase services, or change Neon Production.  
+**Decision owner:** PKE business owner / Admin App.  
+**Active branch:** `f1/project-scoped-cob-20261119`; do not create a new GitHub branch.
+
+### A. Agreed product architecture
+
+PKE remains the single authoritative Project-scoped operating system for export execution. Do not replace it with a generic ERP or generic project-management platform. Reuse mature open-source components selectively where they reduce implementation effort without creating a second source of truth, a second permission system, or fragmented task ownership.
+
+The core capabilities that must remain native to PKE are:
+- Project, contract, shipment, vessel-call, inventory, loading, export-document and finance data relationships.
+- Project membership and role assignments, effective permissions, approval boundaries and RLS.
+- PM control tower, role-specific work queues, task ownership, deadlines, notifications, acknowledgements, escalation and immutable audit.
+- Export-specific readiness rules, laytime/loading calculations, demurrage risk signals, LC requirement checklists, document consistency checks and payment milestones.
+- One authoritative accounting/finance ledger and one Project-scoped audit trail.
+
+### B. Project Manager and role assignment authority
+
+- PM is the operational controller for the Project and determines which operational roles are needed, which people are assigned, and how responsibilities are divided.
+- One user account may hold multiple active roles in the same Project (e.g. Accounting and Finance) where the PM assigns them. The same user may have a different role combination in another Project.
+- Role assignment is Project-scoped. A role in one Project does not imply that role in another Project.
+- The permission resolver must compute effective permissions from active, non-expired Project role assignments and the applicable permission catalog. Multiple roles may contribute permissions, but assignment must not silently grant permissions outside the assigned role definitions.
+- PM can manage Project participation and assign roles from the Admin-App-approved role catalog. PM cannot edit the global permission catalog, bypass backend authorization/RLS, grant Platform Admin privileges, or silently override protected Finance/Accounting maker-checker controls.
+- Admin App owns global configuration, user administration, role catalog and permission-template governance, and may appoint themself as PM for a Project. Admin App administrative authority and Project PM operational authority remain distinct, auditable capabilities.
+- Changes to PM appointment, role membership, effective role combination and task ownership require actor, timestamp, before/after values and reason where applicable. Preserve existing PM appointment safeguards and explicit owner authority.
+
+### C. Role-by-role work and dashboard discovery baseline
+
+This is the initial functional map to validate against the actual repository role catalog, APIs, schema and existing screens. It is not a claim that every role/module is already implemented.
+
+| Role / work area | Main responsibilities and work queue | Required dashboard UX / PM reporting |
+|---|---|---|
+| Project Manager | Coordinate the full Project; assign people/roles; issue instructions; resolve blockers; monitor deadlines and readiness gates | Project Control Tower: overall status, milestones, critical alerts, overdue tasks, blockers, responsible person, target-vs-actual, document/LC readiness, vessel/laytime risk, decisions and instruction follow-up |
+| Project Admin / Project Operations Admin | Project setup and authorized operational administration; membership visibility and project configuration within granted permissions | Project profile, assigned team/roles, configuration completeness, access overview and audit; must not inherit Finance write permissions |
+| Contract / Commercial | Contract terms, buyer/seller details, shipment quantity, delivery/loading terms, laycan, Incoterms where applicable, LC terms and amendments | Contract obligations, key dates, quantity/price references, buyer confirmations, LC expiry/presentation dates and deviations requiring PM action |
+| Procurement / Supplier Coordination | Purchase requests/orders, supplier coordination, delivery commitments, outstanding supply and supplier invoice references | Open commitments, promised vs actual delivery, shortages affecting product readiness, overdue supplier actions and PO/GRN evidence |
+| Warehouse / Inventory | Receipts, stock location, available/held/reserved quantity, movements, lot traceability, dispatch to port warehouse and stock reconciliation | Available vs required MT, stock by lot/location, quality/hold status, reservations, shortages, transfer ETA and evidence; alert PM before vessel arrival if stock is at risk |
+| Quality / Survey / Inspection | Sampling, test results, quality release, quantity/weight survey, inspection appointments and certificates | Required vs completed tests, specification compliance, rejected/held lots, survey schedule, certificate status and exceptions |
+| Master of Loading / Loading Operations | Loading plan by vessel/hold/shift, loading rate assumptions, equipment and manpower readiness, shift execution, tonnage progress and completion estimate | Loading workbench: planned/actual MT by shift and hold, remaining MT, effective rate, equipment/crew readiness, stoppages, forecast completion vs laytime and recovery actions |
+| Logistics / Trucking / Port Movement | Truck allocation, dispatch, checkpoints, weighbridge/receipt evidence, port delivery and movement exceptions | Truck queue, in-transit/delivered quantity, cycle time, missing checkpoints, delayed deliveries, warehouse intake and port cut-off risks |
+| Vessel / Port / Agent Coordination | Vessel nomination, ETA/ETD confirmation, port-call milestones, anchorage/berth updates, agent and terminal coordination | Vessel timeline, source/timestamp of ETA, Indonesian AIS freshness where integrated, port/berth status, loading window, agent confirmations and stale-feed warnings |
+| Export Documentation / Shipping | Document preparation, shipping instructions, draft/final transport documents, customs/port clearances, document collection and presentation package | LC document matrix, issuer/owner, original/copy count, draft/review/final status, cross-document consistency, missing documents, expiry and presentation countdown |
+| Finance | AP/AR, payment obligations, cash planning, FX exposure, payment receipt and LC proceeds follow-up within Finance permissions | Due/overdue payables and receivables, cash needs, payment status, LC presentation status, bank discrepancy/waiver status, expected vs actual proceeds and finance exceptions |
+| Accounting | Journal preparation, chart-of-accounts mapping, posting/review, ledger integrity and reconciliation within Accounting permissions | Draft journals, unbalanced items, pending review/posting, reconciliation exceptions, period close and audit evidence; posting remains separately permissioned |
+| Cashier / Treasury | Authorized receipts/disbursements, bank/cash evidence, payment execution status and reconciliation handoff | Payment instructions awaiting execution, due disbursements, receipt confirmations, bank evidence and unreconciled cash movements |
+| Funder | View only the Project/funding information explicitly authorized; monitor funded exposure, drawdown/repayment milestones where relevant | Funding exposure, utilization, repayment dates and permitted Project financial reports; no implied transaction-write authority |
+| Buyer / External stakeholder | View only approved commercial/shipment/vessel/document status and externally shareable evidence | Restricted shipment status, vessel identity/approved voyage details, agreed milestones and permitted documents; no internal notes, private contacts, finance internals or cross-Project visibility |
+| Platform Admin / Admin App | Global user and role-template administration, system configuration, security oversight, appointment of PM where authorized and audit review | Admin console: user lifecycle, role/permission catalog, Project access governance, security events, migration/system health and audit; not a substitute for operational PM control |
+
+### D. Standard UX contract for every internal role dashboard
+
+Each role dashboard should be task-first, not merely a collection of charts:
+1. **My Work:** tasks assigned to the user, with Project, priority, due time, status and direct action.
+2. **Needs Attention:** overdue, blocked, rejected, incomplete or at-risk items with reason and next action.
+3. **Upcoming:** milestones and deadlines over configurable horizons.
+4. **Operational Workbench:** the role's primary create/review/confirm workflow with the minimum fields needed to complete it.
+5. **Evidence & Documents:** linked records, source, version, review state and audit history.
+6. **Progress & Exceptions:** role-specific KPIs and target-vs-actual measures, with drill-through to source records.
+7. **Notifications:** acknowledge, assign/reassign, resolve, comment/instruct where authorized, and escalation history.
+
+PM receives a consolidated view of all role queues and all critical Project events. Each role receives only relevant task notifications and data permitted by its effective Project permissions. Notifications are actionable and deep-link to the exact work item; they are deduplicated, time-stamped, acknowledgeable and auditable. PM reporting must distinguish informational updates from blockers requiring a decision.
+
+### E. Selective open-source assessment
+
+**Preferred: adopt small, well-scoped libraries/components first.**
+- Recharts (MIT): candidate for native PKE charts and operational trend/target-vs-actual visualizations.
+- TanStack Table (MIT): candidate for large filterable work queues, inventory/document lists and role workbenches.
+- MapLibre GL JS: retain as an optional map renderer for Indonesian vessel/port/truck views; it does not provide the underlying map tiles or AIS feed.
+- PostGIS: optional geospatial database capability only if geofence/spatial query needs justify it; require isolated Neon compatibility and performance validation before any Production extension change.
+
+**Benchmark or optional separate tool; do not adopt as a second source of truth by default.**
+- ERPNext: use as a functional benchmark for inventory, purchasing, accounting and ERP process completeness. Do not deploy it as a parallel ledger/inventory authority without a separate integration and data-ownership design. ERPNext is GPLv3; review license obligations and integration boundaries before reuse or modification.
+- OpenProject: benchmark task, milestone, work-package and project-planning UX. Do not make it a second PM command center unless a later business case demonstrates a clear separation and reliable synchronization.
+- Apache Superset: possible later read-only BI/analytics service. Before adoption, prove Project-level row isolation, embedded authentication, permission synchronization, export/download controls and auditability. It must not bypass PKE APIs/RLS or expose broad database credentials.
+- Metabase: possible later internal BI evaluation, but its Open Source Edition is AGPL; embedding and commercial use conditions require license review.
+- Documenso: optional evaluation for suitable internal signature/approval workflows only. Community Edition is AGPL-3.0 and does not replace official carrier, surveyor, customs, port or bank-issued export documents.
+
+No package, application, workflow engine, analytics server, container, cloud service, paid API, hardware or subscription is approved or installed by this discussion. Confirm current version, maintenance activity, security posture, license, dependencies, deployment model, Neon/Vercel compatibility, data residency, backup/restore, monitoring, operational ownership and total cost before any adoption.
+
+### F. Build-versus-adopt decision rule
+
+Build natively in PKE when a capability:
+- Encodes PKE-specific export, Project, finance, LC, laytime, inventory or authorization rules;
+- Changes authoritative business records or money-related state;
+- Needs strict Project RLS, maker-checker or immutable audit;
+- Must drive PM instructions, readiness gates or operational alerts.
+
+Adopt/reuse open source when a capability is generic and separable (charts, tables, date/time controls, map rendering, PDF viewing, possibly BI), can be isolated behind a stable integration boundary, and does not create duplicate business state or permissions.
+
+Do not adopt a large external application merely because it has many features. Total lifecycle cost includes hosting, security updates, backups, integration, training, support, licensing, data synchronization and exit/migration risk.
+
+### G. Discovery and acceptance plan before implementation
+
+1. Inventory the actual role catalog, role-to-permission definitions, APIs, pages, database tables and existing workflows from the current branch. Mark each item as implemented, partial, missing, duplicated or insecure.
+2. Produce a role-by-role matrix: responsibilities, inputs, outputs, approvals, dependencies, tasks, deadlines, KPIs, alerts, documents, permissions and PM report fields.
+3. Map end-to-end Project workflows from contract/LC through procurement, stock, port warehouse, vessel readiness, loading, shipping documents and payment.
+4. Create dashboard wireframe/specification per role plus PM Control Tower; define responsive desktop/mobile priority and task-first UX.
+5. Create a notification/event catalog with trigger, severity, recipient rule, deduplication, acknowledgement, escalation and audit requirements.
+6. Run a library/tool evaluation scorecard: functional fit, license, security, maintenance, integration effort, Neon/Vercel compatibility, data isolation, operating cost and exit strategy.
+7. Implement the highest-value native workflow gaps first; add only approved low-risk libraries after dependency/license/security review.
+8. Test multi-role single-account behavior, different role combinations across Projects, PM reassignment, revoked/expired roles, cross-Project isolation, PM consolidated reporting and per-role notification filtering.
+9. Test role dashboards with synthetic isolated fixtures only; never seed synthetic business records into Neon Production.
+10. Update this Master Plan and P03 plan with every material decision and implementation evidence.
+
+### H. Initial implementation priority
+
+1. PM Control Tower, Project task assignment, role-based work queues and actionable notifications.
+2. Role catalog/multi-role assignment UX and effective-permission visibility, retaining Admin App governance and backend/RLS enforcement.
+3. Vessel & Loading Readiness Planner, including stock-before-arrival, equipment/manpower readiness, loading target-vs-actual and laytime risk.
+4. Export Document & LC Compliance workflow with document ownership, discrepancy tracking and presentation deadline.
+5. Role-specific operational dashboards and KPI drill-through.
+6. Optional analytics/map/signature integrations only after the above native workflow and security boundaries are stable.
+
+### I. Explicit non-decisions / safeguards
+
+- This discussion approves the architecture direction and discovery work, not a vendor, package, deployment, purchase, license commitment or Production schema change.
+- No ERP replacement, second accounting ledger, second PM task system, global AIS feed or duplicate role/permission authority.
+- No automatic bank-compliance guarantee or promise that LC proceeds will clear before vessel departure; PKE can validate configured document requirements and deadlines but the issuing/advising/nominated bank makes its own examination/payment decision.
+- Admin App may appoint themself PM; actual appointment remains an explicit, auditable Admin action, not an automatic side effect.
+- PM operational control does not remove Finance/Accounting permission boundaries or protected transaction controls.

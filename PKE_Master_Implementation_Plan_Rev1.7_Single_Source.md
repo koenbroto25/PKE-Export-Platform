@@ -9903,3 +9903,24 @@ Do not adopt a large external application merely because it has many features. T
 - This CI result validates source/build/static gates only. It does not replace authenticated browser UAT, live multi-user permission isolation tests, or runtime verification against Neon Production. No Production DB or deployment action was taken.
 - External portal visibility was further narrowed: Buyer requires `buyer.shipment.view`; Supplier requires both `supplier.view` and `shipment.view`; Transporter/Driver require both `record_truck_trips` and `verify_checkpoints`. PM `logistics.view` alone no longer exposes the Transporter portal. Checker remains a separate unresolved API mismatch: it has `verify_checkpoints` and `operations.view`, but tracking-event POST currently requires `record_truck_trips` for non-receipt events.
 - **Latest source CI (commit `8ed5ce3a860bf5f6c91b69271e48699685174f51`): PASS.** 196/196 tests across 17 files, backend/frontend TypeScript, frontend build, migration ledger verifier, migration dry-run and Dependency Audit Evidence all passed. Browser UAT and live multi-role runtime tests remain pending.
+---
+
+## §56.47 — P0 Action-level UX, Task Engine & PM Control Tower (2026-11-20)
+
+### Implementation record
+- Permission-aware Operations and Compliance panels/actions; selected-Project-locked operational forms; trip creation withheld until transport-leg API exists; Checker checkpoint API/RLS aligned to `verify_checkpoints`.
+- Project provisioning restricted to Platform Admin and separated from Contract Program setup. Contract Program mutation, Finance mutation, Accounting posting, Shipment Allocation mutation and Cash Advance decisions are gated by their own capabilities.
+- Project detail/edit/configuration, Project members/roles and platform identity governance use separate route guards. PM appointment and global account administration remain Platform Admin-only.
+- Added Project task/instruction schema, APIs, RLS and My Work UI. PM-only task governance permissions; active-role and optional explicit-assignee isolation; immutable task event history; notifications on assignment, block/submit and PM resolution/closure.
+- PM Control Tower adds task/overdue/blocker/review roll-up and source-backed readiness checks. Unsupported Production/QA, vessel/loading/laytime and LC presentation workflows are visibly unavailable rather than populated with estimates or mock values.
+
+### Exact prepared migrations
+- Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`.
+- Migration 049 SHA-256 `4d4cd7a877665986f10c3068ba8dd86332eff8c22b00214d45a45806fac276a8`.
+- Both are `manifest=absent` and unapproved; apply sequentially only after explicit approval of each exact hash. Production currently remains at applied Migration 047. No Production database operation or Vercel deployment was performed.
+
+### Acceptance / remaining gates
+- Current implementation CI is pending. Earlier P0 baseline CI passed 196/196 tests, backend/frontend TypeScript, frontend build, migration ledger verifier, dry-run and dependency audit; later source changes require a fresh green run.
+- After approval/application, run isolated runtime UAT for multi-role, multi-Project, explicit assignee, expired/revoked role, task lifecycle, notification routing, Checker permission, Project Admin Finance read-only and task event immutability.
+- Project timezone/SLA calendar and scheduled automatic overdue escalation are not yet implemented; current overdue state is calculated on read and escalation is manual.
+- Do not mark P0 Production-complete until CI, sequential migration application and runtime UAT all pass.

@@ -7,6 +7,7 @@ const migration = fs.readFileSync(path.join(root, "migrations/049_project_work_i
 const api = fs.readFileSync(path.join(root, "src/index.ts"), "utf8");
 const ui = fs.readFileSync(path.join(root, "frontend/src/App.tsx"), "utf8");
 const roles = fs.readFileSync(path.join(root, "src/role-catalogue.ts"), "utf8");
+const schema = fs.readFileSync(path.join(root, "src/schema.ts"), "utf8");
 
 describe("Project work item task engine contract", () => {
   it("creates Project-scoped work items and append-only events under forced RLS", () => {
@@ -30,6 +31,7 @@ describe("Project work item task engine contract", () => {
     expect(migration).toContain("public.pke_has_project_permission(project_id, 'project.tasks.view')");
     expect(migration).toContain("assignee_user_id = public.pke_current_user_id()");
     expect(migration).toContain("public.pke_user_has_active_project_role(project_id, owner_role_code)");
+    expect(migration).toContain("(assignee_user_id IS NULL OR assignee_user_id = public.pke_current_user_id())");
   });
 
   it("requires an active Project role and matching assignee when creating or reassigning work", () => {
@@ -47,14 +49,23 @@ describe("Project work item task engine contract", () => {
     }
     expect(api).toContain("Only submitted tasks can be resolved by PM.");
     expect(api).toContain("An escalation reason is required");
+    expect(api).toContain('action === "block" ? "blocked"');
+    expect(api).toContain('action === "submit" ? "submitted"');
+    expect(api).toContain('action === "resolve" ? "resolved"');
+    expect(api).toContain('action === "close" ? "closed"');
   });
 
   it("links task assignment notifications back to the task and PM escalation recipient", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS work_item_id uuid");
     expect(migration).toContain("pke_user_has_active_project_role(wi.project_id, wi.owner_role_code)");
     expect(api).toContain("work_item_id,recipient_user_id");
+    expect(api).toContain('eventType === "checkpoint" ? "verify_checkpoints"');
+    expect(migration).toContain("event_type = 'checkpoint' AND public.pke_has_truck_trip_permission(truck_trip_id, 'verify_checkpoints')");
     expect(api).toContain('const targetRole = action === "escalate" ? "pm" : roleCode');
     expect(api).toContain("work_item_id, recipient_user_id");
+    expect(schema).toContain('work_item_id: uuid("work_item_id")');
+    expect(schema).toContain('pgTable("project_work_items"');
+    expect(schema).toContain('pgTable("project_work_item_events"');
   });
 
   it("exposes My Work and PM task roll-up without granting source transaction permissions", () => {

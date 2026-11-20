@@ -12,7 +12,7 @@ import { api, get, patch, post } from './api';
 import { hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 
 type AnyRecord = Record<string, any>;
-type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
+type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -22,6 +22,7 @@ const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDa
   { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'Workspace' },
   { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'Workspace' },
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'Eksekusi' },
+  { to: '/my-work', key: 'my-work', label: 'Tugas Saya', icon: ClipboardCheck, group: 'Eksekusi' },
   { to: '/finance', key: 'finance', label: 'Keuangan & FX', icon: Wallet, group: 'Kontrol' },
   { to: '/compliance', key: 'compliance', label: 'Dokumen & Compliance', icon: ShieldCheck, group: 'Kontrol' },
   { to: '/journal-entries', key: 'journal-entries', label: 'Jurnal Umum', icon: BookOpen, group: 'Kontrol' },
@@ -186,6 +187,7 @@ function App() {
             <Route path="/projects/:id/members" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><ProjectMembersPage onNotice={notify} /></RoleGuard>} />
             <Route path="/contracts" element={<RoleGuard allowedKeys={['contracts']} activeUser={workspaceUser}><ContractsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><OperationsPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/my-work" element={<RoleGuard allowedKeys={['my-work']} activeUser={workspaceUser}><MyWorkPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/journal-entries" element={<RoleGuard allowedKeys={['journal-entries']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
@@ -310,11 +312,13 @@ function FormField({ label, children, wide = false }: { label: string; children:
 function ActionButton({ children, onClick, variant = 'primary', disabled = false }: { children: ReactNode; onClick?: () => void; variant?: 'primary' | 'secondary' | 'ghost'; disabled?: boolean }) { return <button type="button" className={`${variant}-button`} disabled={disabled} onClick={onClick}>{children}</button>; }
 
 function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const canViewTasks = hasProjectPermission('project.tasks.view', activeUser);
   const portfolio = useLoad<AnyRecord>(() => activeUser?.platformAdmin === true ? get('/reports/portfolio') : Promise.resolve({}), [activeUser?.platformAdmin]);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const canViewLogistics = activeUser?.platformAdmin === true || activeUser?.projectPermissions?.includes('logistics.view') === true;
   const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId && canViewLogistics ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId, canViewLogistics]);
   const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId && canViewLogistics ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId, canViewLogistics]);
+  const workItems = useLoad<{ workItems?: AnyRecord[] }>(() => projectId && canViewTasks ? get(`/projects/${encodeURIComponent(projectId)}/work-items`) : Promise.resolve({ workItems: [] }), [projectId, canViewTasks]);
   const recentTrips = (trips.data?.truckTrips || []).slice(0, 5);
   const p = portfolio.data || {};
   const visibleProjects = (projects.data?.projects || []).filter(project => !projectId || project.id === projectId);
@@ -322,7 +326,7 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
   const visibleContractVolume = p.contractVolume ?? visibleProjects.reduce((sum, project) => sum + Number(project.target_quantity || 0), 0);
   const visibleTripCount = p.shipmentCount ?? trips.data?.truckTrips?.length ?? 0;
   const loading = portfolio.loading || projects.loading || trips.loading;
-  const refresh = () => { portfolio.refresh(); projects.refresh(); trips.refresh(); events.refresh(); };
+  const refresh = () => { portfolio.refresh(); projects.refresh(); trips.refresh(); events.refresh(); workItems.refresh(); };
   return <>
     <PageTitle eyebrow="EXECUTIVE OVERVIEW" title="Ringkasan operasional" subtitle="Pantau portofolio ekspor dan aktivitas terbaru dari satu tempat." actions={<ActionButton variant="secondary" onClick={refresh}><RefreshCw size={16} /> Segarkan</ActionButton>} />
     {loading && <Loading />}
@@ -333,6 +337,11 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
       <Metric label="Perjalanan truk" value={number(visibleTripCount, 0)} foot="Trip dalam cakupan yang dipilih" icon={Truck} tone="green" />
     </div>
     {!projectId && activeUser?.platformAdmin !== true && <div className="inline-warning"><CircleAlert size={17} /> Pilih Project pada bagian atas untuk membuka ringkasan operasional Project.</div>}
+    {canViewTasks && <Card><PanelHeading title="PM Control Tower · Tindak lanjut" description="Tugas, instruksi dan exception yang tercatat pada Project aktif." action={<Link className="inline-link" to="/my-work">Buka work queue <ArrowRight size={14} /></Link>} />
+      {workItems.loading ? <Loading /> : workItems.error ? <ErrorState message={workItems.error} retry={workItems.refresh} /> : <>
+        <div className="metric-grid four"><Metric label="Open" value={number((workItems.data?.workItems || []).filter(t => t.status === "open").length, 0)} icon={ClipboardCheck} tone="blue" /><Metric label="Overdue" value={number((workItems.data?.workItems || []).filter(t => t.is_overdue).length, 0)} icon={Clock3} tone="amber" /><Metric label="Blocked" value={number((workItems.data?.workItems || []).filter(t => t.status === "blocked").length, 0)} icon={CircleAlert} tone="red" /><Metric label="Menunggu review PM" value={number((workItems.data?.workItems || []).filter(t => t.status === "submitted").length, 0)} icon={CheckCircle2} tone="green" /></div>
+        {(workItems.data?.workItems || []).slice(0, 5).map(task => <div className="activity-item" key={task.id}><div className="activity-icon"><ClipboardCheck size={16} /></div><div className="activity-copy"><strong>{task.title}</strong><span>{task.owner_role_code} · {task.status} · {task.priority}</span><small>{task.is_overdue ? "Terlambat · " : "Tenggat · "}{dateTime(task.due_at)}</small></div></div>)}
+        {!workItems.data?.workItems?.length && <EmptyState title="Belum ada tugas aktif" desc="Instruksi dan tindak lanjut Project akan muncul di sini setelah dibuat." />}</>}</Card>}
     <div className="dashboard-grid">
       <Card className="span-2"><PanelHeading title="Proyek berjalan" description="Ringkasan proyek aktif dalam portofolio." action={<Link className="inline-link" to="/projects">Lihat proyek <ArrowRight size={14} /></Link>} />
         {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={visibleProjects.slice(0, 6)} columns={[
@@ -1262,14 +1271,141 @@ function JsonSummary({ data }: { data: AnyRecord | null }) {
   return <div className="insight-grid">{entries.slice(0, 12).map(([key, value]) => <div key={key}><span>{key.replaceAll('_', ' ')}</span><strong>{typeof value === 'number' ? number(value) : String(value)}</strong></div>)}</div>;
 }
 
+function MyWorkPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const canCreate = hasProjectPermission("project.tasks.create", activeUser);
+  const canAssign = hasProjectPermission("project.tasks.assign", activeUser);
+  const canResolve = hasProjectPermission("project.tasks.resolve", activeUser);
+  const detail = useLoad<{ roles?: AnyRecord[]; members?: AnyRecord[] }>(
+    () => projectId && canCreate ? get("/projects/" + encodeURIComponent(projectId) + "/detail") : Promise.resolve({ roles: [], members: [] }),
+    [projectId, canCreate],
+  );
+  const tasks = useLoad<{ workItems?: AnyRecord[]; scope?: string }>(
+    () => projectId ? get("/projects/" + encodeURIComponent(projectId) + "/work-items") : Promise.resolve({ workItems: [], scope: "assigned" }),
+    [projectId],
+  );
+  const [showCreate, setShowCreate] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [actionReason, setActionReason] = useState("");
+  const [draft, setDraft] = useState({ title: "", description: "", ownerRoleCode: "", assigneeUserId: "", priority: "normal", dueAt: "" });
+  const [assignDraft, setAssignDraft] = useState({ ownerRoleCode: "", assigneeUserId: "", dueAt: "", priority: "normal" });
+  const [assignTaskId, setAssignTaskId] = useState("");
+  const events = useLoad<{ events?: AnyRecord[] }>(
+    () => selectedTaskId && projectId
+      ? get("/projects/" + encodeURIComponent(projectId) + "/work-items/" + encodeURIComponent(selectedTaskId) + "/events")
+      : Promise.resolve({ events: [] }),
+    [selectedTaskId, projectId],
+  );
+  const activeRoles = (detail.data?.roles || []).filter(role => role.is_active === true);
+  const activeMembers = (detail.data?.members || []).filter(member => member.is_active === true);
+  const eligibleMembers = (roleCode: string) => activeMembers.filter(member =>
+    (member.role_assignments || []).some((assignment: AnyRecord) =>
+      assignment.roleCode === roleCode && assignment.isActive === true && !assignment.revokedAt &&
+      (!assignment.expiresAt || new Date(assignment.expiresAt).getTime() > Date.now())
+    )
+  );
+  const createTask = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!canCreate || !draft.ownerRoleCode) return;
+    setBusy(true);
+    try {
+      await post("/projects/" + encodeURIComponent(projectId) + "/work-items", {
+        ...draft, dueAt: draft.dueAt ? new Date(draft.dueAt).toISOString() : null,
+        assigneeUserId: draft.assigneeUserId || null,
+      });
+      onNotice("success", "Tugas/instruksi berhasil dibuat dan notifikasi penugasan dikirim.");
+      setDraft({ title: "", description: "", ownerRoleCode: "", assigneeUserId: "", priority: "normal", dueAt: "" });
+      setShowCreate(false); tasks.refresh();
+    } catch (error) { onNotice("error", error instanceof Error ? error.message : "Tugas gagal dibuat."); }
+    finally { setBusy(false); }
+  };
+  const act = async (task: AnyRecord, action: string, extra: AnyRecord = {}) => {
+    setBusy(true);
+    try {
+      await patch("/projects/" + encodeURIComponent(projectId) + "/work-items/" + encodeURIComponent(task.id), { action, ...extra });
+      onNotice("success", "Status tugas diperbarui.");
+      tasks.refresh();
+      if (selectedTaskId === task.id) events.refresh();
+      setActionReason("");
+      if (assignTaskId === task.id) setAssignTaskId("");
+    } catch (error) { onNotice("error", error instanceof Error ? error.message : "Tindakan tugas gagal."); }
+    finally { setBusy(false); }
+  };
+  const assign = async (task: AnyRecord) => {
+    if (!assignDraft.ownerRoleCode) return;
+    await act(task, "assign", {
+      ownerRoleCode: assignDraft.ownerRoleCode,
+      assigneeUserId: assignDraft.assigneeUserId || null,
+      dueAt: assignDraft.dueAt ? new Date(assignDraft.dueAt).toISOString() : task.due_at,
+      priority: assignDraft.priority || task.priority,
+    });
+  };
+  const rows = tasks.data?.workItems || [];
+  return <>
+    <PageTitle eyebrow="PROJECT WORK QUEUE" title="Tugas & instruksi" subtitle={tasks.data?.scope === "project" ? "Antrean seluruh Project untuk PM; penugasan, tenggat, eskalasi dan review." : "Tugas yang ditugaskan kepada Anda melalui role aktif pada Project ini."} actions={<>{canCreate && <ActionButton onClick={() => setShowCreate(v => !v)}><Plus size={16} /> Instruksi baru</ActionButton>}<ActionButton variant="secondary" onClick={() => tasks.refresh()}><RefreshCw size={16} /> Segarkan</ActionButton></>} />
+    {showCreate && canCreate && <Card className="form-panel"><PanelHeading title="Buat tugas / instruksi PM" description="Tugas harus ditujukan ke role aktif dalam Project ini." action={<button className="icon-button" onClick={() => setShowCreate(false)}><X size={18} /></button>} />
+      <form className="form-grid" onSubmit={createTask}>
+        <FormField label="Judul tugas"><input value={draft.title} onChange={e => setDraft(v => ({ ...v, title: e.target.value }))} minLength={3} maxLength={240} required /></FormField>
+        <FormField label="Role penanggung jawab"><select value={draft.ownerRoleCode} onChange={e => setDraft(v => ({ ...v, ownerRoleCode: e.target.value, assigneeUserId: "" }))} required><option value="">Pilih role aktif</option>{activeRoles.map(role => <option key={role.id} value={role.role_code}>{role.name}</option>)}</select></FormField>
+        <FormField label="User tertentu (opsional)"><select value={draft.assigneeUserId} onChange={e => setDraft(v => ({ ...v, assigneeUserId: e.target.value }))}><option value="">Seluruh pemegang role</option>{eligibleMembers(draft.ownerRoleCode).map(member => <option key={member.user_id} value={member.user_id}>{member.name || member.email}</option>)}</select></FormField>
+        <FormField label="Prioritas"><select value={draft.priority} onChange={e => setDraft(v => ({ ...v, priority: e.target.value }))}><option value="low">Rendah</option><option value="normal">Normal</option><option value="high">Tinggi</option><option value="critical">Kritis</option></select></FormField>
+        <FormField label="Batas waktu"><input type="datetime-local" value={draft.dueAt} onChange={e => setDraft(v => ({ ...v, dueAt: e.target.value }))} /></FormField>
+        <FormField label="Deskripsi / instruksi" wide><textarea rows={3} value={draft.description} onChange={e => setDraft(v => ({ ...v, description: e.target.value }))} /></FormField>
+        <div className="form-actions"><ActionButton variant="secondary" onClick={() => setShowCreate(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || !draft.ownerRoleCode || !draft.title.trim()}>{busy ? "Menyimpan…" : "Buat & tugaskan"}</button></div>
+      </form>
+    </Card>}
+    <div className="metric-grid four">
+      <Metric label="Total antrean" value={number(rows.length, 0)} icon={ClipboardCheck} tone="blue" />
+      <Metric label="Terlambat" value={number(rows.filter(task => task.is_overdue).length, 0)} icon={Clock3} tone="amber" />
+      <Metric label="Terblokir" value={number(rows.filter(task => task.status === "blocked").length, 0)} icon={CircleAlert} tone="red" />
+      <Metric label="Menunggu review" value={number(rows.filter(task => task.status === "submitted").length, 0)} icon={CheckCircle2} tone="green" />
+    </div>
+    {tasks.loading ? <Loading /> : tasks.error ? <ErrorState message={tasks.error} retry={tasks.refresh} /> : rows.length === 0
+      ? <EmptyState title="Belum ada tugas" desc="Tugas yang ditugaskan kepada role atau akun Anda akan muncul di sini." />
+      : <div className="dashboard-grid">{rows.map(task => <Card key={task.id}>
+        <div className="notification-head"><strong>{task.title}</strong><StatusPill value={task.priority} /></div>
+        <p>{task.description || "Tidak ada deskripsi tambahan."}</p>
+        <div className="service-list">
+          <div><span>Penanggung jawab</span><strong>{task.owner_role_code}{task.assignee_user_id ? " · " + shortId(task.assignee_user_id) : " · seluruh role"}</strong></div>
+          <div><span>Status</span><StatusPill value={task.status} /></div>
+          <div><span>Tenggat</span><strong>{dateTime(task.due_at)}</strong></div>
+          <div><span>Eskalasi</span><strong>{number(task.escalation_level, 0)}</strong></div>
+        </div>
+        {task.is_overdue && <div className="inline-warning"><Clock3 size={15} /> Melewati tenggat.</div>}
+        <div className="form-actions">
+          {task.status === "open" && <ActionButton size="sm" onClick={() => act(task, "acknowledge")} disabled={busy}>Akui tugas</ActionButton>}
+          {["acknowledged","blocked"].includes(task.status) && <ActionButton size="sm" onClick={() => act(task, "start")} disabled={busy}>Mulai</ActionButton>}
+          {["acknowledged","in_progress"].includes(task.status) && <ActionButton size="sm" variant="secondary" onClick={() => act(task, "submit")} disabled={busy}>Kirim selesai</ActionButton>}
+          {["acknowledged","in_progress"].includes(task.status) && <ActionButton size="sm" variant="ghost" onClick={() => act(task, "block", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Blokir</ActionButton>}
+          {task.status === "submitted" && canResolve && <ActionButton size="sm" onClick={() => act(task, "resolve")} disabled={busy}>Setujui penyelesaian</ActionButton>}
+          {task.status === "resolved" && canResolve && <ActionButton size="sm" onClick={() => act(task, "close")} disabled={busy}>Tutup tugas</ActionButton>}
+          {!["resolved","closed","cancelled"].includes(task.status) && <ActionButton size="sm" variant="ghost" onClick={() => act(task, "escalate", { reason: actionReason })} disabled={busy || actionReason.trim().length < 5}>Eskalasi ke PM</ActionButton>}
+          {canAssign && !["closed","cancelled"].includes(task.status) && <ActionButton size="sm" variant="secondary" onClick={() => { setAssignTaskId(task.id); setAssignDraft({ ownerRoleCode: task.owner_role_code, assigneeUserId: task.assignee_user_id || "", dueAt: task.due_at ? new Date(task.due_at).toISOString().slice(0,16) : "", priority: task.priority }); }}>Alihkan</ActionButton>}
+          <ActionButton size="sm" variant="ghost" onClick={() => setSelectedTaskId(task.id)}>Riwayat</ActionButton>
+        </div>
+        {(["acknowledged","in_progress","blocked"].includes(task.status) || !["resolved","closed","cancelled"].includes(task.status)) && <FormField label="Alasan blokir / eskalasi"><input value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Minimal 5 karakter" /></FormField>}
+        {assignTaskId === task.id && canAssign && <form className="form-grid" onSubmit={e => { e.preventDefault(); assign(task); }}>
+          <FormField label="Role baru"><select value={assignDraft.ownerRoleCode} onChange={e => setAssignDraft(v => ({ ...v, ownerRoleCode: e.target.value, assigneeUserId: "" }))}>{activeRoles.map(role => <option key={role.id} value={role.role_code}>{role.name}</option>)}</select></FormField>
+          <FormField label="User tertentu"><select value={assignDraft.assigneeUserId} onChange={e => setAssignDraft(v => ({ ...v, assigneeUserId: e.target.value }))}><option value="">Seluruh role</option>{eligibleMembers(assignDraft.ownerRoleCode).map(member => <option key={member.user_id} value={member.user_id}>{member.name || member.email}</option>)}</select></FormField>
+          <FormField label="Tenggat baru"><input type="datetime-local" value={assignDraft.dueAt} onChange={e => setAssignDraft(v => ({ ...v, dueAt: e.target.value }))} /></FormField>
+          <div className="form-actions"><ActionButton variant="secondary" onClick={() => setAssignTaskId("")}>Batal</ActionButton><button className="primary-button" disabled={busy}>Simpan penugasan</button></div>
+        </form>}
+      </Card>)}</div>}
+    {selectedTaskId && <Card><PanelHeading title="Riwayat tugas" description="Event append-only untuk penugasan, acknowledgment dan penyelesaian." action={<button className="icon-button" onClick={() => setSelectedTaskId("")}><X size={16} /></button>} />
+      {events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : <div className="activity-list">{(events.data?.events || []).map(event => <div className="activity-item" key={event.id}><div className="activity-icon"><Clock3 size={16} /></div><div className="activity-copy"><strong>{event.event_type}</strong><span>{event.reason || ""}</span><small>{dateTime(event.occurred_at)} · {shortId(event.actor_user_id)}</small></div></div>)}</div>}
+    </Card>}
+  </>;
+}
+
 function NotificationsPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const navigate = useNavigate();
   const notifications = useLoad<{ notifications?: AnyRecord[]; unreadCount?: number }>(() => get('/notifications'), []);
   const providers = useLoad<AnyRecord>(() => get('/notifications/providers'), []);
   const markRead = async (id: string) => { try { await patch(`/notifications/${id}/read`, {}); notifications.refresh(); } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Notifikasi tidak dapat diperbarui.'); } };
   return <>
     <PageTitle eyebrow="SYSTEM FEED" title="Notifikasi" subtitle="Pesan sistem dan status provider yang dikembalikan backend." actions={<ActionButton variant="secondary" onClick={() => notifications.refresh()}><RefreshCw size={16} /> Segarkan</ActionButton>} />
     <div className="metric-grid three"><Metric label="Belum dibaca" value={number(notifications.data?.unreadCount || 0, 0)} icon={Bell} tone="amber" /><Metric label="Email provider" value={String(providers.data?.email || '—')} icon={FileText} tone="blue" /><Metric label="In-app" value={String(providers.data?.inApp || '—')} icon={Activity} tone="green" /></div>
-    <Card><PanelHeading title="Inbox" description="Notifikasi terbaru untuk akun yang sedang masuk." />{notifications.loading ? <Loading /> : notifications.error ? <ErrorState message={notifications.error} retry={notifications.refresh} /> : (notifications.data?.notifications || []).length ? <div className="notification-list">{notifications.data!.notifications!.map((item, i) => <div className={`notification-item ${item.readAt ? 'is-read' : ''}`} key={item.id || i}><div className="notification-icon"><Bell size={17} /></div><div className="notification-body"><div className="notification-head"><strong>{String(item.title || 'Notifikasi')}</strong><StatusPill value={item.priority || 'normal'} /></div><p>{String(item.message || '')}</p><small>{dateTime(item.createdAt)}</small></div>{!item.readAt && item.id && <button className="text-button" onClick={() => markRead(String(item.id))}>Tandai dibaca</button>}</div>)}</div> : <EmptyState title="Inbox kosong" desc="Belum ada notifikasi untuk akun ini." />}</Card>
+    <Card><PanelHeading title="Inbox" description="Notifikasi terbaru untuk akun yang sedang masuk." />{notifications.loading ? <Loading /> : notifications.error ? <ErrorState message={notifications.error} retry={notifications.refresh} /> : (notifications.data?.notifications || []).length ? <div className="notification-list">{notifications.data!.notifications!.map((item, i) => <div className={`notification-item ${item.readAt ? 'is-read' : ''}`} key={item.id || i}><div className="notification-icon"><Bell size={17} /></div><div className="notification-body"><div className="notification-head"><strong>{String(item.title || 'Notifikasi')}</strong><StatusPill value={item.priority || 'normal'} /></div><p>{String(item.message || '')}</p><small>{dateTime(item.createdAt)}</small>{item.workItemId && <button className="text-button" onClick={() => navigate("/my-work")}>Buka tugas</button>}</div>{!item.readAt && item.id && <button className="text-button" onClick={() => markRead(String(item.id))}>Tandai dibaca</button>}</div>)}</div> : <EmptyState title="Inbox kosong" desc="Belum ada notifikasi untuk akun ini." />}</Card>
     <div className="inline-warning"><CircleAlert size={17} /> Provider email, SMS, dan WhatsApp belum dikonfigurasi. Notifikasi in-app disimpan di backend, tetapi pengiriman ke kanal eksternal dan jaminan delivery end-to-end belum tersedia.</div>
   </>;
 }

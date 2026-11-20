@@ -1793,7 +1793,7 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
     let status = item.status, roleCode = item.owner_role_code, assignee = item.assignee_user_id, due = item.due_at, priority = item.priority;
     let eventType = action === "escalate" ? "escalated" : action === "cancel" ? "cancelled" : action === "comment" ? "commented" : action === "reopen" ? "reopened" : action === "acknowledge" ? "acknowledged" : action === "start" ? "started" : action === "block" ? "blocked" : action === "submit" ? "submitted" : action === "resolve" ? "resolved" : action === "close" ? "closed" : action;
     if (action === "assign") {
-      if (typeof body.ownerRoleCode !== "string") return res.status(400).json({ error: "ownerRoleCode is required." });
+      if (typeof body.ownerRoleCode !== "string" || typeof body.reason !== "string" || body.reason.trim().length < 5) return res.status(400).json({ error: "ownerRoleCode and reassignment reason are required." });
       const role = await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",[projectId,body.ownerRoleCode]);
       if (!role.rows.length) return res.status(422).json({ error: "Owner role is not active in this Project." });
       const assigned = await req.db.query(
@@ -1836,20 +1836,25 @@ app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req:
       "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,$3,$4::uuid,$5,$6::jsonb)",
       [item.id,projectId,eventType,actorId,body.reason || null,JSON.stringify({ action, comment: body.comment || null, status, ownerRoleCode: roleCode, assigneeUserId: assignee })]
     );
-    if (["assign","escalate"].includes(action)) {
-      const targetRole = action === "escalate" ? "pm" : roleCode;
-      const targetUser = action === "escalate" ? null : assignee;
+    if (["assign","escalate","submit","block","resolve","close"].includes(action)) {
+      const notifyPm = ["escalate","submit","block"].includes(action);
+      const targetRole = notifyPm ? "pm" : roleCode;
+      const targetUser = action === "assign" ? assignee : (action === "resolve" || action === "close") ? item.assignee_user_id : null;
+      const title = notifyPm
+        ? (action === "submit" ? "Tugas menunggu review PM: " : action === "block" ? "Tugas terblokir: " : "Eskalasi tugas: ") + item.title
+        : (action === "assign" ? "Penugasan: " : "Pembaruan tugas: ") + item.title;
+      const message = notifyPm
+        ? (action === "submit" ? "Tugas telah dikirim untuk review PM." : action === "block" ? "Tugas diblokir. Alasan: " + body.reason : "Tugas dieskalasikan ke PM. Alasan: " + body.reason)
+        : (action === "assign" ? "Anda menerima tugas. Alasan penugasan: " + body.reason : "Status tugas diperbarui menjadi " + status + ".");
       await req.db.query(
         "INSERT INTO public.user_notifications (id,event_id,project_id,work_item_id,recipient_user_id,created_by,title,message,priority,category,created_at) " +
-        "SELECT gen_random_uuid(),gen_random_uuid(),$1::uuid,$2::uuid,a.user_id,$3::uuid,$4,$5,$6,'task_assignment',now() " +
+        "SELECT gen_random_uuid(),gen_random_uuid(),$1::uuid,$2::uuid,a.user_id,$3::uuid,$4,$5,$6,'task_update',now() " +
         "FROM public.project_roles pr JOIN public.project_role_assignments a ON a.project_role_id=pr.id AND a.project_id=pr.project_id " +
         "JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.user_id=a.user_id " +
         "WHERE pr.project_id=$1::uuid AND pr.role_code=$7 AND pr.is_active=true AND a.is_active=true AND a.revoked_at IS NULL " +
         "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
         "AND (pm.expires_at IS NULL OR pm.expires_at>now()) AND ($8::uuid IS NULL OR a.user_id=$8::uuid) ON CONFLICT DO NOTHING",
-        [projectId,item.id,actorId,action==="escalate" ? "Eskalasi tugas: "+item.title : "Penugasan: "+item.title,
-         action==="escalate" ? "Tugas dieskalasikan ke PM. Alasan: "+body.reason : "Anda menerima tugas "+item.title+".",
-         item.priority,targetRole,targetUser]
+        [projectId,item.id,actorId,title,message,item.priority,targetRole,targetUser]
       );
     }
     const updated = await req.db.query(

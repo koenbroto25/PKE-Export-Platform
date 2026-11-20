@@ -57,6 +57,11 @@ describe("Migration 052 release safety contract", () => {
     expect(backup.production_counts).toEqual(backup.backup_counts);
   });
 
+  it("pins the exact backup evidence manifest digest", () => {
+    const digest = crypto.createHash("sha256").update(fs.readFileSync("docs/audits/NEON_PRE_052_BACKUP_MANIFEST_20261120.json")).digest("hex");
+    expect(digest).toBe("cbb6216e1c86a238d97e9e7bd400c2073fda75d3dd7224a707ee0bbdcc4d8a7a");
+  });
+
   it("executes migration and ledger write atomically, then backtests Funder denial", () => {
     expect(runner).toContain('await client.query("BEGIN")');
     expect(runner).toContain('"INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, \'applied\')"');

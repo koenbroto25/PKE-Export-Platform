@@ -80,3 +80,11 @@ Finance role grants, payment permissions, PM permissions and other role grants a
 - Exact Migration 053 SHA-256: `3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4`.
 - **PREPARED ONLY — NOT APPLIED TO NEON PRODUCTION.** Production DDL/permission DML requires a separate approval of this exact SQL SHA-256 after source CI and isolated backtest evidence.
 - No Production role grants, role assignments, business data, or schema were changed for this policy decision.
+
+
+### Latest-source CI/backtest evidence — 2026-11-20
+- Tested source head: `38fb83561202c5c0c04b4bb5c5ba8054b65bf274` on existing branch `f1/project-scoped-cob-20261119`.
+- Unit Tests run `44766201249`: SUCCESS — 22 test files, 243 tests passed. The new Project Admin Accounting/Reports contract suite contributed 4 passing tests.
+- Within the same Unit Tests workflow: Production migration release verifier PASS; applied Migration 052 + pre-apply backup verifier PASS; migration runner dry-run PASS; backend TypeScript PASS; frontend TypeScript PASS; frontend production build PASS.
+- Dependency Audit Evidence run `44766201241`: SUCCESS — root and frontend production dependency audit steps plus full dependency-tree audit/evidence upload completed.
+- Migration 053 remains prepared-only. This CI is a source/static contract backtest; no SQL was applied to Neon Production, no role grants were changed, and no isolated Neon branch was modified.

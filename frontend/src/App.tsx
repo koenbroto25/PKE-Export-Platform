@@ -188,13 +188,13 @@ function App() {
             <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><OperationsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/journal-entries" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/journal-entries" element={<RoleGuard allowedKeys={['journal-entries']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={workspaceUser}><ReportsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={workspaceUser}><NotificationsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><AccessPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/shipment-allocations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><ShipmentAllocationPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/shipment-allocations" element={<RoleGuard allowedKeys={['shipment-allocations']} activeUser={workspaceUser}><ShipmentAllocationPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/cash-advances" element={<RoleGuard allowedKeys={["cash-advances"]} activeUser={workspaceUser}><CashAdvancesPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/payment-instructions" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><PaymentInstructionsPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/payment-instructions" element={<RoleGuard allowedKeys={['payment-instructions']} activeUser={workspaceUser}><PaymentInstructionsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/buyer" element={<RoleGuard allowedKeys={['buyer']} activeUser={workspaceUser}><BuyerWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/supplier" element={<RoleGuard allowedKeys={['supplier']} activeUser={workspaceUser}><SupplierWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/transporter" element={<RoleGuard allowedKeys={['transporter']} activeUser={workspaceUser}><TransporterWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />

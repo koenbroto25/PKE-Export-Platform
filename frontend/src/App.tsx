@@ -74,7 +74,7 @@ function App() {
   const pkeIdentity = useLoad<{ user?: AnyRecord } | null>(() => user ? get('/me') : Promise.resolve(null), [user?.id]);
   const activeUser = pkeIdentity.data?.user || user;
   const projectAccess = useLoad<{ projectId?: string; permissions?: string[] }>(
-    () => activeUser && !pkeIdentity.loading && projectId
+    () => activeUser && activeUser.platformAdmin !== true && !pkeIdentity.loading && projectId
       ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`)
       : Promise.resolve({ projectId, permissions: [] }),
     [projectId, activeUser?.id, pkeIdentity.loading],
@@ -83,7 +83,7 @@ function App() {
     ...activeUser,
     selectedProjectId: projectId,
     projectPermissions: projectAccess.data?.projectId === projectId ? projectAccess.data.permissions || [] : [],
-    projectPermissionsLoading: Boolean(projectId && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
+    projectPermissionsLoading: Boolean(projectId && activeUser?.platformAdmin !== true && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
     projectPermissionsError: projectAccess.error,
   } : activeUser;
   const selectedMembership = workspaceUser?.projectMemberships?.find((membership: AnyRecord) => membership.projectId === projectId && membership.isActive === true);
@@ -312,11 +312,12 @@ function ActionButton({ children, onClick, variant = 'primary', disabled = false
 function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const portfolio = useLoad<AnyRecord>(() => activeUser?.platformAdmin === true ? get('/reports/portfolio') : Promise.resolve({}), [activeUser?.platformAdmin]);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
-  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId]);
-  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId]);
+  const canViewLogistics = activeUser?.platformAdmin === true || activeUser?.projectPermissions?.includes('logistics.view') === true;
+  const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId && canViewLogistics ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId, canViewLogistics]);
+  const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId && canViewLogistics ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId, canViewLogistics]);
   const recentTrips = (trips.data?.truckTrips || []).slice(0, 5);
   const p = portfolio.data || {};
-  const visibleProjects = projects.data?.projects || [];
+  const visibleProjects = (projects.data?.projects || []).filter(project => !projectId || project.id === projectId);
   const activeProjectCount = p.activeProjects ?? visibleProjects.filter(project => project.status === 'active').length;
   const visibleContractVolume = p.contractVolume ?? visibleProjects.reduce((sum, project) => sum + Number(project.target_quantity || 0), 0);
   const visibleTripCount = p.shipmentCount ?? trips.data?.truckTrips?.length ?? 0;
@@ -334,7 +335,7 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
     {!projectId && activeUser?.platformAdmin !== true && <div className="inline-warning"><CircleAlert size={17} /> Pilih Project pada bagian atas untuk membuka ringkasan operasional Project.</div>}
     <div className="dashboard-grid">
       <Card className="span-2"><PanelHeading title="Proyek berjalan" description="Ringkasan proyek aktif dalam portofolio." action={<Link className="inline-link" to="/projects">Lihat proyek <ArrowRight size={14} /></Link>} />
-        {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={(projects.data?.projects || []).slice(0, 6)} columns={[
+        {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={visibleProjects.slice(0, 6)} columns={[
           { key: 'name', label: 'Nama proyek', render: r => <div className="primary-cell"><strong>{r.name}</strong><small>{shortId(r.id)}</small></div> },
           { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
           { key: 'target_quantity', label: 'Target volume', render: r => `${number(r.target_quantity)} ${r.settlement_unit || 'MT'}` },

@@ -9,37 +9,13 @@ import {
 } from 'lucide-react';
 import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
+import { hasPageAccess, visiblePageKeys } from './role-permissions';
 
 type AnyRecord = Record<string, any>;
 type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
-
-const roleAccess: Record<string, string[]> = {
-  admin: ['dashboard','projects','contracts','operations','finance','compliance','journal-entries','shipment-allocations','cash-advances','payment-instructions','reports','notifications','access','buyer','supplier','transporter','warehouse','funder'],
-  pm: ['dashboard','projects','contracts','operations','finance','compliance','shipment-allocations','cash-advances','reports','notifications','buyer','supplier','transporter','warehouse'],
-  field_manager: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','transporter','warehouse'],
-  procurement: ['dashboard','projects','contracts','operations','supplier','cash-advances','reports','notifications'],
-  checker: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','warehouse'],
-  warehouse_manager: ['dashboard','operations','shipment-allocations','cash-advances','inventory-lots','reports','notifications','warehouse'],
-  packing_supervisor: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','warehouse'],
-  loading_manager: ['dashboard','operations','shipment-allocations','cash-advances','reports','notifications','transporter','warehouse'],
-  document_officer: ['dashboard','compliance','cash-advances','reports','notifications','access'],
-  finance: ['dashboard','finance','cash-advances','reports','notifications','journal-entries','shipment-allocations'],
-  cashier: ['dashboard','finance','cash-advances','reports','notifications','payment-instructions'],
-  accounting: ['dashboard','finance','cash-advances','reports','notifications','journal-entries'],
-  funder: ['dashboard','projects','finance','reports','notifications','funder'],
-  buyer: ['dashboard','reports','notifications','buyer'],
-  project_admin: ['dashboard','projects','contracts','operations','finance','compliance','reports','notifications','access'],
-  contract_manager: ['dashboard','contracts','buyer','reports','notifications'],
-  internal_auditor: ['dashboard','projects','contracts','operations','finance','compliance','journal-entries','reports','notifications'],
-  finance_officer: ['dashboard','finance','cash-advances','reports','notifications'],
-  supplier: ['dashboard','projects','contracts','reports','notifications','supplier'],
-  transporter: ['dashboard','operations','shipment-allocations','reports','notifications','transporter'],
-  external_provider: ['dashboard','reports','notifications'],
-  viewer: ['dashboard','reports','notifications'],
-};
 
 const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDashboard; group: string }[] = [
   { to: '/', key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, group: 'Workspace' },
@@ -97,6 +73,28 @@ function App() {
   const user = session.data?.user as AnyRecord | undefined;
   const pkeIdentity = useLoad<{ user?: AnyRecord } | null>(() => user ? get('/me') : Promise.resolve(null), [user?.id]);
   const activeUser = pkeIdentity.data?.user || user;
+  const projectAccess = useLoad<{ projectId?: string; permissions?: string[] }>(
+    () => activeUser && !pkeIdentity.loading && projectId
+      ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`)
+      : Promise.resolve({ projectId, permissions: [] }),
+    [projectId, activeUser?.id, pkeIdentity.loading],
+  );
+  const workspaceUser = activeUser ? {
+    ...activeUser,
+    selectedProjectId: projectId,
+    projectPermissions: projectAccess.data?.projectId === projectId ? projectAccess.data.permissions || [] : [],
+    projectPermissionsLoading: Boolean(projectId && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
+    projectPermissionsError: projectAccess.error,
+  } : activeUser;
+  const selectedMembership = workspaceUser?.projectMemberships?.find((membership: AnyRecord) => membership.projectId === projectId && membership.isActive === true);
+  const selectedProjectRoles = (selectedMembership?.roleAssignments || [])
+    .filter((assignment: AnyRecord) => assignment.isActive === true && !assignment.revokedAt && assignment.roleIsActive === true
+      && (!assignment.expiresAt || new Date(assignment.expiresAt).getTime() > Date.now()))
+    .map((assignment: AnyRecord) => assignment.roleName || assignment.roleCode)
+    .filter(Boolean);
+  const roleSummary = workspaceUser?.platformAdmin === true ? 'Platform Admin'
+    : projectId ? (selectedProjectRoles.length ? [...new Set(selectedProjectRoles)].join(' · ') : 'Tidak ada role aktif di Project')
+    : 'Pilih Project untuk melihat role';
 
   const notify = useCallback((kind: 'success' | 'error' | 'info', text: string) => {
     setNotice({ kind, text });
@@ -137,8 +135,8 @@ function App() {
         </div>
         <div className="sidebar-label">OPERATIONS</div>
         <div className="sidebar-navigation">
-        {['Workspace', 'Eksekusi', 'Kontrol', 'Sistem'].map(group => {
-          const allowedKeys = roleAccess[activeUser?.role] || [];
+        {['Workspace', 'Eksekusi', 'Kontrol', 'Sistem', 'Stakeholder'].map(group => {
+          const allowedKeys = visiblePageKeys(workspaceUser);
           return (
             <div className="nav-group" key={group}>
               <div className="nav-group-title">{group}</div>
@@ -158,7 +156,7 @@ function App() {
           <div className="environment"><span className="status-dot" /> Authenticated session active</div>
           <div className="profile-row">
             <div className="avatar">{String(activeUser?.name || activeUser?.email || 'P').slice(0, 1).toUpperCase()}</div>
-            <div className="profile-meta"><strong>{activeUser?.name || 'Pengguna PKE'}</strong><small>{activeUser?.email}</small><br /><small style={{ opacity: 0.7 }}>{activeUser?.role ? `Role: ${activeUser.role.replace('_',' ')}` : ''}</small></div>
+            <div className="profile-meta"><strong>{activeUser?.name || 'Pengguna PKE'}</strong><small>{activeUser?.email}</small><br /><small style={{ opacity: 0.7 }}>{roleSummary}</small></div>
             <button className="icon-button" onClick={signOut} title="Keluar"><LogOut size={17} /></button>
           </div>
         </div>
@@ -178,30 +176,30 @@ function App() {
         </header>
         <div className="page-content">
           <Routes>
-            <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={activeUser}><DashboardPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectsPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/projects/:id" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectDetailPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/projects/:id/edit" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectEditPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/projects/:id/configuration" element={<RoleGuard allowedKeys={['projects']} activeUser={activeUser}><ProjectConfigurationPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/projects/:id/roles" element={<RoleGuard allowedKeys={['access']} activeUser={activeUser}><ProjectRolesPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/projects/:id/members" element={<RoleGuard allowedKeys={['access']} activeUser={activeUser}><ProjectMembersPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/contracts" element={<RoleGuard allowedKeys={['contracts']} activeUser={activeUser}><ContractsPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={activeUser}><OperationsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
-            <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={activeUser}><CompliancePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/journal-entries" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
-            <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={activeUser}><ReportsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={activeUser}><NotificationsPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={activeUser}><AccessPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/shipment-allocations" element={<RoleGuard allowedKeys={['operations']} activeUser={activeUser}><ShipmentAllocationPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/cash-advances" element={<RoleGuard allowedKeys={["cash-advances"]} activeUser={activeUser}><CashAdvancesPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/payment-instructions" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><PaymentInstructionsPage onNotice={notify} /></RoleGuard>} />
-            <Route path="/buyer" element={<RoleGuard allowedKeys={['buyer']} activeUser={activeUser}><BuyerWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/supplier" element={<RoleGuard allowedKeys={['supplier']} activeUser={activeUser}><SupplierWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/transporter" element={<RoleGuard allowedKeys={['transporter']} activeUser={activeUser}><TransporterWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/warehouse" element={<RoleGuard allowedKeys={['warehouse_manager']} activeUser={activeUser}><WarehouseWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/funder" element={<RoleGuard allowedKeys={['funder']} activeUser={activeUser}><FunderWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><DashboardPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects/:id" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectDetailPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects/:id/edit" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectEditPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects/:id/configuration" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectConfigurationPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects/:id/roles" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><ProjectRolesPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects/:id/members" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><ProjectMembersPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/contracts" element={<RoleGuard allowedKeys={['contracts']} activeUser={workspaceUser}><ContractsPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><OperationsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/journal-entries" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={workspaceUser}><ReportsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={workspaceUser}><NotificationsPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><AccessPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/shipment-allocations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><ShipmentAllocationPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/cash-advances" element={<RoleGuard allowedKeys={["cash-advances"]} activeUser={workspaceUser}><CashAdvancesPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/payment-instructions" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><PaymentInstructionsPage onNotice={notify} /></RoleGuard>} />
+            <Route path="/buyer" element={<RoleGuard allowedKeys={['buyer']} activeUser={workspaceUser}><BuyerWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/supplier" element={<RoleGuard allowedKeys={['supplier']} activeUser={workspaceUser}><SupplierWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/transporter" element={<RoleGuard allowedKeys={['transporter']} activeUser={workspaceUser}><TransporterWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/warehouse" element={<RoleGuard allowedKeys={['warehouse_manager']} activeUser={workspaceUser}><WarehouseWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/funder" element={<RoleGuard allowedKeys={['funder']} activeUser={workspaceUser}><FunderWorkspacePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/login/" element={<Navigate to="/" replace />} />
             <Route path="/login." element={<Navigate to="/" replace />} />
@@ -278,16 +276,13 @@ function LoginPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info'
 }
 
 function RoleGuard({ children, allowedKeys, activeUser }: { children: ReactNode; allowedKeys: string[]; activeUser: AnyRecord | undefined }) {
-  const userRole = activeUser?.role;
-  if (!userRole) return <div className="panel"><p>Memuat hak akses…</p></div>;
-  const globalKeys = roleAccess[activeUser?.role] || [];
-  const projectRoleKeys = (activeUser?.projectMemberships || [])
-    .filter((m: AnyRecord) => m.isActive === true)
-    .flatMap((m: AnyRecord) => (m.roleAssignments || [])
-      .filter((a: AnyRecord) => a.isActive === true && !a.revokedAt && (!a.expiresAt || new Date(a.expiresAt).getTime() > Date.now()) && a.roleIsActive === true)
-      .flatMap((a: AnyRecord) => roleAccess[a.roleCode] || []));
-  const allowed = activeUser?.platformAdmin === true || allowedKeys.some(k => globalKeys.includes(k) || projectRoleKeys.includes(k));
-  if (!allowed) return <div className="panel"><p style={{ color: '#c45555' }}><CircleAlert size={18} /> Akses tidak diizinkan untuk role <strong>{activeUser?.role?.replace('_', ' ')}</strong>.</p></div>;
+  if (!activeUser) return <div className="panel"><p>Memuat identitas pengguna…</p></div>;
+  if (activeUser.projectPermissionsLoading) return <Loading text="Memverifikasi permission Project…" />;
+  if (activeUser.projectPermissionsError && activeUser.selectedProjectId && activeUser.platformAdmin !== true) {
+    return <ErrorState message="Hak akses Project tidak dapat diverifikasi. Akses ditutup sementara." />;
+  }
+  const allowed = allowedKeys.some(key => hasPageAccess(key, activeUser));
+  if (!allowed) return <div className="panel"><p style={{ color: '#c45555' }}><CircleAlert size={18} /> Akses tidak diizinkan. Pastikan Project yang benar dipilih dan role Anda aktif pada Project tersebut.</p></div>;
   return <>{children}</>;
 }
 
@@ -314,24 +309,29 @@ function StatusPill({ value }: { value: unknown }) {
 function FormField({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) { return <label className={`form-field ${wide ? 'form-wide' : ''}`}><span>{label}</span>{children}</label>; }
 function ActionButton({ children, onClick, variant = 'primary', disabled = false }: { children: ReactNode; onClick?: () => void; variant?: 'primary' | 'secondary' | 'ghost'; disabled?: boolean }) { return <button type="button" className={`${variant}-button`} disabled={disabled} onClick={onClick}>{children}</button>; }
 
-function DashboardPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const portfolio = useLoad<AnyRecord>(() => get('/reports/portfolio'), []);
+function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const portfolio = useLoad<AnyRecord>(() => activeUser?.platformAdmin === true ? get('/reports/portfolio') : Promise.resolve({}), [activeUser?.platformAdmin]);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const trips = useLoad<{ truckTrips?: AnyRecord[] }>(() => projectId ? get(`/truck-trips?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ truckTrips: [] }), [projectId]);
   const events = useLoad<{ trackingEvents?: AnyRecord[] }>(() => projectId ? get(`/tracking-events?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ trackingEvents: [] }), [projectId]);
   const recentTrips = (trips.data?.truckTrips || []).slice(0, 5);
   const p = portfolio.data || {};
+  const visibleProjects = projects.data?.projects || [];
+  const activeProjectCount = p.activeProjects ?? visibleProjects.filter(project => project.status === 'active').length;
+  const visibleContractVolume = p.contractVolume ?? visibleProjects.reduce((sum, project) => sum + Number(project.target_quantity || 0), 0);
+  const visibleTripCount = p.shipmentCount ?? trips.data?.truckTrips?.length ?? 0;
   const loading = portfolio.loading || projects.loading || trips.loading;
   const refresh = () => { portfolio.refresh(); projects.refresh(); trips.refresh(); events.refresh(); };
   return <>
     <PageTitle eyebrow="EXECUTIVE OVERVIEW" title="Ringkasan operasional" subtitle="Pantau portofolio ekspor dan aktivitas terbaru dari satu tempat." actions={<ActionButton variant="secondary" onClick={refresh}><RefreshCw size={16} /> Segarkan</ActionButton>} />
     {loading && <Loading />}
     <div className="metric-grid">
-      <Metric label="Proyek aktif" value={number(p.activeProjects || 0, 0)} foot="Proyek dengan status aktif" icon={BriefcaseBusiness} tone="navy" />
-      <Metric label="Target volume" value={`${number(p.contractVolume || 0)} MT`} foot="Akumulasi target proyek" icon={Boxes} tone="blue" />
-      <Metric label="Anggaran RAB" value={idr(p.approvedBudget)} foot="Nilai anggaran aktif" icon={CircleDollarSign} tone="amber" />
-      <Metric label="Perjalanan truk" value={number(p.shipmentCount || 0, 0)} foot="Trip yang tercatat" icon={Truck} tone="green" />
+      <Metric label="Proyek aktif" value={number(activeProjectCount, 0)} foot="Proyek yang terlihat oleh akun" icon={BriefcaseBusiness} tone="navy" />
+      <Metric label="Target volume" value={`${number(visibleContractVolume)} MT`} foot="Akumulasi target proyek yang terlihat" icon={Boxes} tone="blue" />
+      <Metric label="Anggaran RAB" value={activeUser?.platformAdmin === true ? idr(p.approvedBudget) : "—"} foot={activeUser?.platformAdmin === true ? "Nilai anggaran aktif" : "Ringkasan RAB tersedia di Finance Workspace"} icon={CircleDollarSign} tone="amber" />
+      <Metric label="Perjalanan truk" value={number(visibleTripCount, 0)} foot="Trip dalam cakupan yang dipilih" icon={Truck} tone="green" />
     </div>
+    {!projectId && activeUser?.platformAdmin !== true && <div className="inline-warning"><CircleAlert size={17} /> Pilih Project pada bagian atas untuk membuka ringkasan operasional Project.</div>}
     <div className="dashboard-grid">
       <Card className="span-2"><PanelHeading title="Proyek berjalan" description="Ringkasan proyek aktif dalam portofolio." action={<Link className="inline-link" to="/projects">Lihat proyek <ArrowRight size={14} /></Link>} />
         {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={(projects.data?.projects || []).slice(0, 6)} columns={[

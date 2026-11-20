@@ -37,7 +37,7 @@ Security invariants:
 | Export documents | country/project document requirements, document records and private storage APIs | Partial: document checklist/storage exists; LC-specific clauses, original/copy rules, discrepancy workflow and presentation countdown are not established. |
 | Finance / Accounting | RAB, FX exposure, AP/AR invoices, Cash Advances, journal entries/lines and reporting APIs | Partial-to-implemented: Finance and Accounting foundations exist; bank payment execution, payment evidence/reconciliation and LC proceeds lifecycle remain incomplete. |
 | Reports | Project reports, report runs/schedules, data freshness and file references | Partial: source-linked metrics and freshness exist in places; role-specific report templates and PM exception rollup need design/UAT. |
-| Notifications | `user_notifications`, `notification_deliveries`; inbox, create and mark-read APIs | Partial: inbox/read and delivery retry foundation; no first-class task acknowledgement, assignment, due date, resolution, escalation or PM rollup. |
+| Notifications & tasks | `user_notifications`, `notification_deliveries`, `project_work_items`, `project_work_item_events`; inbox/read, task assignment, acknowledgement, status transitions, comments/evidence, escalation and PM roll-up | Implemented source foundation: task notifications link to work items; runtime RLS/UAT and Production migration remain gated. |
 
 ### Current read endpoints relevant to a Project Control Tower
 
@@ -56,7 +56,7 @@ Security invariants:
 | Journal | `GET /journal-entries` — `accounting.view` | Accounting work queue and posting status |
 | Notifications | `GET /notifications` — authenticated self-inbox | Personal notifications only; not a PM-wide task queue |
 
-Important endpoint gaps: no verified Project-scoped API was found for quality release, production/packing output, purchase orders, vessel calls, loading plans/shifts, laytime, LC-specific discrepancy/presentation, payment instructions, bank reconciliation, or PM task assignment. Do not build dashboard metrics that pretend these data sources exist.
+Important endpoint gaps: no verified Project-scoped API was found for quality release, production/packing output, purchase orders, vessel calls, loading plans/shifts, laytime, LC-specific discrepancy/presentation, payment execution, or bank reconciliation. Project task assignment is now source-implemented through the work-item API; do not build dashboard metrics that pretend the other missing data sources exist.
 
 ## 3. Role-by-role responsibility and work contract
 
@@ -66,7 +66,7 @@ The permission names below are from the current TypeScript role templates. They 
 |---|---|---|---|---|
 | Platform Administrator | User onboarding, platform governance, Project shell creation, PM appointment; receives access requests and governance exceptions | Activated/deactivated accounts, Project provisioning, PM appointment/replacement, privileged audit record | Platform governance; not a substitute for operational PM or Finance maker/checker | **Partial:** provisioning, Project and PM appointment APIs exist. PM signal: PM vacancy/change, blocked provisioning, unresolved admin action. |
 | Project Administrator | Project configuration, membership and role governance; receives approved Project setup and membership requests | Project settings, active memberships, role assignments and change history | Finance is read-only; does not approve Finance transactions or appoint PM unless acting through explicit Platform Admin authority | **Partial:** project/member/role APIs and Finance view exist. PM signal: configuration or membership blocker. |
-| Project Manager | Coordinates contracts, team assignments, logistics, warehouse, inventory, shipping, documents, Finance visibility, reports and workflow | Project plan, role assignments, operational instructions, escalations and consolidated status | No Finance create/update/delete, Accounting posting, QA release or operational sign-off outside explicit permission | **Partial:** broad read and membership governance foundations exist; task/instruction lifecycle and PM Control Tower are missing. |
+| Project Manager | Coordinates contracts, team assignments, logistics, warehouse, inventory, shipping, documents, Finance visibility, reports and workflow | Project plan, role assignments, operational instructions, escalations and consolidated status | No Finance create/update/delete, Accounting posting, QA release or operational sign-off outside explicit permission | **Implemented foundation / UAT pending:** PM coordination, task/instruction lifecycle, My Work and task-first PM Control Tower source surfaces exist. PM remains unable to perform protected Finance, Accounting, QA or operational sign-off actions. |
 | Internal Auditor | Reviews Project operations, inventory, warehouse, logistics, shipping, Finance, Accounting, documents, workflows and reports | Evidence-backed findings, severity, owner recommendation and closure verification | Read-only; must not correct the audited transaction or approve its own remediation | **Partial:** read permissions/templates exist; dedicated finding, response and closure workbench not confirmed. |
 | Procurement Officer | Manages supplier and buyer requirements; reviews contracts, product and facility/capacity data | Supplier shortlist, requirement completeness and procurement recommendation | Cannot commit stock, approve Finance, or certify QA release | **Partial:** supplier/buyer requirement permissions and master references exist; PO/commitment/three-way match workbench missing. |
 | PKS Site Manager | Maintains PKS facility, capacity and product availability data | Facility/capacity/product readiness and exceptions | Cannot approve quality release or Finance payment | **Partial:** facility/product permission templates exist; site-facing workbench and capacity evidence flow require implementation. |
@@ -128,24 +128,22 @@ Recommended layout is task-first, not a wall of generic KPI cards:
 
 Do not display zero for missing data. Distinguish `0`, `not reported`, `not integrated`, `stale`, and `not applicable`.
 
-## 6. Task and notification engine — proposed data contract
+## 6. Task and notification engine — implemented source contract (Migration 049 prepared, not Production-applied)
 
-### Current limitations
+### Current implementation status
 
-- `user_notifications` is a recipient inbox with title/message/category/priority/read timestamp; it is not a task assignment entity.
-- `notification_deliveries` tracks channel/provider/status/retries; external email/SMS/WhatsApp providers are not configured in the inspected UI.
-- `project_workflows` stores workflow configuration/status snapshots; it is not a queue of assigned work items.
-- `approval_events` is a generic entity/action/status record and does not provide role assignment, acknowledgement, SLA or escalation by itself.
-- `admin_action_queue` is a platform-admin queue, not a Project operational task engine.
-- No first-class `project_tasks` or `project_work_items` entity was found in the inspected schema.
+- `project_work_items` is the operational source of truth for manual instructions and follow-up tasks; `project_work_item_events` stores append-only lifecycle events.
+- `user_notifications` remains the recipient inbox/delivery projection and links back to the work item. Reading a notification does not acknowledge or complete the task.
+- `project_workflows` remains workflow configuration/status, not a task queue. `approval_events` remains a generic approval/audit record; `admin_action_queue` remains platform-admin-only.
+- The source implementation is present in Migration 049, `src/index.ts`, `src/schema.ts`, `src/role-catalogue.ts` and `frontend/src/App.tsx`. Migration 049 is prepared only; task runtime must not be represented as active on Neon Production before approved sequential application and RLS UAT.
 
-### Proposed model (not implemented)
+### Implemented model in source (prepared schema; Production activation gated)
 
-**`project_work_items`** should be the operational source of truth for manual instructions and generated exceptions. Minimum fields: `id`, `project_id`, `source_entity_type`, `source_entity_id`, `source_version`, `work_item_type`, `title`, `description`, `priority`, `status`, `owner_role_code`, `assignee_user_id`, `created_by`, `due_at`, `acknowledged_at`, `started_at`, `resolved_at`, `closed_at`, `escalation_level`, `dedupe_key`, `created_at`, `updated_at`.
+**`project_work_items`** is the operational source of truth for tasks/instructions. Current fields include `id`, `project_id`, optional source entity pair, `work_item_type`, `title`, `description`, `priority`, `status`, `owner_role_code`, optional `assignee_user_id`, `created_by`, `due_at`, acknowledgement/start/submission/resolution/closure timestamps and actors, `escalation_level`, `dedupe_key`, and timestamps.
 
-**`project_work_item_events`** should be append-only and record `work_item_id`, `project_id`, `event_type`, `actor_user_id`, `before_snapshot`, `after_snapshot`, `reason` and `occurred_at`. Events include create, assign, reassign, acknowledge, start, comment/evidence, block, resolve, reopen, escalate and close.
+**`project_work_item_events`** is append-only and records `work_item_id`, `project_id`, `event_type`, `actor_user_id`, `reason`, `payload` and `occurred_at`. Database grants revoke UPDATE and DELETE for `app_runtime_secure`.
 
-Use `user_notifications` as the delivery/inbox projection, not the task record. A notification should link to a work item/source entity, be idempotent, have recipient-specific delivery state and never be the only evidence of an instruction or decision.
+Use `user_notifications` as the recipient inbox/delivery projection, not the task record. Notifications carry `work_item_id`; read status is distinct from task acknowledgement or completion.
 
 ### Proposed permission boundaries (require catalogue/DB review before implementation)
 
@@ -176,10 +174,10 @@ Role-specific task permissions must not be confused with source-record permissio
 1. Confirm the source-of-truth for Project timezone and business-day/SLA calendars.
 2. Confirm which role assignments PM may create/revoke, and which assignments remain Platform Admin-only. Preserve the existing PM appointment governance flow.
 3. Approve the task permission codes and whether Project Admin has read-only task visibility.
-4. Decide whether task data is a new `project_work_items` aggregate or an extension of an existing workflow model. Do not reuse `project_workflows` as tasks without a schema fit review.
+4. The source decision is `project_work_items` plus append-only `project_work_item_events`; keep `project_workflows` as workflow configuration/status, not as a task queue.
 5. Define source adapters and event triggers for current entities: contract/cycle, CoB, inventory/holds/reservations, truck trip/checkpoints, shipment allocations, documents, AP/AR, Cash Advance and journals.
 6. Keep quality/production, vessel/loading/laytime, LC discrepancy/presentation, payment execution and bank reconciliation as `unavailable` until their source workflows exist.
-7. Implement task engine and read-only PM aggregator only after permission catalogue, RLS and append-only event model are approved.
+7. Complete the release gate for the implemented task engine: review/approve exact Migration 048 and 049 SQL hashes, verify backup, apply sequentially, then run authenticated RLS and workflow UAT before enabling Production use.
 8. Build role work queues from the same task engine; do not create separate task silos per dashboard.
 9. Add isolated synthetic backtests for multi-role, multi-Project, expired/revoked assignment, PM reassignment, role queue isolation, due-date escalation, duplicate events, Finance maker-checker, QA independence and external object scope.
 10. Only after native workflows are complete, re-evaluate optional chart/table/map libraries. No ERP/PM platform replacement is recommended at this stage.
@@ -210,14 +208,14 @@ These findings are material blockers for the next role-workbench pass. They are 
 |---|---|---|
 | CoB cycle creation is Finance-gated | `POST /projects/:projectId/shipments/:shipmentId/cob-cycle` requires `finance.create`; PM and Contract Manager templates do not grant it, while PM has `finance.view` and `manage_contract_programs` | PM can coordinate and view the cycle but cannot create the payment obligation. Keep Finance maker authority; decide whether PM should submit a non-financial cycle request or Finance remains the creator. Do not grant PM `finance.create` as a workaround. |
 | Shipment allocation read/write is `shipping.view` / `shipping.update` | `GET /shipment-allocations` requires `shipping.view`; POST/PATCH requires `shipping.update`. Buyer/Supplier templates have `shipment.view`, not `shipping.view`. PM has `shipping.view`, not `shipping.update`. | Internal allocation page must not be shown from `shipment.view` alone. Current branch aligns its route guard to `shipping.view`; create/reverse controls must be hidden without `shipping.update`. |
-| Checkpoint creation is not aligned with Checker role | `POST /tracking-events` selects `warehouse.receipt.create` for `receipt` events and `record_truck_trips` for all other events. Canonical Checker template has `verify_checkpoints` but not `record_truck_trips`. | Checker cannot create ordinary checkpoint events despite the role's stated checkpoint-verification purpose. Decide whether `checkpoint` should require `verify_checkpoints`, while departure/arrival remains `record_truck_trips`; do not silently grant trip recording to Checker. |
+| Checker checkpoint permission mismatch (historical finding; corrected in P0) | Original handler used `record_truck_trips` for checkpoint events, but current source and prepared Migration 049 use `verify_checkpoints` for `event_type='checkpoint'`; other trip lifecycle events retain `record_truck_trips`. | Source correction is present and covered by the task-engine contract test. Production RLS remains pending Migration 049 approval/application and runtime test. |
 | Procurement read endpoints require Finance view | Project-scoped `GET /buyers` and `GET /vendors` require `finance.view`; Procurement template grants supplier/buyer requirement and contract permissions, but not `finance.view`. | Procurement cannot use these master-data endpoints under its intended template. Re-map to domain permissions (e.g. supplier/buyer requirement view) only after confirming data scope and owner approval. |
-| Operations workbench is a composite page | `OperationsPage` currently fetches trips, tracking, receipts, lots, movements, reservations, holds, shipment allocations and transport legs together; those endpoints have different permissions. It also presents create actions for several domains on one page. | A role with one read permission can encounter 403s on other panels and may see mutation controls that the API rejects. Next UI pass must gate each panel and action independently or split workbenches. Current route visibility is restricted to internal operational permissions; backend remains authoritative. |
-| Transport leg source is incomplete | `OperationsPage` calls `/transport-legs`; no matching route was found in the inspected `src/index.ts`. `POST /truck-trips` requires a `transportLegId`. | Trip creation cannot be accepted as complete until the transport-leg read/assignment contract is verified. Do not populate with mock IDs. |
+| Operations workbench is a composite page (historical finding; P0 action gates added) | Operations data panels and mutation actions now use independent permission checks; each panel loads only when its read permission exists. The transport-leg dependency is Project-scoped and requires `logistics.view`. | P0 source correction is covered by CI; authenticated multi-role/multi-Project browser UAT remains required. |
+| Transport leg source (historical finding; corrected in P0) | A Project-scoped transport-leg read route now requires `projectId` and `logistics.view`; Operations uses real records for the selected Project. | Trip creation remains withheld when no real transport leg exists; no sample IDs or mock rows are used. |
 | Payment Instructions are deliberately out of scope | `GET/POST/PATCH /payment-instructions` route to `paymentExecutionOutOfScope`; the UI explicitly states no payment instruction/payment execution schema is approved. | Current page is a status placeholder, not a payment workbench. It is now visible only with explicit `payment.view`; `finance.view` alone does not expose it. |
 | Buyer/Supplier/Transporter/Funder/Warehouse portals are static | The current portal components render empty states and explicitly state no dummy data; no full data workflow is wired. | Treat these as placeholders, not completed dashboards. Implement after object-scoped external grants and role workbench APIs are specified. |
 | Funder has no distinct capability | Funder template currently uses `finance.view`, `reports.view`, `report.view` and `view_financial`; no `funder.view` code or funding-specific API/workbench was found. | Do not expose the Funder portal to every Finance reader. Current branch requires a future explicit `funder.view` capability; no grant is created here. |
-| Compliance page mixes Project and Admin surfaces | Project document requirements/documents use `documents.view`; `/regulatory-knowledge` and `/country-packs` are `requireAdmin` routes. | Project roles may see the Project document surface but cannot use Admin-only regulatory master-data panels. Gate or split these surfaces before claiming a complete Export Documentation workbench. |
+| Compliance page mixes Project and Admin surfaces (P0 gates applied) | Project document requirements/documents use `documents.view`; regulatory knowledge and country-pack master data remain Admin-only. | Project document panels and Admin regulatory catalogues are separated by permission. This does not imply that LC discrepancy/presentation workflows exist. |
 | Accounting posting is not granted by Accountant template | Journal GET requires `accounting.view`; create/line routes require `accounting.create`; posting requires `accounting.update`. The Accountant template does not include `accounting.update`. | Accountant can prepare drafts but cannot post under the current template. Preserve this separation until a maker-checker/posting policy is explicitly approved. |
 
 ### Frontend permission alignment applied in this branch
@@ -257,3 +255,10 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Latest CI: 214/214 tests, both TypeScript checks, production frontend build, migration ledger verifier, dry-run and dependency audit PASS on PR #2 head `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f`.
 - Current prepared hashes: 048 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; 049 `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Not approved/applied; Production remains 047.
 - Still required: approved 048/049, verified backup, sequential application, and runtime multi-role/multi-Project UAT. No Production or Vercel mutation was performed.
+
+## 12. Source/Production status reconciliation — 2026-11-20
+
+- The role and workflow analysis in Sections 1–5 remains the business design baseline. Sections 6, 7 and the historical mismatch rows in Section 10 are reconciled above with the P0 source implementation and its audit corrections.
+- Source HEAD `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f` has 214/214 unit tests passing across 18 files; backend/frontend TypeScript, frontend production build, migration release verifier, migration dry-run and dependency audit all pass.
+- Migration 048 SHA-256: `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`. Migration 049 SHA-256: `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Both are prepared and unapproved; Production remains at Migration 047.
+- P0 source completion is not Production activation. Required release gates remain exact owner approval, verified backup, sequential 048/049 application, and authenticated multi-role/multi-Project RLS and workflow UAT. No Production write or Vercel deployment is implied.

@@ -16,13 +16,13 @@ export interface WorkspaceAccessUser {
 const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   dashboard: ['project.view', 'reports.view', 'report.view', 'operations.view', 'logistics.view', 'finance.view', 'inventory.view', 'warehouse.view', 'shipment.view', 'shipping.view', 'documents.view', 'accounting.view', 'workflow.view', 'audit.view', 'supplier.view'],
   contracts: ['contract.view', 'manage_contract_programs'],
-  operations: ['operations.view', 'logistics.view', 'record_truck_trips', 'verify_checkpoints', 'warehouse.view', 'inventory.view', 'shipment.view', 'shipping.view'],
+  operations: ['operations.view', 'logistics.view', 'record_truck_trips', 'verify_checkpoints', 'warehouse.view', 'inventory.view', 'shipping.view'],
   finance: ['finance.view', 'finance.create', 'finance.update', 'finance.delete'],
-  compliance: ['documents.view', 'documents.review', 'documents.verify', 'documents.create', 'documents.upload'],
+  compliance: ['documents.review', 'documents.verify', 'documents.create', 'documents.update', 'compliance.view', 'compliance.assess', 'audit.view', 'workflow.view', 'project.view', 'quality.result.review'],
   reports: ['reports.view', 'report.view'],
   access: ['project.members.view', 'project.members.manage', 'project.roles.manage'],
   'journal-entries': ['accounting.view'],
-  'shipment-allocations': ['shipment.view'],
+  'shipment-allocations': ['shipping.view'],
   'cash-advances': ['finance.view', 'finance.cash_advance.request'],
   'payment-instructions': ['payment.view'],
   buyer: ['buyer.requirement.view', 'buyer.shipment.view'],
@@ -44,7 +44,10 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
     return pageKey === 'dashboard' && !user.selectedProjectId && hasActiveProjectMembership(user);
   }
-  if (pageKey === 'dashboard') return (user.projectPermissions || []).length > 0;
+  if (pageKey === 'dashboard') {
+    const externalOnly = new Set(['supplier.view', 'buyer.requirement.view', 'buyer.shipment.view', 'product.view', 'documents.view', 'shipment.view', 'logistics.view', 'record_truck_trips', 'verify_checkpoints']);
+    return (user.projectPermissions || []).some(permission => !externalOnly.has(permission));
+  }
   const required = PAGE_PERMISSION_REQUIREMENTS[pageKey];
   if (!required) return false;
   const permissions = new Set(user.projectPermissions || []);

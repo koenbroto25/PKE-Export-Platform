@@ -68,6 +68,18 @@ describe("Project work item task engine contract", () => {
     expect(schema).toContain('pgTable("project_work_item_events"');
   });
 
+  it("builds PM readiness gates only from source-backed Project endpoints", () => {
+    expect(ui).toContain("Kesiapan Project · sumber data");
+    expect(ui).toContain("get(`/contract-programs?projectId=");
+    expect(ui).toContain("get(`/inventory-lots?projectId=");
+    expect(ui).toContain("get(`/projects/${encodeURIComponent(projectId)}/document-requirements");
+    expect(ui).toContain("get(`/reports/project/${encodeURIComponent(projectId)}");
+    expect(ui).toContain("Production & QA release");
+    expect(ui).toContain("Vessel, loading & laytime");
+    expect(ui).toContain("LC discrepancy & presentation");
+    expect(ui).toContain("Belum terintegrasi");
+  });
+
   it("exposes My Work and PM task roll-up without granting source transaction permissions", () => {
     expect(ui).toContain('path="/my-work"');
     expect(ui).toContain("function MyWorkPage");

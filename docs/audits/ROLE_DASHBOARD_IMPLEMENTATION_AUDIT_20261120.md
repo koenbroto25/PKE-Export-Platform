@@ -272,3 +272,11 @@ Exact executable source head: `d18d8d267afcdfa0179b11e7408fa8cb9b43d607`.
 - Backend API TypeScript, frontend TypeScript and frontend production build passed.
 - Dependency Audit run `44755729686`: **SUCCESS**; root/frontend production and dependency-tree audits passed.
 - No Migration 052 DDL was applied. No Production data or permissions were changed.
+
+
+### Backup gate for Migration 052
+
+- Neon Production branch inventory currently contains 10 branches (Production root plus 9 child branches); the Neon API rejected creation of a new pre-052 backup with `branches limit exceeded`.
+- Existing backup `br-steep-butterfly-b30wgjc3` is the pre-048/049 snapshot and is not a current post-051 backup. It is not an acceptable substitute for a fresh pre-052 snapshot.
+- No old backup/UAT/migration branch was deleted to free quota; deletion is destructive and requires owner authorization.
+- Migration 052 remains prepared-only and cannot be applied until a current Production backup can be created and the exact SHA is approved.

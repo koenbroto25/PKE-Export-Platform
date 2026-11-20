@@ -883,3 +883,6 @@ PASS on isolated PostgreSQL validation branch:
 
 - **Latest Wave C source CI PASS:** exact executable source head `b66d46c880fb91106a11707c6e2fbc2095e85a29`; Unit Tests run `44754247718` SUCCESS (19 files / 224 tests, including six new inventory/warehouse tests), Dependency Audit run `44754247664` SUCCESS; migration verifier/dry-run, backend/frontend typechecks and frontend production build all PASS.
 - DB/API concurrency and RLS integration UAT remain NOT VERIFIED; no Preview deployment/browser smoke is claimed. Evidence details are in `docs/audits/ROLE_DASHBOARD_IMPLEMENTATION_AUDIT_20261120.md`.
+
+
+- Read-only Neon Production integrity preflight (branch `br-damp-shape-b3xlh4nr`, project `purple-base-63944903`): warehouse_receipts 1 row / 0 invalid; inventory_movements 1 row / 0 invalid; inventory_holds 0 rows / 0 invalid. No row values read, no data changed. Production is not literally empty in the first two tables; do not classify these rows as disposable test fixtures without provenance review. No DDL/migration 052 applied.

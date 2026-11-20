@@ -29,6 +29,6 @@ describe("Project Admin Accounting and Reports read-only boundary", () => {
   it("does not rewrite Finance grants or payment-execution permissions", () => {
     expect(migration).not.toContain("role_code = 'finance'");
     expect(migration).not.toContain("payment.");
-    expect(migration).not.toContain("INSERT INTO public.project_role_permissions");
+    expect(migration).toContain("WHERE pr.role_code = 'project_admin'");
   });
 });

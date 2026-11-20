@@ -10,7 +10,7 @@ dotenv.config({ path: ".env.migrate", override: false });
 const mode = process.argv[2] || "dry-run";
 const migrationsDir = path.resolve("migrations");
 const manifestPath = path.resolve("migration_manifest_001_027.json");
-const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_045.json");
+const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_046.json");
 
 // REVISION 5.6 safety policy:
 // - Migrations 001-035 are immutable; no apply/baseline may rerun or mutate them.
@@ -219,6 +219,8 @@ async function main() {
       const approved044Sha = "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d";
       const approved045 = "045_cash_advance_financial_audit.sql";
       const approved045Sha = "da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261";
+      const approved046 = "046_cash_advance_finance_role_guard.sql";
+      const approved046Sha = "4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -263,8 +265,43 @@ async function main() {
         const exact036to041 = newFiles.length === 6 && [approved036, approved037, approved038, approved039, approved040, approved041].every((f) => newFiles.includes(f));
         const exact036to044 = newFiles.length === 9 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044].every((f) => newFiles.includes(f));
         const exact036to045 = newFiles.length === 10 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045].every((f) => newFiles.includes(f));
-        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
+        const exact036to046 = newFiles.length === 11 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046].every((f) => newFiles.includes(f));
+        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !exact036to046 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
           fail("Apply is restricted to exact pinned migration sequences; 042-044 require separate exact owner approval and a verified 001-041 Production ledger.");
+        }
+
+        if (exact036to046) {
+          const appliedManifest = productionHistoryManifest;
+          if (!appliedManifest || appliedManifest.applied_count !== 46 ||
+              appliedManifest.entries?.length !== 46 ||
+              (appliedManifest.pending_migrations || []).length !== 0) {
+            fail("Applied Migration 046 requires the verified exact Production history manifest 001-046.");
+          }
+          for (const [file, sha] of [
+            [approved042, approved042Sha], [approved043, approved043Sha],
+            [approved044, approved044Sha], [approved045, approved045Sha],
+            [approved046, approved046Sha],
+          ]) {
+            if (sha256File(path.join(migrationsDir, file)) !== sha) fail(file + " checksum mismatch against applied Production history; refusing.");
+          }
+          const history046 = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          if (history046.rows.length !== 46) fail("Applied 046 verification requires exactly 46 Production history rows.");
+          for (let i = 0; i < appliedManifest.entries.length; i++) {
+            const expected = appliedManifest.entries[i], actual = history046.rows[i];
+            if (Number(actual.id) !== i + 1 || Number(expected.id) !== i + 1 ||
+                actual.filename !== expected.filename || actual.sha256 !== expected.sha256 ||
+                actual.status !== expected.status) {
+              fail("Production migration_history mismatch at sequence " + (i + 1) + "; refusing to accept Migration 046.");
+            }
+          }
+          const finalEntry = appliedManifest.entries[45];
+          if (finalEntry?.id !== 46 || finalEntry.filename !== approved046 ||
+              finalEntry.sha256 !== approved046Sha || finalEntry.status !== "applied" ||
+              finalEntry.source_sha_verified !== true) {
+            fail("Applied Migration 046 manifest entry mismatch.");
+          }
+          console.log("Production Migration 046 is already applied and all 46 ledger rows are verified; no SQL re-execution performed.");
+          return;
         }
 
         if (exact036to045) {

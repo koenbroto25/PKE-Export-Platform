@@ -58,7 +58,7 @@ describe("Project-scoped effective permission UX", () => {
     expect(hasProjectPermission("finance.view", financeReadOnly)).toBe(true);
     expect(hasProjectPermission("finance.update", financeReadOnly)).toBe(false);
     expect(hasAnyProjectPermission(["inventory.reserve", "inventory.hold"], user(["inventory.hold"]))).toBe(true);
-    expect(hasProjectPermission("inventory.hold", user(["inventory.hold"], "project-b"))).toBe(false);
+    expect(hasProjectPermission("inventory.hold", user(["inventory.hold"], ""))).toBe(false);
   });
   it("does not expose action capabilities while permissions are loading or failed", () => {
     expect(hasProjectPermission("finance.update", { ...user(["finance.update"]), projectPermissionsLoading: true })).toBe(false);

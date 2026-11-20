@@ -10,7 +10,7 @@ dotenv.config({ path: ".env.migrate", override: false });
 const mode = process.argv[2] || "dry-run";
 const migrationsDir = path.resolve("migrations");
 const manifestPath = path.resolve("migration_manifest_001_027.json");
-const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_046.json");
+const productionHistoryManifestPath = path.resolve("migration_history_manifest_001_047.json");
 
 // REVISION 5.6 safety policy:
 // - Migrations 001-035 are immutable; no apply/baseline may rerun or mutate them.
@@ -221,6 +221,8 @@ async function main() {
       const approved045Sha = "da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261";
       const approved046 = "046_cash_advance_finance_role_guard.sql";
       const approved046Sha = "4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31";
+      const approved047 = "047_project_admin_finance_read_only.sql";
+      const approved047Sha = "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682";
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -266,8 +268,63 @@ async function main() {
         const exact036to044 = newFiles.length === 9 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044].every((f) => newFiles.includes(f));
         const exact036to045 = newFiles.length === 10 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045].every((f) => newFiles.includes(f));
         const exact036to046 = newFiles.length === 11 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046].every((f) => newFiles.includes(f));
-        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !exact036to046 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
+        const exact036to047 = newFiles.length === 12 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047].every((f) => newFiles.includes(f));
+        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !exact036to046 && !exact036to047 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
           fail("Apply is restricted to exact pinned migration sequences; 042-044 require separate exact owner approval and a verified 001-041 Production ledger.");
+        }
+
+        if (exact036to047) {
+          if (sha256File(path.join(migrationsDir, approved047)) !== approved047Sha) fail("047 checksum mismatch; refusing.");
+          const manifest = productionHistoryManifest;
+          if (!manifest || !Array.isArray(manifest.entries)) fail("Verified Production history manifest 001-046 is required for Migration 047.");
+          const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          const appliedAlready = manifest.applied_count === 47 && manifest.entries.length === 47 &&
+            (manifest.pending_migrations || []).length === 0 &&
+            manifest.entries[46]?.id === 47 && manifest.entries[46]?.filename === approved047 &&
+            manifest.entries[46]?.sha256 === approved047Sha && manifest.entries[46]?.status === "applied";
+          if (appliedAlready) {
+            if (history.rows.length !== 47) fail("Applied 047 verification requires exactly 47 Production history rows.");
+            for (let i = 0; i < manifest.entries.length; i++) {
+              const expected = manifest.entries[i], actual = history.rows[i];
+              if (Number(actual.id) !== i + 1 || Number(expected.id) !== i + 1 ||
+                  actual.filename !== expected.filename || actual.sha256 !== expected.sha256 ||
+                  actual.status !== expected.status) fail("Production migration_history mismatch at sequence " + (i + 1) + ".");
+            }
+            console.log("Production Migration 047 is already applied and all 47 ledger rows are verified; no SQL re-execution performed.");
+            return;
+          }
+          if (manifest.applied_count !== 46 || manifest.entries.length !== 46 ||
+              (manifest.pending_migrations || []).length !== 1 ||
+              !manifest.pending_migrations.some((m) =>
+                (m.file === "migrations/" + approved047 || m.file === approved047) && m.sha256 === approved047Sha)) {
+            fail("Migration 047 requires the exact 001-046 applied manifest and one exact pending 047 entry.");
+          }
+          if (history.rows.length !== 46) fail("Migration 047 requires exactly 46 prior Production history rows.");
+          for (let i = 0; i < manifest.entries.length; i++) {
+            const expected = manifest.entries[i], actual = history.rows[i];
+            if (Number(actual.id) !== i + 1 || Number(expected.id) !== i + 1 ||
+                actual.filename !== expected.filename || actual.sha256 !== expected.sha256 ||
+                actual.status !== expected.status) fail("Production migration_history mismatch at sequence " + (i + 1) + ".");
+          }
+          if (process.env.MIGRATE_047_CONFIRM !== "1") fail("Migration 047 requires MIGRATE_047_CONFIRM=1 after explicit owner approval.");
+          if (process.env.MIGRATION_047_APPROVED_SHA256 !== approved047Sha) fail("Migration 047 approved SHA-256 is absent or mismatched.");
+          if (!process.env.MIGRATION_047_APPROVAL_REFERENCE || !process.env.MIGRATION_047_APPROVAL_REFERENCE.trim()) fail("Migration 047 requires an explicit owner approval reference.");
+          if (history.rows.some((row) => row.filename === approved047)) fail("Migration 047 already exists in Production migration_history; refusing replay.");
+          await client.query("BEGIN");
+          try {
+            const sql = fs.readFileSync(path.join(migrationsDir, approved047), "utf8");
+            await client.query(sql);
+            await client.query(
+              "INSERT INTO public.migration_history (filename, sha256, status) VALUES ($1, $2, 'applied')",
+              [approved047, approved047Sha]
+            );
+            await client.query("COMMIT");
+            console.log("Applied owner-approved Migration 047; SQL and ledger row committed atomically.");
+          } catch (error) {
+            await client.query("ROLLBACK");
+            fail("Migration 047 apply failed and transaction rolled back: " + (error?.message || "unknown error"));
+          }
+          return;
         }
 
         if (exact036to046) {

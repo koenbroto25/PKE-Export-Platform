@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.30 — F1 PRI-0 Backup & CI Evidence
+# Master Implementation Plan Rev2.31 — Finance RBAC least-privilege boundary
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.30 (19 November 2026 — F1/PRI-0 backup/export and portable restore evidence; see §§56.20–56.21)  
+**Revision:** 2.31 (20 November 2026 — Finance role least-privilege policy; see §56.38)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -9407,3 +9407,14 @@ F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, n
 - Neon snapshot creation was attempted immediately before apply but rejected because the project snapshot limit was exceeded. No branch was created. The migration and ledger insertion were still atomic; no partial migration state is possible from a failed transaction.
 - Updated the canonical Production history manifest to 001–046 and retained the 001–045 manifest as historical evidence. Updated runner and release verifier to recognize exact applied 046 as verification-only and prevent SQL replay.
 - **Status:** Migration 046 APPLIED / LEDGER VERIFIED. Runtime role-matrix DML testing remains outstanding; no synthetic Production business records were created. Vercel remains intentionally skipped.
+
+
+## 56.38 — Finance RBAC least-privilege policy prepared — 2026-11-20
+
+- Owner decision: Project Admin is strictly read-only for Finance (finance.view only). Finance Project role owns Finance transaction create, update, and delete (finance.create, finance.update, finance.delete). Cash Advance approve/reject remains additionally restricted by Migration 046 to an active Finance role and maker-checker separation.
+- Read-only Production audit found 2 Project Admin role grants with each of finance.create, finance.update, and finance.delete across the two existing fixture Projects; Project Admin also had finance.view. Finance role had finance.view, finance.create, and finance.update, but no finance.delete. No Finance mutation grants were found in global role_permissions.
+- Prepared Migration 047 migrations/047_project_admin_finance_read_only.sql, SHA-256 1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682. It removes all finance.* grants from Project Admin except finance.view, removes Finance create/update/delete grants from every non-Finance Project role, ensures Project Admin Finance view and Finance delete grants, and installs a database trigger that blocks future Project Admin non-view Finance grants and blocks Finance create/update/delete grants on non-Finance roles.
+- Updated canonical role templates: Project Admin explicitly receives finance.view only; Finance receives finance.view/create/update/delete. Updated the role-permission API to reject invalid Finance grants before writing. Added a Vitest contract test for the canonical role templates.
+- Updated the migration history manifest to 001–046 applied plus exactly one pending Migration 047, and updated the migration runner and release verifier with exact SHA and explicit owner-approval guards.
+- No Production DML/DDL has been executed. No role grants, data, users, PM decisions, or deployment were changed. Migration 047 is prepared only; it requires separate owner approval of the exact SQL and SHA-256 above before applying to Neon Production.
+- Next validation after approval/application: verify all Project Admin roles have only finance.view; all Finance roles have view/create/update/delete; no other role has create/update/delete; database trigger rejects forbidden re-grants; Finance passes CRUD permission checks; Project Admin passes SELECT and fails INSERT/UPDATE/DELETE authorization. No synthetic business data is to be created in Production.

@@ -53,9 +53,10 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "project.view", "project.update", "project.members.view", "project.members.invite",
     "project.members.manage", "project.roles.manage", "project.configuration.manage",
     "project.change.view", "project.change.create", "project.change.update",
-    "audit.view", "reports.view", "documents.view", "workflow.view", "approvals.view",
+    "audit.view", "reports.view", "documents.view", "workflow.view", "approvals.view", "finance.view",
   ], [
     "Project-scoped administration only; no platform-wide user or role governance.",
+    "Finance access is strictly read-only; no Finance create, update, delete, or Cash Advance request authority.",
     "No payment execution or independent technical approval.",
   ], { mandatory: true, legacyAliases: ["admin"] }),
   role("pm", "Project Manager", "governance", [
@@ -166,7 +167,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "vessel.view", "voyage.view", "shipment.view", "documents.view",
   ], ["Vessel/voyage assigned scope only; not the application's Master of Loading."], { classification: "external" }),
   role("finance", "Finance Officer", "finance", [
-    "finance.view", "finance.create", "finance.update", "reports.view", "reports.create",
+    "finance.view", "finance.create", "finance.update", "finance.delete", "reports.view", "reports.create",
     "report.view", "view_financial", "view_rab", "manage_rab",
   ], ["Finance reporting and controls only; no payment instruction, approval, reconciliation or evidence-verification grants."]),
   role("accounting", "Accountant", "finance", [

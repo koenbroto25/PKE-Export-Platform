@@ -61,6 +61,10 @@ const ROLE_META: Record<string, { label: string; focus: string; outputs: string;
   accounting: { label: 'Accountant', focus: 'Jurnal, supporting lines dan pelaporan Accounting.', outputs: 'Draft jurnal dan rekonsiliasi; posting/reversal tetap dibatasi permission terpisah.', links: [{ label: 'Jurnal Umum', to: '/journal-entries' }, { label: 'Laporan', to: '/reports' }] },
   cashier: { label: 'Cashier / Treasury', focus: 'Melihat instruksi pembayaran yang diotorisasi dan bukti bank.', outputs: 'Bukti eksekusi/reconciliation; payment execution belum tersedia.', links: [{ label: 'Instruksi Pembayaran', to: '/payment-instructions' }, { label: 'Keuangan', to: '/finance' }] },
   funder: { label: 'Project Funder', focus: 'Melihat hanya laporan atau artefak yang secara eksplisit dibagikan kepada Funder.', outputs: 'Akses data keuangan dan laporan umum dinonaktifkan sampai dedicated sharing permission, API dan RLS tersedia.', links: [] },
+  document_officer: { label: 'Document Officer', focus: 'Penerbitan, pengelolaan, verifikasi dan kelengkapan dokumen Project.', outputs: 'Dokumen tersusun dan dapat ditelusuri; tidak mengelola transaksi Finance atau Accounting.', links: [{ label: 'Dokumen', to: '/compliance' }, { label: 'Tugas Saya', to: '/my-work' }] },
+  external_provider: { label: 'External Provider', focus: 'Mengirim dokumen dan bukti yang secara eksplisit diminta oleh Project.', outputs: 'Dokumen eksternal diterima dalam cakupan assignment; tidak ada akses Finance atau operasional internal.', links: [{ label: 'Dokumen', to: '/compliance' }, { label: 'Tugas Saya', to: '/my-work' }] },
+  field_manager: { label: 'Field Manager', focus: 'Monitoring kegiatan lapangan, trip, checkpoint dan exception logistik.', outputs: 'Status lapangan dan exception tercatat; tidak mengelola penerimaan atau rekonsiliasi stok.', links: [{ label: 'Operasional', to: '/operations' }, { label: 'Tugas Saya', to: '/my-work' }] },
+  viewer: { label: 'Viewer', focus: 'Melihat dokumen, inventori, shipment dan laporan yang diizinkan.', outputs: 'Visibilitas read-only; tidak membuat atau mengubah transaksi.', links: [{ label: 'Warehouse', to: '/warehouse' }, { label: 'Alokasi shipment', to: '/shipment-allocations' }, { label: 'Laporan', to: '/reports' }] },
 };
 
 const ROLE_ALIASES: Record<string, string> = { admin: 'platform_admin', projectmanager: 'pm', project_manager: 'pm', warehouse: 'warehouse_manager', loading_manager: 'master_of_loading' };
@@ -80,7 +84,7 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   const permissions = activeUser?.projectPermissions || [];
   const can = (permission: string) => activeUser?.platformAdmin === true ? false : hasProjectPermission(permission, activeUser);
   const canViewTasks = can('project.tasks.view');
-  const canViewWork = Boolean(projectId) && roles.some((role: string) => role !== 'funder');
+  const canViewWork = Boolean(projectId) && roles.some((role: string) => role !== 'funder' && role !== 'platform_admin');
   const canViewContracts = can('contract.view');
   const canViewInventory = can('inventory.view');
   const canViewWarehouse = can('warehouse.view');
@@ -88,7 +92,7 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   const canViewShipping = can('shipping.view');
   const canViewDocuments = can('documents.view');
   const financeReadRoles = new Set(['pm', 'project_admin', 'finance', 'internal_auditor', 'cashier']);
-  const reportReadRoles = new Set(['pm', 'project_admin', 'internal_auditor', 'finance', 'accounting', 'cashier']);
+  const reportReadRoles = new Set(['pm', 'project_admin', 'internal_auditor', 'finance', 'accounting', 'cashier', 'viewer']);
   const canViewFinance = roles.some((role: string) => financeReadRoles.has(role)) && can('finance.view');
   const canViewAccounting = can('accounting.view');
   const canViewReports = roles.some((role: string) => reportReadRoles.has(role)) && (can('reports.view') || can('report.view'));
@@ -97,8 +101,8 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
     setState(current => ({ ...current, loading: true, errors: [] }));
     const requests: Array<[keyof DashboardData, string, boolean]> = [
       ['projects', '/projects', true],
-      ['portfolio', '/reports/portfolio', activeUser?.platformAdmin === true],
-      ['workItems', `/projects/${encodeURIComponent(projectId)}/work-items`, Boolean(projectId)],
+      ['portfolio', '/reports/portfolio', false],
+      ['workItems', `/projects/${encodeURIComponent(projectId)}/work-items`, Boolean(projectId && canViewTasks)],
       ['contracts', `/contracts?projectId=${encodeURIComponent(projectId)}`, Boolean(projectId && canViewContracts)],
       ['contractPrograms', `/contract-programs?projectId=${encodeURIComponent(projectId)}`, Boolean(projectId && canViewContracts)],
       ['warehouseReceipts', `/warehouse-receipts?projectId=${encodeURIComponent(projectId)}`, Boolean(projectId && canViewWarehouse)],

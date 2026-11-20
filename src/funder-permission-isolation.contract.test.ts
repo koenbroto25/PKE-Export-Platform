@@ -36,10 +36,10 @@ describe("Funder external-role isolation", () => {
     expect(route).toContain("perm.code = 'reports.view'");
   });
 
-  it("requires a Project context for non-platform report generation", () => {
+  it("requires a Project context and reports.create for report generation", () => {
     const route = api.slice(api.indexOf('app.post("/api/v1/reports/generate"'), api.indexOf('app.get("/api/v1/notifications"'));
-    expect(route).toContain("projectId is required for non-platform report generation.");
-    expect(route).toContain("requireProjectPermission(req, res, String(projectId), \"reports.view\")");
+    expect(route).toContain("projectId is required for report generation.");
+    expect(route).toContain("requireProjectPermission(req, res, String(projectId), \"reports.create\")");
   });
 
   it("keeps Finance and Reports pages behind eligible active role assignments", () => {

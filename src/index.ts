@@ -1885,28 +1885,11 @@ app.get("/api/v1/kpis", requireAuth, async (req: express.Request, res: express.R
   res.json({ kpis, dataFreshness: new Date().toISOString() });
 });
 
-app.get("/api/v1/reports/portfolio", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  try {
-    const { rows: projectRows } = await req.db.query("SELECT COUNT(*)::int AS count, COALESCE(SUM(target_quantity),0) AS volume FROM projects WHERE is_active = true");
-    const { rows: rabRows } = await req.db.query("SELECT COALESCE(SUM(amount),0) AS budget FROM rab WHERE is_active = true");
-    const { rows: tripRows } = await req.db.query("SELECT COUNT(*)::int AS count FROM truck_trips");
-    res.json({
-      activeProjects: projectRows[0]?.count ?? 0,
-      contractVolume: projectRows[0]?.volume ?? 0,
-      approvedBudget: rabRows[0]?.budget ?? 0,
-      shipmentCount: tripRows[0]?.count ?? 0,
-      committedCost: 0,
-      actualCost: 0,
-      forecastMargin: 0,
-      outstandingReceivables: 0,
-      outstandingPayables: 0,
-      cashRequirement: 0,
-      criticalComplianceBlockers: 0,
-      dataFreshness: new Date().toISOString(),
-    });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
-  }
+app.get("/api/v1/reports/portfolio", requireAuth, async (_req: express.Request, res: express.Response) => {
+  return res.status(403).json({
+    error: "Global portfolio reporting is outside Platform Admin governance scope. Use a Project-scoped reports.view endpoint.",
+    code: "GLOBAL_PORTFOLIO_REPORT_OUT_OF_SCOPE",
+  });
 });
 
 app.get("/api/v1/reports/project/:projectId", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -4607,109 +4590,54 @@ app.post("/api/v1/admin/users/provision", requireAuth, requireAdmin, async (req:
   }
 });
 
-app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
+  return res.status(403).json({
+    error: "Platform Admin may appoint or replace the Project Manager only. Project role staffing is decided by the PM.",
+    code: "PLATFORM_ADMIN_PM_APPOINTMENT_ONLY",
+  });
+});
+
+app.get("/api/v1/admin/projects/:projectId/pm-governance", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
-  const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
-  const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
-  const expiresAt = req.body?.expiresAt ?? null;
-  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || !uuidPattern.test(projectRoleId) ||
-      !validateRoleAssignmentExpiry(expiresAt).ok ||
-      reason.length < 5) {
-    return res.status(400).json({ error: "Project, user, project role, and an audit reason are required.", code: "INVALID_PROJECT_MEMBER_INPUT" });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(projectId)) {
+    return res.status(400).json({ error: "Valid Project id is required.", code: "INVALID_PROJECT_ID" });
   }
-
   try {
-    const { rows: userRows } = await req.db.query(
-      "SELECT user_id, email, is_active, neon_auth_user_id FROM public.pke_admin_get_user($1::uuid)",
-      [userId],
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, name, is_active FROM public.projects WHERE id = $1::uuid",
+      [projectId],
     );
-    if (userRows.length !== 1) return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
-    if (userRows[0].is_active !== true || !userRows[0].neon_auth_user_id) {
-      return res.status(409).json({ error: "User must have an active PKE account and a linked Neon Auth identity before project assignment.", code: "USER_NOT_READY" });
-    }
-
-    const { rows: roleRows } = await req.db.query(
-      "SELECT id, role_code, name FROM public.project_roles WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true LIMIT 1",
-      [projectRoleId, projectId],
+    if (projectRows.length !== 1) return res.status(404).json({ error: "Project not found.", code: "PROJECT_NOT_FOUND" });
+    const { rows: members } = await req.db.query(
+      `SELECT pm.id, pm.user_id, u.email, u.name, pm.is_active, pm.joined_at,
+              pm.expires_at, pm.deactivated_at,
+              COALESCE(assignments.roles, '[]'::jsonb) AS role_assignments
+         FROM public.project_members pm
+         JOIN public.users u ON u.id = pm.user_id
+         LEFT JOIN LATERAL (
+           SELECT jsonb_agg(jsonb_build_object(
+             'id', a.id, 'projectRoleId', a.project_role_id,
+             'roleCode', pr.role_code, 'roleName', pr.name,
+             'isActive', a.is_active, 'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+           ) ORDER BY a.created_at DESC) AS roles
+             FROM public.project_role_assignments a
+             JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+            WHERE a.project_member_id = pm.id AND pr.role_code = 'pm'
+         ) assignments ON true
+        WHERE pm.project_id = $1::uuid
+        ORDER BY u.email`,
+      [projectId],
     );
-    if (roleRows.length !== 1) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
-    if (roleRows[0].role_code === "pm") {
-      return res.status(409).json({ error: "PM assignments must use the dedicated appointment and handover workflow.", code: "USE_PM_APPOINTMENT_WORKFLOW" });
-    }
-
-    // Serialize Admin assignments for this project/user pair because this schema has no unique pair constraint.
-    await req.db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))", [projectId, userId]);
-    const { rows: existingRows } = await req.db.query(
-      "SELECT id, user_id, project_role_id, is_active, deactivated_at, expires_at FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid ORDER BY joined_at DESC FOR UPDATE",
-      [projectId, userId],
+    const { rows: roles } = await req.db.query(
+      `SELECT id, role_code, name, description, is_active
+         FROM public.project_roles
+        WHERE project_id = $1::uuid AND role_code = 'pm'
+        ORDER BY role_code`,
+      [projectId],
     );
-    if (existingRows.length > 1) {
-      return res.status(409).json({ error: "Multiple memberships already exist for this user/project pair; reconcile duplicates before changing access.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
-    }
-
-    const before = existingRows[0] || null;
-    let member;
-    if (before) {
-      if (before.is_active !== true || before.deactivated_at != null ||
-          (before.expires_at && new Date(before.expires_at).getTime() <= Date.now())) {
-        return res.status(409).json({ error: "Project membership is inactive or expired. An Admin must explicitly reactivate membership before assigning another role.", code: "MEMBERSHIP_REACTIVATION_REQUIRED" });
-      }
-      member = before;
-    } else {
-      const { rows } = await req.db.query(
-        "INSERT INTO public.project_members (project_id, user_id, project_role_id, is_active, joined_at, updated_at) VALUES ($1::uuid, $2::uuid, NULL, true, now(), now()) RETURNING *",
-        [projectId, userId],
-      );
-      member = rows[0];
-    }
-    await req.db.query(
-      `UPDATE public.project_role_assignments
-          SET is_active = false, updated_at = now()
-        WHERE project_id = $1::uuid AND project_member_id = $2::uuid
-          AND project_role_id = $3::uuid AND is_active = true
-          AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= now()`,
-      [projectId, member.id, projectRoleId],
-    );
-    const { rows: assignmentRows } = await req.db.query(
-      `INSERT INTO public.project_role_assignments
-         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by, expires_at)
-       SELECT $1::uuid, $2::uuid, $3::uuid, $4::uuid, true, now(), $5::uuid, $6::timestamptz
-        WHERE NOT EXISTS (
-          SELECT 1 FROM public.project_role_assignments existing
-           WHERE existing.project_member_id = $2::uuid
-             AND existing.project_role_id = $4::uuid
-             AND existing.is_active = true AND existing.revoked_at IS NULL
-             AND (existing.expires_at IS NULL OR existing.expires_at > now())
-        )
-       RETURNING *`,
-      [projectId, member.id, userId, projectRoleId, req.user?.id ?? null, expiresAt],
-    );
-    if (assignmentRows.length !== 1) {
-      return res.status(409).json({ error: "This Project role is already actively assigned to the user.", code: "ROLE_ASSIGNMENT_EXISTS" });
-    }
-    const assignment = assignmentRows[0];
-    const action = !before ? "project_role_assignment.created" :
-      before.is_active !== true || before.deactivated_at !== null ? "project_role_assignment.reactivated" :
-        "project_role_assignment.created";
-    await req.db.query(
-      "INSERT INTO public.audit_events (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id, reason, before_snapshot, after_snapshot, metadata, outcome) VALUES ($1::uuid, 'user', $2::text, $3::text, 'project_member', $4::uuid, $5::uuid, $6::text, $7::jsonb, $8::jsonb, $9::jsonb, 'success')",
-      [
-        req.user?.id ?? null,
-        req.user?.role ?? null,
-        action,
-        assignment.id,
-        projectId,
-        reason,
-        before ? JSON.stringify(before) : null,
-        JSON.stringify({ membership_id: member.id, user_id: member.user_id, is_active: member.is_active }),
-        JSON.stringify({ assignment_id: assignment.id, project_role_id: assignment.project_role_id, role_code: roleRows[0].role_code, expires_at: assignment.expires_at }),
-      ],
-    );
-    return res.status(before ? 200 : 201).json({ member, assignment });
-  } catch (error) {
-    logger.error("Admin project membership assignment failed:", error);
+    return res.json({ project: projectRows[0], members, roles });
+  } catch (error: any) {
+    logger.error("Platform Admin PM governance read failed:", { code: error?.code || "UNKNOWN" });
     return res.status(500).json(internalServerErrorPayload());
   }
 });

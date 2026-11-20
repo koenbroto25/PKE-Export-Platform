@@ -69,14 +69,14 @@ function activeProjectRoleCodes(user: WorkspaceAccessUser): string[] {
 }
 
 const FINANCE_PAGE_ROLES = new Set(["pm", "project_admin", "finance", "internal_auditor", "cashier"]);
-const REPORT_PAGE_ROLES = new Set(["pm", "project_admin", "internal_auditor", "finance", "accounting", "cashier"]);
+const REPORT_PAGE_ROLES = new Set(["pm", "project_admin", "internal_auditor", "finance", "accounting", "cashier", "viewer"]);
 function hasAuthorizedRoleForPage(user: WorkspaceAccessUser, allowedRoles: Set<string>): boolean {
   return activeProjectRoleCodes(user).some(roleCode => allowedRoles.has(roleCode));
 }
 
 export function hasPageAccess(pageKey: WorkspacePageKey | string, user: WorkspaceAccessUser): boolean {
   if (pageKey === 'notifications') return true;
-  if (pageKey === 'access') return hasAnyProjectPermission(['project.members.view', 'project.members.manage', 'project.roles.manage'], user);
+  if (pageKey === 'access') return user.platformAdmin === true || hasAnyProjectPermission(['project.members.view', 'project.members.manage', 'project.roles.manage'], user);
   if (pageKey === 'project-detail') return hasProjectPermission('project.view', user);
   if (pageKey === 'project-edit') return hasProjectPermission('project.update', user);
   if (pageKey === 'project-configuration') return hasProjectPermission('project.configuration.manage', user);

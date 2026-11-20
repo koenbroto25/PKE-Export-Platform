@@ -1463,7 +1463,11 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
   const provisioning = useLoad<{ ready?: boolean; reason?: string | null }>(() => canPlatformAdmin ? get('/admin/provisioning/status') : Promise.resolve({ ready: false }), [canPlatformAdmin]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const projectDetail = useLoad<{ members?: AnyRecord[]; roles?: AnyRecord[]; project?: AnyRecord }>(
-    () => selectedProjectId ? get(`/projects/${selectedProjectId}/detail`) : Promise.resolve({ members: [], roles: [] }),
+    () => selectedProjectId
+      ? get(canPlatformAdmin
+          ? `/admin/projects/${selectedProjectId}/pm-governance`
+          : `/projects/${selectedProjectId}/detail`)
+      : Promise.resolve({ members: [], roles: [] }),
     [selectedProjectId],
   );
   const [resettingId, setResettingId] = useState('');
@@ -1729,19 +1733,7 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
       <PanelHeading title="Role & status per proyek" description="Satu pengguna dapat mempunyai role berbeda dan status aktif/nonaktif yang independen pada setiap proyek." />
       {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : !projects.data?.projects?.length ? <EmptyState title="Belum ada proyek" desc="Keanggotaan proyek dapat dikelola setelah proyek tersedia." /> : <>
         <FormField label="Pilih proyek"><select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
-        {canPlatformAdmin && <form className="form-grid" onSubmit={addMemberToProject}>
-          <FormField label="Akun aktif"><select value={memberAddUserId} onChange={e => setMemberAddUserId(e.target.value)} required>
-            <option value="">Pilih akun PKE</option>
-            {(users.data?.users || []).filter(user => user.is_active === true && !!user.neon_auth_user_id).map(user => <option key={user.id} value={user.id}>{user.name || user.email} — {user.email}</option>)}
-          </select></FormField>
-          <FormField label="Role pada proyek ini"><select value={memberAddRoleId} onChange={e => setMemberAddRoleId(e.target.value)} required>
-            <option value="">Pilih role proyek</option>
-            {(projectDetail.data?.roles || []).filter(role => role.is_active && role.role_code !== 'pm').map(role => <option key={role.id} value={role.id}>{role.name} ({role.role_code})</option>)}
-          </select></FormField>
-          <FormField label="Alasan penetapan akses"><input value={memberAddReason} onChange={e => setMemberAddReason(e.target.value)} minLength={5} maxLength={500} required placeholder="Dasar pemberian role pada proyek ini" /></FormField>
-          <FormField label="Masa berlaku role (opsional)"><input type="datetime-local" value={memberAddExpiresAt} onChange={e => setMemberAddExpiresAt(e.target.value)} min={new Date(Date.now() + 60_000).toISOString().slice(0,16)} /></FormField>
-          <div className="form-actions"><button className="primary-button" disabled={memberAddBusy || projectDetail.loading || !users.data?.users?.length}>{memberAddBusy ? 'Menyimpan…' : 'Tambahkan ke proyek'}</button></div>
-        </form>}
+        {canPlatformAdmin && <p className="muted">Platform Admin hanya menunjuk atau mengganti Project Manager. Penetapan role anggota lainnya diputuskan dan dikelola oleh PM.</p>}
         {canPlatformAdmin && <div className="panel-subsection">
           <PanelHeading title="Penunjukan Project Manager" description="Keputusan penunjukan dan penonaktifan PM sepenuhnya milik Admin. Jika Project masih memiliki PM aktif, nonaktifkan penugasan PM yang dipilih Admin terlebih dahulu." />
           <form className="form-grid" onSubmit={appointProjectManager}>

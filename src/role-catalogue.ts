@@ -179,6 +179,10 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ], ["No payment instruction issue, payment approval or payment evidence verification by default."]),
   role("funder", "Project Funder", "finance", [
   ], ["External Funder has no generic Finance or Reports permission. Only explicitly shared report artifacts may be exposed after a dedicated Funder permission, API and RLS scope are implemented."], { classification: "external" }),
+  role("document_officer", "Document Officer", "governance", ["project.view","document.view","document.download","documents.view","documents.create","documents.update","documents.upload","documents.verify","documents.manage"], ["Document lifecycle only; no Finance, Accounting or payment execution grants."]),
+  role("external_provider", "External Provider", "procurement", ["project.view","document.view","document.download","documents.view","documents.create","documents.upload","view_published_docs"], ["External assigned-document scope only."], { classification: "external" }),
+  role("field_manager", "Field Manager", "warehouse_logistics", ["project.view","logistics.view","logistics.create","logistics.update","operations.view","operations.update","record_truck_trips","verify_checkpoints","shipment.event.create"], ["Field execution and logistics scope only."]),
+  role("viewer", "Viewer", "governance", ["project.view","documents.view","inventory.view","report.view","reports.view","shipment.view","shipping.view"], ["Read-only Project visibility."], { classification: "external" }),
 ] as const;
 
 const byCode = new Map(CANONICAL_ROLE_TEMPLATES.map((template) => [template.code, template]));

@@ -474,32 +474,18 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
       [userId],
     );
 
-    const projectIds = memberships.map((m: any) => m.project_id);
-    let permissions: string[] = [];
-    if (req.user.isAdmin) {
-      const { rows } = await req.db.query("SELECT code FROM permissions WHERE is_active = true ORDER BY code");
-      permissions = rows.map((r: any) => r.code);
-    } else if (projectIds.length > 0) {
-      const { rows } = await req.db.query(
-        `SELECT DISTINCT perm.code
-           FROM public.project_role_assignments a
-           JOIN public.project_members pm
-             ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
-           JOIN public.project_role_permissions prp
-             ON prp.project_id = a.project_id AND prp.project_role_id = a.project_role_id
-           JOIN public.permissions perm ON perm.id = prp.permission_id
-           JOIN public.projects p ON p.id = a.project_id
-          WHERE a.user_id = $1::uuid
-            AND a.is_active = true AND a.revoked_at IS NULL
-            AND (a.expires_at IS NULL OR a.expires_at > now())
-            AND pm.is_active = true AND pm.deactivated_at IS NULL
-            AND (pm.expires_at IS NULL OR pm.expires_at > now())
-            AND p.is_active = true AND perm.is_active = true
-          ORDER BY perm.code`,
-        [userId],
-      );
-      permissions = rows.map((r: any) => r.code);
-    }
+    const { rows: permissionRows } = await req.db.query(
+      `SELECT DISTINCT perm.code FROM public.project_role_assignments a
+       JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+       JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id AND pr.is_active=true
+       JOIN public.project_role_permissions prp ON prp.project_id=a.project_id AND prp.project_role_id=a.project_role_id
+       JOIN public.permissions perm ON perm.id=prp.permission_id JOIN public.projects p ON p.id=a.project_id
+       WHERE a.user_id=$1::uuid AND a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+       AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+       AND p.is_active=true AND perm.is_active=true
+       AND NOT(pr.role_code='funder' AND (perm.code LIKE 'finance.%' OR perm.code LIKE 'accounting.%' OR perm.code LIKE 'reports.%' OR perm.code LIKE 'payment.%' OR perm.code IN('report.view','view_financial','view_rab')))
+       ORDER BY perm.code`,[userId]);
+    const permissions: string[] = permissionRows.map((r: any) => r.code);
 
     const activeMemberships = memberships.filter((m: any) =>
       m.is_active === true &&
@@ -508,7 +494,7 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
       (!m.expires_at || new Date(m.expires_at).getTime() > Date.now())
     );
     const portalAccess = req.user.isAdmin
-      ? ["admin", "workspace", "field", "buyer", "partner", "reports"]
+      ? ["admin", "workspace"]
       : activeMemberships.length > 0
         ? ["workspace", "field"]
         : ["workspace"];
@@ -1042,16 +1028,6 @@ async function requireProjectPermission(
   );
 
   if (assignmentRows.length === 0) {
-    // A DB helper allow without a concrete active role assignment is not
-    // sufficient attribution evidence. Platform Admin is the only explicit
-    // global exception and remains distinguishable from Project Admin.
-    if (req.user?.isAdmin === true) {
-      await req.db.query(
-        "SELECT set_config('app.current_role', 'platform_admin', true), set_config('app.current_project_role_id', '', true), set_config('app.current_project_id', $1::text, true), set_config('app.current_permission_code', $2::text, true)",
-        [pid, permissionCode],
-      );
-      return true;
-    }
     res.status(403).json({ error: "No active Project role assignment grants this permission.", code: "PROJECT_ROLE_ASSIGNMENT_REQUIRED" });
     return false;
   }
@@ -1966,8 +1942,6 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
         "SELECT * FROM report_runs WHERE project_id = $1::uuid ORDER BY generated_at DESC LIMIT 200",
         [projectId],
       ));
-    } else if (req.user?.isAdmin) {
-      ({ rows } = await req.db.query("SELECT * FROM report_runs ORDER BY generated_at DESC LIMIT 200"));
     } else {
       ({ rows } = await req.db.query(
         `SELECT rr.* FROM report_runs rr
@@ -2015,8 +1989,8 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
 app.post("/api/v1/reports/generate", requireAuth, async (req: express.Request, res: express.Response) => {
   const { templateId, projectId, cutoff } = req.body ?? {};
   if (!templateId) return res.status(400).json({ error: "templateId required" });
-  if (!projectId && !req.user?.isAdmin) return res.status(400).json({ error: "projectId is required for non-platform report generation.", code: "PROJECT_ID_REQUIRED" });
-  if (projectId && !(await requireProjectPermission(req, res, String(projectId), "reports.view"))) return;
+  if (!projectId) return res.status(400).json({ error: "projectId is required for report generation.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, String(projectId), "reports.create"))) return;
   try {
     const templateVersion = reportTemplatesStore.find((t: any) => t.id === templateId)?.version || 1;
     const cutoffAt = cutoff || new Date().toISOString();
@@ -2226,17 +2200,18 @@ app.get("/api/v1/reports/schedules", requireAuth, async (req: express.Request, r
         "SELECT * FROM report_schedules WHERE project_id = $1::uuid ORDER BY created_at DESC",
         [projectId],
       ));
-    } else if (req.user?.isAdmin) {
-      ({ rows } = await req.db.query("SELECT * FROM report_schedules ORDER BY created_at DESC"));
     } else {
       ({ rows } = await req.db.query(
-        `SELECT rs.* FROM report_schedules rs
-          WHERE rs.project_id IN (
-            SELECT pm.project_id FROM project_members pm WHERE pm.user_id = $1::uuid AND pm.is_active = true
-          )
-          ORDER BY rs.created_at DESC`,
-        [req.user?.id],
-      ));
+        `SELECT rs.* FROM report_schedules rs WHERE rs.project_id IN (
+          SELECT a.project_id FROM project_role_assignments a
+          JOIN project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+          JOIN project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id AND pr.is_active=true
+          JOIN project_role_permissions prp ON prp.project_role_id=pr.id AND prp.project_id=pr.project_id
+          JOIN permissions perm ON perm.id=prp.permission_id AND perm.is_active=true
+          WHERE a.user_id=$1::uuid AND a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+          AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+          AND perm.code='reports.view' AND pr.role_code<>'funder'
+        ) ORDER BY rs.created_at DESC`,[req.user?.id]));
     }
     const schedules = rows.map((r: any) => ({
       id: r.id,
@@ -2266,7 +2241,8 @@ app.post("/api/v1/reports/schedules", requireAuth, async (req: express.Request, 
   const freq = String(frequency).toLowerCase();
   const allowedFreq = new Set(["daily", "weekly", "monthly"]);
   if (!allowedFreq.has(freq)) return res.status(400).json({ error: "Unsupported frequency. Allowed: daily, weekly, monthly" });
-  if (projectId && !(await requireProjectPermission(req, res, String(projectId), "reports.create"))) return;
+  if (!projectId) return res.status(400).json({ error: "projectId is required for report scheduling.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, String(projectId), "reports.create"))) return;
   try {
     // Best-effort next execution: compute in UTC anchored to provided execution time; timezone stored for display/consistency.
     // Full timezone-aware recurrence requires calendar-aware scheduling; current implementation advances by frequency interval.

@@ -39,7 +39,6 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
 
 export function hasProjectPermission(permission: string, user?: WorkspaceAccessUser): boolean {
   if (!user) return false;
-  if (user.platformAdmin === true) return true;
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) return false;
   return (user.projectPermissions || []).includes(permission);
 }
@@ -76,7 +75,6 @@ function hasAuthorizedRoleForPage(user: WorkspaceAccessUser, allowedRoles: Set<s
 }
 
 export function hasPageAccess(pageKey: WorkspacePageKey | string, user: WorkspaceAccessUser): boolean {
-  if (user.platformAdmin === true) return true;
   if (pageKey === 'notifications') return true;
   if (pageKey === 'access') return hasAnyProjectPermission(['project.members.view', 'project.members.manage', 'project.roles.manage'], user);
   if (pageKey === 'project-detail') return hasProjectPermission('project.view', user);
@@ -91,7 +89,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
       && PAGE_PERMISSION_REQUIREMENTS.compliance.some(permission => permissions.has(permission));
   }
   if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");
-  if (pageKey === 'projects') return hasActiveProjectMembership(user);
+  if (pageKey === 'projects') return user.platformAdmin === true || hasActiveProjectMembership(user);
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
     return pageKey === 'dashboard' && hasActiveProjectMembership(user);
   }

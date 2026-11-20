@@ -76,7 +76,7 @@ function App() {
   const pkeIdentity = useLoad<{ user?: AnyRecord } | null>(() => user ? get('/me') : Promise.resolve(null), [user?.id]);
   const activeUser = pkeIdentity.data?.user || user;
   const projectAccess = useLoad<{ projectId?: string; permissions?: string[] }>(
-    () => activeUser && activeUser.platformAdmin !== true && !pkeIdentity.loading && projectId
+    () => activeUser && !pkeIdentity.loading && projectId
       ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`)
       : Promise.resolve({ projectId, permissions: [] }),
     [projectId, activeUser?.id, pkeIdentity.loading],
@@ -85,7 +85,7 @@ function App() {
     ...activeUser,
     selectedProjectId: projectId,
     projectPermissions: projectAccess.data?.projectId === projectId ? projectAccess.data.permissions || [] : [],
-    projectPermissionsLoading: Boolean(projectId && activeUser?.platformAdmin !== true && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
+    projectPermissionsLoading: Boolean(projectId && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
     projectPermissionsError: projectAccess.error,
   } : activeUser;
   const selectedMembership = workspaceUser?.projectMemberships?.find((membership: AnyRecord) => membership.projectId === projectId && membership.isActive === true);

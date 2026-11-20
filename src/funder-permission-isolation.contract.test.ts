@@ -16,7 +16,7 @@ describe("Funder external-role isolation", () => {
   });
 
   it("excludes Funder role assignments from generic Finance, Accounting, payment and report permission attribution", () => {
-    const requirePermission = api.slice(api.indexOf("async function requireProjectPermission"), api.indexOf("async function requireAnyProjectPermission"));
+    const requirePermission = api.slice(api.indexOf("async function requireProjectPermission"), api.indexOf("async function findExplicitProjectPermission"));
     const explicitPermission = api.slice(api.indexOf("async function findExplicitProjectPermission"), api.indexOf("async function applyExplicitProjectPermissionContext"));
     for (const source of [requirePermission, explicitPermission]) {
       expect(source).toContain("pr.role_code");

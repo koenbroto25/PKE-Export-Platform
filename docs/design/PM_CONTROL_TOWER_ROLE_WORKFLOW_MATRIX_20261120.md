@@ -251,3 +251,9 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Migration runner dry-run: PASS; no database connection attempted and no database changes made. Migrations 048 and 049 are reported `manifest=absent` and remain unapproved for apply.
 - Dependency Audit Evidence: PASS (root and frontend production dependency audits).
 - PR #2 remains OPEN / DRAFT. CI validates source/static/build gates, not authenticated browser UAT or runtime RLS integration.
+### 11.1 P0 audit corrections (2026-11-20)
+- Migration 049 notification RLS now explicitly authorizes `project.tasks.resolve` for PM-to-owner resolution/closure notifications.
+- Transport-leg reads are now mandatory Project-scoped and require `logistics.view`; operational UI uses real transport legs from the selected Project and does not synthesize them.
+- Latest CI: 214/214 tests, both TypeScript checks, production frontend build, migration ledger verifier, dry-run and dependency audit PASS on PR #2 head `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f`.
+- Current prepared hashes: 048 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; 049 `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Not approved/applied; Production remains 047.
+- Still required: approved 048/049, verified backup, sequential application, and runtime multi-role/multi-Project UAT. No Production or Vercel mutation was performed.

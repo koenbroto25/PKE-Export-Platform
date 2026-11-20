@@ -3596,6 +3596,41 @@ app.post("/api/v1/journal-entries/:id/post", requireAuth, async (req: express.Re
   }
 });
 
+app.post("/api/v1/journal-entries/:id/lines", requireAuth, async (req: express.Request, res: express.Response) => {
+  const lines = req.body?.lines;
+  if (!Array.isArray(lines) || lines.length < 2 || lines.length > 100) return res.status(400).json({ error: "Provide between 2 and 100 journal lines." });
+  try {
+    const { rows: entryRows } = await req.db.query("SELECT id, project_id, status FROM journal_entries WHERE id=$1::uuid FOR UPDATE", [req.params.id]);
+    if (!entryRows.length) return res.status(404).json({ error: "Journal entry not found." });
+    if (!(await requireProjectPermission(req, res, entryRows[0].project_id, "accounting.create"))) return;
+    if (entryRows[0].status !== "draft") return res.status(409).json({ error: "Journal lines can only be added to a draft entry." });
+    const normalized = lines.map((line: any) => ({
+      account_id: String(line.accountId || ""),
+      debit: Number(line.debit),
+      credit: Number(line.credit),
+      description: typeof line.description === "string" ? line.description.slice(0, 500) : null,
+      line_order: Number(line.lineOrder),
+    }));
+    if (normalized.some((line: any) => !/^[0-9a-f-]{36}$/i.test(line.account_id) ||
+      !Number.isFinite(line.debit) || !Number.isFinite(line.credit) || line.debit < 0 || line.credit < 0 ||
+      (line.debit === 0 && line.credit === 0) || (line.debit > 0 && line.credit > 0) ||
+      !Number.isInteger(line.line_order) || line.line_order < 1)) {
+      return res.status(400).json({ error: "Every journal line needs a valid account, one positive debit or credit, and a positive line order." });
+    }
+    const accountIds = [...new Set(normalized.map((line: any) => line.account_id))];
+    const { rows: accounts } = await req.db.query("SELECT id FROM chart_of_accounts WHERE id=ANY($1::uuid[]) AND is_active=true", [accountIds]);
+    if (accounts.length !== accountIds.length) return res.status(400).json({ error: "One or more accounts are invalid or inactive." });
+    const { rows } = await req.db.query(
+      `INSERT INTO journal_lines (journal_entry_id,account_id,debit,credit,description,line_order,created_at)
+       SELECT $1::uuid,x.account_id::uuid,x.debit,x.credit,x.description,x.line_order,now()
+       FROM jsonb_to_recordset($2::jsonb) AS x(account_id text,debit numeric,credit numeric,description text,line_order integer)
+       RETURNING *`,
+      [req.params.id, JSON.stringify(normalized)],
+    );
+    return res.status(201).json({ journalLines: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res: express.Response) => {
   const { journalEntryId, accountId, debit, credit, description, lineOrder } = req.body;
   if (!journalEntryId || !accountId || debit === undefined || credit === undefined) return res.status(400).json({ error: "journalEntryId, accountId, debit, credit required" });

@@ -34,9 +34,6 @@ CREATE POLICY pke_fx_exposures_update ON public.fx_exposures FOR UPDATE TO app_r
 CREATE POLICY pke_fx_exposures_delete ON public.fx_exposures FOR DELETE TO app_runtime_secure USING (public.pke_has_project_permission(project_id,'finance.delete'));
 DROP POLICY IF EXISTS pke_journal_lines_insert ON public.journal_lines;
 CREATE POLICY pke_journal_lines_insert ON public.journal_lines FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_has_journal_entry_permission(journal_entry_id,'accounting.create'));
-INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id,granted_at)
-SELECT pr.project_id,pr.id,perm.id,now() FROM public.project_roles pr JOIN public.permissions perm ON perm.code='accounting.update' AND perm.is_active=true
-WHERE pr.role_code='accounting' AND pr.is_active=true ON CONFLICT(project_role_id,permission_id) DO NOTHING;
 CREATE OR REPLACE FUNCTION public.pke_current_user_project_permissions(p_project_id uuid)
 RETURNS text[] LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public
 AS $function$

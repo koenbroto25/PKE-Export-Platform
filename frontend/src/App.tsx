@@ -31,6 +31,10 @@ const roleAccess: Record<string, string[]> = {
   accounting: ['dashboard','finance','cash-advances','reports','notifications','journal-entries'],
   funder: ['dashboard','projects','finance','reports','notifications','funder'],
   buyer: ['dashboard','reports','notifications','buyer'],
+  project_admin: ['dashboard','projects','contracts','operations','finance','compliance','reports','notifications','access'],
+  contract_manager: ['dashboard','contracts','buyer','reports','notifications'],
+  internal_auditor: ['dashboard','projects','contracts','operations','finance','compliance','journal-entries','reports','notifications'],
+  finance_officer: ['dashboard','finance','cash-advances','reports','notifications'],
   supplier: ['dashboard','projects','contracts','reports','notifications','supplier'],
   transporter: ['dashboard','operations','shipment-allocations','reports','notifications','transporter'],
   external_provider: ['dashboard','reports','notifications'],
@@ -184,9 +188,9 @@ function App() {
             <Route path="/projects/:id/members" element={<RoleGuard allowedKeys={['access']} activeUser={activeUser}><ProjectMembersPage onNotice={notify} /></RoleGuard>} />
             <Route path="/contracts" element={<RoleGuard allowedKeys={['contracts']} activeUser={activeUser}><ContractsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={activeUser}><OperationsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><FinancePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={activeUser}><CompliancePage projectId={projectId} onNotice={notify} /></RoleGuard>} />
-            <Route path="/journal-entries" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><JournalEntriesPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/journal-entries" element={<RoleGuard allowedKeys={['finance']} activeUser={activeUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={activeUser}><ReportsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
             <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={activeUser}><NotificationsPage onNotice={notify} /></RoleGuard>} />
             <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={activeUser}><AccessPage onNotice={notify} /></RoleGuard>} />
@@ -276,8 +280,13 @@ function LoginPage({ onNotice }: { onNotice: (kind: 'success' | 'error' | 'info'
 function RoleGuard({ children, allowedKeys, activeUser }: { children: ReactNode; allowedKeys: string[]; activeUser: AnyRecord | undefined }) {
   const userRole = activeUser?.role;
   if (!userRole) return <div className="panel"><p>Memuat hak akses…</p></div>;
-  const keys = roleAccess[activeUser?.role] || [];
-  const allowed = allowedKeys.some(k => keys.includes(k));
+  const globalKeys = roleAccess[activeUser?.role] || [];
+  const projectRoleKeys = (activeUser?.projectMemberships || [])
+    .filter((m: AnyRecord) => m.isActive === true)
+    .flatMap((m: AnyRecord) => (m.roleAssignments || [])
+      .filter((a: AnyRecord) => a.isActive === true && !a.revokedAt && (!a.expiresAt || new Date(a.expiresAt).getTime() > Date.now()) && a.roleIsActive === true)
+      .flatMap((a: AnyRecord) => roleAccess[a.roleCode] || []));
+  const allowed = activeUser?.platformAdmin === true || allowedKeys.some(k => globalKeys.includes(k) || projectRoleKeys.includes(k));
   if (!allowed) return <div className="panel"><p style={{ color: '#c45555' }}><CircleAlert size={18} /> Akses tidak diizinkan untuk role <strong>{activeUser?.role?.replace('_', ' ')}</strong>.</p></div>;
   return <>{children}</>;
 }
@@ -659,10 +668,14 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
   </>;
 }
 
-function FinancePage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const rab = useLoad<{ rab?: AnyRecord[] }>(() => get('/rab'), []);
+function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; activeUser: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const projectAccess = useLoad<{ permissions?: string[] }>(() => projectId ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`) : Promise.resolve({ permissions: [] }), [projectId]);
+  const projectPermissions = projectAccess.data?.permissions || [];
+  const canCreateFinance = activeUser?.platformAdmin === true || projectPermissions.includes('finance.create');
+  const canManageGlobalReference = activeUser?.platformAdmin === true;
+  const rab = useLoad<{ rab?: AnyRecord[] }>(() => projectId ? get(`/rab?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ rab: [] }), [projectId]);
   const fxRates = useLoad<{ fxRates?: AnyRecord[] }>(() => get('/fx-rates'), []);
-  const exposure = useLoad<{ fxExposure?: AnyRecord[] }>(() => get('/fx-exposure'), []);
+  const exposure = useLoad<{ fxExposure?: AnyRecord[] }>(() => projectId ? get(`/fx-exposure?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ fxExposure: [] }), [projectId]);
   const [form, setForm] = useState<'rab' | 'rate' | 'exposure' | null>(null); const [busy, setBusy] = useState(false);
   const [rabForm, setRabForm] = useState({ projectId: projectId || '', description: '', amount: '', category: 'fixed' });
   const [rateForm, setRateForm] = useState({ fromCurrency: 'USD', toCurrency: 'IDR', rate: '', rateType: 'reference', source: '', effectiveDate: new Date().toISOString().slice(0, 10) });
@@ -676,7 +689,7 @@ function FinancePage({ projectId, onNotice }: { projectId: string; onNotice: (ki
   } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Data keuangan tidak dapat disimpan.'); } finally { setBusy(false); } };
   const budget = (rab.data?.rab || []).filter(r => !projectId || r.project_id === projectId).reduce((s, r) => s + Number(r.amount || 0), 0);
   return <>
-    <PageTitle eyebrow="FINANCE CONTROL" title="Keuangan & eksposur FX" subtitle="RAB proyek, referensi kurs, dan eksposur mata uang asing." actions={<><ActionButton variant="secondary" onClick={() => setForm('rate')}><Plus size={15} /> Kurs FX</ActionButton><ActionButton onClick={() => setForm('rab')}><Plus size={15} /> Catat RAB</ActionButton></>} />
+    <PageTitle eyebrow="FINANCE CONTROL" title="Keuangan & eksposur FX" subtitle="RAB proyek, referensi kurs, dan eksposur mata uang asing." actions={<>{canManageGlobalReference && <ActionButton variant="secondary" onClick={() => setForm('rate')}><Plus size={15} /> Kurs FX</ActionButton>}{canCreateFinance && <><ActionButton onClick={() => setForm('rab')}><Plus size={15} /> Catat RAB</ActionButton><ActionButton variant="secondary" onClick={() => setForm('exposure')}><Plus size={15} /> Eksposur FX</ActionButton></>}</>} />
     <div className="metric-grid three"><Metric label="Total anggaran RAB" value={idr(budget)} foot="Sesuai filter proyek" icon={Wallet} tone="amber" /><Metric label="Data kurs aktif" value={number(fxRates.data?.fxRates?.length || 0, 0)} icon={Globe2} tone="blue" /><Metric label="Eksposur FX" value={number(exposure.data?.fxExposure?.length || 0, 0)} foot="Posisi tercatat" icon={TrendingUp} tone="green" /></div>
     {form && <Card className="form-panel"><PanelHeading title={form === 'rab' ? 'Tambah RAB proyek' : form === 'rate' ? 'Catat kurs valuta' : 'Catat eksposur FX'} action={<button className="icon-button" onClick={() => setForm(null)}><X size={18} /></button>} />
       <form className="form-grid" onSubmit={save}>
@@ -693,8 +706,12 @@ function FinancePage({ projectId, onNotice }: { projectId: string; onNotice: (ki
   </>;
 }
 
-function JournalEntriesPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const entries = useLoad<{ journalEntries?: AnyRecord[] }>(() => projectId ? get(`/journal-entries?projectId=${encodeURIComponent(projectId)}`) : get('/journal-entries'), [projectId]);
+function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const projectAccess = useLoad<{ permissions?: string[] }>(() => projectId ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`) : Promise.resolve({ permissions: [] }), [projectId]);
+  const projectPermissions = projectAccess.data?.permissions || [];
+  const canCreateJournal = activeUser?.platformAdmin === true || projectPermissions.includes('accounting.create');
+  const canPostJournal = activeUser?.platformAdmin === true || projectPermissions.includes('accounting.update');
+  const entries = useLoad<{ journalEntries?: AnyRecord[] }>(() => projectId ? get(`/journal-entries?projectId=${encodeURIComponent(projectId)}`) : Promise.resolve({ journalEntries: [] }), [projectId]);
   const accounts = useLoad<{ accounts?: AnyRecord[] }>(() => get('/chart-of-accounts'), []);
   const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -708,7 +725,9 @@ function JournalEntriesPage({ projectId, onNotice }: { projectId: string; onNoti
     try {
       const res: any = await post('/journal-entries', { ...entry, entryDate: entry.entryDate || new Date().toISOString() });
       setBusy(false);
-      onNotice('success', 'Jurnal draft berhasil dibuat.');
+      setEditingEntryId(res?.journalEntry?.id || null);
+      setDraftLines([]);
+      onNotice('success', 'Jurnal draft berhasil dibuat. Tambahkan baris debit/kredit sebelum posting.');
       setFormOpen(false); entries.refresh();
       setEntry({ projectId: projectId || '', entryType: 'manual', description: '', entryDate: new Date().toISOString().slice(0, 10) });
     } catch (e) { setBusy(false); onNotice('error', e instanceof Error ? e.message : 'Jurnal gagal dibuat.'); }
@@ -732,6 +751,20 @@ function JournalEntriesPage({ projectId, onNotice }: { projectId: string; onNoti
     setDraftLines(draftLines.filter((_, i) => i !== index));
   };
 
+  const saveLines = async () => {
+    if (!editingEntryId || draftLines.length < 2) { onNotice('error', 'Minimal dua baris jurnal diperlukan.'); return; }
+    if (Math.abs(totalDebit - totalCredit) > 0.005) { onNotice('error', 'Total debit dan kredit harus seimbang.'); return; }
+    setBusy(true);
+    try {
+      await post(`/journal-entries/${encodeURIComponent(editingEntryId)}/lines`, {
+        lines: draftLines.map((line, index) => ({ accountId: line.accountId, debit: line.debit, credit: line.credit, description: line.description, lineOrder: index + 1 })),
+      });
+      onNotice('success', 'Baris jurnal tersimpan. Jurnal tetap berstatus draft sampai diposting oleh petugas berwenang.');
+      setDraftLines([]); setEditingEntryId(null); entries.refresh();
+    } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Baris jurnal gagal disimpan.'); }
+    finally { setBusy(false); }
+  };
+
   const postEntry = async (entryId: string) => {
     setBusy(true);
     try {
@@ -746,7 +779,7 @@ function JournalEntriesPage({ projectId, onNotice }: { projectId: string; onNoti
   const totalCredit = draftLines.reduce((s, l) => s + Number(l.credit || 0), 0);
 
   return <>
-    <PageTitle eyebrow="AKUNTANSI" title="Jurnal Umum" subtitle="Buat dan posting jurnal double-entry per proyek." actions={<ActionButton variant="secondary" onClick={() => setFormOpen(true)}><Plus size={15} /> Buat Jurnal Draft</ActionButton>} />
+    <PageTitle eyebrow="AKUNTANSI" title="Jurnal Umum" subtitle="Buat dan posting jurnal double-entry per proyek." actions={canCreateJournal ? <ActionButton variant="secondary" onClick={() => setFormOpen(true)}><Plus size={15} /> Buat Jurnal Draft</ActionButton> : undefined} />
     <div className="metric-grid three"><Metric label="Jurnal" value={number(entries.data?.journalEntries?.length || 0, 0)} icon={FileText} tone="navy" /><Metric label="Total Debit Draft" value={idr(totalDebit)} foot="Belum diposting" icon={CircleDollarSign} tone="amber" /><Metric label="Total Kredit Draft" value={idr(totalCredit)} foot="Belum diposting" icon={CircleDollarSign} tone="amber" /></div>
     {formOpen && <Card className="form-panel"><PanelHeading title="Jurnal Draft Baru" action={<button className="icon-button" onClick={() => setFormOpen(false)}><X size={18} /></button>} /><form className="form-grid" onSubmit={saveEntry}>
       <FormField label="Proyek"><select value={entry.projectId} onChange={e => setEntry(v => ({ ...v, projectId: e.target.value }))} required><ProjectOptions /></select></FormField>
@@ -764,9 +797,9 @@ function JournalEntriesPage({ projectId, onNotice }: { projectId: string; onNoti
     </form>
     <div className="inline-info"><strong>Baris draft:</strong> {draftLines.length} baris · Total Debit: {idr(totalDebit)} · Total Kredit: {idr(totalCredit)} · <span style={{ color: Math.abs(totalDebit - totalCredit) <= 0.005 ? '#16a34a' : '#dc2626' }}>{Math.abs(totalDebit - totalCredit) <= 0.005 ? 'Seimbang' : 'Tidak seimbang'}</span></div>
     <div className="table-wrap"><table><thead><tr><th>Akun</th><th>Debit</th><th>Kredit</th><th>Deskripsi</th><th>Aksi</th></tr></thead><tbody>{draftLines.map((l, i) => <tr key={i}><td>{l.accountId}</td><td>{number(l.debit)}</td><td>{number(l.credit)}</td><td>{l.description || '—'}</td><td><button className="text-button" onClick={() => removeLine(i)}>Hapus</button></td></tr>)}</tbody></table></div>
-    <div className="form-actions"><ActionButton variant="secondary" onClick={() => setEditingEntryId(null)}>Batal</ActionButton><button className="primary-button" disabled={Math.abs(totalDebit - totalCredit) > 0.005 || draftLines.length === 0} onClick={() => { /* would post lines first */ onNotice('info', 'Simpan baris melalui API journal-lines terlebih dahulu, lalu posting jurnal.'); }}>Posting Jurnal</button></div></Card>}
-    <Card><PanelHeading title="Daftar Jurnal" description="Semua jurnal draft dan yang sudah diposting." action={<button className="icon-button" onClick={entries.refresh}><RefreshCw size={16} /></button>} />{entries.loading ? <Loading /> : entries.error ? <ErrorState message={entries.error} retry={entries.refresh} /> : <DataTable rows={(entries.data?.journalEntries || []).filter(r => !projectId || r.project_id === projectId)} columns={[{ key: 'id', label: 'ID', render: r => shortId(r.id) }, { key: 'entry_type', label: 'Tipe' }, { key: 'description', label: 'Deskripsi' }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> }, { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) }]} />}</Card>
-    <div className="inline-warning"><CircleAlert size={17} /> Baris jurnal perlu disimpan melalui endpoint `/api/v1/journal-lines` terpisah sebelum posting. Posting memerlukan debit=kredit dan akun aktif. Jurnal yang sudah diposting tidak dapat diedit.</div>
+    <div className="form-actions"><ActionButton variant="secondary" onClick={() => setEditingEntryId(null)}>Batal</ActionButton><button className="primary-button" disabled={busy || Math.abs(totalDebit - totalCredit) > 0.005 || draftLines.length < 2} onClick={saveLines}>Simpan Baris Jurnal</button></div></Card>}
+    <Card><PanelHeading title="Daftar Jurnal" description="Semua jurnal draft dan yang sudah diposting." action={<button className="icon-button" onClick={entries.refresh}><RefreshCw size={16} /></button>} />{entries.loading ? <Loading /> : entries.error ? <ErrorState message={entries.error} retry={entries.refresh} /> : <DataTable rows={(entries.data?.journalEntries || []).filter(r => !projectId || r.project_id === projectId)} columns={[{ key: 'id', label: 'ID', render: r => shortId(r.id) }, { key: 'entry_type', label: 'Tipe' }, { key: 'description', label: 'Deskripsi' }, { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> }, { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) }, { key: 'actions', label: 'Aksi', render: r => <>{r.status === 'draft' && canCreateJournal && <button className="text-button" onClick={() => { setEditingEntryId(r.id); setDraftLines([]); }}>Tambah baris</button>}{r.status === 'draft' && canPostJournal && <button className="text-button" disabled={busy} onClick={() => postEntry(r.id)}>Posting</button>}</> }]} />}</Card>
+    <div className="inline-warning"><CircleAlert size={17} /> Jurnal hanya dapat diposting setelah debit dan kredit seimbang. Hak posting memerlukan permission `accounting.update` yang diberikan secara terpisah; Finance dan Project Admin tidak otomatis memperoleh hak ini.</div>
   </>;
 }
 
@@ -992,9 +1025,8 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
   const docs = useLoad<{ documents?: AnyRecord[] }>(() => projectId ? get(`/projects/${encodeURIComponent(projectId)}/documents`) : Promise.resolve({ documents: [] }), [projectId]);
   const storage = useLoad<{ available: boolean; bucket: string; reason?: string }>(() => get('/storage/status'), []);
   const [showForm, setShowForm] = useState(false); const [busy, setBusy] = useState(false);
-  const [doc, setDoc] = useState({ projectRequirementId: '', originalFilename: '', mimeType: '', sha256Checksum: '', expiryDate: '', notes: '' });
+  const [doc, setDoc] = useState({ projectRequirementId: '', originalFilename: '', mimeType: '', sha256Checksum: '', expiryDate: '', notes: '', objectKey: '', contentLength: 0 });
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [check, setCheck] = useState({ entityType: 'project', entityId: '', targetCountry: 'CN', checkType: 'document_readiness' });
   const [checkResult, setCheckResult] = useState<AnyRecord | null>(null);
@@ -1004,34 +1036,33 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
   const saveDoc = async (e: FormEvent) => {
     e.preventDefault(); setBusy(true);
     try {
+      if (!doc.objectKey || !doc.contentLength || !doc.sha256Checksum) throw new Error('Unggah file terlebih dahulu.');
       await post(`/projects/${encodeURIComponent(projectId)}/documents`, {
-        projectRequirementId: doc.projectRequirementId,
-        originalFilename: doc.originalFilename,
-        mimeType: doc.mimeType || undefined,
-        sha256Checksum: doc.sha256Checksum || undefined,
-        expiryDate: doc.expiryDate || undefined,
-        notes: doc.notes || undefined,
+        projectRequirementId: doc.projectRequirementId, fileReference: doc.objectKey, objectKey: doc.objectKey,
+        originalFilename: doc.originalFilename, mimeType: doc.mimeType, contentLength: doc.contentLength,
+        sha256Checksum: doc.sha256Checksum, expiryDate: doc.expiryDate || undefined, notes: doc.notes || undefined,
       });
       onNotice('success', 'Referensi dokumen berhasil tercatat.'); setShowForm(false); docs.refresh(); requirements.refresh();
-      setDoc({ projectRequirementId: '', originalFilename: '', mimeType: '', sha256Checksum: '', expiryDate: '', notes: '' });
+      setDoc({ projectRequirementId: '', originalFilename: '', mimeType: '', sha256Checksum: '', expiryDate: '', notes: '', objectKey: '', contentLength: 0 });
     } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Dokumen gagal dicatat.'); }
     finally { setBusy(false); }
   };
   const requestUpload = async () => {
-    if (!uploadFile) return;
+    if (!uploadFile || !projectId) return;
     setUploadBusy(true);
     try {
-      const { upload } = await post<{ upload: { uploadUrl: string; objectKey: string } }>('/api/v1/storage/presigned-upload', {
-        objectKey: `projects/${projectId}/documents/${doc.originalFilename || 'document'}`,
-        mimeType: uploadFile.type || 'application/octet-stream',
-        contentLength: uploadFile.size,
-        filename: uploadFile.name,
+      const digest = await crypto.subtle.digest('SHA-256', await uploadFile.arrayBuffer());
+      const checksum = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+      const safeName = uploadFile.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(-120) || 'document';
+      const objectKey = `projects/${projectId}/documents/${crypto.randomUUID()}-${safeName}`;
+      const { upload } = await post<{ upload: { uploadUrl: string } }>('/storage/presigned-upload', {
+        objectKey, mimeType: uploadFile.type || 'application/octet-stream', contentLength: uploadFile.size, filename: uploadFile.name,
       });
-      setUploadUrl(upload.uploadUrl);
-      // Trigger actual PUT to storage via fetch
-      await fetch(upload.uploadUrl, { method: 'PUT', body: uploadFile, headers: { 'Content-Type': uploadFile.type || 'application/octet-stream' } });
-      onNotice('success', 'File berhasil diunggah ke penyimpanan pribadi.');
-      setUploadFile(null); setUploadUrl(null);
+      const response = await fetch(upload.uploadUrl, { method: 'PUT', body: uploadFile, headers: { 'Content-Type': uploadFile.type || 'application/octet-stream' } });
+      if (!response.ok) throw new Error(`Penyimpanan menolak unggahan (HTTP ${response.status}).`);
+      setDoc(v => ({ ...v, objectKey, contentLength: uploadFile.size, sha256Checksum: checksum, originalFilename: uploadFile.name, mimeType: uploadFile.type || 'application/octet-stream' }));
+      onNotice('success', 'File berhasil diunggah. Server akan memverifikasi ulang SHA-256 sebelum registrasi.');
+      setUploadFile(null);
     } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Unggah file gagal.'); }
     finally { setUploadBusy(false); }
   };
@@ -1040,7 +1071,7 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
     if (!editStatus) return;
     setBusy(true);
     try {
-      await patch(`/api/v1/documents/${encodeURIComponent(id)}`, { status: editStatus, notes: '' });
+      await patch(`/documents/${encodeURIComponent(id)}`, { status: editStatus, notes: '' });
       onNotice('success', `Status dokumen diperbarui menjadi ${editStatus}.`);
       docs.refresh(); requirements.refresh();
       setEditDocId(null); setEditStatus('');
@@ -1085,14 +1116,14 @@ function CompliancePage({ projectId, onNotice }: { projectId: string; onNotice: 
       <FormField label="Persyaratan dokumen proyek"><select value={doc.projectRequirementId} onChange={e => setDoc(v => ({ ...v, projectRequirementId: e.target.value }))} required>{(requirements.data?.documentRequirements || []).map((r: any) => <option key={r.id} value={r.id}>{r.documentCode} · {r.countryName} ({r.status})</option>)}</select></FormField>
       <FormField label="Nama berkas asli"><input value={doc.originalFilename} onChange={e => setDoc(v => ({ ...v, originalFilename: e.target.value }))} required placeholder="Contoh: invoice-001.pdf" /></FormField>
       <FormField label="TIPE MIME"><input value={doc.mimeType} onChange={e => setDoc(v => ({ ...v, mimeType: e.target.value }))} placeholder="Contoh: application/pdf" /></FormField>
-      <FormField label="Checksum SHA-256"><input value={doc.sha256Checksum} onChange={e => setDoc(v => ({ ...v, sha256Checksum: e.target.value }))} placeholder="SHA-256 hex digest berkas" /></FormField>
+      <FormField label="Checksum SHA-256"><input value={doc.sha256Checksum} readOnly placeholder="Dihitung otomatis setelah unggah" /></FormField>
       <FormField label="Tanggal kedaluwarsa"><input type="date" value={doc.expiryDate} onChange={e => setDoc(v => ({ ...v, expiryDate: e.target.value }))} /></FormField>
       <FormField label="Catatan" wide><textarea rows={2} value={doc.notes} onChange={e => setDoc(v => ({ ...v, notes: e.target.value }))} /></FormField>
       {storage.data?.available ? <>
       <FormField label="Pilih berkas untuk diunggah"><input type="file" onChange={e => setUploadFile(e.target.files?.[0] ?? null)} /></FormField>
-      <div className="form-actions" style={{ marginTop: 12 }}>{uploadUrl ? <button className="primary-button" onClick={requestUpload} disabled={uploadBusy}>{uploadBusy ? 'Mengunggah…' : 'Lanjutkan ke unggah file'}</button> : <ActionButton variant="ghost" onClick={() => requestUpload()} disabled={!uploadUrl}>Minta URL unggah</ActionButton>}</div>
+      <div className="form-actions" style={{ marginTop: 12 }}><ActionButton variant="secondary" onClick={() => requestUpload()} disabled={!uploadFile || uploadBusy}>{uploadBusy ? 'Mengunggah & memverifikasi…' : 'Unggah file & hitung checksum'}</ActionButton>{doc.objectKey && <span className="muted">File siap diregistrasi · {doc.contentLength.toLocaleString('id-ID')} byte</span>}</div>
       </> : <span className="muted">Unggah file fisik dinonaktifkan — kredensial penyimpanan belum dikonfigurasi.</span>}
-      <div className="form-actions"><ActionButton variant="secondary" onClick={() => setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || !storage.data?.available}>{busy ? 'Menyimpan…' : 'Simpan referensi dokumen'}</button>{!storage.data?.available && <span style={{ marginLeft: 8, fontSize: '12px', color: '#dc2626' }}>Tidak tersedia</span>}</div>
+      <div className="form-actions"><ActionButton variant="secondary" onClick={() => setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || !storage.data?.available || !doc.objectKey}>{busy ? 'Menyimpan…' : 'Verifikasi & simpan dokumen'}</button>{!storage.data?.available && <span style={{ marginLeft: 8, fontSize: '12px', color: '#dc2626' }}>Tidak tersedia</span>}</div>
     </form></Card>}
     <div className="content-two"><Card><PanelHeading title="Paket negara tujuan" description="Persyaratan dokumen per negara tujuan dari katalog regulasi." />{packs.loading ? <Loading /> : packs.error ? <ErrorState message={packs.error} retry={packs.refresh} /> : <div className="country-list">{(packs.data?.countryPacks || []).map((pack, i) => <div className="country-card" key={pack.countryCode || i}><div className="country-flag">{pack.countryCode === 'CN' ? 'CN' : pack.countryCode === 'PK' ? 'PK' : 'ID'}</div><div className="country-copy"><strong>{pack.country}</strong><span>{pack.packName}</span><small>{(pack.requirements || []).join(' · ')}</small></div><div className="country-tax">{number(Number(pack.taxRate || 0) * 100, 1)}%<small>indikatif</small></div></div>)}</div>}</Card>
       <Card><PanelHeading title="Referensi regulasi" description="Sumber regulasi terverifikasi dari regulatory_sources." />{knowledge.loading ? <Loading /> : knowledge.error ? <ErrorState message={knowledge.error} retry={knowledge.refresh} /> : <div className="activity-list">{(knowledge.data?.regulatoryKnowledge || []).map((item, i) => <div className="activity-item" key={item.id || i}><div className="activity-icon"><Globe2 size={16} /></div><div className="activity-copy"><strong>{item.title}</strong><span>{item.issuingAuthority} · {item.jurisdiction}</span><small><StatusPill value={item.verificationStatus || item.status} /></small></div></div>)}</div>}</Card></div>

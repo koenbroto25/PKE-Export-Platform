@@ -171,7 +171,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "report.view", "view_financial", "view_rab", "manage_rab",
   ], ["Finance reporting and controls only; no payment instruction, approval, reconciliation or evidence-verification grants."]),
   role("accounting", "Accountant", "finance", [
-    "accounting.view", "accounting.create", "accounting.update", "reports.view", "report.view", "view_financial", "view_rab",
+    "accounting.view", "accounting.create", "reports.view", "report.view", "view_financial", "view_rab",
   ], ["Journal posting/reversal must be separately assigned and independently approved."]),
   role("cashier", "Cashier", "finance", [
     "payment.view", "finance.view", "reports.view",

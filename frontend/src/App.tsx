@@ -1728,7 +1728,7 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
             updateMembership(r, currentlyActive
               ? { isActive: false }
               : { isActive: true, ...(r.expires_at && new Date(r.expires_at).getTime() <= Date.now() ? { expiresAt: null } : {}) });
-          }}>{membershipBusyId === String(r.id) ? 'Memproses…' : r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'Nonaktifkan membership' : 'Aktifkan membership'}</ActionButton> }
+          }}>{membershipBusyId === String(r.id) ? 'Memproses…' : r.is_active && !r.deactivated_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()) ? 'Nonaktifkan membership' : 'Aktifkan membership'}</ActionButton> : <span className="muted">—</span> }
         ]} emptyTitle="Belum ada anggota" emptyText="Belum ada keanggotaan untuk proyek ini." />}
       </>}
     </Card>

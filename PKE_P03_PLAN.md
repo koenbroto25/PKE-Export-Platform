@@ -647,3 +647,16 @@ PASS on isolated PostgreSQL validation branch:
 - Priorities: (P0) effective-permission navigation and role chips; multi-role assignment UX; PM Control Tower; actionable PM/role notifications. (P1) role workbenches, loading/laytime planner, export document/LC compliance, source-linked reports.
 - Open-source decision: do not install ERPNext/OpenProject or BI servers now. Keep Recharts/TanStack Table as optional UI candidates; MapLibre/PostGIS remain conditional on the Indonesian AIS/geospatial use case and isolated Neon tests; Superset/Metabase require strict Project isolation and license review; Documenso is not an official export-document issuer.
 - No package/application/service/hardware/subscription installed or purchased; no Production DDL/DML, synthetic Production data or Vercel deployment. This was read-only source discovery, not live HTTP UAT, browser test, or runtime role-matrix pass.
+
+---
+
+## 2026-11-20 — P0 effective-permission UX implementation
+
+- Implemented `frontend/src/role-permissions.ts`; sidebar navigation and route guards consume the selected Project's server-resolved `/projects/:projectId/my-permissions` result instead of inferring access from one global `activeUser.role` or a hard-coded role map.
+- Multiple active Project role assignments are combined by the existing database permission resolver for the selected Project. Switching Project invalidates the previous permission set while the new result loads; permission-fetch errors fail closed.
+- Project Admin Finance visibility remains based on `finance.view`; no Finance mutation or approval authority is inferred. Existing Finance action controls and backend/RLS authorization remain independent.
+- Project list remains available to active Project members before Project selection; notifications remain self-inbox scoped. Other Project workspaces require an explicitly selected Project. Platform Admin remains a separate platform-level bypass.
+- Sidebar now renders the Stakeholder navigation group and summarizes active role assignments for the selected Project. Dashboard no longer calls the Platform-Admin-only portfolio endpoint for ordinary Project users; Finance budget is not fabricated and is shown as unavailable.
+- Added unit coverage for permission union, Project Admin Finance read-only visibility, no cross-Project permission carry-over, fail-closed loading/error states, Platform Admin separation and inactive membership.
+- Frontend authorization UX only: no database permission, RLS, role assignment, Production data, migration or deployment changes.
+- Validation status: pending GitHub Actions on the implementation commit; no runtime HTTP UAT or browser acceptance is claimed until separately executed.

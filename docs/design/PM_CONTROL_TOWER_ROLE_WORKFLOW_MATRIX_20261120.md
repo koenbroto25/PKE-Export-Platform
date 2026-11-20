@@ -312,3 +312,14 @@ Current source CI is pending. This design document is not evidence of runtime UA
 - Production has not received Migration 050. Exact owner approval of SHA-256 `e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab` is required before the Neon completion action applies it and deletes the temporary branch. Production ledger remains 49/49; the API-facing columns remain absent there until approval.
 - Source CI on commit `3777149461c4d55584b8f2a5fe4a45e7a6366a2b`: 216/216 unit tests across 18 files; release verifier, dry-run with exact 050 pin, backend/frontend TypeScript, frontend build and dependency audit PASS.
 - P0 is not accepted as complete until Migration 050 is applied and authenticated multi-role / cross-Project runtime UAT passes. No Vercel deployment or PR merge.
+
+
+## 16. P0 follow-up — PM task notification RLS recipient fix (2026-11-20)
+
+- Authenticated isolated UAT found PM resolution notifications were rejected: the Migration 049 INSERT policy directly queried `project_members`, whose RLS hid the active recipient from PM context.
+- Prepared Migration 051 `051_task_notification_recipient_rls_helper.sql`, exact SHA-256 `acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927`. The replacement policy uses `pke_is_active_project_member(project_id, recipient_user_id)` (SECURITY DEFINER) while preserving task permission and active role-owner checks.
+- Neon branch quota prevented a second temporary branch. Migration 051 was tested on the existing isolated branch `br-proud-thunder-b3ny6nku`, alongside Migration 050; under `app_runtime_secure`, PM notification insertion and recipient read passed. Production was not changed.
+- Role UAT passed on the isolated branch: PM view/create/resolve; active role queue; explicit assignee-only visibility/update; revoked assignment denial; cross-Project denial; unauthorized operations task creation denial; append-only event read boundaries; PM notification delivery/read. Test fixtures remain only on the temporary branch.
+- Production ledger remains 49/49. Migrations 050 and 051 remain unapplied. Exact owner approval is required for 050 SHA `e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab` and 051 SHA `acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927`.
+- CI on commit `172eb7e74ffd629dcbd33f3007932d47c3194995`: 217/217 tests; migration verifier/dry-run, backend/frontend TypeScript, frontend build and dependency audit PASS.
+- Do not mark P0 production-accepted until both migrations are applied and Production post-apply verification plus remaining role-by-role workflow UAT passes. No PR merge or Vercel deployment.

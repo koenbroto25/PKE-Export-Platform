@@ -77,7 +77,7 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
     .map((a: RecordData) => ROLE_ALIASES[normalizeRole(a.roleCode || a.roleName)] || normalizeRole(a.roleCode || a.roleName))
     .filter((v: string, i: number, arr: string[]) => Boolean(v) && arr.indexOf(v) === i), [activeUser, membership]);
   const permissions = activeUser?.projectPermissions || [];
-  const can = (permission: string) => hasProjectPermission(permission, activeUser);
+  const can = (permission: string) => activeUser?.platformAdmin === true ? false : hasProjectPermission(permission, activeUser);
   const canViewTasks = can('project.tasks.view');
   const canViewContracts = can('contract.view');
   const canViewInventory = can('inventory.view');

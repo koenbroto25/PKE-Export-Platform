@@ -13,6 +13,7 @@ const ledger = readJson("migration_history_manifest_001_047.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 const migration052Runner = fs.readFileSync(path.join(root, "scripts/apply-migration-052.mjs"), "utf8");
 const latestLedger = JSON.parse(fs.readFileSync(path.join(root, "migration_history_manifest_001_051.json"), "utf8"));
+const appliedLedger = JSON.parse(fs.readFileSync(path.join(root, "migration_history_manifest_001_052.json"), "utf8"));
 const backupEvidence = JSON.parse(fs.readFileSync(path.join(root, "docs/audits/NEON_PRE_052_BACKUP_MANIFEST_20261120.json"), "utf8"));
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
@@ -172,6 +173,18 @@ if (latestLedger.project_id !== "purple-base-63944903" ||
     latestLedger.entries[50]?.filename !== "051_task_notification_recipient_rls_helper.sql" ||
     latestLedger.entries[50]?.sha256 !== "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927") {
   fail("Migration 052 release requires the exact verified 001-051 Production ledger.");
+}
+if (appliedLedger.project_id !== "purple-base-63944903" ||
+    appliedLedger.branch_id !== "br-damp-shape-b3xlh4nr" ||
+    appliedLedger.applied_count !== 52 || appliedLedger.entries?.length !== 52 ||
+    appliedLedger.pending_migrations?.length !== 0 ||
+    appliedLedger.entries[51]?.filename !== "052_funder_finance_report_scope_isolation.sql" ||
+    appliedLedger.entries[51]?.sha256 !== "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b" ||
+    appliedLedger.entries[51]?.status !== "applied") {
+  fail("Canonical Production migration ledger 001-052 is not verified.");
+}
+if (!runner.includes("migration_history_manifest_001_052.json")) {
+  fail("Migration status runner does not use the canonical applied 001-052 ledger.");
 }
 if (backupEvidence.backup_branch_id !== "br-snowy-credit-b336z950" ||
     backupEvidence.backup_branch_state !== "ready" ||

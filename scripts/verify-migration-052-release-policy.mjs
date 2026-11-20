@@ -35,6 +35,7 @@ if (latest.entries[50]?.filename !== "051_task_notification_recipient_rls_helper
 if (latest.pending_migrations?.length !== 0) fail("No pending migration may remain after Migration 052.");
 if (preApply.applied_count !== 51 || preApply.pending_migrations?.[0]?.sha256 !== expectedSha) fail("Pre-apply 001-051 approval ledger evidence is missing.");
 
+if (hash("docs/audits/NEON_PRE_052_BACKUP_MANIFEST_20261120.json") !== "cbb6216e1c86a238d97e9e7bd400c2073fda75d3dd7224a707ee0bbdcc4d8a7a") fail("Pre-052 backup evidence SHA-256 mismatch.");
 if (backup.project_id !== latest.project_id ||
     backup.production_branch_id !== latest.branch_id ||
     backup.backup_branch_id !== "br-snowy-credit-b336z950" ||

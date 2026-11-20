@@ -12,7 +12,7 @@ Read-only audit after owner-approved Migration 052 on Neon Production project `p
 - The permission helper is SECURITY DEFINER with `search_path=pg_catalog, public`; EXECUTE is granted to `app_runtime_secure`; PUBLIC EXECUTE is false.
 
 ## Funder backtest
-Within the same transaction as Migration 052, the test temporarily reintroduced `finance.view` and `reports.view` for the active Funder assignment. Calls to `pke_has_project_permission` returned false for both. The temporary grants were deleted before transaction commit. Post-commit read-back confirms zero Funder generic grants and no temporary test grants remain.
+Within the same transaction as Migration 052, the test temporarily reintroduced `finance.view` and `reports.view` for the active Funder assignment. Calls to `pke_has_project_permission` returned false for both. A follow-up permission-matrix backtest iterated all active generic Finance/Accounting/Reports/Payment permission codes: codes allowed by the assignment trigger were rejected by the permission helper, while Finance create/update/delete codes were rejected by the existing role-assignment trigger. All temporary grants were deleted before the test transaction completed. Post-test read-back confirms zero Funder generic grants and no temporary test grants remain. A separate post-commit effective check returned false for Funder `finance.view`, `accounting.view`, `reports.view`, and `payment.view`.
 
 ## Separate Project Admin / Finance boundary finding
 

@@ -900,7 +900,7 @@ PASS on isolated PostgreSQL validation branch:
 - Full detail: `docs/audits/ROLE_DASHBOARD_IMPLEMENTATION_AUDIT_20261120.md`.
 
 
-- Pre-052 backup gate is blocked: Neon Production has reached the 10-branch limit (Production + 9 children). Creation of a fresh `pre-052-funder-scope-production-backup-20261120` clone was rejected with `branches limit exceeded`. The existing pre-048/049 backup is stale for Migration 052. No old backup/UAT/migration branch was deleted without owner authorization. Migration 052 remains prepared-only.
+- Historical note: the initial pre-052 backup attempt was blocked by the Neon branch quota. The owner subsequently approved deletion of `br-misty-cake-b317ia3e`; the branch was deleted and verified, then a fresh Production clone was created. See the following checkpoint for the completed backup and current remaining gates.
 
 ## Production checkpoint — Migration 052 preparation (2026-11-20, WIB)
 

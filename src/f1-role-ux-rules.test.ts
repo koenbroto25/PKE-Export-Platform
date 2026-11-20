@@ -18,6 +18,18 @@ describe("Project-scoped effective permission UX", () => {
     expect(hasPageAccess("finance", noSelection)).toBe(false); expect(hasPageAccess("journal-entries", noSelection)).toBe(false);
     expect(hasPageAccess("projects", noSelection)).toBe(true); expect(hasPageAccess("notifications", noSelection)).toBe(true);
   });
+  it("keeps external counterparties in their dedicated portals, not internal workbenches", () => {
+    const buyer = user(["buyer.requirement.view", "buyer.shipment.view", "documents.view", "shipment.view"]);
+    expect(hasPageAccess("buyer", buyer)).toBe(true); expect(hasPageAccess("dashboard", buyer)).toBe(false);
+    expect(hasPageAccess("operations", buyer)).toBe(false); expect(hasPageAccess("compliance", buyer)).toBe(false);
+    expect(hasPageAccess("shipment-allocations", buyer)).toBe(false);
+    const transporter = user(["logistics.view", "record_truck_trips", "verify_checkpoints"]);
+    expect(hasPageAccess("transporter", transporter)).toBe(true); expect(hasPageAccess("dashboard", transporter)).toBe(false);
+  });
+  it("requires shipping.view for internal shipment allocation access", () => {
+    expect(hasPageAccess("shipment-allocations", user(["shipment.view"]))).toBe(false);
+    expect(hasPageAccess("shipment-allocations", user(["shipping.view"]))).toBe(true);
+  });
   it("allows a role with domain-specific permissions to reach its Project landing dashboard", () => {
     expect(hasPageAccess("dashboard", user(["facility.view"]))).toBe(true);
   });

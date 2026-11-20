@@ -51,7 +51,7 @@ export function hasActiveProjectMembership(user: WorkspaceAccessUser): boolean {
 export function hasPageAccess(pageKey: WorkspacePageKey | string, user: WorkspaceAccessUser): boolean {
   if (user.platformAdmin === true) return true;
   if (pageKey === 'notifications') return true;
-  if (pageKey === 'access') return user.platformAdmin === true || hasAnyProjectPermission(['project.members.view', 'project.members.manage', 'project.roles.manage'], user);
+  if (pageKey === 'access') return hasAnyProjectPermission(['project.members.view', 'project.members.manage', 'project.roles.manage'], user);
   if (pageKey === 'project-detail') return hasProjectPermission('project.view', user);
   if (pageKey === 'project-edit') return hasProjectPermission('project.update', user);
   if (pageKey === 'project-configuration') return hasProjectPermission('project.configuration.manage', user);

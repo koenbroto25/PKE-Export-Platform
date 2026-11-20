@@ -60,7 +60,7 @@ const ROLE_META: Record<string, { label: string; focus: string; outputs: string;
   finance: { label: 'Finance Officer', focus: 'RAB, FX, AP/AR, Cash Advance dan financial reporting.', outputs: 'Keputusan Finance dan posisi finansial; pembayaran/bank reconciliation tidak termasuk workflow aktif.', links: [{ label: 'Keuangan & FX', to: '/finance' }, { label: 'Cash Advance', to: '/cash-advances' }, { label: 'Laporan', to: '/reports' }] },
   accounting: { label: 'Accountant', focus: 'Jurnal, supporting lines dan pelaporan Accounting.', outputs: 'Draft jurnal dan rekonsiliasi; posting/reversal tetap dibatasi permission terpisah.', links: [{ label: 'Jurnal Umum', to: '/journal-entries' }, { label: 'Laporan', to: '/reports' }] },
   cashier: { label: 'Cashier / Treasury', focus: 'Melihat instruksi pembayaran yang diotorisasi dan bukti bank.', outputs: 'Bukti eksekusi/reconciliation; payment execution belum tersedia.', links: [{ label: 'Instruksi Pembayaran', to: '/payment-instructions' }, { label: 'Keuangan', to: '/finance' }] },
-  funder: { label: 'Project Funder', focus: 'Posisi pendanaan, exposure dan laporan Project yang ditugaskan.', outputs: 'Ringkasan read-only; funder-specific API masih perlu dikonfirmasi.', links: [{ label: 'Laporan', to: '/reports' }, { label: 'Tugas Saya', to: '/my-work' }] },
+  funder: { label: 'Project Funder', focus: 'Melihat hanya laporan atau artefak yang secara eksplisit dibagikan kepada Funder.', outputs: 'Akses data keuangan dan laporan umum dinonaktifkan sampai dedicated sharing permission, API dan RLS tersedia.', links: [] },
 };
 
 const ROLE_ALIASES: Record<string, string> = { admin: 'platform_admin', projectmanager: 'pm', project_manager: 'pm', warehouse: 'warehouse_manager', loading_manager: 'master_of_loading' };
@@ -80,16 +80,18 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   const permissions = activeUser?.projectPermissions || [];
   const can = (permission: string) => activeUser?.platformAdmin === true ? false : hasProjectPermission(permission, activeUser);
   const canViewTasks = can('project.tasks.view');
-  const canViewWork = Boolean(projectId);
+  const canViewWork = Boolean(projectId) && roles.some((role: string) => role !== 'funder');
   const canViewContracts = can('contract.view');
   const canViewInventory = can('inventory.view');
   const canViewWarehouse = can('warehouse.view');
   const canViewLogistics = can('logistics.view');
   const canViewShipping = can('shipping.view');
   const canViewDocuments = can('documents.view');
-  const canViewFinance = can('finance.view');
+  const financeReadRoles = new Set(['pm', 'project_admin', 'finance', 'internal_auditor', 'cashier']);
+  const reportReadRoles = new Set(['pm', 'project_admin', 'internal_auditor', 'finance', 'accounting', 'cashier']);
+  const canViewFinance = roles.some((role: string) => financeReadRoles.has(role)) && can('finance.view');
   const canViewAccounting = can('accounting.view');
-  const canViewReports = can('reports.view') || can('report.view');
+  const canViewReports = roles.some((role: string) => reportReadRoles.has(role)) && (can('reports.view') || can('report.view'));
 
   const load = useCallback(async () => {
     setState(current => ({ ...current, loading: true, errors: [] }));

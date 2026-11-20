@@ -1,7 +1,7 @@
 export type WorkspacePageKey =
   | 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance'
   | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations'
-  | 'cash-advances' | 'payment-instructions' | 'buyer' | 'supplier' | 'transporter'
+  | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter'
   | 'warehouse' | 'warehouse_manager' | 'funder';
 
 export interface WorkspaceAccessUser {
@@ -51,6 +51,7 @@ export function hasActiveProjectMembership(user: WorkspaceAccessUser): boolean {
 export function hasPageAccess(pageKey: WorkspacePageKey | string, user: WorkspaceAccessUser): boolean {
   if (user.platformAdmin === true) return true;
   if (pageKey === 'notifications') return true;
+  if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0;
   if (pageKey === 'projects') return hasActiveProjectMembership(user);
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
     return pageKey === 'dashboard' && !user.selectedProjectId && hasActiveProjectMembership(user);

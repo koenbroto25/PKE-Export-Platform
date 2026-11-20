@@ -24,7 +24,7 @@ describe("Project-scoped effective permission UX", () => {
     expect(hasPageAccess("operations", buyer)).toBe(false); expect(hasPageAccess("compliance", buyer)).toBe(false);
     expect(hasPageAccess("shipment-allocations", buyer)).toBe(false);
     const transporter = user(["logistics.view", "record_truck_trips", "verify_checkpoints"]);
-    expect(hasPageAccess("transporter", transporter)).toBe(true); expect(hasPageAccess("dashboard", transporter)).toBe(false);
+    expect(hasPageAccess("transporter", transporter)).toBe(true); expect(hasPageAccess("dashboard", transporter)).toBe(false); expect(hasPageAccess("operations", transporter)).toBe(false);
   });
   it("requires shipping.view for internal shipment allocation access", () => {
     expect(hasPageAccess("shipment-allocations", user(["shipment.view"]))).toBe(false);

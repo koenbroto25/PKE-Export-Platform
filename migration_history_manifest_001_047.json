@@ -5,8 +5,8 @@
   "branch_id": "br-damp-shape-b3xlh4nr",
   "database": "neondb",
   "verified_at": "2026-11-20",
-  "applied_count": 46,
-  "source_recovery_note": "Production migration_history was re-read directly on 2026-11-20 and contains 46 contiguous rows through Migration 046. Migrations 029-035 remain recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migrations 042-046 are applied in Production with exact SHA-256 source verification. Migration 047 is prepared in the repository with exact SHA-256 verification and remains pending explicit owner approval; it has not been applied to Production.",
+  "applied_count": 47,
+  "source_recovery_note": "Production migration_history was re-read directly on 2026-11-20 and contains 46 contiguous rows through Migration 046. Migrations 029-035 remain recorded in Production but their authentic byte-for-byte SQL source is not recovered in this repository; reconstructed candidates and catalog snapshots are explicitly not executable substitutes. Migrations 042-046 are applied in Production with exact SHA-256 source verification. Migration 047 is prepared in the repository with exact SHA-256 verification and remains pending explicit owner approval; it has not been applied to Production. Migration 047 was applied atomically to Neon Production on 2026-11-20 after explicit owner approval; exact source SHA-256 verified before execution and ledger row 47 verified after commit.",
   "entries": [
     {
       "id": 1,
@@ -329,14 +329,15 @@
       "sha256": "4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31",
       "status": "applied",
       "source_sha_verified": true
-    }
-  ],
-  "pending_migrations": [
+    },
     {
-      "file": "migrations/047_project_admin_finance_read_only.sql",
+      "id": 47,
+      "filename": "047_project_admin_finance_read_only.sql",
       "sha256": "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682",
-      "reason": "Owner-approved Finance permission boundary: Project Admin read-only; Finance role owns create/update/delete. Not applied."
+      "status": "applied",
+      "source_sha_verified": true
     }
   ],
-  "verification_note": "Production migration_history read-back on 2026-11-20 confirms contiguous ledger through 046; exact source hashes for 042-046 were verified against the existing F1 GitHub branch and match."
+  "pending_migrations": [],
+  "verification_note": "Production migration_history read-back on 2026-11-20 confirms contiguous ledger through 047; exact source hashes for 042-047 were verified against the existing F1 GitHub branch and match."
 }

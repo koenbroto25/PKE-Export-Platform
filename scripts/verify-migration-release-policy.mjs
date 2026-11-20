@@ -13,7 +13,8 @@ const ledger = readJson("migration_history_manifest_001_047.json");
 const runner = fs.readFileSync(path.join(root, "scripts/migrate.mjs"), "utf8");
 
 if (ledger.purpose !== "verified_production_history_only_not_sql_source") fail("history manifest purpose marker is missing.");
-if (ledger.applied_count !== 46 || ledger.entries.length !== 46) fail("Production history ledger must contain exactly 45 entries.");
+if (ledger.applied_count !== 47 || ledger.entries.length !== 47) fail("Production history ledger must contain exactly 47 entries.");
+if ((ledger.pending_migrations || []).length !== 0) fail("No pending migration may remain after Migration 047 application.");
 if (ledger.project_id !== "purple-base-63944903" || ledger.branch_id !== "br-damp-shape-b3xlh4nr" || ledger.database !== "neondb") fail("history ledger target identity mismatch.");
 
 for (let i = 0; i < ledger.entries.length; i++) {
@@ -132,20 +133,20 @@ if (!applied046 || applied046.id !== 46 ||
     hashFile("migrations/046_cash_advance_finance_role_guard.sql") !== expected046) {
   fail("Migration 046 must match the exact hash-verified applied Production ledger entry.");
 }
-if (!runner.includes("exact036to047") ||
-    !runner.includes("MIGRATE_047_CONFIRM") ||
-    !runner.includes("MIGRATION_047_APPROVED_SHA256") ||
-    !runner.includes("MIGRATION_047_APPROVAL_REFERENCE") ||
-    !runner.includes("1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682")) {
-  fail("Migration runner is missing the exact owner-approval gate for Migration 047.");
+const expected047 = "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682";
+const applied047 = ledger.entries[46];
+if (!applied047 || applied047.id !== 47 ||
+    applied047.filename !== "047_project_admin_finance_read_only.sql" ||
+    applied047.sha256 !== expected047 || applied047.status !== "applied" ||
+    applied047.source_sha_verified !== true ||
+    hashFile("migrations/047_project_admin_finance_read_only.sql") !== expected047) {
+  fail("Migration 047 must match the exact hash-verified applied Production ledger entry.");
 }
-const pending047 = ledger.pending_migrations?.[0];
-if (!pending047 || pending047.file !== "migrations/047_project_admin_finance_read_only.sql" ||
-    pending047.sha256 !== "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682" ||
-    hashFile("migrations/047_project_admin_finance_read_only.sql") !== "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682") {
-  fail("Prepared Migration 047 source/hash does not match the exact pending manifest entry.");
+if (!runner.includes("exact036to047") ||
+    !runner.includes("Production Migration 047 is already applied and all 47 ledger rows are verified; no SQL re-execution performed.")) {
+  fail("Migration runner is missing the safe already-applied Migration 047 verification-only path.");
 }
 
 if (process.exitCode) process.exit(process.exitCode);
-console.log("PASS: baseline 001-028, verified Production history 001-046, exact source hashes 036-046, and prepared Migration 047 are hash-pinned; 047 remains owner-approval pending.");
+console.log("PASS: baseline 001-028 and verified Production history 001-047 are contiguous; exact source hashes 036-047 are pinned and no migrations remain pending.");
 console.log("NOTICE: authentic SQL source for historical migrations 029-035 remains unrecovered; candidates are not executable.");

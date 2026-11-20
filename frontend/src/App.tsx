@@ -506,6 +506,10 @@ function OperationsPage({ projectId, activeUser, onNotice }: { projectId: string
   const [allocation, setAllocation] = useState({ projectId: projectId || '', lotId: '', allocatedQuantity: '', unit: 'MT', idempotencyKey: '' });
   const [movementOpen, setMovementOpen] = useState(false);
   const [movement, setMovement] = useState({ projectId: projectId || '', lotId: '', movementType: 'receipt', quantity: '', unit: 'MT', warehouseReceiptId: '', sourceLocation: '', destinationLocation: '', reason: '', referenceId: '', referenceType: '' });
+  useEffect(() => {
+    setTrip(v => ({ ...v, projectId })); setReceipt(v => ({ ...v, projectId })); setLot(v => ({ ...v, projectId }));
+    setReservation(v => ({ ...v, projectId })); setHold(v => ({ ...v, projectId })); setAllocation(v => ({ ...v, projectId })); setMovement(v => ({ ...v, projectId }));
+  }, [projectId]);
   useEffect(() => { if (projectId) { setTrip(v => ({ ...v, projectId })); setReceipt(v => ({ ...v, projectId })); setLot(v => ({ ...v, projectId })); setReservation(v => ({ ...v, projectId })); setHold(v => ({ ...v, projectId })); setAllocation(v => ({ ...v, projectId })); setMovement(v => ({ ...v, projectId })); } }, [projectId]);
   useEffect(() => { if (!trip.transportLegId) setTrip(v => ({ ...v, transportLegId: '' })); }, []);
   useEffect(() => { if (!event.truckTripId && trips.data?.truckTrips?.[0]) setEvent(v => ({ ...v, truckTripId: trips.data!.truckTrips![0].id })); }, [trips.data, event.truckTripId]);

@@ -284,6 +284,45 @@ export const project_workflows = pgTable("project_workflows", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// Project task / instruction engine (P0, Migration 049)
+export const project_work_items = pgTable("project_work_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  project_id: uuid("project_id").notNull().references(() => projects.id),
+  source_entity_type: text("source_entity_type"),
+  source_entity_id: uuid("source_entity_id"),
+  work_item_type: text("work_item_type").notNull().default("task"),
+  title: text("title").notNull(),
+  description: text("description"),
+  priority: text("priority").notNull().default("normal"),
+  status: text("status").notNull().default("open"),
+  owner_role_code: text("owner_role_code").notNull(),
+  assignee_user_id: uuid("assignee_user_id").references(() => users.id),
+  created_by: uuid("created_by").notNull().references(() => users.id),
+  due_at: timestamp("due_at", { withTimezone: true }),
+  acknowledged_at: timestamp("acknowledged_at", { withTimezone: true }),
+  started_at: timestamp("started_at", { withTimezone: true }),
+  submitted_at: timestamp("submitted_at", { withTimezone: true }),
+  resolved_at: timestamp("resolved_at", { withTimezone: true }),
+  resolved_by: uuid("resolved_by").references(() => users.id),
+  closed_at: timestamp("closed_at", { withTimezone: true }),
+  closed_by: uuid("closed_by").references(() => users.id),
+  escalation_level: integer("escalation_level").notNull().default(0),
+  dedupe_key: text("dedupe_key"),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const project_work_item_events = pgTable("project_work_item_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  work_item_id: uuid("work_item_id").notNull().references(() => project_work_items.id),
+  project_id: uuid("project_id").notNull().references(() => projects.id),
+  event_type: text("event_type").notNull(),
+  actor_user_id: uuid("actor_user_id").notNull().references(() => users.id),
+  reason: text("reason"),
+  payload: jsonb("payload").notNull().default({}),
+  occurred_at: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Operational workflow entities (P06)
 export const truck_trips = pgTable("truck_trips", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -556,6 +595,7 @@ export const user_notifications = pgTable("user_notifications", {
   id: uuid("id").defaultRandom().primaryKey(),
   event_id: uuid("event_id").notNull().defaultRandom(),
   project_id: uuid("project_id"),
+  work_item_id: uuid("work_item_id"),
   recipient_user_id: uuid("recipient_user_id").notNull().references(() => users.id),
   created_by: uuid("created_by").notNull().references(() => users.id),
   title: text("title").notNull(),

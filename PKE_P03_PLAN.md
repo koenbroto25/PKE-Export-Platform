@@ -879,3 +879,7 @@ PASS on isolated PostgreSQL validation branch:
 
 - Follow-up aligned API validation with the existing DB enums in migration 005: receipt status `pending/verified/partial`; movement type `receipt/issue/transfer/adjustment`; movement status `posted/reversed/adjusted`. Tests assert enum values and fail-fast behavior. Source/test commit: `b66d46c880fb91106a11707c6e2fbc2095e85a29`.
 - Prior exact-head CI on `36aae87466983b1cf6aa6d86d7a279e28b12ec8d`: Unit Tests run `44754003741` SUCCESS (19 files, 224 tests; includes six new inventory/warehouse contract tests), Dependency Audit `44754003766` SUCCESS, migration verifier/dry-run, backend/frontend typecheck and frontend production build PASS. This run predates the enum-only refinements in `b66d46c`; rerun exact latest head before treating the final checkpoint as CI PASS.
+
+
+- **Latest Wave C source CI PASS:** exact executable source head `b66d46c880fb91106a11707c6e2fbc2095e85a29`; Unit Tests run `44754247718` SUCCESS (19 files / 224 tests, including six new inventory/warehouse tests), Dependency Audit run `44754247664` SUCCESS; migration verifier/dry-run, backend/frontend typechecks and frontend production build all PASS.
+- DB/API concurrency and RLS integration UAT remain NOT VERIFIED; no Preview deployment/browser smoke is claimed. Evidence details are in `docs/audits/ROLE_DASHBOARD_IMPLEMENTATION_AUDIT_20261120.md`.

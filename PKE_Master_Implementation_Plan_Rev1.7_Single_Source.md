@@ -9861,3 +9861,24 @@ Do not adopt a large external application merely because it has many features. T
 - Evidence reviewed: GitHub source tree, `src/role-catalogue.ts`, Migration 043, API route declarations in `src/index.ts`, `frontend/src/App.tsx`, `frontend/package.json`, existing role/RLS design note and component files.
 - This was a read-only source inspection. No live database queries, authenticated HTTP UAT, UI browser test, dependency audit, or runtime role-matrix execution was performed during this discovery step.
 - Do not infer Production runtime behavior solely from source declarations. No Production schema/data, Vercel deployment, GitHub branch topology or installed dependencies were changed by this audit.
+
+---
+
+## §56.46 — P0 effective-permission UX implementation (2026-11-20)
+
+### Implemented source changes
+- Added `frontend/src/role-permissions.ts` as the page-access adapter. It maps workspace pages to read-capability permission codes; it does not grant permissions or replace backend/RLS checks.
+- `frontend/src/App.tsx` now loads `/projects/:projectId/my-permissions` for the explicitly selected Project and uses that server-resolved permission set for sidebar navigation and route guards.
+- Permission state is Project-keyed. On Project switch, the previous permission array is not reused; while loading or on fetch error, access fails closed.
+- A user with multiple active Project role assignments receives the union already resolved by the database function, but only within the selected Project. The frontend does not merge assignments across Projects.
+- Project Admin Finance visibility requires `finance.view`; no Finance mutation or Cash Advance request capability is inferred. Finance action controls and server/RLS checks remain independent.
+- Platform Admin remains a distinct platform-level bypass. Project members may open the RLS-filtered Project list before selecting a Project; ordinary Project workspaces require a selected Project. Notifications remain scoped to the authenticated user's own inbox.
+- Stakeholder navigation group is now rendered. Role display summarizes the selected Project's active assignments.
+- Non-Admin Dashboard no longer calls the Admin-only `/reports/portfolio` endpoint; budget is displayed as unavailable rather than presenting fabricated zero/portfolio values.
+
+### Test and release gates
+- Added `src/f1-role-ux-rules.test.ts` for permission union, Finance read-only visibility, Project isolation, fail-closed states, Platform Admin separation and inactive membership.
+- Root `npm test` includes the new contract/unit test.
+- GitHub Actions result is pending for this commit. This source change is not yet a runtime HTTP or browser UAT pass.
+- No Neon Production mutation, migration, mock data, package installation, Vercel deployment or branch creation was performed.
+- Next P0: complete PM Control Tower data contract and read-only dashboard, then actionable notification/task lifecycle; do not start P1 workbench expansion until P0 acceptance.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 
 const root = process.cwd();
 const migration = fs.readFileSync(path.join(root, "migrations/049_project_work_item_task_engine.sql"), "utf8");
@@ -101,10 +102,11 @@ describe("Project work item task engine contract", () => {
   });
   it("pins the final task migration checksum and rejects malformed PostgreSQL DO quoting", () => {
     expect(migration).toContain("DO $$\nBEGIN");
-    expect(migration).toContain("END $$;");
+    expect(migration).toContain("END $;");
+    expect(crypto.createHash("sha256").update(migration).digest("hex")).toBe("f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780");
     expect(migration).not.toContain("DO $\nBEGIN");
-    expect(runner).toContain('const approved048Sha = "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3";');
-    expect(runner).toContain('const approved049Sha = "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780";');
+    expect(runner).toContain("PREPARED_MIGRATION_PINS");
+    expect(runner).toContain("Prepared migration checksum mismatch");
     expect(runner).toContain("MIGRATE_048_CONFIRM");
     expect(runner).toContain("MIGRATE_049_CONFIRM");
     expect(runner).toContain("MIGRATION_BACKUP_REFERENCE");

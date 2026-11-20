@@ -25,9 +25,9 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   'shipment-allocations': ['shipping.view'],
   'cash-advances': ['finance.view', 'finance.cash_advance.request'],
   'payment-instructions': ['payment.view'],
-  buyer: ['buyer.requirement.view', 'buyer.shipment.view'],
+  buyer: ['buyer.shipment.view'],
   supplier: ['supplier.view'],
-  transporter: ['logistics.view', 'record_truck_trips', 'verify_checkpoints'],
+  transporter: ['record_truck_trips', 'verify_checkpoints'],
   warehouse: ['warehouse.view', 'inventory.view'],
   warehouse_manager: ['warehouse.view', 'inventory.view'],
   funder: ['funder.view'],
@@ -48,9 +48,11 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
     const externalOnly = new Set(['supplier.view', 'buyer.requirement.view', 'buyer.shipment.view', 'product.view', 'documents.view', 'shipment.view', 'logistics.view', 'record_truck_trips', 'verify_checkpoints']);
     return (user.projectPermissions || []).some(permission => !externalOnly.has(permission));
   }
+  const permissions = new Set(user.projectPermissions || []);
+  if (pageKey === 'supplier') return permissions.has('supplier.view') && permissions.has('shipment.view');
+  if (pageKey === 'transporter') return permissions.has('record_truck_trips') && permissions.has('verify_checkpoints');
   const required = PAGE_PERMISSION_REQUIREMENTS[pageKey];
   if (!required) return false;
-  const permissions = new Set(user.projectPermissions || []);
   return required.some(permission => permissions.has(permission));
 }
 

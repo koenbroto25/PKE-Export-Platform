@@ -668,7 +668,7 @@ function OperationsPage({ projectId, onNotice }: { projectId: string; onNotice: 
   </>;
 }
 
-function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; activeUser: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const projectAccess = useLoad<{ permissions?: string[] }>(() => projectId ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`) : Promise.resolve({ permissions: [] }), [projectId]);
   const projectPermissions = projectAccess.data?.permissions || [];
   const canCreateFinance = activeUser?.platformAdmin === true || projectPermissions.includes('finance.create');
@@ -706,7 +706,7 @@ function FinancePage({ projectId, activeUser, onNotice }: { projectId: string; a
   </>;
 }
 
-function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function JournalEntriesPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const projectAccess = useLoad<{ permissions?: string[] }>(() => projectId ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`) : Promise.resolve({ permissions: [] }), [projectId]);
   const projectPermissions = projectAccess.data?.permissions || [];
   const canCreateJournal = activeUser?.platformAdmin === true || projectPermissions.includes('accounting.create');

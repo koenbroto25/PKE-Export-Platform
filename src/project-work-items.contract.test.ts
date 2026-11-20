@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 
 const root = process.cwd();
 const migration = fs.readFileSync(path.join(root, "migrations/049_project_work_item_task_engine.sql"), "utf8");
+const inventoryMigration = fs.readFileSync(path.join(root, "migrations/050_inventory_holds_legacy_schema_alignment.sql"), "utf8");
 const api = fs.readFileSync(path.join(root, "src/index.ts"), "utf8");
 const ui = fs.readFileSync(path.join(root, "frontend/src/App.tsx"), "utf8");
 const roles = fs.readFileSync(path.join(root, "src/role-catalogue.ts"), "utf8");
@@ -110,6 +111,21 @@ describe("Project work item task engine contract", () => {
     expect(runner).toContain("MIGRATE_048_CONFIRM");
     expect(runner).toContain("MIGRATE_049_CONFIRM");
     expect(runner).toContain("MIGRATION_BACKUP_REFERENCE");
+  });
+
+  it("aligns the pre-existing legacy inventory_holds table with the API contract", () => {
+    expect(inventoryMigration).toContain("ADD COLUMN IF NOT EXISTS held_quantity numeric");
+    expect(inventoryMigration).toContain("ADD COLUMN IF NOT EXISTS idempotency_key text");
+    expect(inventoryMigration).toContain("held_quantity = COALESCE(held_quantity, quantity)");
+    expect(inventoryMigration).toContain("unit = COALESCE(unit, unit_code)");
+    expect(inventoryMigration).toContain("created_by = COALESCE(created_by, placed_by)");
+    expect(inventoryMigration).toContain("ALTER COLUMN idempotency_key SET NOT NULL");
+    expect(inventoryMigration).toContain("CREATE UNIQUE INDEX IF NOT EXISTS inventory_holds_idempotency_key_uidx");
+    const holdApi = api.slice(api.indexOf('app.post("/api/v1/inventory-holds"'), api.indexOf("// Shipment allocations (P06)"));
+    expect(holdApi).toContain("!actorId");
+    expect(holdApi).toContain("hold_type, quantity, unit_code, reason, status, placed_by, placed_at");
+    expect(holdApi).toContain("held_quantity, unit, idempotency_key, created_by, created_at, updated_at");
+    expect(holdApi).toContain("'operational'");
   });
 
 });

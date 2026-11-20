@@ -3160,8 +3160,10 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
   const { projectId, truckTripId, lotId, receivedQuantity, unit, conditionStatus, exceptionReason, weighbridgeTicketKey, checkTimestamp, status } = req.body ?? {};
   const checkerId = req.user?.id;
   const receivedAmount = Number(receivedQuantity);
+  const receiptStatuses = new Set(["pending", "verified", "partial"]);
   if (!projectId || receivedQuantity === undefined || !Number.isFinite(receivedAmount) || receivedAmount <= 0 ||
-      typeof unit !== "string" || !unit.trim()) {
+      typeof unit !== "string" || !unit.trim() ||
+      (status !== undefined && (typeof status !== "string" || !receiptStatuses.has(status)))) {
     return res.status(400).json({ error: "Required fields: projectId, positive receivedQuantity and unit.", code: "INVALID_WAREHOUSE_RECEIPT" });
   }
   if (typeof checkerId !== "string") {
@@ -3194,8 +3196,12 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
 
 app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { status, receivedQuantity, unit, conditionStatus, exceptionReason } = req.body ?? {};
+  const receiptStatuses = new Set(["pending", "verified", "partial"]);
   if (receivedQuantity !== undefined && (!Number.isFinite(Number(receivedQuantity)) || Number(receivedQuantity) <= 0)) {
     return res.status(400).json({ error: "receivedQuantity must be a positive finite number.", code: "INVALID_RECEIVED_QUANTITY" });
+  }
+  if (status !== undefined && (typeof status !== "string" || !receiptStatuses.has(status))) {
+    return res.status(400).json({ error: "Invalid warehouse receipt status.", code: "INVALID_RECEIPT_STATUS" });
   }
   if (unit !== undefined && (typeof unit !== "string" || !unit.trim())) {
     return res.status(400).json({ error: "unit must be a non-empty string.", code: "INVALID_RECEIPT_UNIT" });
@@ -3274,9 +3280,12 @@ app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request
   const { projectId, lotId, movementType, quantity, unit, warehouseReceiptId, sourceLocation, destinationLocation, reason, referenceId, referenceType, status } = req.body ?? {};
   const actorId = req.user?.id;
   const movementQuantity = Number(quantity);
-  if (!projectId || !lotId || typeof movementType !== "string" || !movementType.trim() ||
+  const movementTypes = new Set(["receipt", "issue", "transfer", "adjustment"]);
+  const movementStatuses = new Set(["posted", "reversed", "adjusted"]);
+  if (!projectId || !lotId || typeof movementType !== "string" || !movementType.trim() || !movementTypes.has(movementType.trim()) ||
       quantity === undefined || !Number.isFinite(movementQuantity) || movementQuantity <= 0 ||
-      typeof unit !== "string" || !unit.trim() || !actorId) {
+      typeof unit !== "string" || !unit.trim() || !actorId ||
+      (status !== undefined && (typeof status !== "string" || !movementStatuses.has(status)))) {
     return res.status(400).json({ error: "projectId, lotId, movementType, positive quantity, unit and authenticated actor are required", code: "INVALID_INVENTORY_MOVEMENT" });
   }
   if (!(await requireProjectPermission(req, res, projectId, "inventory.update"))) return;

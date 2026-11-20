@@ -1,0 +1,36 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const api = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
+const holdRoute = api.slice(api.indexOf('app.post("/api/v1/inventory-holds"'), api.indexOf("// ============================================\n// Shipment allocations"));
+const movementRoute = api.slice(api.indexOf('app.post("/api/v1/inventory-movements"'), api.indexOf("// ============================================\n// Inventory reservations"));
+
+describe("Inventory movement and hold API contracts", () => {
+  it("replays an identical inventory hold idempotently for the same actor", () => {
+    expect(holdRoute).toContain("SELECT * FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1");
+    expect(holdRoute).toContain("Number(prior.held_quantity ?? prior.quantity) === quantity");
+    expect(holdRoute).toContain("String(prior.unit ?? prior.unit_code) === unit.trim()");
+    expect(holdRoute).toContain("String(prior.created_by ?? prior.placed_by ?? \"\") === String(actorId)");
+    expect(holdRoute).toContain("idempotentReplay: true");
+    expect(holdRoute).toContain("IDEMPOTENCY_KEY_CONFLICT");
+    expect(holdRoute).toContain("ON CONFLICT (idempotency_key) DO NOTHING RETURNING *");
+  });
+
+  it("rejects a hold whose unit differs from its inventory lot", () => {
+    expect(holdRoute).toContain("SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE");
+    expect(holdRoute).toContain("Hold unit must match inventory lot unit.");
+  });
+
+  it("rejects non-positive or non-finite inventory movements", () => {
+    expect(movementRoute).toContain("Number(quantity)");
+    expect(movementRoute).toContain("!Number.isFinite(movementQuantity) || movementQuantity <= 0");
+    expect(movementRoute).toContain("INVALID_INVENTORY_MOVEMENT");
+  });
+
+  it("requires movement units to match the locked Project inventory lot", () => {
+    expect(movementRoute).toContain("SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE");
+    expect(movementRoute).toContain("Movement unit must match inventory lot unit.");
+    expect(movementRoute).toContain("movementQuantity, unit.trim()");
+  });
+});

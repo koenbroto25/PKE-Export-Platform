@@ -23,6 +23,7 @@ const PREPARED_MIGRATION_PINS = Object.freeze({
   "048_buyer_accounting_ap_ar_document_hardening.sql": "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3",
   "049_project_work_item_task_engine.sql": "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780",
   "050_inventory_holds_legacy_schema_alignment.sql": "e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab",
+  "051_task_notification_recipient_rls_helper.sql": "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927",
 });
 
 const LEGACY_HOST_HINTS = [
@@ -177,6 +178,7 @@ async function main() {
         const migration048 = files.find((file) => parseMigrationNumber(file) === 48);
         const migration049 = files.find((file) => parseMigrationNumber(file) === 49);
         const migration050 = files.find((file) => parseMigrationNumber(file) === 50);
+        const migration051 = files.find((file) => parseMigrationNumber(file) === 51);
         const prefixMatches = expected.every((entry, i) => {
           const actual = applied.rows[i];
           return actual && Number(actual.id) === Number(entry.id) &&
@@ -193,7 +195,11 @@ async function main() {
           (migration050 && applied.rows[49]?.filename === migration050 &&
             applied.rows[49]?.sha256 === sha256File(path.join(migrationsDir, migration050)) &&
             applied.rows[49]?.status === "applied");
-        exactLedgerMatch = Boolean(prefixMatches && extension048049Matches && extension050Matches);
+        const extension051Matches = applied.rows.length < 51 ||
+          (migration051 && applied.rows[50]?.filename === migration051 &&
+            applied.rows[50]?.sha256 === sha256File(path.join(migrationsDir, migration051)) &&
+            applied.rows[50]?.status === "applied");
+        exactLedgerMatch = Boolean(prefixMatches && extension048049Matches && extension050Matches && extension051Matches);
       }
         console.log(`Production history ledger: ${exactLedgerMatch ? "PASS" : "MISMATCH"} (expected=${expected.length}, actual=${applied.rows.length}).`);
         console.log("Historical authentic SQL source for migrations 029-035: NOT RECOVERED; apply is permitted only when the exact Production ledger 001-047 manifest is independently verified.");
@@ -264,6 +270,8 @@ async function main() {
       const approved049Sha = PREPARED_MIGRATION_PINS[approved049];
       const approved050 = "050_inventory_holds_legacy_schema_alignment.sql";
       const approved050Sha = PREPARED_MIGRATION_PINS[approved050];
+      const approved051 = "051_task_notification_recipient_rls_helper.sql";
+      const approved051Sha = PREPARED_MIGRATION_PINS[approved051];
       const newFiles = files.filter((f) => parseMigrationNumber(f) >= 36);
 
       const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: true } });
@@ -312,8 +320,45 @@ async function main() {
         const exact036to047 = newFiles.length === 12 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047].every((f) => newFiles.includes(f));
         const exact036to049 = newFiles.length === 14 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049].every((f) => newFiles.includes(f));
         const exact036to050 = newFiles.length === 15 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050].every((f) => newFiles.includes(f));
-        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !exact036to046 && !exact036to047 && !exact036to049 && !exact036to050 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
+        const exact036to051 = newFiles.length === 16 && [approved036, approved037, approved038, approved039, approved040, approved041, approved042, approved043, approved044, approved045, approved046, approved047, approved048, approved049, approved050, approved051].every((f) => newFiles.includes(f));
+        if (!exact036to038 && !exact036to039 && !exact036to040 && !exact036to041 && !exact036to044 && !exact036to045 && !exact036to046 && !exact036to047 && !exact036to049 && !exact036to050 && !exact036to051 && !(newFiles.length === 1 && newFiles[0] === approved036)) {
           fail("Apply is restricted to exact pinned migration sequences; 042-044 require separate exact owner approval and a verified 001-041 Production ledger.");
+        }
+
+        if (exact036to051) {
+          if (sha256File(path.join(migrationsDir, approved050)) !== approved050Sha ||
+              sha256File(path.join(migrationsDir, approved051)) !== approved051Sha) {
+            fail("050/051 checksum mismatch; refusing P0 runtime compatibility verification.");
+          }
+          const manifest = productionHistoryManifest;
+          if (!manifest || manifest.applied_count !== 47 || manifest.entries?.length !== 47 ||
+              (manifest.pending_migrations || []).length !== 0 ||
+              manifest.entries[46]?.filename !== approved047 || manifest.entries[46]?.sha256 !== approved047Sha ||
+              manifest.entries[46]?.status !== "applied") {
+            fail("050/051 verification requires the exact verified Production history manifest 001-047.");
+          }
+          const history = await client.query("SELECT id, filename, sha256, status FROM public.migration_history ORDER BY id");
+          const prefixMatches = manifest.entries.every((expected, i) => {
+            const actual = history.rows[i];
+            return actual && Number(actual.id) === i + 1 && actual.filename === expected.filename &&
+              actual.sha256 === expected.sha256 && actual.status === expected.status;
+          });
+          const extension048049 = history.rows[47]?.filename === approved048 &&
+            history.rows[47]?.sha256 === approved048Sha && history.rows[47]?.status === "applied" &&
+            history.rows[48]?.filename === approved049 &&
+            history.rows[48]?.sha256 === approved049Sha && history.rows[48]?.status === "applied";
+          const extension050 = history.rows[49]?.filename === approved050 &&
+            history.rows[49]?.sha256 === approved050Sha && history.rows[49]?.status === "applied";
+          if (!prefixMatches || !extension048049 || !extension050) fail("Production history prefix 001-050 is not exact; refusing 051 verification.");
+          if (history.rows.length === 51 &&
+              history.rows[50]?.filename === approved051 &&
+              history.rows[50]?.sha256 === approved051Sha &&
+              history.rows[50]?.status === "applied") {
+            console.log("Migration 051 is already applied; exact 001-047 baseline and 048-051 extension rows verified. No SQL re-execution performed.");
+            return;
+          }
+          if (history.rows.length !== 50) fail("Migration 051 verification requires exactly 50 prior Production ledger rows; partial or unexpected history is blocked.");
+          fail("Migration 051 is prepared only. Apply requires separate owner approval of this exact SQL SHA-256.");
         }
 
         if (exact036to050) {

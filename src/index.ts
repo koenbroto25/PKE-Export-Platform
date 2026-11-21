@@ -5330,7 +5330,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(type==="qa_release"&&roleCode!=="qa_manager") return res.status(403).json({error:"Only QA Manager may create release decisions."});
       if(type==="loading_survey"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit surveys."});
       if(type==="ship_master_ack"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may submit acknowledgements."});
-      if(["purchase_order","supplier_commitment","audit_response","audit_closure","lc_clause","lc_discrepancy","lc_presentation"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
+      if(["purchase_order","supplier_commitment","audit_response","audit_closure","lc_clause","lc_discrepancy","lc_presentation","qa_release","hse_action"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
       let parentRecord:any=null;
       if(b.parentRecordId){
         const parent=await req.db.query("SELECT id,record_type,status,created_by,owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[b.parentRecordId,projectId]);
@@ -5339,8 +5339,12 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         if(type==="purchase_order"&&(parent.rows[0].record_type!=="purchase_requisition"||parent.rows[0].status!=="approved")) return res.status(409).json({error:"Purchase Order requires an approved requisition."});
         if(type==="supplier_commitment"&&(parent.rows[0].record_type!=="purchase_order"||!["issued","acknowledged","partially_received"].includes(parent.rows[0].status))) return res.status(409).json({error:"Supplier commitment requires an issued PO."});
         if(type==="audit_response"&&(parent.rows[0].record_type!=="audit_finding"||!["open","responded"].includes(parent.rows[0].status)||!(await p1HasRole(req,projectId,actorId,[parent.rows[0].owner_role_code])))) return res.status(403).json({error:"Only the active finding owner role may respond."});
-        if(type==="audit_closure"&&parent.rows[0].record_type!=="audit_finding") return res.status(422).json({error:"Audit closure must reference an audit finding."});
-        if(["lc_clause","lc_discrepancy","lc_presentation"].includes(type)&&parent.rows[0].record_type!=="lc_record"&&parent.rows[0].record_type!=="lc_clause") return res.status(422).json({error:"LC workflow child must reference an LC record or clause."});
+        if(type==="audit_closure"&&(parent.rows[0].record_type!=="audit_finding"||String(payload.findingRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"Audit closure must reference the same parent audit finding."});
+        if(type==="qa_release"&&(!["production_batch","packing_batch"].includes(parent.rows[0].record_type)||String(payload.sourceRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"QA release must reference its production or packing source record."});
+        if(type==="hse_action"&&parent.rows[0].record_type!=="hse_inspection") return res.status(422).json({error:"HSE corrective action must reference an HSE inspection."});
+        if(type==="lc_clause"&&(parent.rows[0].record_type!=="lc_record"||String(payload.lcRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"LC clause must reference its parent LC record."});
+        if(type==="lc_discrepancy"&&parent.rows[0].record_type!=="lc_record"&&parent.rows[0].record_type!=="lc_clause") return res.status(422).json({error:"LC discrepancy must reference an LC record or clause."});
+        if(type==="lc_presentation"&&parent.rows[0].record_type!=="lc_record") return res.status(422).json({error:"LC presentation must reference an LC record."});
       }
       if(type==="goods_receipt_match"){
         const [po,grn,inv]=await Promise.all([
@@ -5381,13 +5385,17 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         if(!q.rows.length) return res.status(422).json({error:"Quality result sample is outside this Project."});
       }
       if(type==="dispatch_assignment"){
-        const q=await req.db.query("SELECT id FROM public.truck_trips WHERE id=$1::uuid AND project_id=$2::uuid",[payload.tripId,projectId]);
+        const q=await req.db.query("SELECT id,vehicle_id FROM public.truck_trips WHERE id=$1::uuid AND project_id=$2::uuid",[payload.tripId,projectId]);
         if(!q.rows.length) return res.status(422).json({error:"Dispatch assignment must reference a same-Project truck trip."});
+        if(q.rows[0].vehicle_id&&String(q.rows[0].vehicle_id)!==String(payload.vehicleId)) return res.status(409).json({error:"Dispatch vehicle does not match the registered truck trip vehicle."});
+        if(!await p1HasRole(req,projectId,String(payload.driverUserId),["driver"])) return res.status(422).json({error:"Dispatch driver must hold an active Driver Project role."});
       }
       if(type==="vessel_call"||type==="ship_master_ack"||type==="laytime_event"){
         const voyageId=String(payload.voyageId??"");
-        const q=await req.db.query("SELECT id FROM public.voyages WHERE id=$1::uuid AND project_id=$2::uuid",[voyageId,projectId]);
+        const q=await req.db.query("SELECT id,vessel_id,port_id,origin_port_id,destination_port_id FROM public.voyages WHERE id=$1::uuid AND project_id=$2::uuid",[voyageId,projectId]);
         if(!q.rows.length) return res.status(422).json({error:"Vessel workflow must reference a same-Project voyage."});
+        if(type==="vessel_call"&&String(q.rows[0].vessel_id)!==String(payload.vesselId)) return res.status(422).json({error:"Vessel call vessel must match the Project voyage."});
+        if(type==="vessel_call"&&![q.rows[0].port_id,q.rows[0].origin_port_id,q.rows[0].destination_port_id].filter(Boolean).map(String).includes(String(payload.portId))) return res.status(422).json({error:"Vessel call port must match the Project voyage route."});
       }
       if(type==="loading_plan"||type==="loading_survey"){
         const opId=String(payload.loadingOperationId??"");

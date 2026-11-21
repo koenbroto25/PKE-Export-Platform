@@ -18,6 +18,17 @@ function registerRoutes(src: string): { method: string; path: string }[] {
 }
 
 describe("API route registry (regression)", () => {
+  it("registers P2-A Project PKS participation endpoints with scoped edit permission", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => `${r.method} ${r.path}`));
+    expect(set.has("GET /api/v1/projects/:projectId/pks-sites")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/pks-sites")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/pks-sites/:participationId")).toBe(true);
+    expect(INDEX_SRC).toContain('"pks.site.view"');
+    expect(INDEX_SRC).toContain('"pks.participation.manage"');
+    expect(INDEX_SRC).toContain("project_pks_site_participation");
+  });
+
+
   it("registers exactly one handler per method+path (no duplicate route groups)", () => {
     const routes = registerRoutes(INDEX_SRC).filter((r) => r.method !== "USE");
     const seen = new Set<string>();

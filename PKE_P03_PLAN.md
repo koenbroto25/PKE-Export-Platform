@@ -1110,8 +1110,8 @@ A fresh read of the Neon UAT ledger corrected the earlier snapshot in this plan:
 ### Additional security finding — KPI formula scope
 A direct UAT test as Procurement showed `p1_get_kpi_metric(...,'production_output_quantity')` returned an aggregate value (400) even though the API workbench correctly filters Procurement to the Procurement KPI template. The database aggregate function itself only checked generic `p1.kpi.view`, so a caller with that permission could request a formula outside their role's dashboard scope.
 
-- Migration 070 source now adds `p1_kpi_formula_allowed` and applies the active-role/formula mapping inside `p1_get_kpi_metric`; the explicit generic `reports.view` path remains available for authorized broad report viewers.
-- Migration 070 SHA-256: `0a8d30176bde45f71cf6147a2dc9ab60d736bdc62ced53640ceec6e9080cfc6b`.
+- Migration 070 source now adds `p1_kpi_formula_allowed` and applies the active-role/formula mapping inside `p1_get_kpi_metric`; generic `reports.view` does not bypass formula scope: PM/Project Admin receive all templates; Finance/Accounting and Internal Audit remain limited to their role templates.
+- Migration 070 SHA-256: `37d5aacd556271021298c57a0940e03efbd276bed2b7ac26a72530efb5bf786d`.
 - Migration 070 is **prepared only** and has not been applied. The direct cross-role KPI test remains an open UAT security gate until this migration is approved/applied and re-tested.
 - Source CI for Migration 070 is running at the time of this update; require Unit Tests and Dependency Audit SUCCESS on the final branch head before application.
 

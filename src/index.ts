@@ -2412,10 +2412,15 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
          FROM project_export_document_requirements per
          JOIN country_export_document_requirements cdr ON cdr.id=per.country_requirement_id
          JOIN export_document_types edt ON edt.id=cdr.document_type_id
-        WHERE per.id=$1::uuid AND per.project_id=$2::uuid`,
+        WHERE per.id=$1::uuid AND per.project_id=$2::uuid
+        FOR UPDATE OF per`,
       [projectRequirementId, projectId],
     );
     if (reqRows.length === 0) return res.status(404).json({ error: "Project document requirement not found." });
+    const { rows: versionRows } = await req.db.query(
+      "SELECT COALESCE(MAX(version_no),0)+1 AS next_version FROM project_export_documents WHERE project_requirement_id=$1::uuid",
+      [projectRequirementId],
+    );
     let verifiedObject;
     try {
       verifiedObject = await privateStorage.verifyObject(key, Number(contentLength), String(sha256Checksum));
@@ -2431,7 +2436,7 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
                $12,$13::bigint,now(),$6,$14)
        RETURNING *`,
       [projectId,projectRequirementId,key,key,String(originalFilename),String(mimeType),
-       verifiedObject.sha256,versionNo!==undefined?versionNo:1,req.user?.id||null,expiryDate||null,notes||null,
+       verifiedObject.sha256,Number(versionRows[0]?.next_version||1),req.user?.id||null,expiryDate||null,notes||null,
        storageStatus.bucket,verifiedObject.size,reqRows[0].document_code],
     );
     return res.status(201).json({ document: rows[0], uploadVerified: true });

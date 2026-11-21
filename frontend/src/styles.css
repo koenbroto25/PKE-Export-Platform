@@ -67,3 +67,23 @@
 .p16-empty{border:1px dashed var(--border,#cfd6e0);border-radius:10px;padding:22px;text-align:center;color:var(--muted,#687386);font-size:12px}
 .p16-footer{font-size:11px;color:var(--muted,#687386);margin:0}
 @media(max-width:900px){.p16-layout{grid-template-columns:1fr}.p16-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.p16-header{flex-direction:column}}
+
+/* P16 governed editing and Project evidence submission */
+.p16-header-actions,.p16-workflow-row,.p16-editor__heading,.p16-editor__actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.p16-header-actions button,.p16-workflows button,.p16-editor button{border:1px solid var(--border,#dce1e8);border-radius:8px;padding:8px 11px;background:var(--surface-2,#f5f7fa);color:var(--text,#172033);font-size:11px;font-weight:700;cursor:pointer}
+.p16-header-actions button:hover,.p16-workflows button:hover,.p16-editor button:hover{border-color:var(--accent,#4d6c9c)}
+.p16-workflows,.p16-editor{border:1px solid var(--border,#dce1e8);border-radius:14px;background:var(--surface,#fff);padding:14px;display:flex;flex-direction:column;gap:12px}
+.p16-workflows h3,.p16-editor strong{font-size:13px;margin:0}
+.p16-workflow-form{border-top:1px solid var(--border,#e3e7ed);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.p16-workflow-form h4{font-size:12px;margin:0}
+.p16-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.p16-form-grid label,.p16-editor label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:650;color:var(--muted,#687386)}
+.p16-form-grid input,.p16-form-grid select,.p16-workflow-row input,.p16-editor select,.p16-editor textarea{width:100%;min-width:0;border:1px solid var(--border,#dce1e8);border-radius:8px;padding:8px 9px;background:var(--surface,#fff);color:var(--text,#172033);font:inherit}
+.p16-editor{background:var(--surface-2,#f8f9fb)}
+.p16-editor__heading{justify-content:space-between}
+.p16-editor textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.5}
+.p16-editor__actions{align-items:flex-start}
+.p16-editor__actions span{font-size:11px;color:var(--muted,#687386)}
+.p16-assessment{border:1px solid var(--border,#dce1e8);border-radius:9px;padding:10px;background:var(--surface-2,#f5f7fa);font-size:12px}
+.p16-assessment p{margin:4px 0 0;color:var(--muted,#687386);font-size:11px}
+@media(max-width:700px){.p16-form-grid{grid-template-columns:1fr}.p16-header-actions{width:100%}}

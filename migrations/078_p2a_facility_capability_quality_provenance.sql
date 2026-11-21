@@ -65,7 +65,9 @@ ALTER TABLE public.product_quality_samples
  ADD COLUMN IF NOT EXISTS lab_report_document_id uuid NULL REFERENCES public.project_export_documents(id) ON DELETE RESTRICT,
  ADD COLUMN IF NOT EXISTS lab_report_sha256 text NULL,
  ADD COLUMN IF NOT EXISTS laboratory_accreditation_reference text NULL,
- ADD COLUMN IF NOT EXISTS chain_of_custody jsonb NOT NULL DEFAULT '{}'::jsonb;
+ ADD COLUMN IF NOT EXISTS chain_of_custody jsonb NOT NULL DEFAULT '{}'::jsonb,
+ ADD COLUMN IF NOT EXISTS reviewed_by uuid NULL REFERENCES public.users(id),
+ ADD COLUMN IF NOT EXISTS reviewed_at timestamptz NULL;
 ALTER TABLE public.product_quality_samples
  ADD CONSTRAINT quality_sample_lab_report_sha256_check CHECK (lab_report_sha256 IS NULL OR lab_report_sha256 ~ '^[0-9a-f]{64}$') NOT VALID;
 
@@ -77,6 +79,16 @@ ALTER TABLE public.product_quality_results
  ADD COLUMN IF NOT EXISTS evidence_sha256 text NULL;
 ALTER TABLE public.product_quality_results
  ADD CONSTRAINT quality_result_evidence_sha256_check CHECK (evidence_sha256 IS NULL OR evidence_sha256 ~ '^[0-9a-f]{64}$') NOT VALID;
+ALTER TABLE public.facility_products
+ ADD CONSTRAINT facility_products_source_type_check CHECK (source_type IN ('unknown','manual','public_reference','official_document','buyer_confirmed')) NOT VALID;
+ALTER TABLE public.facility_capacity_records
+ ADD CONSTRAINT facility_capacity_source_type_check CHECK (source_type IN ('unknown','manual','public_reference','official_document','buyer_confirmed')) NOT VALID;
+ALTER TABLE public.facility_certifications
+ ADD CONSTRAINT facility_cert_source_type_check CHECK (source_type IN ('unknown','manual','public_reference','official_document','buyer_confirmed')) NOT VALID;
+ALTER TABLE public.product_quality_samples
+ ADD CONSTRAINT quality_sample_source_type_check CHECK (source_type IN ('unknown','manual','public_reference','official_document','buyer_confirmed')) NOT VALID;
+ALTER TABLE public.product_quality_results
+ ADD CONSTRAINT quality_result_source_type_check CHECK (source_type IN ('unknown','manual','public_reference','official_document','buyer_confirmed')) NOT VALID;
 
 CREATE INDEX IF NOT EXISTS facility_products_evidence_document_idx ON public.facility_products(evidence_document_id);
 CREATE INDEX IF NOT EXISTS facility_capacity_evidence_document_idx ON public.facility_capacity_records(evidence_document_id);
@@ -554,7 +566,9 @@ AS $function$
 DECLARE
  v_doc record;
  v_sample record;
+ v_user_id uuid;
 BEGIN
+ v_user_id:=NULLIF(current_setting('app.current_user_id',true),'')::uuid;
  IF TG_TABLE_NAME='product_quality_samples' THEN
    IF NEW.lab_report_document_id IS NOT NULL THEN
      SELECT id,object_key,sha256_checksum,original_filename,document_type_code INTO v_doc
@@ -581,11 +595,22 @@ BEGIN
        RAISE EXCEPTION 'Tested/reviewed sample requires laboratory and approved lab-report evidence' USING ERRCODE='23514';
      END IF;
    END IF;
+   IF NEW.status='reviewed' AND
+      (TG_OP='INSERT' OR (TG_OP='UPDATE' AND OLD.status IS DISTINCT FROM NEW.status)) THEN
+     IF NOT (public.pke_is_platform_admin() OR public.pke_has_project_permission(NEW.project_id,'quality.result.review')) THEN
+       RAISE EXCEPTION 'Only a Project QA reviewer or Platform Admin may review a quality sample' USING ERRCODE='42501';
+     END IF;
+     NEW.reviewed_by:=v_user_id;
+     NEW.reviewed_at:=now();
+   END IF;
  ELSE
    SELECT project_id,lab_report_document_id,lab_report_sha256,source_type,source_reference
      INTO v_sample FROM public.product_quality_samples WHERE id=NEW.sample_id;
    IF NOT FOUND THEN RAISE EXCEPTION 'Quality result sample not found' USING ERRCODE='23514'; END IF;
    IF NEW.evidence_document_id IS NULL THEN NEW.evidence_document_id:=v_sample.lab_report_document_id; END IF;
+   IF NEW.evidence_document_id IS DISTINCT FROM v_sample.lab_report_document_id THEN
+     RAISE EXCEPTION 'Quality result evidence must be the lab report linked to its sample' USING ERRCODE='23514';
+   END IF;
    IF NEW.source_type='unknown' THEN NEW.source_type:=COALESCE(v_sample.source_type,'unknown'); END IF;
    IF NEW.source_reference IS NULL THEN NEW.source_reference:=v_sample.source_reference; END IF;
    IF NEW.evidence_document_id IS NOT NULL THEN
@@ -601,6 +626,11 @@ BEGIN
    END IF;
    IF NEW.review_status='accepted' AND
       (TG_OP='INSERT' OR (TG_OP='UPDATE' AND OLD.review_status IS DISTINCT FROM NEW.review_status)) THEN
+     IF NOT (public.pke_is_platform_admin() OR public.pke_has_project_permission(v_sample.project_id,'quality.result.review')) THEN
+       RAISE EXCEPTION 'Only a Project QA reviewer or Platform Admin may accept a quality result' USING ERRCODE='42501';
+     END IF;
+     NEW.reviewed_by:=v_user_id;
+     NEW.reviewed_at:=now();
      IF NEW.evidence_document_id IS NULL OR NEW.evidence_sha256 IS NULL
         OR NULLIF(btrim(NEW.measurement_basis),'') IS NULL
         OR NULLIF(btrim(NEW.method_code),'') IS NULL

@@ -235,15 +235,15 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
           </tr>)}
         </tbody></table></div>}
       {(data.facilityProducts || []).length > 0 && <div className="master-data-verification">
-        <h4>Kapabilitas fasilitas terverifikasi</h4>
-        <div className="table-wrap"><table><thead><tr><th>Fasilitas</th><th>Produk / Proses</th><th>Bukti</th><th>Reviewer</th></tr></thead><tbody>
-          {(data.facilityProducts || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}</td><td>{r.product_code} · {r.product_name}<small>{r.process_type}</small></td><td><small>{r.evidence_document_id || '—'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td><td>{r.verified_at ? new Date(r.verified_at).toLocaleString('id-ID') : '—'}</td></tr>)}
+        <h4>Register kapabilitas produk fasilitas</h4>
+        <div className="table-wrap"><table><thead><tr><th>Fasilitas</th><th>Produk / Proses</th><th>Status / Bukti</th><th>Reviewer</th></tr></thead><tbody>
+          {(data.facilityProducts || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}</td><td>{r.product_code} · {r.product_name}<small>{r.process_type}</small></td><td><strong>{r.capability_status}</strong><small>{r.source_type} · {r.source_reference || 'Referensi belum diisi'}</small><small>{r.evidence_document_id || 'Bukti belum tersedia'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td><td>{r.verified_at ? new Date(r.verified_at).toLocaleString('id-ID') : 'Belum diverifikasi'}</tr>)}
         </tbody></table></div>
       </div>}
       {(data.capacityRecords || []).length > 0 && <div className="master-data-verification">
-        <h4>Riwayat kapasitas terverifikasi</h4>
-        <div className="table-wrap"><table><thead><tr><th>Fasilitas / Proses</th><th>Kapasitas</th><th>Periode berlaku</th><th>Bukti</th></tr></thead><tbody>
-          {(data.capacityRecords || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}<small>{r.process_type} · {r.capacity_kind}</small></td><td>{Number(r.capacity_value).toLocaleString('id-ID')} {r.unit_code} / {r.period_type}</td><td>{String(r.effective_from).slice(0,10)} – {r.effective_to ? String(r.effective_to).slice(0,10) : 'berjalan'}</td><td><small>{r.evidence_document_id || '—'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td></tr>)}
+        <h4>Riwayat kapasitas dan provenance</h4>
+        <div className="table-wrap"><table><thead><tr><th>Fasilitas / Proses</th><th>Kapasitas</th><th>Periode berlaku</th><th>Status / Sumber / Bukti</th></tr></thead><tbody>
+          {(data.capacityRecords || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}<small>{r.process_type} · {r.capacity_kind}</small></td><td>{Number(r.capacity_value).toLocaleString('id-ID')} {r.unit_code} / {r.period_type}</td><td>{String(r.effective_from).slice(0,10)} – {r.effective_to ? String(r.effective_to).slice(0,10) : 'berjalan'}</td><td><strong>{r.verified_at ? 'Terverifikasi' : 'Belum terverifikasi'}</strong><small>{r.source_type} · {r.source_reference || 'Referensi belum diisi'}</small><small>{r.evidence_document_id || 'Bukti belum tersedia'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td></tr>)}
         </tbody></table></div>
       </div>}
       {(data.certifications || []).length > 0 && <div className="master-data-verification">

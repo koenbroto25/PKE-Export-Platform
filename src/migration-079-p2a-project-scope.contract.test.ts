@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 const migration = readFileSync(new URL("../migrations/079_p2a_project_scope_guard.sql", import.meta.url), "utf8");
 const indexSource = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+const uiSource = readFileSync(new URL("../frontend/src/MasterDataChangeRequests.tsx", import.meta.url), "utf8");
 describe("Migration 079 P15 Project-scope guard", () => {
+  it("matches the exact UAT migration SHA-256", () => {
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("6d3de061226109428fa0963f7fa697cbd7c1aca929558e0529628debdcc7d968");
+  });
   it("adds a database trigger guard for canonical organization and facility updates", () => {
     expect(migration).toContain("pke_enforce_p2a_change_request_project_scope");
     expect(migration).toContain("p2a_master_change_project_scope");
@@ -24,5 +29,8 @@ describe("Migration 079 P15 Project-scope guard", () => {
     expect(indexSource).toContain("pke_is_platform_admin() OR EXISTS");
     expect(indexSource).toContain("pp.project_id=$1::uuid");
     expect(indexSource).toContain("sp.project_id=$1::uuid");
+    expect(uiSource).toContain("Register kapabilitas produk fasilitas");
+    expect(uiSource).toContain("Belum terverifikasi");
+    expect(uiSource).not.toContain("Riwayat kapasitas terverifikasi");
   });
 });

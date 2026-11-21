@@ -98,6 +98,9 @@ GRANT SELECT,INSERT,UPDATE ON public.p2a_master_data_change_requests TO app_runt
 
 -- Canonical identities remain non-editable to PM. Platform Admin may write only
 -- through RLS-protected admin policies; there is deliberately no runtime DELETE policy.
+CREATE POLICY p2a_partner_org_admin_select ON public.partner_organizations
+ FOR SELECT TO app_runtime_secure
+ USING (public.pke_is_platform_admin());
 CREATE POLICY p2a_partner_org_admin_insert ON public.partner_organizations
  FOR INSERT TO app_runtime_secure
  WITH CHECK (public.pke_is_platform_admin());

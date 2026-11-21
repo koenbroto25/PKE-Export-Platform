@@ -11,6 +11,7 @@ const dashboard = readFileSync(join(process.cwd(), "frontend/src/RoleDashboardPa
 const app = readFileSync(join(process.cwd(), "frontend/src/App.tsx"), "utf8");
 const migration052 = readFileSync(join(process.cwd(), "migrations/052_funder_finance_report_scope_isolation.sql"), "utf8");
 const migration056 = readFileSync(join(process.cwd(), "migrations/056_project_context_and_funder_report_shares.sql"), "utf8");
+const migration094 = readFileSync(join(process.cwd(), "migrations/094_p16_rls_safe_permission_context.sql"), "utf8");
 
 describe("Funder external-role isolation and explicit sharing", () => {
   it("grants only basic Project context and the dedicated Funder report permission", () => {
@@ -29,13 +30,12 @@ describe("Funder external-role isolation and explicit sharing", () => {
   it("keeps Finance, Accounting, payment and generic Reports attribution excluded for Funder", () => {
     const requirePermission = api.slice(api.indexOf("async function requireProjectPermission"), api.indexOf("async function findExplicitProjectPermission"));
     const explicitPermission = api.slice(api.indexOf("async function findExplicitProjectPermission"), api.indexOf("async function applyExplicitProjectPermissionContext"));
-    for (const source of [requirePermission, explicitPermission]) {
-      expect(source).toContain("pr.role_code");
-      expect(source).toContain("'funder'");
-      expect(source).toContain("LIKE 'finance.%'");
-      expect(source).toContain("LIKE 'reports.%'");
-      expect(source).toContain("'view_financial'");
-    }
+    expect(requirePermission).toContain("pke_resolve_project_permission_context");
+    expect(explicitPermission).toContain("pke_resolve_project_permission_context");
+    expect(migration094).toContain("pr.role_code = 'funder'");
+    expect(migration094).toContain("LIKE 'finance.%'");
+    expect(migration094).toContain("LIKE 'reports.%'");
+    expect(migration094).toContain("'view_financial'");
   });
 
   it("keeps generic report runs private and exposes only explicitly shared completed artifacts", () => {

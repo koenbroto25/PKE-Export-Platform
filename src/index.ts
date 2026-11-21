@@ -2453,8 +2453,10 @@ app.patch("/api/v1/documents/:id", requireAuth, async (req: express.Request, res
     );
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     res.json({ document: rows[0] });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Independent document review or permission denied.", code: "DOCUMENT_REVIEW_FORBIDDEN" });
+    if (error?.code === "23514" || error?.code === "55000") return res.status(409).json({ error: "Document workflow transition is not allowed.", code: "DOCUMENT_WORKFLOW_CONFLICT" });
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

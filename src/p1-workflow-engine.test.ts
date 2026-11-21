@@ -123,4 +123,34 @@ describe("P1 three-way match", () => {
     for(const type of ["hse_action","audit_finding","lc_discrepancy"] as const) expect(initialP1Status(type)).toBe("open");
     for(const type of P1_RECORD_TYPES.filter((type)=>!["hse_action","audit_finding","lc_discrepancy"].includes(type))) expect(initialP1Status(type)).toBe("draft");
   });
+  it("accepts a valid payload fixture for every P1 workflow type",()=>{
+    const validPayloads:Record<(typeof P1_RECORD_TYPES)[number],Record<string,unknown>> = {
+      purchase_requisition:{currencyCode:"IDR",items:[{description:"Palm kernel cake",quantity:10,unitCode:"MT",unitPrice:1000}]},
+      purchase_order:{supplierId:"supplier-1",currencyCode:"IDR",items:[{description:"Palm kernel cake",quantity:10,unitCode:"MT",unitPrice:1000}]},
+      supplier_commitment:{purchaseOrderRecordId:"po-1",committedQuantity:10,unitCode:"MT",committedAt:"2026-11-22T00:00:00Z"},
+      goods_receipt_match:{purchaseOrderRecordId:"po-1",warehouseReceiptId:"grn-1",apInvoiceId:"inv-1",matchedQuantity:10,matchedAmount:10000,unitCode:"MT",currencyCode:"IDR"},
+      production_batch:{quantity:10,unitCode:"MT",startedAt:"2026-11-21T00:00:00Z"},
+      packing_batch:{quantity:10,unitCode:"MT",startedAt:"2026-11-21T00:00:00Z"},
+      quality_sample:{sampleId:"sample-1",sampleType:"raw_material"},
+      quality_result:{sampleId:"sample-1",attributeId:"moisture",methodCode:"lab-01",resultNumeric:8.5},
+      qa_release:{sourceRecordId:"batch-1",decisionReason:"QC and laboratory results accepted",decision:"release"},
+      hse_inspection:{category:"workplace",severity:"low",observedAt:"2026-11-21T00:00:00Z"},
+      hse_action:{findingRecordId:"hse-1",actionOwnerRoleCode:"procurement",dueAt:"2026-11-22T00:00:00Z"},
+      dispatch_assignment:{tripId:"trip-1",driverUserId:"driver-1",vehicleId:"truck-1",plannedDepartureAt:"2026-11-21T01:00:00Z",plannedArrivalAt:"2026-11-21T05:00:00Z"},
+      vessel_call:{voyageId:"voyage-1",vesselId:"vessel-1",portId:"port-1",predictedArrivalAt:"2026-11-23T00:00:00Z"},
+      loading_plan:{loadingOperationId:"loading-1",shipmentId:"shipment-1",plannedQuantity:10,unitCode:"MT"},
+      loading_survey:{loadingOperationId:"loading-1",certificateObjectKey:"projects/p1/survey/certificate.pdf",sha256Checksum:"a".repeat(64),surveyedQuantity:10,certificateFileSizeBytes:1024},
+      ship_master_ack:{voyageId:"voyage-1",acknowledgementType:"loading_complete",acknowledgedAt:"2026-11-23T00:00:00Z"},
+      laytime_event:{voyageId:"voyage-1",eventCode:"NOR_TENDERED",eventAt:"2026-11-23T00:00:00Z",startAt:"2026-11-23T00:00:00Z",endAt:"2026-11-23T12:00:00Z",allowedHours:24,excludedHours:0},
+      lc_record:{lcNumber:"LC-001",issuingBank:"Bank A",currencyCode:"USD",amount:10000,expiryAt:"2027-01-01T00:00:00Z",latestShipmentAt:"2026-12-01T00:00:00Z"},
+      lc_clause:{lcRecordId:"lc-1",clauseCode:"46A",requirementText:"Certificate of origin",documentTypeCode:"COO",requiredOriginals:1,requiredCopies:2},
+      lc_discrepancy:{lcRecordId:"lc-1",clauseRecordId:"clause-1",description:"Missing certificate signature",resolutionDueAt:"2026-11-25T00:00:00Z"},
+      lc_presentation:{lcRecordId:"lc-1",documentSelections:[{documentRecordId:"doc-1",clauseCode:"46A",copyType:"original"}],presentationReference:"PRES-001"},
+      audit_finding:{findingCode:"AF-001",criteria:"SOP 01",condition:"Missing control evidence",cause:"Process gap",effect:"Traceability risk",recommendation:"Complete control evidence",ownerRoleCode:"procurement",dueAt:"2026-11-30T00:00:00Z",severity:"moderate"},
+      audit_response:{findingRecordId:"finding-1",response:"Acknowledged",correctiveAction:"Implement control",dueAt:"2026-11-30T00:00:00Z"},
+      audit_closure:{findingRecordId:"finding-1",verificationResult:"Effective",closureReason:"Independent evidence verified"}
+    };
+    expect(Object.keys(validPayloads).sort()).toEqual([...P1_RECORD_TYPES].sort());
+    for(const type of P1_RECORD_TYPES) expect(validateP1Create(type,validPayloads[type])).toEqual([]);
+  });
 });

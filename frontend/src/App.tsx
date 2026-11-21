@@ -1362,7 +1362,7 @@ function ReportsPage({ projectId, activeUser, onNotice }: { projectId: string; a
       {key:'generatedAt',label:'Dibuat',render:r=>dateTime(r.generatedAt)},
       {key:'fileReference',label:'File',render:r=>r.fileReference||'—'},
       {key:'share',label:'Funder',render:renderShareAction},
-    ]} emptyTitle="Belum ada run" emptyText="Belum ada report run pada Project terpilih." /></Card>
+    ]} emptyTitle="Belum ada run" emptyText="Belum ada report run pada Project terpilih." />}</Card>
     {canShare && <Card><PanelHeading title="Bagikan laporan ke Funder" description="Pilih penerima yang memiliki assignment Funder aktif di Project ini." />
       {members.loading ? <Loading /> : members.error ? <ErrorState message={members.error} retry={members.refresh} /> : funderCandidates.length === 0
         ? <EmptyState title="Belum ada Funder aktif" desc="Aktifkan assignment Funder pada Project sebelum membagikan laporan." />

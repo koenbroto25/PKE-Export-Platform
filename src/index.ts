@@ -21,7 +21,7 @@ import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAs
 import { isValidCashAdvanceRequest, canDecideCashAdvance } from "./f1-cash-advance-rules.js";
 import { listCashAdvances, createCashAdvance, decideCashAdvance } from "./cash-advance-service.js";
 import {
-  isP1RecordType, validateP1Create, validateP1Transition, validateThreeWayMatch,
+  isP1RecordType, initialP1Status, validateP1Create, validateP1Transition, validateThreeWayMatch,
   canApprovePurchaseOrder, canDecideQaRelease, canCloseAuditFinding, validateP1Evidence,
   evaluateFreshness, isDispatchOnTime, calculateLaytime, validateLcPresentation, type P1RecordType, type P1Status,
 } from "./p1-workflow-engine.js";
@@ -5578,10 +5578,10 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(b.dueAt&&Number.isNaN(dueAt!.getTime())) return res.status(400).json({error:"Invalid dueAt."});
       const effectiveParentId=b.parentRecordId??(type==="goods_receipt_match"?payload.purchaseOrderRecordId:null);
       const ins=await req.db.query(
-        `INSERT INTO public.p1_domain_records(project_id,record_type,record_code,parent_record_id,source_entity_type,source_entity_id,title,payload,owner_role_code,assignee_user_id,external_scope_user_id,created_by,updated_by,due_at,idempotency_key)
-         VALUES($1::uuid,$2,COALESCE(NULLIF($3,''),'P1-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12))),$4::uuid,$5,$6::uuid,$7,$8::jsonb,$9,$10::uuid,$11::uuid,$12::uuid,$12::uuid,$13::timestamptz,$14)
+        `INSERT INTO public.p1_domain_records(project_id,record_type,record_code,parent_record_id,source_entity_type,source_entity_id,title,payload,status,owner_role_code,assignee_user_id,external_scope_user_id,created_by,updated_by,due_at,idempotency_key)
+         VALUES($1::uuid,$2,COALESCE(NULLIF($3,''),'P1-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12))),$4::uuid,$5,$6::uuid,$7,$8::jsonb,$9,$10,$11::uuid,$12::uuid,$13::uuid,$13::uuid,$14::timestamptz,$15)
          ON CONFLICT (project_id,idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING *`,
-        [projectId,type,b.recordCode??"",effectiveParentId,b.sourceEntityType??null,b.sourceEntityId??null,title,JSON.stringify(payload),ownerRoleCode,assignee,external,actorId,dueAt,b.idempotencyKey.trim()]);
+        [projectId,type,b.recordCode??"",effectiveParentId,b.sourceEntityType??null,b.sourceEntityId??null,title,JSON.stringify(payload),initialP1Status(type),ownerRoleCode,assignee,external,actorId,dueAt,b.idempotencyKey.trim()]);
       if(!ins.rows.length){
         const prior=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND idempotency_key=$2",[projectId,b.idempotencyKey.trim()]);
         if(prior.rows.length!==1||prior.rows[0].record_type!==type||prior.rows[0].title!==title||JSON.stringify(prior.rows[0].payload)!==JSON.stringify(payload)) return res.status(409).json({error:"Idempotency key conflict.",code:"IDEMPOTENCY_KEY_CONFLICT"});

@@ -1167,7 +1167,7 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 
 ### P16 governed write continuation — 2026-11-21
 
-- Implemented UAT migrations 083–086 on the existing Neon UAT branch only. Exact checksums and all 86 UAT ledger rows are recorded in `migration_history_manifest_uat_001_086.json`; this is not a Production manifest.
+- Implemented UAT migrations 083–086 on the existing Neon UAT branch only. Exact checksums and all 87 UAT ledger rows (16 baselined, 71 applied) are recorded in `migration_history_manifest_uat_001_087.json`; this is not a Production manifest.
 - Global port/terminal/berth/channel/anchorage/service/equipment/operating-limit, PKS-port route and warehouse master writes are Platform Admin-only. Maker-checker requires a different reviewer, source reference, SHA-256 evidence and review note.
 - PM and Terminal Representative receive only Project-scoped depth/tide evidence submission; PM also receives Project route-estimate and vessel-assessment permissions. Global master writes remain Admin-only.
 - Depth/tide evidence must match an Approved, upload-verified Project document object key and SHA-256 in the private documents bucket. No synthetic measurements were inserted.

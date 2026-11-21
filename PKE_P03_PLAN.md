@@ -1070,3 +1070,29 @@ PASS on isolated PostgreSQL validation branch:
 - **Frontend/source:** Finance and Accounting can open Project context pages; Funder route requires both an active Funder assignment and `funder.view`. Funder workspace displays only explicit shared report payloads. Reports workspace allows Project staffing managers to share completed report artifacts and revoke them with an audit reason. Finance/Accounting/Funder cannot open staffing pages or Funder-only surfaces.
 - **CI PASS on exact source head** `9ec4a1ff378bedd57af5e7c22e3a76fa536dd1e9`: Unit Tests run `44848751203` SUCCESS, including backend/frontend typecheck and frontend production build; Dependency Audit run `44848751184` SUCCESS. Static contract tests pin Migration 056/057 SHA-256 and the relevant RLS/API/UI controls.
 - **Release boundary:** Neon Production remains untouched (read-only verification still shows ledger 53; UAT ledger is 57). No new GitHub branch, no PR merge, and no Vercel deployment. Browser acceptance against a deployed Preview was not run; this work is source-CI and UAT database/API-policy verified.
+
+
+## 2026-11-21 — P1 operational workflow remediation (source + UAT preflight)
+
+### Scope completed in source
+- Corrected the P1 UI contract test to assert the workbench's actual `code` discriminator (the stale `type` assertion caused the previous CI failure).
+- Replaced direct Project role-catalogue reads in P1 owner/assignee validation with the narrow `p1_has_active_project_role_assignment` helper. This addresses the RLS boundary where operational users cannot read the role catalogue.
+- Added a P1 evidence read endpoint and role-safe Lab evidence upload permission. QA result review remains separately permissioned.
+- Scoped P1 KPI templates by active role and separated the loading completion KPI from generic record counts; loading completion uses verified loading tickets against planned operation quantities.
+- Added Migration 066 source for the narrowly granted role-membership helper, canonical vessel-call create permission, Lab evidence policy, KPI source metadata and idempotent synchronization from P1 domain records into the PM Project task engine. The sync preserves source/version identity, emits task events and notifies active assignees.
+- Added exact SHA-256 contract pins and a UAT-only release verifier. Generic Production migration apply/baseline is guarded against P1 migrations 058+; the Production manifest remains the verified 001–052 baseline.
+
+### Verification
+- Existing branch only: `f1/project-scoped-cob-20261119`; no new branch created.
+- Latest source head: `2c8d6d39f1d0060f73fdb6f18b428dde148c7a68`.
+- Unit Tests workflow run `44857604699`: SUCCESS. Offline unit/contract tests, Production release gates, Migration 052/054/055 source gates, migration runner dry-run, backend TypeScript, frontend TypeScript and frontend production build all passed.
+- Dependency Audit workflow run `44857609596`: initiated for the same head; verify final conclusion before release.
+- Neon UAT branch `br-young-boat-b3re832d` ledger remained at 65; P1 record/event/evidence/task tables are empty before Migration 066.
+- Pre-066 UAT backup copies created under schema `p1_backup_066_20261121`, including P1 records/events/evidence/KPI definitions, Project task queue/events, relevant grants, column metadata, policies and backup metadata.
+- The Neon snapshot API rejected a manual snapshot because UAT is a non-root branch. The schema-level pre-change backup is present and verified.
+
+### Release state / explicit boundaries
+- Migrations 058–069 remain prepared source until individually checksum-verified and explicitly applied to the isolated UAT branch. Migration 066 SHA-256: `76b19520116f26525379f694a95d2081f2d62721f7b07625d0507ac07a29bce4`.
+- Migration 066 has **not** been applied. UAT runtime/backtest of the task synchronization and P1 API changes is therefore pending.
+- No Production database changes, no Production deployment, no Vercel deployment, no PR merge and no GitHub branch creation.
+- Next gate: owner authorization to apply Migration 066 to Neon UAT only, then verify helper execution grants, evidence policy, role-specific KPI output, task/event/notification synchronization, idempotency and rollback. Do not run against Production.

@@ -1258,3 +1258,12 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Cleanup completed: temporary object deleted; prefix listing empty; both short-lived UAT storage credentials revoked; zero `project_export_documents` rows created. No business data was added.
 - Browser UAT acceptance is deferred as instructed and is not a blocker for this storage task. Still open: authenticated API path invoking the app's own `privateStorage.verifyObject` and registration, independent document approval through API, and positive evidence-backed depth/tide API workflow. Do not fabricate a database document record to substitute for the API acceptance.
 - P16 remains **NOT ALL PASS** until the remaining API workflow and regression gates pass; Production and Vercel remain untouched.
+
+
+### P16 Preview storage runtime configuration (21 November 2026)
+
+- Audit found no AWS storage environment variables on the P16 Preview branch even though the application storage adapter reads `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY`.
+- Created a dedicated UAT branch-anchored Neon scoped credential (`storage:read`, `storage:write`), short ID `ed2b903628b3`, expires 2027-11-21. Secret material is stored in Vercel sensitive environment variables only; not committed to Git.
+- Added and verified the four `AWS_*` environment variables restricted to Vercel Preview + Git branch `f1/project-scoped-cob-20261119`; endpoint and region encrypted, key ID and secret marked sensitive.
+- Production environment variables were not modified. No deployment was triggered; Vercel remains frozen until final authorized session. The next Preview deployment will receive UAT storage settings.
+- Rotate the branch-scoped credential before 2027-11-21. Browser UAT acceptance remains deferred as instructed.

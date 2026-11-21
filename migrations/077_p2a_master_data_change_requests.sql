@@ -26,7 +26,7 @@ CREATE TABLE public.p2a_master_data_change_requests (
  entity_type text NOT NULL CHECK (entity_type IN ('organization','facility')),
  operation text NOT NULL CHECK (operation IN ('create','update')),
  target_id uuid NULL,
- proposed_data jsonb NOT NULL CHECK (jsonb_typeof(proposed_data)='object'),
+ proposed_data jsonb NOT NULL CHECK (jsonb_typeof(proposed_data)='object' AND proposed_data <> '{}'::jsonb),
  base_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(base_snapshot)='object'),
  status text NOT NULL DEFAULT 'draft'
    CHECK (status IN ('draft','submitted','approved','rejected')),
@@ -179,7 +179,8 @@ BEGIN
  -- Request payload, target and provenance are immutable after submission. The
  -- requester may edit only their own draft. Only Admin may make a decision.
  IF OLD.status='draft' AND NOT v_admin THEN
-   IF OLD.requested_by IS DISTINCT FROM v_user_id
+   IF NEW.id IS DISTINCT FROM OLD.id OR NEW.project_id IS DISTINCT FROM OLD.project_id OR NEW.created_at IS DISTINCT FROM OLD.created_at
+      OR OLD.requested_by IS DISTINCT FROM v_user_id
       OR NEW.entity_type IS DISTINCT FROM OLD.entity_type
       OR NEW.operation IS DISTINCT FROM OLD.operation
       OR NEW.target_id IS DISTINCT FROM OLD.target_id
@@ -193,7 +194,9 @@ BEGIN
      RAISE EXCEPTION 'Requester may only edit or submit own draft request' USING ERRCODE='42501';
    END IF;
  ELSIF v_admin THEN
-   IF NEW.entity_type IS DISTINCT FROM OLD.entity_type
+   IF NEW.id IS DISTINCT FROM OLD.id OR NEW.project_id IS DISTINCT FROM OLD.project_id OR NEW.created_at IS DISTINCT FROM OLD.created_at
+      OR NEW.reviewed_by IS DISTINCT FROM OLD.reviewed_by OR NEW.reviewed_at IS DISTINCT FROM OLD.reviewed_at
+      OR NEW.entity_type IS DISTINCT FROM OLD.entity_type
       OR NEW.operation IS DISTINCT FROM OLD.operation
       OR NEW.target_id IS DISTINCT FROM OLD.target_id
       OR NEW.proposed_data IS DISTINCT FROM OLD.proposed_data
@@ -234,8 +237,10 @@ BEGIN
            RAISE EXCEPTION 'Organization proposal contains protected or unsupported fields' USING ERRCODE='23514';
          END IF;
          IF NEW.operation='create' THEN
-           IF NOT (NEW.proposed_data ? 'legal_name' AND NEW.proposed_data ? 'organization_type' AND NEW.proposed_data ? 'country_code') THEN
-             RAISE EXCEPTION 'New organization requires legal_name, organization_type and country_code' USING ERRCODE='23514';
+           IF NOT (NEW.proposed_data ? 'legal_name' AND NEW.proposed_data ? 'organization_type' AND NEW.proposed_data ? 'country_code')
+              OR length(btrim(COALESCE(NEW.proposed_data->>'legal_name','')))<2
+              OR length(COALESCE(NEW.proposed_data->>'country_code',''))<>2 THEN
+             RAISE EXCEPTION 'New organization requires legal_name (at least 2 characters), organization_type and two-letter country_code' USING ERRCODE='23514';
            END IF;
            v_org_type:=NEW.proposed_data->>'organization_type';
            IF v_org_type NOT IN ('buyer','supplier','processor','transporter','warehouse_operator','port_operator','shipping_agent','surveyor','funder','other') THEN
@@ -283,8 +288,10 @@ BEGIN
            RAISE EXCEPTION 'Facility proposal contains protected or unsupported fields' USING ERRCODE='23514';
          END IF;
          IF NEW.operation='create' THEN
-           IF NOT (NEW.proposed_data ? 'name' AND NEW.proposed_data ? 'facility_type' AND NEW.proposed_data ? 'country_code') THEN
-             RAISE EXCEPTION 'New facility requires name, facility_type and country_code' USING ERRCODE='23514';
+           IF NOT (NEW.proposed_data ? 'name' AND NEW.proposed_data ? 'facility_type' AND NEW.proposed_data ? 'country_code')
+              OR length(btrim(COALESCE(NEW.proposed_data->>'name','')))<2
+              OR length(COALESCE(NEW.proposed_data->>'country_code',''))<>2 THEN
+             RAISE EXCEPTION 'New facility requires name (at least 2 characters), facility_type and two-letter country_code' USING ERRCODE='23514';
            END IF;
            v_facility_type:=NEW.proposed_data->>'facility_type';
            IF v_facility_type NOT IN ('palm_oil_mill','kernel_crushing_plant','integrated_mill_kcp','warehouse','port_terminal','collection_point','other') THEN

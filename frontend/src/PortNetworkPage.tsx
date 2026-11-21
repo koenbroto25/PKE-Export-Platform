@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { get } from "./api";
 
 type Row = Record<string, any>;
@@ -28,7 +28,7 @@ function Status({ value }: { value: unknown }) {
   return <span className={`p16-status p16-status--${key}`}>{statusLabel(value)}</span>;
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
+function Empty({ children }: { children: ReactNode }) {
   return <div className="p16-empty">{children}</div>;
 }
 
@@ -86,7 +86,6 @@ export default function PortNetworkPage({ projectId }: Props) {
     return () => { active = false; };
   }, [selectedWarehouse?.id, projectId]);
 
-  const detail = tab === "ports" ? portDetail : warehouseDetail;
   const list = tab === "ports" ? ports : warehouses;
 
   return (

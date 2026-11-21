@@ -447,6 +447,12 @@ BEGIN
           FROM (SELECT jsonb_object_keys(v_after) AS k) q
          WHERE (v_before->q.k) IS DISTINCT FROM (v_after->q.k);
       ELSE v_changed_fields:='[]'::jsonb; END IF;
+      IF v_changed_fields @> '["three_way_match"]'::jsonb
+         OR v_changed_fields @> '["purchase_order_id"]'::jsonb
+         OR v_changed_fields @> '["goods_receipt_id"]'::jsonb THEN
+        v_action:='ap_invoice.three_way_match_linked';
+        v_permission:='procurement.match.create';
+      END IF;
       v_metadata:=jsonb_build_object('invoice_number',NEW.invoice_number,'supplier_id',NEW.supplier_id,
         'currency_id',NEW.currency_id,'changed_fields',v_changed_fields);
     WHEN 'ar_invoices' THEN

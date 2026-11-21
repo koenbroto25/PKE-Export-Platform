@@ -85,7 +85,7 @@ describe("P1 workflow API security contracts",()=>{
     expect(route).not.toContain("FROM public.p1_domain_records");
   });
   it("renders every P1 workflow type and role-scoped KPI panel in the workbench",()=>{
-    for(const type of P1_RECORD_TYPES) expect(ui).toContain(`type:"${type}"`);
+    for(const type of P1_RECORD_TYPES) expect(ui).toContain(`code:"${type}"`);
     expect(ui).toContain('hasProjectPermission("p1.kpi.view",activeUser)');
     expect(ui).toContain("canViewKpis");
     expect(ui).toContain("freshnessStatus");

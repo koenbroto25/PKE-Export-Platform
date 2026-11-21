@@ -5427,12 +5427,13 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(type==="lc_presentation"){
         const lcId=String(payload.lcRecordId??"");
         if(lcId!==String(parentRecord?.id??"")||parentRecord?.record_type!=="lc_record"||!["issued","acknowledged"].includes(parentRecord.status)) return res.status(409).json({error:"LC presentation requires an issued, same-Project LC record."});
-        const clauses=await req.db.query("SELECT payload FROM public.p1_domain_records WHERE project_id=$1::uuid AND parent_record_id=$2::uuid AND record_type='lc_clause' AND status IN ('submitted','accepted')",[projectId,lcId]);
+        const clauses=await req.db.query("SELECT payload,status FROM public.p1_domain_records WHERE project_id=$1::uuid AND parent_record_id=$2::uuid AND record_type='lc_clause'",[projectId,lcId]);
+        if(!clauses.rows.length||clauses.rows.some((x:any)=>x.status!=="accepted")) return res.status(409).json({error:"All LC clauses must be reviewed and accepted before presentation.",code:"LC_CLAUSES_NOT_READY"});
         const selections=payload.documentSelections as Array<{documentRecordId:string;clauseCode:string;copyType:"original"|"copy"}>;
         const ids=[...new Set(selections.map(x=>x.documentRecordId))];
-        const docs=await req.db.query("SELECT id,document_type_code,status,expiry_date,sha256_checksum FROM public.project_export_documents WHERE project_id=$1::uuid AND id=ANY($2::uuid[])",[projectId,ids]);
+        const docs=await req.db.query("SELECT id,document_type_code,status,expiry_date,sha256_checksum,object_key,storage_bucket,file_size_bytes,upload_verified_at FROM public.project_export_documents WHERE project_id=$1::uuid AND id=ANY($2::uuid[])",[projectId,ids]);
         if(docs.rows.length!==ids.length) return res.status(422).json({error:"Every presented document must exist in the same Project."});
-        const expired=docs.rows.some((d:any)=>d.status!=="approved"||!d.sha256_checksum||(d.expiry_date&&new Date(d.expiry_date)<new Date()));
+        const expired=docs.rows.some((d:any)=>d.status!=="approved"||!d.sha256_checksum||!d.object_key||!d.upload_verified_at||!d.file_size_bytes||d.storage_bucket!=="pke-private-documents"||(d.expiry_date&&new Date(d.expiry_date)<new Date()));
         const required=clauses.rows.map((x:any)=>String(x.payload.clauseCode));
         const supplied=[...new Set(selections.map(x=>x.clauseCode))];
         const checklist=validateLcPresentation(required,supplied,expired);
@@ -5617,7 +5618,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         }else if(d.formula_key==="inventory_variance_quantity"){
           const q=await req.db.query("SELECT count(*)::int n,max(created_at) as_of FROM public.inventory_reconciliations WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);asOf=q.rows[0].as_of;if(n){const sum=await req.db.query("SELECT COALESCE(sum(variance_quantity),0)::float value FROM public.inventory_reconciliations WHERE project_id=$1::uuid",[projectId]);value=Number(sum.rows[0].value);}
         }else if(d.formula_key==="document_freshness_rate"){
-          const q=await req.db.query("SELECT count(*)::int n,count(*) FILTER(WHERE status='approved' AND (expiry_date IS NULL OR expiry_date>=current_date) AND sha256_checksum IS NOT NULL)::int good,max(uploaded_at) as_of FROM public.project_export_documents WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
+          const q=await req.db.query("SELECT count(*)::int n,count(*) FILTER(WHERE status='approved' AND (expiry_date IS NULL OR expiry_date>=current_date) AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND upload_verified_at IS NOT NULL AND storage_bucket='pke-private-documents')::int good,max(uploaded_at) as_of FROM public.project_export_documents WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
         }
         kpis.push({templateId:d.template_id,metricKey:d.metric_key,label:d.label,value,unit:d.unit_code,sourceEntity:d.source_entity,sourceRows:n,asOf,freshnessStatus:evaluateFreshness(asOf?new Date(asOf).toISOString():null,Number(d.freshness_minutes)),status:value===null?"unavailable":"available",missingDataPolicy:d.missing_data_policy});
       }

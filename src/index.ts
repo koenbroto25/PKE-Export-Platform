@@ -5309,9 +5309,18 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,$2) AS can_view,public.pke_has_project_permission($1::uuid,$3) AS can_manage",[projectId,view,manage]);
     return q.rows[0]?.can_view?view:q.rows[0]?.can_manage?manage:null;
   };
-  const p1Role = async (req: express.Request):Promise<string> => {
-    const q=await req.db.query("SELECT current_setting('app.current_role',true) AS code");
-    return String(q.rows[0]?.code??"");
+  const p1Roles = async (req: express.Request,projectId:string):Promise<string[]> => {
+    const candidates=["pm","project_admin","platform_admin","procurement","contract_manager","buyer","supplier","pks_site_manager",
+      "production_manager","packing_supervisor","qc_officer","laboratory_officer","qa_manager","hse_officer",
+      "transport_manager","dispatcher","transporter","driver","checker","master_of_loading","loading_manager",
+      "loading_supervisor","loading_operator","marine_surveyor","ship_master","terminal_representative","shipping_agent",
+      "document_officer","internal_auditor","warehouse","warehouse_manager","warehouse_officer","inventory_controller"];
+    const q=await req.db.query(
+      `SELECT r.role_code FROM unnest($2::text[]) AS r(role_code)
+       WHERE public.p1_has_active_project_role_assignment($1::uuid,r.role_code,public.pke_current_user_id())`,
+      [projectId,candidates]
+    );
+    return q.rows.map((row:any)=>String(row.role_code));
   };
   const p1HasRole = async (req: express.Request,projectId:string,userId:string,roleCodes:string[]):Promise<boolean> => {
     for(const roleCode of roleCodes){
@@ -5681,7 +5690,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(!(await p1Ready(req,res))) return;
       if(!(await requireProjectPermission(req,res,projectId,"reports.view"))) return;
       const defs=await req.db.query("SELECT * FROM public.p1_report_kpi_definitions WHERE is_active=true AND (project_id IS NULL OR project_id=$1::uuid) ORDER BY template_id,metric_key",[projectId]);
-      const roleCode=await p1Role(req);
+      const roleCodes=await p1Roles(req,projectId);
       const p1KpiTemplatesByRole:Record<string,string[]> = {
         procurement:["tpl-procurement"],contract_manager:["tpl-procurement"],buyer:["tpl-procurement"],supplier:["tpl-procurement"],
         pks_site_manager:["tpl-procurement","tpl-operational"],
@@ -5694,9 +5703,9 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         internal_auditor:["tpl-audit","tpl-compliance"],
         warehouse:["tpl-warehouse"],warehouse_manager:["tpl-warehouse"],warehouse_officer:["tpl-warehouse"],inventory_controller:["tpl-warehouse"]
       };
-      const allTemplates=["pm","project_admin","platform_admin"].includes(roleCode)
+      const allTemplates=roleCodes.some((code)=>["pm","project_admin","platform_admin"].includes(code))
         ?new Set(defs.rows.map((d:any)=>String(d.template_id)))
-        :new Set(p1KpiTemplatesByRole[roleCode]??[]);
+        :new Set(roleCodes.flatMap((code)=>p1KpiTemplatesByRole[code]??[]));
       const kpiDefinitions=defs.rows.filter((d:any)=>allTemplates.has(String(d.template_id)));
       const kpis=[];
       for(const d of kpiDefinitions){

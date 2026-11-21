@@ -26,6 +26,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
       'app.post("/api/v1/p16/master/:resource"',
       'app.patch("/api/v1/p16/master/:resource/:recordId"',
       'app.patch("/api/v1/p16/master/:resource/:recordId/review"',
+      'app.delete("/api/v1/p16/master/:resource/:recordId"',
       'app.post("/api/v1/ports/:portId/depth-observations"',
       'app.post("/api/v1/ports/:portId/tide-observations"',
       'app.patch("/api/v1/port-depth-observations/:id/review"',
@@ -41,6 +42,9 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(API).toContain('app.post("/api/v1/p16/master/:resource",requireAuth,requireAdmin');
     expect(API).toContain('app.patch("/api/v1/p16/master/:resource/:recordId",requireAuth,requireAdmin');
     expect(API).toContain('app.patch("/api/v1/p16/master/:resource/:recordId/review",requireAuth,requireAdmin');
+    expect(API).toContain('app.delete("/api/v1/p16/master/:resource/:recordId",requireAuth,requireAdmin');
+    expect(UI).toContain("Hapus master");
+    expect(UI).toContain("del(`/p16/master/");
     expect(MIGRATION_083).toContain("pke_is_platform_admin()");
     expect(MIGRATION_083).toContain("p16_admin_insert");
     expect(MIGRATION_083).toContain("p16_admin_update");

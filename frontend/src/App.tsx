@@ -192,7 +192,7 @@ function App() {
             <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/journal-entries" element={<RoleGuard allowedKeys={['journal-entries']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
-            <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={workspaceUser}><ReportsPage projectId={projectId} onNotice={notify} /></RoleGuard>} />
+            <Route path="/reports" element={<RoleGuard allowedKeys={['reports']} activeUser={workspaceUser}><ReportsPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/notifications" element={<RoleGuard allowedKeys={['notifications']} activeUser={workspaceUser}><NotificationsPage onNotice={notify} onOpenTask={(taskProjectId: string) => { setProjectId(taskProjectId); navigate("/my-work"); }} /></RoleGuard>} />
             <Route path="/access" element={<RoleGuard allowedKeys={['access']} activeUser={workspaceUser}><AccessPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/shipment-allocations" element={<RoleGuard allowedKeys={['shipment-allocations']} activeUser={workspaceUser}><ShipmentAllocationPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
@@ -1117,12 +1117,25 @@ function WarehouseWorkspacePage({ projectId, onNotice }: { projectId: string; on
 }
 
 function FunderWorkspacePage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const reports = useLoad<{ reports?: AnyRecord[] }>(
+    () => projectId
+      ? get(`/funder/shared-reports?projectId=${encodeURIComponent(projectId)}`)
+      : Promise.resolve({ reports: [] }),
+    [projectId],
+  );
   return <>
-    <PageTitle eyebrow="FUNDER PORTAL" title="Workspace Funder" subtitle="Lihat informasi keuangan proyek yang diizinkan oleh funding agreement." />
-    <div className="metric-grid three"><Metric label="Dana dialokasikan" value="—" foot="Tidak ada data dummy" icon={Wallet} tone="navy" /><Metric label="Drawdown" value="—" foot="Menunggu data nyata" icon={ArrowDownRight} tone="blue" /><Metric label="Milestone" value="—" foot="Tidak ada dummy" icon={Flag} tone="green" /></div>
-    <Card><PanelHeading title="Dana yang Diizinkan" description="Informasi keuangan proyek yang diizinkan oleh funding agreement." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Tidak ada data dana</div><div className="empty-desc">Informasi dana hanya ditampilkan setelah funding agreement ditetapkan dan sharing grant diberikan.</div></div></Card>
-    <Card><PanelHeading title="Milestone & Utilisasi" description="Progres milestone dan utilizasi dana." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Tidak ada milestone</div><div className="empty-desc">Milestone hanya ditampilkan setelah disetujui pada funding agreement.</div></div></Card>
-    <Card><PanelHeading title="Laporan yang Disetujui" description="Laporan keuangan yang diizinkan untuk dilihat funder." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Tidak ada laporan</div><div className="empty-desc">Laporan hanya ditampilkan setelah dihasilkan dan sharing grant diberikan.</div></div></Card>
+    <PageTitle eyebrow="FUNDER PORTAL" title="Workspace Funder" subtitle="Konteks Project dasar dan hanya artefak laporan yang dibagikan secara eksplisit kepada akun Funder ini." />
+    <div className="metric-grid three"><Metric label="Dana dialokasikan" value="—" foot="Hanya tersedia melalui funding agreement yang disetujui." icon={Wallet} tone="navy" /><Metric label="Drawdown" value="—" foot="Tidak ada akses ke transaksi Finance internal." icon={ArrowDownRight} tone="blue" /><Metric label="Laporan dibagikan" value={String(reports.data?.reports?.length ?? 0)} foot="Artefak aktif yang dibagikan untuk Project terpilih." icon={Flag} tone="green" /></div>
+    <Card><PanelHeading title="Dana & Milestone" description="Ringkasan dana dan milestone tidak dibuka dari data Finance internal." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Belum ada funding agreement view</div><div className="empty-desc">Data hanya akan muncul melalui artefak atau milestone yang disetujui dan dibagikan secara eksplisit.</div></div></Card>
+    <Card><PanelHeading title="Laporan yang Dibagikan" description="Hanya report run completed yang dibagikan kepada akun Funder ini oleh pengelola Project." />
+      {reports.loading ? <Loading /> : reports.error ? <ErrorState message={reports.error} retry={reports.refresh} /> : (reports.data?.reports || []).length === 0
+        ? <EmptyState title="Belum ada laporan yang dibagikan" desc="PM atau pengelola Project dapat membagikan artefak laporan yang telah selesai." />
+        : <div className="stack-list">{(reports.data?.reports || []).map(report => <Card key={report.id}>
+            <PanelHeading title={String(report.templateId || 'Laporan Project')} description={`Dibagikan ${dateTime(report.sharedAt)} · dibuat ${dateTime(report.generatedAt)}`} />
+            <div className="insight-grid"><div><span>Status artefak</span><strong>Completed</strong></div><div><span>Versi template</span><strong>{String(report.templateVersion || '—')}</strong></div><div><span>File reference</span><strong>{String(report.fileReference || '—')}</strong></div></div>
+            {report.reportPayload && <JsonSummary data={report.reportPayload} />}
+          </Card>)}</div>}
+    </Card>
   </>;
 }
 
@@ -1271,12 +1284,28 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
 }
 
 
-function ReportsPage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const portfolio = useLoad<AnyRecord>(() => projectId ? get(`/reports/project/${encodeURIComponent(projectId)}`) : get('/reports/portfolio'), [projectId]);
-  const templates = useLoad<{ templates?: AnyRecord[] }>(() => get('/reports/templates'), []);
-  const runs = useLoad<{ runs?: AnyRecord[] }>(() => get('/reports/runs'), []);
+function ReportsPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const canGenerate = hasProjectPermission('reports.create', activeUser);
+  const canShare = Boolean(projectId) && hasProjectPermission('project.members.manage', activeUser);
+  const portfolio = useLoad<AnyRecord>(() => projectId && hasProjectPermission('reports.view', activeUser)
+    ? get(`/reports/project/${encodeURIComponent(projectId)}`)
+    : Promise.resolve({}), [projectId, activeUser?.projectPermissions]);
+  const templates = useLoad<{ templates?: AnyRecord[] }>(() => canGenerate ? get('/reports/templates') : Promise.resolve({ templates: [] }), [canGenerate]);
+  const runs = useLoad<{ runs?: AnyRecord[] }>(() => get(projectId ? `/reports/runs?projectId=${encodeURIComponent(projectId)}` : '/reports/runs'), [projectId]);
+  const members = useLoad<{ members?: AnyRecord[] }>(() => canShare ? get(`/projects/${encodeURIComponent(projectId)}/members`) : Promise.resolve({ members: [] }), [projectId, canShare]);
+  const shares = useLoad<{ shares?: AnyRecord[] }>(() => canShare ? get(`/projects/${encodeURIComponent(projectId)}/funder/report-shares`) : Promise.resolve({ shares: [] }), [projectId, canShare]);
   const [busy, setBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [funderUserId, setFunderUserId] = useState('');
+  const funderCandidates = (members.data?.members || []).filter(member =>
+    member.is_active === true && !member.deactivated_at &&
+    (member.role_assignments || []).some((assignment: AnyRecord) =>
+      assignment.roleCode === 'funder' && assignment.isActive === true &&
+      !assignment.revokedAt && (!assignment.expiresAt || new Date(assignment.expiresAt).getTime() > Date.now())
+    )
+  );
   const generate = async () => {
+    if (!canGenerate || !projectId) return;
     setBusy(true);
     try {
       const tpl = templates.data?.templates?.[0]?.id;
@@ -1284,16 +1313,55 @@ function ReportsPage({ projectId, onNotice }: { projectId: string; onNotice: (ki
         onNotice('error', 'Template laporan belum tersedia. Konfigurasi template laporan diperlukan sebelum generate.');
         return;
       }
-      await post('/reports/generate', { template: tpl, projectId: projectId || null });
+      await post('/reports/generate', { templateId: tpl, projectId });
       onNotice('success', 'Permintaan laporan dibuat.');
       runs.refresh();
     } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Gagal generate laporan.'); }
     finally { setBusy(false); }
   };
+  const shareReport = async (reportRunId: string) => {
+    if (!canShare || !funderUserId) return;
+    setShareBusy(true);
+    try {
+      await post(`/projects/${encodeURIComponent(projectId)}/funder/report-shares`, { reportRunId, funderUserId });
+      onNotice('success', 'Laporan completed berhasil dibagikan ke Funder terpilih.');
+      shares.refresh();
+    } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Laporan gagal dibagikan.'); }
+    finally { setShareBusy(false); }
+  };
+  const revokeShare = async (shareId: string) => {
+    const reason = window.prompt('Alasan pencabutan akses (minimal 5 karakter):') || '';
+    if (reason.trim().length < 5) return;
+    setShareBusy(true);
+    try {
+      await patch(`/projects/${encodeURIComponent(projectId)}/funder/report-shares/${encodeURIComponent(shareId)}/revoke`, { reason });
+      onNotice('success', 'Akses laporan Funder berhasil dicabut.');
+      shares.refresh();
+    } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Akses laporan gagal dicabut.'); }
+    finally { setShareBusy(false); }
+  };
   return <>
-    <PageTitle eyebrow="REPORTS" title="Laporan" subtitle="Ringkasan laporan dan riwayat report run dari API." actions={<ActionButton onClick={generate} disabled={busy || templates.loading}>{busy ? 'Memproses…' : 'Generate report'}</ActionButton>} />
-    <Card><PanelHeading title="Ringkasan" description="Data ringkasan dari API." />{portfolio.loading ? <Loading /> : portfolio.error ? <ErrorState message={portfolio.error} retry={portfolio.refresh} /> : <JsonSummary data={portfolio.data} />}</Card>
-    <Card><PanelHeading title="Report runs" description="Riwayat run. Status completed hanya valid bila file laporan privat terverifikasi oleh backend." />{runs.loading ? <Loading /> : runs.error ? <ErrorState message={runs.error} retry={runs.refresh} /> : <DataTable rows={runs.data?.runs || []} columns={[{key:'id',label:'ID',render:r=>shortId(r.id)},{key:'status',label:'Status',render:r=><StatusPill value={r.status||'queued'}/>},{key:'created_at',label:'Dibuat',render:r=>dateTime(r.created_at)},{key:'note',label:'Catatan',render:r=>r.note||'—'}]} emptyTitle="Belum ada run" emptyText="Generate report untuk membuat run." />}</Card>
+    <PageTitle eyebrow="REPORTS" title="Laporan" subtitle="Ringkasan laporan dan riwayat report run dari API." actions={canGenerate ? <ActionButton onClick={generate} disabled={busy || templates.loading || !projectId}>{busy ? 'Memproses…' : 'Generate report'}</ActionButton> : undefined} />
+    {canGenerate && <Card><PanelHeading title="Ringkasan" description="Ringkasan hanya ditampilkan jika role memiliki reports.view." />{portfolio.loading ? <Loading /> : portfolio.error ? <ErrorState message={portfolio.error} retry={portfolio.refresh} /> : <JsonSummary data={portfolio.data} />}</Card>}
+    <Card><PanelHeading title="Report runs" description="Hanya laporan completed dengan file reference valid yang dapat dibagikan." />{runs.loading ? <Loading /> : runs.error ? <ErrorState message={runs.error} retry={runs.refresh} /> : <DataTable rows={runs.data?.runs || []} columns={[
+      {key:'id',label:'ID',render:r=>shortId(r.id)},
+      {key:'templateId',label:'Template',render:r=>r.templateId||'—'},
+      {key:'status',label:'Status',render:r=><StatusPill value={r.status||'queued'}/>},
+      {key:'generatedAt',label:'Dibuat',render:r=>dateTime(r.generatedAt)},
+      {key:'fileReference',label:'File',render:r=>r.fileReference||'—'},
+      ...(canShare ? [{key:'share',label:'Funder',render:(r:AnyRecord)=><ActionButton variant="secondary" disabled={shareBusy || !funderUserId || r.status!=='completed' || !r.fileReference} onClick={()=>void shareReport(r.id)}>Bagikan</ActionButton>}] : []),
+    ]} emptyTitle="Belum ada run" emptyText="Belum ada report run pada Project terpilih." /></Card>
+    {canShare && <Card><PanelHeading title="Bagikan laporan ke Funder" description="Pilih penerima yang memiliki assignment Funder aktif di Project ini." />
+      {members.loading ? <Loading /> : members.error ? <ErrorState message={members.error} retry={members.refresh} /> : funderCandidates.length === 0
+        ? <EmptyState title="Belum ada Funder aktif" desc="Aktifkan assignment Funder pada Project sebelum membagikan laporan." />
+        : <div className="form-grid"><FormField label="Penerima Funder"><select value={funderUserId} onChange={e=>setFunderUserId(e.target.value)}><option value="">Pilih akun Funder</option>{funderCandidates.map(member=><option key={member.user_id} value={member.user_id}>{member.name || member.email} · {member.email}</option>)}</select></FormField></div>}
+      {shares.loading ? <Loading /> : shares.error ? <ErrorState message={shares.error} retry={shares.refresh} /> : <DataTable rows={shares.data?.shares || []} columns={[
+        {key:'template_id',label:'Laporan',render:r=>r.template_id||shortId(r.report_run_id)},
+        {key:'funder_email',label:'Funder'},
+        {key:'shared_at',label:'Dibagikan',render:r=>dateTime(r.shared_at)},
+        {key:'revoke',label:'Akses',render:r=><ActionButton variant="secondary" disabled={shareBusy} onClick={()=>void revokeShare(r.id)}>Cabut akses</ActionButton>},
+      ]} emptyTitle="Belum ada laporan dibagikan" emptyText="Bagikan report run completed untuk memberi akses terbatas kepada Funder." />}
+    </Card>}
   </>;
 }
 

@@ -168,17 +168,18 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "vessel.view", "voyage.view", "shipment.view", "documents.view",
   ], ["Vessel/voyage assigned scope only; not the application's Master of Loading."], { classification: "external" }),
   role("finance", "Finance Officer", "finance", [
-    "finance.view", "finance.create", "finance.update", "finance.delete", "reports.view", "reports.create",
+    "project.view", "finance.view", "finance.create", "finance.update", "finance.delete", "reports.view", "reports.create",
     "report.view", "view_financial", "view_rab", "manage_rab",
   ], ["Finance reporting and controls only; no payment instruction, approval, reconciliation or evidence-verification grants."]),
   role("accounting", "Accountant", "finance", [
-    "accounting.view", "accounting.create", "reports.view", "report.view", "view_financial", "view_rab",
+    "project.view", "accounting.view", "accounting.create", "reports.view", "report.view", "view_financial", "view_rab",
   ], ["Journal posting/reversal must be separately assigned and independently approved."]),
   role("cashier", "Cashier", "finance", [
     "payment.view", "finance.view", "reports.view",
   ], ["No payment instruction issue, payment approval or payment evidence verification by default."]),
   role("funder", "Project Funder", "finance", [
-  ], ["External Funder has no generic Finance or Reports permission. Only explicitly shared report artifacts may be exposed after a dedicated Funder permission, API and RLS scope are implemented."], { classification: "external" }),
+    "project.view", "funder.view",
+  ], ["External Funder may view basic Project context and only report artifacts explicitly shared to their active Project Funder assignment. No generic Finance, Accounting, payment or internal Reports access."], { classification: "external" }),
   role("document_officer", "Document Officer", "governance", ["project.view","document.view","document.download","documents.view","documents.create","documents.update","documents.upload","documents.verify","documents.manage"], ["Document lifecycle only; no Finance, Accounting or payment execution grants."]),
   role("external_provider", "External Provider", "procurement", ["project.view","document.view","document.download","documents.view","documents.create","documents.upload","view_published_docs"], ["External assigned-document scope only."], { classification: "external" }),
   role("field_manager", "Field Manager", "warehouse_logistics", ["project.view","logistics.view","logistics.create","logistics.update","operations.view","operations.update","record_truck_trips","verify_checkpoints","shipment.event.create"], ["Field execution and logistics scope only."]),

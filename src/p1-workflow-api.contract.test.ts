@@ -35,7 +35,7 @@ describe("P1 workflow API security contracts",()=>{
   });
   it("enforces delegated HSE ownership and independent verification",()=>{
     expect(api).toContain("hse.action.manage");
-    expect(api).toContain("Independent HSE Officer");
+    expect(api).toContain("HSE_VERIFICATION_INDEPENDENCE_REQUIRED");
     expect(migration).toContain("hse.action.respond");
     expect(migration).toContain("assignee_user_id=pke_current_user_id()");
   });

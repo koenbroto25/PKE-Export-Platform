@@ -1145,3 +1145,12 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - UAT ledger: 82 rows (1–16 baselined, 17–82 applied). Production ledger: 53 rows (1–16 baselined, 17–53 applied), verified read-only only.
 - P16 work must proceed on existing branch `f1/project-scoped-cob-20261119` and Neon UAT only. No new GitHub branch, no PR merge, no Vercel deployment, and no Neon Production DDL/DML.
 - Before implementation, prepare targeted UAT policy backups, align role allowlists with RLS and API authorization, and keep all unverified port depths, tide, services, limits and warehouse capabilities explicitly unverified. See Master Implementation Plan §56.54 for the detailed audit and sequence.
+
+
+## P16 source checkpoint — 2026-11-21
+
+- Implemented authenticated read-only port and warehouse APIs plus the Port & Warehouse workspace. API access is gated by active Project permissions `port.view` and `warehouse.view`; each tab loads independently.
+- Port status display now fails closed when a row is marked verified without source reference, verification timestamp and an official/national/port code. The UAT fixture was not modified.
+- UAT SQL smoke checks passed for port hierarchy/detail and warehouse detail queries. No UAT write/migration was performed for this read-only slice.
+- P16 is still incomplete: Admin master-data writes, depth/tide evidence workflow, route alternatives, vessel advisory assessment and warehouse capability edit/review require matching RLS migration, backups, allowlist alignment and role backtests before APIs are enabled.
+- Latest source work and CI are recorded in Master Implementation Plan §56.54.1–56.54.2. Preserve the existing branch, keep Neon Production read-only, do not merge PR #2 or deploy Vercel.

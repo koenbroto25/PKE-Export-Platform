@@ -435,19 +435,36 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
     () => projectId ? get(`/projects/${projectId}/pks-sites`) : Promise.resolve({ participations: [], canManage: false }),
     [projectId],
   );
+  const candidates = useLoad<{ candidates?: AnyRecord[]; canManage?: boolean; canVerify?: boolean }>(
+    () => projectId ? get(`/projects/${projectId}/pks-candidates`) : Promise.resolve({ candidates: [], canManage: false, canVerify: false }),
+    [projectId],
+  );
   const [editingId, setEditingId] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
+    projectFacilityLabel: '', projectLocationNotes: '',
     operationalContactName: '', operationalContactEmail: '', operationalContactPhone: '',
     contractedCapacityMtMonth: '', allocatedCapacityMtMonth: '',
     deliveryStart: '07:00', deliveryEnd: '17:00', deliveryDays: 'Monday, Tuesday, Wednesday, Thursday, Friday',
     projectTerms: '', notes: '', status: 'proposed',
   });
+  const [candidateEditingId, setCandidateEditingId] = useState('');
+  const [candidateFormOpen, setCandidateFormOpen] = useState(false);
+  const [candidateBusy, setCandidateBusy] = useState(false);
+  const [candidateForm, setCandidateForm] = useState({
+    candidateType: 'organization', candidateName: '', candidateCategory: '',
+    locationText: '', sourceName: '', sourceUrl: '', sourceReference: '',
+    notes: '', verificationStatus: 'unverified',
+  });
   const canManage = data.data?.canManage === true;
+  const canManageCandidates = candidates.data?.canManage === true;
+  const canVerifyCandidates = candidates.data?.canVerify === true;
   const startEdit = (row: AnyRecord) => {
     const window = row.delivery_window || {};
     setEditingId(String(row.id));
     setForm({
+      projectFacilityLabel: row.project_facility_label || '',
+      projectLocationNotes: row.project_location_notes || '',
       operationalContactName: row.operational_contact_name || '',
       operationalContactEmail: row.operational_contact_email || '',
       operationalContactPhone: row.operational_contact_phone || '',
@@ -467,6 +484,8 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
     setBusy(true);
     try {
       await patch(`/projects/${projectId}/pks-sites/${editingId}`, {
+        projectFacilityLabel: form.projectFacilityLabel || null,
+        projectLocationNotes: form.projectLocationNotes || null,
         operationalContactName: form.operationalContactName || null,
         operationalContactEmail: form.operationalContactEmail || null,
         operationalContactPhone: form.operationalContactPhone || null,
@@ -491,14 +510,74 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
       setBusy(false);
     }
   };
+  const startCandidateEdit = (row: AnyRecord) => {
+    setCandidateEditingId(String(row.id));
+    setCandidateFormOpen(true);
+    setCandidateForm({
+      candidateType: row.candidate_type || 'organization',
+      candidateName: row.candidate_name || '',
+      candidateCategory: row.candidate_category || '',
+      locationText: row.location_text || '',
+      sourceName: row.source_name || '',
+      sourceUrl: row.source_url || '',
+      sourceReference: row.source_reference || '',
+      notes: row.notes || '',
+      verificationStatus: row.verification_status || 'unverified',
+    });
+  };
+  const resetCandidateForm = () => {
+    setCandidateEditingId('');
+    setCandidateFormOpen(false);
+    setCandidateForm({
+      candidateType: 'organization', candidateName: '', candidateCategory: '',
+      locationText: '', sourceName: '', sourceUrl: '', sourceReference: '',
+      notes: '', verificationStatus: 'unverified',
+    });
+  };
+  const saveCandidate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!canManageCandidates) return;
+    setCandidateBusy(true);
+    const body: AnyRecord = {
+      candidateType: candidateForm.candidateType,
+      candidateName: candidateForm.candidateName,
+      candidateCategory: candidateForm.candidateCategory || null,
+      locationText: candidateForm.locationText || null,
+      notes: candidateForm.notes || null,
+    };
+    try {
+      if (candidateEditingId) {
+        if (canVerifyCandidates) body.verificationStatus = candidateForm.verificationStatus;
+        await patch(`/projects/${projectId}/pks-candidates/${candidateEditingId}`, body);
+      } else {
+        await post(`/projects/${projectId}/pks-candidates`, {
+          ...body,
+          sourceName: candidateForm.sourceName,
+          sourceUrl: candidateForm.sourceUrl || null,
+          sourceReference: candidateForm.sourceReference,
+          sourceType: candidateForm.sourceUrl ? 'public_candidate' : 'manual',
+          sourceSnapshot: {},
+        });
+      }
+      onNotice('success', candidateEditingId ? 'Kandidat berhasil diperbarui.' : 'Kandidat baru berhasil ditambahkan dan berstatus belum terverifikasi.');
+      resetCandidateForm();
+      candidates.refresh();
+    } catch (error) {
+      onNotice('error', error instanceof Error ? error.message : 'Data kandidat tidak dapat disimpan.');
+    } finally {
+      setCandidateBusy(false);
+    }
+  };
   return <>
-    <PageTitle eyebrow="P2-A · P15 SUPPLY MASTER" title="PKS & Supplier Project" subtitle="Kelola data operasional dan kapasitas kontraktual pada Project. Identitas legal dan identitas fasilitas global tetap melalui proses verifikasi terpisah." />
+    <PageTitle eyebrow="P2-A · P15 SUPPLY MASTER" title="PKS & Supplier Project" subtitle="Kelola partisipasi operasional, kandidat perusahaan/fasilitas, dan kapasitas Project. Identitas legal/fasilitas global tetap melalui verifikasi terpisah." />
     {!projectId ? <Card><EmptyState title="Pilih Project terlebih dahulu" desc="Pilih Project pada pemilih di bagian atas untuk melihat dan mengubah data PKS yang terkait." /></Card> : <>
-      <Card><PanelHeading title="Batas data dan verifikasi" description="Kapasitas kontraktual bukan stok tersedia. Data berstatus seed/mock bukan penawaran pemasok dan tidak boleh dipakai sebagai angka komersial." />
-        <div className="insight-grid"><div><span>Hak akses</span><strong>{canManage ? 'Admin / PM · dapat mengedit' : 'Baca saja'}</strong></div><div><span>Identitas global</span><strong>Perlu verifikasi terpisah</strong></div><div><span>Audit</span><strong>Perubahan tercatat</strong></div><div><span>Seed data</span><strong>Ditandai dan dapat direvisi</strong></div></div>
+      <Card><PanelHeading title="Batas data dan verifikasi" description="Kapasitas kontraktual bukan stok tersedia. Data seed/mock bukan penawaran pemasok. Kandidat publik bukan counterparty atau fasilitas yang telah diverifikasi." />
+        <div className="insight-grid"><div><span>Hak akses</span><strong>{canManage ? 'Admin / PM · dapat mengedit' : 'Baca saja'}</strong></div><div><span>Identitas global</span><strong>Perlu verifikasi terpisah</strong></div><div><span>Audit</span><strong>Perubahan tercatat</strong></div><div><span>Kandidat publik</span><strong>Belum terverifikasi</strong></div></div>
       </Card>
-      {editingId && canManage && <Card className="form-panel"><PanelHeading title="Edit partisipasi PKS" description="Perubahan hanya berlaku untuk Project terpilih; nama legal dan data identitas fasilitas tidak dapat diubah di formulir ini." action={<button className="icon-button" onClick={() => setEditingId('')}><X size={18} /></button>} />
+      {editingId && canManage && <Card className="form-panel"><PanelHeading title="Edit partisipasi fasilitas" description="Perubahan berlaku pada Project terpilih. Alias dan catatan lokasi bersifat khusus Project; identitas legal/fasilitas global tidak diubah." action={<button className="icon-button" onClick={() => setEditingId('')}><X size={18} /></button>} />
         <form className="form-grid" onSubmit={save}>
+          <FormField label="Nama tampilan fasilitas pada Project"><input value={form.projectFacilityLabel} onChange={e => setForm(v => ({ ...v, projectFacilityLabel: e.target.value }))} maxLength={200} /></FormField>
+          <FormField label="Catatan lokasi Project"><input value={form.projectLocationNotes} onChange={e => setForm(v => ({ ...v, projectLocationNotes: e.target.value }))} maxLength={500} /></FormField>
           <FormField label="Nama kontak operasional"><input value={form.operationalContactName} onChange={e => setForm(v => ({ ...v, operationalContactName: e.target.value }))} maxLength={160} /></FormField>
           <FormField label="Email kontak"><input type="email" value={form.operationalContactEmail} onChange={e => setForm(v => ({ ...v, operationalContactEmail: e.target.value }))} maxLength={254} /></FormField>
           <FormField label="Telepon kontak"><input value={form.operationalContactPhone} onChange={e => setForm(v => ({ ...v, operationalContactPhone: e.target.value }))} maxLength={50} /></FormField>
@@ -513,17 +592,42 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
           <div className="form-actions"><ActionButton variant="secondary" onClick={() => setEditingId('')}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan perubahan'}</button></div>
         </form>
       </Card>}
-      <Card><PanelHeading title="Daftar fasilitas pada Project" description="Data global fasilitas ditampilkan sebagai referensi; yang dapat diedit di sini adalah overlay operasional Project." action={<button className="icon-button" onClick={() => data.refresh()} title="Refresh"><RefreshCw size={16} /></button>} />
+      <Card><PanelHeading title="Daftar fasilitas pada Project" description="PKS (palm oil mill) dan KCP (kernel crushing plant) ditampilkan sebagai jenis fasilitas yang berbeda. Alias dan catatan lokasi dapat direvisi oleh Admin/PM tanpa mengubah identitas global." action={<button className="icon-button" onClick={() => data.refresh()} title="Refresh"><RefreshCw size={16} /></button>} />
         {data.loading ? <Loading /> : data.error ? <ErrorState message={data.error} retry={data.refresh} /> : <DataTable rows={data.data?.participations || []} columns={[
-          { key: 'facility_name', label: 'Fasilitas', render: r => <div className="primary-cell"><strong>{r.facility_name}</strong><small>{r.facility_code || shortId(r.pks_site_id)} · {String(r.facility_type || '').replaceAll('_', ' ')}</small></div> },
-          { key: 'supplier_name', label: 'Supplier', render: r => r.supplier_name || (r.vendor_id ? shortId(r.vendor_id) : 'Belum ditautkan') },
+          { key: 'facility_name', label: 'Fasilitas', render: r => <div className="primary-cell"><strong>{r.project_facility_label || r.facility_name}</strong><small>{r.facility_name} · {r.facility_code || shortId(r.pks_site_id)} · {String(r.facility_type || '').replaceAll('_', ' ')}</small></div> },
+          { key: 'supplier_name', label: 'Supplier / operator', render: r => r.supplier_name || (r.vendor_id ? shortId(r.vendor_id) : 'Belum ditautkan') },
           { key: 'capacity', label: 'Kapasitas kontraktual / alokasi', render: r => `${number(r.contracted_capacity_mt_month)} / ${number(r.allocated_capacity_mt_month)} MT/bulan` },
-          { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
+          { key: 'status', label: 'Status partisipasi', render: r => <StatusPill value={r.status} /> },
           { key: 'verification', label: 'Verifikasi fasilitas', render: r => <StatusPill value={r.facility_verification_status} /> },
           { key: 'source', label: 'Sumber', render: r => r.is_seed_data ? <span className="status-pill pill-amber">SEED / MOCK</span> : <StatusPill value={r.source_type} /> },
           { key: 'updated_at', label: 'Diperbarui', render: r => dateTime(r.updated_at) },
           { key: 'actions', label: 'Aksi', render: r => canManage ? <ActionButton variant="secondary" onClick={() => startEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
-        ]} emptyTitle="Belum ada partisipasi PKS" emptyText="Belum ada fasilitas yang ditautkan ke Project ini." />}
+        ]} emptyTitle="Belum ada partisipasi fasilitas" emptyText="Belum ada fasilitas yang ditautkan ke Project ini." />}
+      </Card>
+      <Card><PanelHeading title="Register kandidat supplier & fasilitas" description="Data dari direktori publik disimpan sebagai kandidat saja. PM dapat memperbaiki nama kerja, kategori, lokasi dan catatan; hanya Admin yang dapat mengubah keputusan verifikasi." action={canManageCandidates ? <ActionButton onClick={() => { setCandidateEditingId(''); setCandidateFormOpen(true); }}>Tambah kandidat</ActionButton> : undefined} />
+        {candidateFormOpen && canManageCandidates && <form className="form-grid" onSubmit={saveCandidate}>
+          <FormField label="Jenis kandidat"><select value={candidateForm.candidateType} disabled={!!candidateEditingId} onChange={e => setCandidateForm(v => ({ ...v, candidateType: e.target.value }))}><option value="organization">Perusahaan / organisasi</option><option value="facility">Fasilitas</option></select></FormField>
+          <FormField label="Nama kandidat"><input required minLength={2} maxLength={240} value={candidateForm.candidateName} onChange={e => setCandidateForm(v => ({ ...v, candidateName: e.target.value }))} /></FormField>
+          <FormField label="Kategori / tipe"><input value={candidateForm.candidateCategory} onChange={e => setCandidateForm(v => ({ ...v, candidateCategory: e.target.value }))} maxLength={160} /></FormField>
+          <FormField label="Lokasi dari sumber"><input value={candidateForm.locationText} onChange={e => setCandidateForm(v => ({ ...v, locationText: e.target.value }))} maxLength={300} /></FormField>
+          {!candidateEditingId && <>
+            <FormField label="Nama sumber"><input required value={candidateForm.sourceName} onChange={e => setCandidateForm(v => ({ ...v, sourceName: e.target.value }))} maxLength={180} /></FormField>
+            <FormField label="URL sumber"><input type="url" value={candidateForm.sourceUrl} onChange={e => setCandidateForm(v => ({ ...v, sourceUrl: e.target.value }))} placeholder="https://" /></FormField>
+            <FormField label="Referensi sumber"><input required value={candidateForm.sourceReference} onChange={e => setCandidateForm(v => ({ ...v, sourceReference: e.target.value }))} maxLength={240} /></FormField>
+          </>}
+          {canVerifyCandidates && candidateEditingId && <FormField label="Status verifikasi"><select value={candidateForm.verificationStatus} onChange={e => setCandidateForm(v => ({ ...v, verificationStatus: e.target.value }))}><option value="unverified">Unverified</option><option value="submitted">Submitted</option><option value="under_review">Under review</option><option value="verified">Verified</option><option value="rejected">Rejected</option><option value="expired">Expired</option></select></FormField>}
+          <FormField label="Catatan kerja" wide><textarea rows={3} value={candidateForm.notes} onChange={e => setCandidateForm(v => ({ ...v, notes: e.target.value }))} /></FormField>
+          <div className="form-actions"><ActionButton variant="secondary" onClick={resetCandidateForm}>Batal</ActionButton><button className="primary-button" disabled={candidateBusy}>{candidateBusy ? 'Menyimpan…' : 'Simpan kandidat'}</button></div>
+        </form>}
+        {candidates.loading ? <Loading /> : candidates.error ? <ErrorState message={candidates.error} retry={candidates.refresh} /> : <DataTable rows={candidates.data?.candidates || []} columns={[
+          { key: 'candidate_name', label: 'Kandidat', render: r => <div className="primary-cell"><strong>{r.candidate_name}</strong><small>{r.candidate_type} · {r.candidate_category || 'Kategori belum dipastikan'}</small></div> },
+          { key: 'location_text', label: 'Lokasi', render: r => r.location_text || 'Belum tersedia' },
+          { key: 'source_name', label: 'Sumber', render: r => <div className="primary-cell"><strong>{r.source_name}</strong><small>{r.source_reference}</small></div> },
+          { key: 'verification_status', label: 'Verifikasi', render: r => <StatusPill value={r.verification_status} /> },
+          { key: 'seed', label: 'Penanda', render: r => r.is_seed_data ? <span className="status-pill pill-amber">SEED / MOCK</span> : r.source_type === 'public_candidate' ? <span className="status-pill pill-blue">PUBLIC CANDIDATE</span> : <StatusPill value={r.source_type} /> },
+          { key: 'notes', label: 'Catatan', render: r => r.notes || '—' },
+          { key: 'actions', label: 'Aksi', render: r => canManageCandidates ? <ActionButton variant="secondary" onClick={() => startCandidateEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
+        ]} emptyTitle="Belum ada kandidat" emptyText="Tambahkan kandidat perusahaan atau fasilitas dengan sumber yang dapat ditelusuri." />}
       </Card>
     </>}
   </>;

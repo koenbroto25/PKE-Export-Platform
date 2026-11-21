@@ -24,7 +24,7 @@ ALTER TABLE public.port_berths ADD COLUMN IF NOT EXISTS verification_status text
 ALTER TABLE public.port_channels ADD COLUMN IF NOT EXISTS verification_status text NOT NULL DEFAULT 'unverified', ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS verified_by uuid, ADD COLUMN IF NOT EXISTS review_note text;
 ALTER TABLE public.port_anchorages ADD COLUMN IF NOT EXISTS verification_status text NOT NULL DEFAULT 'unverified', ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS verified_by uuid, ADD COLUMN IF NOT EXISTS review_note text;
 ALTER TABLE public.port_loading_services ADD COLUMN IF NOT EXISTS verification_status text NOT NULL DEFAULT 'unverified', ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS verified_by uuid, ADD COLUMN IF NOT EXISTS review_note text;
-ALTER TABLE public.port_equipment ADD COLUMN IF NOT EXISTS verification_status text NOT NULL DEFAULT 'unverified', ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS verified_by uuid, ADD COLUMN IF NOT EXISTS review_note text;
+ALTER TABLE public.port_equipment ADD COLUMN IF NOT EXISTS verified_at timestamptz, ADD COLUMN IF NOT EXISTS verification_status text NOT NULL DEFAULT 'unverified', ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS verified_by uuid, ADD COLUMN IF NOT EXISTS review_note text;
 ALTER TABLE public.port_operating_limits ADD COLUMN IF NOT EXISTS verification_status text NOT NULL DEFAULT 'unverified', ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS review_note text;
 ALTER TABLE public.port_depth_observations ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS review_note text;
 ALTER TABLE public.port_tide_observations ADD COLUMN IF NOT EXISTS evidence_sha256 text, ADD COLUMN IF NOT EXISTS evidence_object_key text, ADD COLUMN IF NOT EXISTS submitted_by uuid, ADD COLUMN IF NOT EXISTS reviewed_by uuid, ADD COLUMN IF NOT EXISTS reviewed_at timestamptz, ADD COLUMN IF NOT EXISTS review_note text, ADD COLUMN IF NOT EXISTS valid_to date;
@@ -87,7 +87,131 @@ BEGIN
  v_changed:=(v_before-ARRAY['verification_status','verified_by','verified_at','review_note','submitted_by']::text[]) IS DISTINCT FROM (v_after-ARRAY['verification_status','verified_by','verified_at','review_note','submitted_by']::text[]);
  IF v_changed THEN NEW.submitted_by:=v_actor; NEW.verification_status:='submitted'; NEW.verified_by:=NULL; NEW.verified_at:=NULL;
  ELSIF NEW.verification_status='verified' AND OLD.verification_status IS DISTINCT FROM 'verified' THEN
-  IF NULLIF(btrim(COALESCE(NEW.source_reference,'')),'') IS NULL OR NEW.evidence_sha256 !~ '^[0-9a-f]{64}$' OR OLD.submitted_by IS NULL OR OLD.submitted_by=v_actor OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN
+  IF NULLIF(btrim(COALESCE(NEW.source_reference,'')),'') IS NULL OR COALESCE(NEW.evidence_sha256,'') !~ '^[0-9a-f]{64} OR OLD.submitted_by IS NULL OR OLD.submitted_by=v_actor OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN
+   RAISE EXCEPTION 'Independent verification requires source, SHA-256 evidence, a different reviewer and review note.' USING ERRCODE='23514'; END IF;
+  NEW.verified_by:=v_actor; NEW.verified_at:=now();
+ ELSIF NEW.verification_status='rejected' AND OLD.verification_status IS DISTINCT FROM 'rejected' THEN
+  IF OLD.submitted_by=v_actor OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN RAISE EXCEPTION 'Independent rejection requires reviewer note.' USING ERRCODE='23514'; END IF;
+  NEW.verified_by:=v_actor; NEW.verified_at:=now();
+ END IF;
+ INSERT INTO public.audit_events(actor_user_id,actor_type,actor_role,action,target_type,target_id,before_snapshot,after_snapshot,reason,outcome)
+ VALUES(v_actor,'admin','admin',CASE WHEN NEW.verification_status IN ('verified','rejected') AND OLD.verification_status IS DISTINCT FROM NEW.verification_status THEN 'p16.master.reviewed' ELSE 'p16.master.updated' END,TG_TABLE_NAME,NEW.id,v_before,to_jsonb(NEW),NULLIF(btrim(COALESCE(NEW.review_note,'')),''),'success');
+ RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.pke_p16_admin_master_guard() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.pke_p16_depth_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog','public'
+AS $function$
+DECLARE v_actor uuid:=public.pke_current_user_id();
+BEGIN
+ IF TG_OP='INSERT' THEN
+  IF v_actor IS NULL OR NOT public.pke_p16_project_port_permission(NULLIF(current_setting('app.current_project_id',true),'')::uuid,NEW.port_id,'port.depth.submit') THEN RAISE EXCEPTION 'Project-linked port.depth.submit permission required.' USING ERRCODE='42501'; END IF;
+  IF NEW.depth_unit<>'m' OR NULLIF(btrim(NEW.depth_datum),'') IS NULL OR NULLIF(btrim(NEW.source_authority),'') IS NULL OR NEW.survey_date IS NULL OR NEW.observed_at IS NULL OR NULLIF(btrim(COALESCE(NEW.evidence_object_key,'')),'') IS NULL OR NEW.evidence_sha256 !~ '^[0-9a-f]{64}$' THEN RAISE EXCEPTION 'Depth submission requires metres, datum, survey date, authority, evidence object and SHA-256.' USING ERRCODE='23514'; END IF;
+  NEW.submitted_by:=v_actor; NEW.quality_status:='submitted'; NEW.reviewer_id:=NULL; NEW.reviewed_at:=NULL; RETURN NEW;
+ END IF;
+ IF NOT public.pke_is_platform_admin() OR v_actor IS NULL THEN RAISE EXCEPTION 'Only Platform Admin may review depth observations.' USING ERRCODE='42501'; END IF;
+ IF NEW.quality_status IN ('verified','rejected') AND OLD.quality_status IS DISTINCT FROM NEW.quality_status THEN
+  IF OLD.submitted_by IS NULL OR OLD.submitted_by=v_actor OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN RAISE EXCEPTION 'Independent depth review requires a different reviewer and review note.' USING ERRCODE='23514'; END IF;
+  NEW.reviewer_id:=v_actor; NEW.reviewed_at:=now();
+ END IF; RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.pke_p16_depth_guard() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.pke_p16_tide_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog','public'
+AS $function$
+DECLARE v_actor uuid:=public.pke_current_user_id();
+BEGIN
+ IF TG_OP='INSERT' THEN
+  IF v_actor IS NULL OR NOT public.pke_p16_project_port_permission(NULLIF(current_setting('app.current_project_id',true),'')::uuid,NEW.port_id,'port.depth.submit') THEN RAISE EXCEPTION 'Project-linked port.depth.submit permission required.' USING ERRCODE='42501'; END IF;
+  IF NULLIF(btrim(NEW.vertical_datum),'') IS NULL OR NULLIF(btrim(COALESCE(NEW.source_reference,'')),'') IS NULL OR NULLIF(btrim(COALESCE(NEW.evidence_object_key,'')),'') IS NULL OR NEW.evidence_sha256 !~ '^[0-9a-f]{64}$' THEN RAISE EXCEPTION 'Tide submission requires datum, source reference, evidence object and SHA-256.' USING ERRCODE='23514'; END IF;
+  NEW.submitted_by:=v_actor; NEW.quality_status:='submitted'; NEW.reviewed_by:=NULL; NEW.reviewed_at:=NULL; RETURN NEW;
+ END IF;
+ IF NOT public.pke_is_platform_admin() OR v_actor IS NULL THEN RAISE EXCEPTION 'Only Platform Admin may review tide observations.' USING ERRCODE='42501'; END IF;
+ IF NEW.quality_status IN ('verified','rejected') AND OLD.quality_status IS DISTINCT FROM NEW.quality_status THEN
+  IF OLD.submitted_by IS NULL OR OLD.submitted_by=v_actor OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN RAISE EXCEPTION 'Independent tide review requires a different reviewer and review note.' USING ERRCODE='23514'; END IF;
+  NEW.reviewed_by:=v_actor; NEW.reviewed_at:=now();
+ END IF; RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.pke_p16_tide_guard() FROM PUBLIC;
+
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.ports FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.port_terminals FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.port_berths FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.port_channels FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.port_anchorages FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.port_loading_services FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.port_equipment FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.port_operating_limits FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.warehouses FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.warehouse_zones FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.warehouse_bins FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.warehouse_equipment FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_admin_master_guard BEFORE INSERT OR UPDATE OR DELETE ON public.pks_port_routes FOR EACH ROW EXECUTE FUNCTION public.pke_p16_admin_master_guard();
+CREATE TRIGGER p16_depth_guard BEFORE INSERT OR UPDATE ON public.port_depth_observations FOR EACH ROW EXECUTE FUNCTION public.pke_p16_depth_guard();
+CREATE TRIGGER p16_tide_guard BEFORE INSERT OR UPDATE ON public.port_tide_observations FOR EACH ROW EXECUTE FUNCTION public.pke_p16_tide_guard();
+
+CREATE POLICY p16_admin_insert ON public.ports FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.ports FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.ports FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.port_terminals FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.port_terminals FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.port_terminals FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.port_berths FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.port_berths FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.port_berths FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.port_channels FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.port_channels FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.port_channels FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.port_anchorages FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.port_anchorages FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.port_anchorages FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.port_loading_services FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.port_loading_services FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.port_loading_services FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.port_equipment FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.port_equipment FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.port_equipment FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.port_operating_limits FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.port_operating_limits FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.port_operating_limits FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.warehouses FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.warehouses FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.warehouses FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.warehouse_zones FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.warehouse_zones FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.warehouse_zones FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.warehouse_bins FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.warehouse_bins FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.warehouse_bins FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.warehouse_equipment FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.warehouse_equipment FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.warehouse_equipment FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_insert ON public.pks_port_routes FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_update ON public.pks_port_routes FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_admin_delete ON public.pks_port_routes FOR DELETE TO app_runtime_secure USING (public.pke_is_platform_admin());
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.ports,public.port_terminals,public.port_berths,public.port_channels,public.port_anchorages,public.port_loading_services,public.port_equipment,public.port_operating_limits,public.warehouses,public.warehouse_zones,public.warehouse_bins,public.warehouse_equipment,public.pks_port_routes TO app_runtime_secure;
+
+CREATE POLICY p16_depth_submit ON public.port_depth_observations FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_p16_project_port_permission(NULLIF(current_setting('app.current_project_id',true),'')::uuid,port_id,'port.depth.submit'));
+CREATE POLICY p16_depth_review ON public.port_depth_observations FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY p16_tide_submit ON public.port_tide_observations FOR INSERT TO app_runtime_secure WITH CHECK (public.pke_p16_project_port_permission(NULLIF(current_setting('app.current_project_id',true),'')::uuid,port_id,'port.depth.submit'));
+CREATE POLICY p16_tide_review ON public.port_tide_observations FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+GRANT INSERT,UPDATE ON public.port_depth_observations,public.port_tide_observations TO app_runtime_secure;
+
+DROP POLICY pke_pks_port_routes_member_read ON public.pks_port_routes;
+CREATE POLICY p16_route_project_read ON public.pks_port_routes FOR SELECT TO app_runtime_secure USING (
+ EXISTS(SELECT 1 FROM public.project_operating_profiles op WHERE op.primary_pks_site_id=pks_port_routes.pks_site_id AND public.pke_has_project_permission(op.project_id,'route.estimate'))
+ OR EXISTS(SELECT 1 FROM public.project_pks_site_participation part WHERE part.pks_site_id=pks_port_routes.pks_site_id AND part.status='active' AND public.pke_has_project_permission(part.project_id,'route.estimate')));
+DROP POLICY pke_scope_update ON public.vessel_port_assessments;
+CREATE POLICY p16_assessment_admin_review ON public.vessel_port_assessments FOR UPDATE TO app_runtime_secure USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+DROP POLICY pke_scope_select ON public.vessel_port_assessments;
+CREATE POLICY p16_assessment_project_read ON public.vessel_port_assessments FOR SELECT TO app_runtime_secure USING (public.pke_has_project_permission(project_id,'vessel.port.assess') OR public.pke_has_project_permission(project_id,'vessel.view'));
+GRANT SELECT,INSERT,UPDATE ON public.vessel_port_assessments TO app_runtime_secure;
+ OR OLD.submitted_by IS NULL OR OLD.submitted_by=v_actor OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN
    RAISE EXCEPTION 'Independent verification requires source, SHA-256 evidence, a different reviewer and review note.' USING ERRCODE='23514'; END IF;
   NEW.verified_by:=v_actor; NEW.verified_at:=now();
  ELSIF NEW.verification_status='rejected' AND OLD.verification_status IS DISTINCT FROM 'rejected' THEN

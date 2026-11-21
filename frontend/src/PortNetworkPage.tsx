@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { get } from "./api";
+import { useEffect, useState, type ReactNode, type FormEvent } from "react";
+import { get, post, patch } from "./api";
 
 type Row = Record<string, any>;
-type Props = { projectId: string; activeUser?: { projectPermissions?: string[] } };
+type Props = { projectId: string; activeUser?: { projectPermissions?: string[]; platformAdmin?: boolean } };
 
 const statusLabel = (value: unknown) => {
   const key = String(value || "unverified").toLowerCase();
@@ -43,9 +43,28 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
+  const [masterResource, setMasterResource] = useState("ports");
+  const [masterId, setMasterId] = useState<string | null>(null);
+  const [masterDraft, setMasterDraft] = useState("{\n  \"name\": \"\",\n  \"source_reference\": \"\",\n  \"evidence_sha256\": \"\"\n}");
+  const [masterMessage, setMasterMessage] = useState("");
+  const [reviewNote, setReviewNote] = useState("");
+  const [depthDraft, setDepthDraft] = useState({ depthValue: "", depthDatum: "", observedAt: "", surveyDate: "", sourceAuthority: "", evidenceObjectKey: "", evidenceSha256: "" });
+  const [tideDraft, setTideDraft] = useState({ tideHeightM: "", verticalDatum: "", observedAt: "", sourceReference: "", evidenceObjectKey: "", evidenceSha256: "" });
+  const [vessels, setVessels] = useState<Row[]>([]);
+  const [routes, setRoutes] = useState<Row[]>([]);
+  const [selectedVesselId, setSelectedVesselId] = useState("");
+  const [selectedBerthId, setSelectedBerthId] = useState("");
+  const [assessment, setAssessment] = useState<Row | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+
   const permissions = activeUser?.projectPermissions || [];
   const canViewPorts = permissions.includes("port.view");
   const canViewWarehouses = permissions.includes("warehouse.view");
+  const platformAdmin = activeUser?.platformAdmin === true;
+  const canSubmitDepth = permissions.includes("port.depth.submit");
+  const canEstimateRoutes = permissions.includes("route.estimate");
+  const canAssessVessel = permissions.includes("vessel.port.assess") && permissions.includes("vessel.view");
+
 
   useEffect(() => {
     if (!canViewPorts && canViewWarehouses) setTab("warehouses");
@@ -85,6 +104,79 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     return () => { active = false; };
   }, [selectedWarehouse?.id, projectId, canViewWarehouses]);
 
+  useEffect(() => {
+    let active = true;
+    if (!projectId || !canAssessVessel) return;
+    get<{ vessels?: Row[] }>(`/vessels?projectId=${encodeURIComponent(projectId)}`)
+      .then(data => { if (active) setVessels(Array.isArray(data?.vessels) ? data.vessels : []); })
+      .catch(() => { if (active) setError("Daftar kapal tidak dapat dimuat."); });
+    return () => { active = false; };
+  }, [projectId, canAssessVessel]);
+
+  useEffect(() => {
+    let active = true;
+    if (!projectId || !canEstimateRoutes) return;
+    get<{ routes?: Row[] }>(`/port-routes?projectId=${encodeURIComponent(projectId)}`)
+      .then(data => { if (active) setRoutes(Array.isArray(data?.routes) ? data.routes : []); })
+      .catch(() => { if (active) setError("Referensi rute tidak dapat dimuat."); });
+    return () => { active = false; };
+  }, [projectId, canEstimateRoutes]);
+
+  async function saveMaster(event: FormEvent) {
+    event.preventDefault(); setActionBusy(true); setMasterMessage("");
+    try {
+      const body = JSON.parse(masterDraft);
+      if (masterId) await patch(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}`, body);
+      else await post(`/p16/master/${masterResource}`, body);
+      setMasterMessage("Data tersimpan sebagai Diajukan; verifikasi independen masih diperlukan.");
+      setMasterId(null);
+      if (canViewPorts) { const p = await get<{ports?:Row[]}>(`/ports?projectId=${encodeURIComponent(projectId)}`); setPorts(p.ports || []); }
+      if (canViewWarehouses) { const w = await get<{warehouses?:Row[]}>(`/warehouses?projectId=${encodeURIComponent(projectId)}`); setWarehouses(w.warehouses || []); }
+    } catch (e: any) { setMasterMessage(e?.message || "Data tidak berhasil disimpan."); }
+    finally { setActionBusy(false); }
+  }
+
+  async function reviewPort() {
+    if (!portDetail?.port?.id || reviewNote.trim().length < 5) return;
+    setActionBusy(true);
+    try {
+      await patch(`/p16/master/ports/${encodeURIComponent(portDetail.port.id)}/review`, { status: "verified", reviewNote });
+      setMasterMessage("Review pelabuhan tersimpan.");
+      const refreshed = await get<Row>(`/ports/${encodeURIComponent(portDetail.port.id)}?projectId=${encodeURIComponent(projectId)}`);
+      setPortDetail(refreshed);
+    } catch (e: any) { setMasterMessage(e?.message || "Verifikasi gagal; pastikan reviewer berbeda dari pengaju dan bukti valid."); }
+    finally { setActionBusy(false); }
+  }
+
+  async function submitDepth(event: FormEvent) {
+    event.preventDefault(); if (!selectedPort?.id) return; setActionBusy(true);
+    try {
+      await post(`/ports/${encodeURIComponent(selectedPort.id)}/depth-observations`, { projectId, ...depthDraft });
+      setMasterMessage("Observasi kedalaman diajukan untuk review Admin.");
+      const refreshed = await get<Row>(`/ports/${encodeURIComponent(selectedPort.id)}?projectId=${encodeURIComponent(projectId)}`); setPortDetail(refreshed);
+    } catch (e: any) { setMasterMessage(e?.message || "Pengajuan kedalaman gagal."); }
+    finally { setActionBusy(false); }
+  }
+
+  async function submitTide(event: FormEvent) {
+    event.preventDefault(); if (!selectedPort?.id) return; setActionBusy(true);
+    try {
+      await post(`/ports/${encodeURIComponent(selectedPort.id)}/tide-observations`, { projectId, ...tideDraft });
+      setMasterMessage("Observasi pasang-surut diajukan untuk review Admin.");
+      const refreshed = await get<Row>(`/ports/${encodeURIComponent(selectedPort.id)}?projectId=${encodeURIComponent(projectId)}`); setPortDetail(refreshed);
+    } catch (e: any) { setMasterMessage(e?.message || "Pengajuan pasang-surut gagal."); }
+    finally { setActionBusy(false); }
+  }
+
+  async function assessVessel(event: FormEvent) {
+    event.preventDefault(); if (!selectedPort?.id || !selectedVesselId) return; setActionBusy(true); setAssessment(null);
+    try {
+      const result = await post<{assessment:Row;limitations:string[]}>("/vessel-port-assessments", { projectId, portId: selectedPort.id, vesselId: selectedVesselId, berthId: selectedBerthId || undefined });
+      setAssessment(result.assessment);
+    } catch (e: any) { setMasterMessage(e?.message || "Penilaian awal kapal gagal."); }
+    finally { setActionBusy(false); }
+  }
+
   const detail = tab === "ports" ? portDetail : warehouseDetail;
   const list = tab === "ports" ? ports : warehouses;
 
@@ -96,13 +188,25 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
           <h1>Jaringan Pelabuhan & Gudang</h1>
           <p>Referensi pelabuhan, terminal, batas operasional, layanan loading, fasilitas gudang dan reservasi dalam konteks Project aktif.</p>
         </div>
-        <span className="p16-readonly">Mode baca</span>
+        {platformAdmin ? <div className="p16-header-actions"><button type="button" onClick={() => { setMasterResource("ports"); setMasterId(null); setMasterDraft(JSON.stringify({name:"",code:"",city:"",province:"",country_code:"ID",source_reference:"",evidence_sha256:""},null,2)); }}>Tambah Pelabuhan</button><button type="button" onClick={() => { setMasterResource("warehouses"); setMasterId(null); setMasterDraft(JSON.stringify({name:"",code:"",location:"",storage_mode:"",source_reference:"",evidence_sha256:""},null,2)); }}>Tambah Gudang</button></div> : <span className="p16-readonly">Data Project</span>}
       </header>
 
       <div className="p16-notice" role="status">
         <strong>Status provenance harus eksplisit.</strong> Data yang belum memiliki sumber, datum, tanggal pengukuran, checksum atau reviewer tetap ditampilkan sebagai belum diverifikasi. Penilaian kapal bersifat awal dan bukan izin navigasi.
       </div>
 
+      {masterResource && platformAdmin && masterDraft && <form className="p16-editor" onSubmit={saveMaster}>
+        <div className="p16-editor__heading"><strong>{masterId ? "Edit master P16" : "Tambah master P16"}</strong><button type="button" onClick={() => { setMasterDraft(""); setMasterId(null); }}>Tutup</button></div>
+        <label>Jenis master
+          <select value={masterResource} disabled={!!masterId} onChange={e => setMasterResource(e.target.value)}>
+            {Object.entries({ports:"Pelabuhan",terminals:"Terminal",berths:"Berth",channels:"Channel",anchorages:"Anchorage","loading-services":"Layanan loading","port-equipment":"Peralatan pelabuhan","operating-limits":"Batas operasional",warehouses:"Gudang","warehouse-zones":"Zona gudang","warehouse-bins":"Bin gudang","warehouse-equipment":"Peralatan gudang",routes:"Rute PKS–pelabuhan"}).map(([key,label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        </label>
+        <label>Data master (JSON, hanya kolom yang diizinkan akan disimpan)
+          <textarea rows={7} value={masterDraft} onChange={e => setMasterDraft(e.target.value)} spellCheck={false} />
+        </label>
+        <div className="p16-editor__actions"><button type="submit" disabled={actionBusy}>{actionBusy ? "Menyimpan…" : "Simpan sebagai diajukan"}</button>{masterMessage && <span role="status">{masterMessage}</span>}</div>
+      </form>}
       {error && <div className="p16-error" role="alert">{error}</div>}
 
       <div className="p16-tabs" role="tablist" aria-label="Jenis data jaringan">
@@ -135,7 +239,24 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
           </section>
         </div>
       )}
-      <p className="p16-footer">Pengelolaan master global dan perubahan data operasional belum dibuka pada tahap ini. Hak tulis akan diaktifkan setelah kebijakan RLS, maker-checker, audit provenance dan backtest P16 diselesaikan di UAT.</p>
+      {masterMessage && <div className="p16-notice" role="status">{masterMessage}</div>}
+      {tab === "ports" && selectedPort && portDetail?.port && <section className="p16-workflows">
+        <h3>Alur kerja pelabuhan · {portDetail.port.name}</h3>
+        {platformAdmin && <div className="p16-workflow-row"><button type="button" onClick={() => { setMasterResource("ports"); setMasterId(String(portDetail.port.id)); setMasterDraft(JSON.stringify(portDetail.port,null,2)); }}>Edit master pelabuhan</button><input aria-label="Catatan verifikasi" placeholder="Catatan review independen (min. 5 karakter)" value={reviewNote} onChange={e => setReviewNote(e.target.value)} /><button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={reviewPort}>Verifikasi pelabuhan</button></div>}
+        {canSubmitDepth && <form className="p16-workflow-form" onSubmit={submitDepth}><h4>Ajukan survei kedalaman</h4>
+          <div className="p16-form-grid"><label>Kedalaman (m)<input required type="number" min="0.01" step="0.01" value={depthDraft.depthValue} onChange={e=>setDepthDraft({...depthDraft,depthValue:e.target.value})}/></label><label>Datum vertikal<input required value={depthDraft.depthDatum} onChange={e=>setDepthDraft({...depthDraft,depthDatum:e.target.value})}/></label><label>Waktu observasi<input required type="datetime-local" value={depthDraft.observedAt} onChange={e=>setDepthDraft({...depthDraft,observedAt:e.target.value})}/></label><label>Tanggal survei<input required type="date" value={depthDraft.surveyDate} onChange={e=>setDepthDraft({...depthDraft,surveyDate:e.target.value})}/></label><label>Otoritas survei<input required value={depthDraft.sourceAuthority} onChange={e=>setDepthDraft({...depthDraft,sourceAuthority:e.target.value})}/></label><label>Object key dokumen<input required value={depthDraft.evidenceObjectKey} onChange={e=>setDepthDraft({...depthDraft,evidenceObjectKey:e.target.value})}/></label><label>SHA-256 dokumen<input required pattern="[0-9a-f]{64}" value={depthDraft.evidenceSha256} onChange={e=>setDepthDraft({...depthDraft,evidenceSha256:e.target.value})}/></label></div>
+          <p className="p16-muted">Dokumen harus sudah diunggah, checksum terverifikasi, dan berstatus Approved pada Project aktif.</p><button type="submit" disabled={actionBusy}>Ajukan kedalaman</button>
+        </form>}
+        {canSubmitDepth && <form className="p16-workflow-form" onSubmit={submitTide}><h4>Ajukan observasi pasang-surut</h4>
+          <div className="p16-form-grid"><label>Tinggi pasang (m)<input required type="number" step="0.01" value={tideDraft.tideHeightM} onChange={e=>setTideDraft({...tideDraft,tideHeightM:e.target.value})}/></label><label>Datum vertikal<input required value={tideDraft.verticalDatum} onChange={e=>setTideDraft({...tideDraft,verticalDatum:e.target.value})}/></label><label>Waktu observasi<input required type="datetime-local" value={tideDraft.observedAt} onChange={e=>setTideDraft({...tideDraft,observedAt:e.target.value})}/></label><label>Sumber observasi<input required value={tideDraft.sourceReference} onChange={e=>setTideDraft({...tideDraft,sourceReference:e.target.value})}/></label><label>Object key dokumen<input required value={tideDraft.evidenceObjectKey} onChange={e=>setTideDraft({...tideDraft,evidenceObjectKey:e.target.value})}/></label><label>SHA-256 dokumen<input required pattern="[0-9a-f]{64}" value={tideDraft.evidenceSha256} onChange={e=>setTideDraft({...tideDraft,evidenceSha256:e.target.value})}/></label></div>
+          <p className="p16-muted">Hanya dokumen Project berstatus Approved dan terverifikasi checksum yang diterima.</p><button type="submit" disabled={actionBusy}>Ajukan pasang-surut</button>
+        </form>}
+        {canAssessVessel && <form className="p16-workflow-form" onSubmit={assessVessel}><h4>Screening awal kompatibilitas kapal</h4><div className="p16-form-grid"><label>Kapal<select required value={selectedVesselId} onChange={e=>setSelectedVesselId(e.target.value)}><option value="">Pilih kapal</option>{vessels.map(v=><option key={v.id} value={v.id}>{v.name} · {v.imo_number || "IMO belum tersedia"} · {statusLabel(v.verification_status)}</option>)}</select></label><label>Berth (opsional)<select value={selectedBerthId} onChange={e=>setSelectedBerthId(e.target.value)}><option value="">Semua berth / tingkat port</option>{(portDetail.berths||[]).map((b:Row)=><option key={b.id} value={b.id}>{b.berth_code || b.name}</option>)}</select></label></div><button type="submit" disabled={actionBusy || !selectedVesselId}>Jalankan screening</button>
+          {assessment && <div className="p16-assessment"><strong>Hasil: {statusLabel(assessment.result)}</strong><p>Mode advisory only. Tidak memberikan izin navigasi atau persetujuan sandar.</p></div>}
+        </form>}
+      </section>}
+      {canEstimateRoutes && <section className="p16-workflows"><h3>Referensi rute Project (advisory)</h3>{routes.length ? routes.map(r=><div className="p16-record" key={r.id}><div><strong>{r.pks_site_name} → {r.port_name}</strong><small>{r.route_mode} · {r.distance_km ?? "—"} km · {r.estimated_travel_minutes ?? "—"} menit · sumber: {r.source_reference || "belum ada"}</small></div><Status value={r.effective_verification_status}/></div>) : <p className="p16-muted">Belum ada referensi rute untuk PKS dan Project ini.</p>}<p className="p16-muted">Estimasi rute adalah referensi logistik, bukan instruksi pelayaran atau navigasi.</p></section>}
+      <p className="p16-footer">Master global hanya dapat diubah Platform Admin. PM dan Terminal Representative dapat mengajukan bukti dalam Project aktif; hasil verifikasi memerlukan reviewer independen. Semua screening kapal/rute bersifat advisory.</p>
     </div>
   );
 }

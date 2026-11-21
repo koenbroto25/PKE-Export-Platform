@@ -48,4 +48,19 @@ describe("P1 workflow API security contracts",()=>{
     for(const permission of ["procurement.commitment.manage","quality.release.view","shipping.survey.submit","shipping.acknowledge","audit.finding.respond","hse.action.respond","dispatch.update"])
       expect(roleCatalogue).toContain(permission);
   });
+  it("uses RLS-safe active-role resolution instead of hidden Project role catalog joins",()=>{
+    expect(api).toContain("p1_has_active_project_role_assignment");
+    expect(api).toContain("P1_OWNER_ROLE_UNASSIGNED");
+  });
+  it("exposes evidence read access and permits Lab evidence without granting QA review",()=>{
+    expect(api).toContain('/api/v1/projects/:projectId/p1-workflows/:id/evidence');
+    expect(api).toContain('record.rows[0].record_type==="quality_result"');
+    expect(api).toContain('"quality.result.create"');
+  });
+  it("scopes KPI templates by the selected active role and uses verified loading-ticket source",()=>{
+    expect(api).toContain("p1KpiTemplatesByRole");
+    expect(api).toContain("public.loading_tickets");
+    expect(api).toContain("status='verified'");
+    expect(api).toContain("status IN ('presented','accepted','discrepancy')");
+  });
 });

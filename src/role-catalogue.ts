@@ -114,14 +114,17 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   role("qc_officer", "Quality Control Officer", "production_quality", [
     "quality.sample.view", "quality.sample.create", "quality.result.view", "quality.result.create", "product.view", "inventory.view", "audit.finding.respond",
     "hse.action.respond",
+    "operations.view",
   ]),
   role("qa_manager", "Quality Assurance Manager", "production_quality", [
     "quality.result.view", "quality.result.review", "quality.release.view", "quality.release.decide", "product.view", "inventory.view", "documents.view", "audit.finding.respond",
     "hse.action.respond",
+    "operations.view",
   ], ["Independent QA release/hold approval must remain separate from production execution."]),
   role("laboratory_officer", "Laboratory Officer", "production_quality", [
     "quality.result.view", "quality.result.create", "product.view", "documents.view",
     "hse.action.respond",
+    "operations.view", "quality.sample.view",
   ]),
   role("hse_officer", "HSE Officer", "production_quality", [
     "operations.view", "operations.update", "compliance.view", "compliance.assess", "documents.view", "hse.inspection.view", "hse.inspection.create", "hse.inspection.update", "hse.action.view", "hse.action.manage", "audit.finding.respond",

@@ -12,7 +12,8 @@ const expected = Object.freeze({
   "063_p1_rls_permission_function_grant.sql": "9dfce8a8df62ecd823d60af38fe5b0473c5ffffa615772445a732dddaa165f0d",
   "064_p1_managed_record_read_scope.sql": "838f078d8ed116495ea2fe7b9e98541e1900bf01210e2eeac86b01bd7ecfd108",
   "065_p1_quality_chain_project_context.sql": "eb433cd269cfc436166844ee247cfc5eac0b34fe2184a8a0a5553f1f42c69852",
-  "066_p1_work_item_sync_and_kpi_scope.sql": "76b19520116f26525379f694a95d2081f2d62721f7b07625d0507ac07a29bce4"
+  "066_p1_work_item_sync_and_kpi_scope.sql": "76b19520116f26525379f694a95d2081f2d62721f7b07625d0507ac07a29bce4",
+  "067_p1_supplier_commitment_creator_grants.sql": "fc6e82204e7fbfa17d5180280f96b292a3096bd05bb5dec0e0be31acdc6d691f"
 });
 
 function fail(message) {

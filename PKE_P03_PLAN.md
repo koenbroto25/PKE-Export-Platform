@@ -1116,3 +1116,21 @@ A direct UAT test as Procurement showed `p1_get_kpi_metric(...,'production_outpu
 - Source CI for Migration 070 is running at the time of this update; require Unit Tests and Dependency Audit SUCCESS on the final branch head before application.
 
 No Production migration, DDL/DML, branch, merge or deployment was performed. The earlier statement that UAT ledger was 65 and Migrations 058–069 were pending is superseded by this ledger reconciliation.
+
+
+---
+
+## Migration 071 — P1 AP match integrity and P3 financial audit (2026-11-21)
+
+- **UAT target only:** Neon project `purple-base-63944903`, branch `br-young-boat-b3re832d` (`p0-preview-uat-20261120`), database `neondb`.
+- **Production untouched:** `br-damp-shape-b3xlh4nr` was not modified. No Vercel deployment or GitHub branch creation was performed.
+- **Applied migration:** `071_p3_financial_audit_and_ap_match_integrity.sql`.
+- **Exact SHA-256:** `838f1041e3d5b8a9a6258d535c9ee0a7104bb1734cfa05a451200388850c44c1`. Neon `public.migration_history` row 71 was re-read and matches this exact hash with status `applied`.
+- **Integrity changes:** one verified match per Project/AP invoice; AP match fields and verification require a verified same-Project P1 PO/GRN/invoice tuple; P1 match must transition from `matched` to `verified`; direct verified inserts are rejected; verified match evidence and its PO/GRN/AP source tuple are immutable.
+- **Audit changes:** AP and AR audit triggers now capture full before/after row snapshots and changed-field metadata on material updates, including AP dispute reason and AR approval/dispute fields.
+- **UAT backtest PASS:** direct AP match writes denied; AP verification without match denied; invalid PO reference denied; invoice/PO amount mismatch denied; valid match synchronizes AP references; Finance verification after valid match succeeds; verified match, PO, GRN and AP source mutations denied; direct verified match insert denied; AP/AR audit snapshots verified; GRN review posted its inventory movement.
+- **Runtime-role backtest PASS:** executed through `app_runtime_secure`. Procurement created and transitioned the P1 PO/match records; the database synchronizer populated AP match fields; Finance then verified the AP invoice. Direct AP match/verification writes were denied, and the private match helper was not executable by the runtime role.
+- **Temporary data cleanup PASS:** all synthetic rows and inventory movements were rolled back. The pre-existing UAT AP/AR/GRN fixtures remain unchanged; no Migration 071 test fixture rows remain.
+- **Idempotence:** Migration 071 was re-applied transactionally on UAT after the matched-to-verified transition guard was added; postconditions passed and ledger row 71 was updated to the final SHA-256 above.
+
+**Gate status:** Migration 071 database integrity and runtime-role backtests are PASS. This is not a claim that every unrelated P1 workflow or deferred authenticated browser/Preview gate has been re-run by this migration.

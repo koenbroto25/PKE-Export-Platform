@@ -53,7 +53,6 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [selectedRequirementId, setSelectedRequirementId] = useState("");
   const [evidenceMessage, setEvidenceMessage] = useState("");
-  const [lastUploadedEvidence, setLastUploadedEvidence] = useState<{objectKey:string;sha256:string}|null>(null);
   const [depthDraft, setDepthDraft] = useState({ depthValue: "", depthDatum: "", observedAt: "", surveyDate: "", sourceAuthority: "", evidenceObjectKey: "", evidenceSha256: "" });
   const [tideDraft, setTideDraft] = useState({ tideHeightM: "", verticalDatum: "", observedAt: "", sourceReference: "", evidenceObjectKey: "", evidenceSha256: "" });
   const [vessels, setVessels] = useState<Row[]>([]);
@@ -236,6 +235,10 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       const bytes=await evidenceFile.arrayBuffer();
       const digest=await crypto.subtle.digest("SHA-256",bytes);
       const sha256=Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,"0")).join("");
+      const extension=evidenceFile.name.toLowerCase().slice(evidenceFile.name.lastIndexOf("."));
+      const inferredMime:Record<string,string>={".pdf":"application/pdf",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".csv":"text/csv"};
+      const mimeType=evidenceFile.type||inferredMime[extension];
+      if(!mimeType) throw new Error("Format evidence harus PDF, PNG, JPEG, WEBP, atau CSV.");
       const safeName=evidenceFile.name.normalize("NFKC").replace(/[^A-Za-z0-9._-]+/g,"-").slice(-120)||"evidence";
       const objectKey=`projects/${projectId}/documents/${selectedRequirementId}/${Date.now()}-${safeName}`;
       const signed=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>}}>(
@@ -247,7 +250,6 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
         projectRequirementId:selectedRequirementId,fileReference:objectKey,objectKey,originalFilename:evidenceFile.name,
         mimeType,sha256Checksum:sha256,contentLength:evidenceFile.size
       });
-      setLastUploadedEvidence({objectKey,sha256});
       setDepthDraft(v=>({...v,evidenceObjectKey:objectKey,evidenceSha256:sha256}));
       setTideDraft(v=>({...v,evidenceObjectKey:objectKey,evidenceSha256:sha256}));
       setEvidenceFile(null);

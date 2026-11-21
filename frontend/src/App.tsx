@@ -12,6 +12,7 @@ import { api, get, patch, post } from './api';
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 import RoleDashboardPage from './RoleDashboardPage';
 import P1WorkflowWorkbench from './P1WorkflowWorkbench';
+import MasterDataChangeRequests from './MasterDataChangeRequests';
 
 type AnyRecord = Record<string, any>;
 type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites';
@@ -753,6 +754,7 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
         ]} emptyTitle="Belum ada draft persyaratan produk" emptyText="Tambahkan persyaratan Project berdasarkan buyer contract, COA, atau sumber resmi yang ditelusuri." />}
       </Card>
     </>}
+    <MasterDataChangeRequests projectId={projectId} activeUser={activeUser} onNotice={onNotice} />
   </>;
 }
 

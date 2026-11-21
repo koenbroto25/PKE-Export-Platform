@@ -119,4 +119,8 @@ describe("P1 three-way match", () => {
     expect(validateThreeWayMatch({...base,matchedQuantity:11,receipt:{...base.receipt,quantity:11}}).reason).toBe("QUANTITY_OVER_MATCH");
     expect(validateThreeWayMatch({...base,matchedAmount:1100,invoice:{...base.invoice,totalAmount:1100}}).reason).toBe("PO_AMOUNT_EXCEEDED");
   });
+  it("initializes open-state action, audit and LC discrepancy records correctly",()=>{
+    for(const type of ["hse_action","audit_finding","lc_discrepancy"] as const) expect(initialP1Status(type)).toBe("open");
+    for(const type of P1_RECORD_TYPES.filter((type)=>!["hse_action","audit_finding","lc_discrepancy"].includes(type))) expect(initialP1Status(type)).toBe("draft");
+  });
 });

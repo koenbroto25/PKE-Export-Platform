@@ -96,7 +96,8 @@ ALTER TABLE public.product_quality_samples
  ADD COLUMN IF NOT EXISTS laboratory_accreditation_reference text NULL,
  ADD COLUMN IF NOT EXISTS chain_of_custody jsonb NOT NULL DEFAULT '{}'::jsonb,
  ADD COLUMN IF NOT EXISTS reviewed_by uuid NULL REFERENCES public.users(id),
- ADD COLUMN IF NOT EXISTS reviewed_at timestamptz NULL;
+ ADD COLUMN IF NOT EXISTS reviewed_at timestamptz NULL,
+ ADD COLUMN IF NOT EXISTS review_note text NULL;
 ALTER TABLE public.product_quality_samples
  ADD CONSTRAINT quality_sample_lab_report_sha256_check CHECK (lab_report_sha256 IS NULL OR lab_report_sha256 ~ '^[0-9a-f]{64}$') NOT VALID;
 
@@ -105,7 +106,8 @@ ALTER TABLE public.product_quality_results
  ADD COLUMN IF NOT EXISTS source_reference text NULL,
  ADD COLUMN IF NOT EXISTS source_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
  ADD COLUMN IF NOT EXISTS evidence_document_id uuid NULL REFERENCES public.project_export_documents(id) ON DELETE RESTRICT,
- ADD COLUMN IF NOT EXISTS evidence_sha256 text NULL;
+ ADD COLUMN IF NOT EXISTS evidence_sha256 text NULL,
+ ADD COLUMN IF NOT EXISTS review_note text NULL;
 ALTER TABLE public.product_quality_results
  ADD CONSTRAINT quality_result_evidence_sha256_check CHECK (evidence_sha256 IS NULL OR evidence_sha256 ~ '^[0-9a-f]{64}$') NOT VALID;
 ALTER TABLE public.facility_products
@@ -775,7 +777,7 @@ BEGIN
        RAISE EXCEPTION 'Tested/reviewed sample requires laboratory and approved lab-report evidence' USING ERRCODE='23514';
      END IF;
    END IF;
-   IF NEW.status='reviewed' AND
+   IF NEW.status IN ('reviewed','rejected') AND
       (TG_OP='INSERT' OR (TG_OP='UPDATE' AND OLD.status IS DISTINCT FROM NEW.status)) THEN
      IF NOT (public.pke_is_platform_admin() OR public.pke_has_project_permission(NEW.project_id,'quality.result.review')) THEN
        RAISE EXCEPTION 'Only a Project QA reviewer or Platform Admin may review a quality sample' USING ERRCODE='42501';
@@ -784,15 +786,19 @@ BEGIN
      NEW.reviewed_at:=now();
    END IF;
  ELSE
-   SELECT project_id,lab_report_document_id,lab_report_sha256,source_type,source_reference
+   SELECT project_id,lab_report_document_id,lab_report_sha256,source_type,source_reference,status,source_snapshot
      INTO v_sample FROM public.product_quality_samples WHERE id=NEW.sample_id;
    IF NOT FOUND THEN RAISE EXCEPTION 'Quality result sample not found' USING ERRCODE='23514'; END IF;
    IF NEW.evidence_document_id IS NULL THEN NEW.evidence_document_id:=v_sample.lab_report_document_id; END IF;
    IF NEW.evidence_document_id IS DISTINCT FROM v_sample.lab_report_document_id THEN
      RAISE EXCEPTION 'Quality result evidence must be the lab report linked to its sample' USING ERRCODE='23514';
    END IF;
+   IF v_sample.status NOT IN ('tested','reviewed') THEN
+     RAISE EXCEPTION 'Quality result cannot be recorded until its sample has a tested/reviewed lab report' USING ERRCODE='23514';
+   END IF;
    IF NEW.source_type='unknown' THEN NEW.source_type:=COALESCE(v_sample.source_type,'unknown'); END IF;
    IF NEW.source_reference IS NULL THEN NEW.source_reference:=v_sample.source_reference; END IF;
+   IF NEW.source_snapshot='{}'::jsonb THEN NEW.source_snapshot:=COALESCE(v_sample.source_snapshot,'{}'::jsonb); END IF;
    IF NEW.evidence_document_id IS NOT NULL THEN
      SELECT id,sha256_checksum INTO v_doc FROM public.project_export_documents
       WHERE id=NEW.evidence_document_id AND project_id=v_sample.project_id AND status='approved'
@@ -804,6 +810,12 @@ BEGIN
    ELSIF v_sample.lab_report_sha256 IS NOT NULL THEN
      NEW.evidence_sha256:=v_sample.lab_report_sha256;
    END IF;
+   IF NEW.evidence_document_id IS NULL OR NEW.evidence_sha256 IS NULL
+      OR NULLIF(btrim(NEW.measurement_basis),'') IS NULL
+      OR NULLIF(btrim(NEW.method_code),'') IS NULL
+      OR (NEW.result_numeric IS NOT NULL AND NULLIF(btrim(NEW.unit_code),'') IS NULL) THEN
+     RAISE EXCEPTION 'Every quality result requires sample-linked lab evidence, unit/basis/method provenance' USING ERRCODE='23514';
+   END IF;
    IF NEW.review_status IN ('accepted','rejected','retest_required') AND
       (TG_OP='INSERT' OR (TG_OP='UPDATE' AND OLD.review_status IS DISTINCT FROM NEW.review_status)) THEN
      IF NOT (public.pke_is_platform_admin() OR public.pke_has_project_permission(v_sample.project_id,'quality.result.review')) THEN
@@ -811,13 +823,8 @@ BEGIN
      END IF;
      NEW.reviewed_by:=v_user_id;
      NEW.reviewed_at:=now();
-     IF NEW.review_status='accepted' AND
-        (NEW.evidence_document_id IS NULL OR NEW.evidence_sha256 IS NULL
-         OR NULLIF(btrim(NEW.measurement_basis),'') IS NULL
-         OR NULLIF(btrim(NEW.method_code),'') IS NULL
-         OR (NEW.result_numeric IS NOT NULL AND NULLIF(btrim(NEW.unit_code),'') IS NULL)
-         OR NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL) THEN
-       RAISE EXCEPTION 'Accepted quality result requires sample-linked lab evidence, unit/basis/method and reviewer stamps' USING ERRCODE='23514';
+     IF NEW.review_status='accepted' AND (NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL) THEN
+       RAISE EXCEPTION 'Accepted quality result requires reviewer stamps' USING ERRCODE='23514';
      END IF;
    END IF;
  END IF;

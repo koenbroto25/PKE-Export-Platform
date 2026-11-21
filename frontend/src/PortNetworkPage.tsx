@@ -81,7 +81,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!projectId) return;
+    if (!projectId && !platformAdmin) return;
     setLoading(true);
     setError("");
     const requests: Promise<any>[] = [];
@@ -89,7 +89,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     if (canViewWarehouses) requests.push(get<{ warehouses?: Row[] }>(`/warehouses${projectQuery}`).then(data => { if (active) setWarehouses(Array.isArray(data?.warehouses) ? data.warehouses : []); }).catch(() => { if (active) setError("Katalog gudang tidak dapat dimuat."); }));
     Promise.allSettled(requests).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [projectId]);
+  }, [projectId, platformAdmin, canViewPorts, canViewWarehouses]);
 
   useEffect(() => {
     let active = true;
@@ -100,7 +100,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       .catch(() => { if (active) setError("Detail pelabuhan gagal dimuat."); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
-  }, [selectedPort?.id, projectId, canViewPorts]);
+  }, [selectedPort?.id, projectId, canViewPorts, platformAdmin]);
 
   useEffect(() => {
     let active = true;
@@ -111,7 +111,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       .catch(() => { if (active) setError("Detail gudang gagal dimuat."); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
-  }, [selectedWarehouse?.id, projectId, canViewWarehouses]);
+  }, [selectedWarehouse?.id, projectId, canViewWarehouses, platformAdmin]);
 
   useEffect(() => {
     let active = true;

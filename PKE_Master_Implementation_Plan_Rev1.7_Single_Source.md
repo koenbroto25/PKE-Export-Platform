@@ -9940,3 +9940,46 @@ Do not adopt a large external application merely because it has many features. T
 - Latest PR #2 CI head `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f`: 214/214 tests, backend/frontend TypeScript, frontend build, ledger verification, dry-run and dependency audit all PASS.
 - Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; Migration 049 SHA-256 `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Both unapproved and not applied. Production remains at 047.
 - No Production database connection or Vercel deployment was made. P0 remains pending exact migration approvals, sequential apply after backup, and runtime role/Project isolation UAT.
+
+---
+
+## §56.49 — P1 UAT closeout and next execution plan (2026-11-21)
+
+### A. Canonical document and source reconciliation
+- This Master Plan remains the sole active project reference. The filename is retained for compatibility, but the document header identifies it as **Master Implementation Plan Rev2.36**; do not describe it as Rev1.7.
+- The branch linked in the prior planning request, `phase0/reconcile-source-20261117`, is historical and contains an older Rev2.19 plan state. The newer working ref is `f1/project-scoped-cob-20261119`; all future plan updates must be made on that existing branch, with no branch creation.
+- The historical phase0 copy is not edited because doing so would create divergent sources of truth. The active Master Plan at the working ref is updated here.
+
+### B. Verified current database state
+- Neon Production project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, remains at migration ledger **053**. Read-only inspection confirms migrations 039–053 are applied; no P1 migrations 058–071 are present in Production. Production was not modified in this session.
+- Neon UAT branch `br-young-boat-b3re832d` has migration rows **058–071 applied**. Rows 070 and 071 were independently read and match:
+  - 070 `070_p1_kpi_formula_role_scope.sql`: `37d5aacd556271021298c57a0940e03efbd276bed2b7ac26a72530efb5bf786d`.
+  - 071 `071_p3_financial_audit_and_ap_match_integrity.sql`: `5a03b09bbd50f8c2d74cdfde1375b71adf67a31f675c4fbb9b6652101f412451`.
+- A current Production backup branch `pke-production-pre-053-backup-20261121` exists and is READY. This proves branch-level backup existence, not a completed point-in-time restore drill or an automated recurring backup schedule.
+- Production ledger remains the separate controlled release baseline; P1 UAT migrations must not be added to the Production manifest or applied to Production implicitly.
+
+### C. P1 migration and backtest evidence
+- Migration 071 was applied only on UAT after owner authorization to revise its SQL to meet the application requirements. The final checksum above matches UAT migration history.
+- Reported and previously recorded Migration 071 backtests include: invalid/mismatched PO-GRN-AP tuples denied; direct AP match/verification writes denied; valid Procurement match synchronizes AP references; Finance verification after valid match succeeds; verified evidence and source records are immutable; AP/AR before/after audit snapshots and material-field changes are captured; runtime-role helper execution is denied; synthetic fixtures were rolled back and residual test rows checked.
+- GitHub source/CI evidence recorded for the Migration 071 code/test change: source validation head `6e4e86a857865682a41bf057384885545a995264`; Unit/security + backend/frontend TypeScript + frontend build run `44869704432` SUCCESS; dependency audit run `44869704472` SUCCESS. The database backtest is UAT evidence, not a Production/browser UAT claim.
+- The latest inspected commit `32183bc9a9c007a5f5804f6cfb0e88ee2de93efd` adds a UAT P1 migration hash verifier that pins hashes 058–062 and asserts they are excluded from the Production baseline manifest. Its retrieved GitHub status showed a Vercel success check only; do not infer the full CI suite for that HEAD from this check.
+
+### D. Status and boundaries
+- P1 UAT migration chain 058–071: **DATABASE LEDGER APPLIED**. Targeted P1 checks for Migration 071: **PASS as recorded above**. Do not inflate this into a claim that every role workbench, all P1 requirements, authenticated browser workflows, or all cross-Project isolation gates are complete.
+- P0 is **not certified closed by this addendum**. The last detailed P0 ledger in this file predates the latest P0 migration and UI changes; reconcile the P0 closure status separately against its exact current migration ledger, source HEAD, UAT results and role-workflow acceptance evidence before declaring it complete.
+- P2 has no approved sequential phase definition in the inspected Rev2.36 roadmap. In this plan, P01–P18 are product/domain work packages and Sprint 01–12 are implementation sequencing. Do not guess that “P2” means P02, P12, Sprint 02, PRI-2 or Migration 017. Record a phase-to-package crosswalk before opening a P2 workstream.
+- No Production migration, DDL/DML, role grant, Auth change, Vercel deployment/promotion or PR merge was performed by this reconciliation.
+
+### E. Recommended next execution plan (ordered; no Production mutation implied)
+1. **P0 closure reconciliation (read-only first):** reconcile Production/UAT migration ledgers and hashes, current source branch/HEAD, and evidence for Migrations 048–057; identify which of the P0 deliverables have already been applied on Production and what remains solely in UAT. Refresh the P0 acceptance checklist without rerunning the comprehensive audit.
+2. **P1 final acceptance matrix:** map each P1 requirement to its migration, API, permission/RLS rule, UI workbench, exact backtest and evidence. Explicitly close or mark blocked the owner-action lifecycle, role workbench coverage, reporting drill-through, document storage, shipment allocation prerequisites and authenticated browser checks. Confirm Migration 070 role-template restrictions via negative and positive cross-role KPI tests, then reconcile all UAT migrations 058–071 against their checked-in checksums.
+3. **P2 scope crosswalk:** derive the next phase from the user's current intended P2 meaning and align it to P01–P18/Sprint 01–12. Until that crosswalk exists, do not introduce a speculative Migration 017 or any unrelated enhancement track.
+4. **Implement approved next package on the existing working branch:** source/API/UI/test changes first; preserve P07 Finance v1.2; reuse live schema; enforce Project scope and effective permissions server-side and in RLS; no parallel ERP or PM system.
+5. **Database gate:** read-only schema reconciliation, exact SQL/checksum, privilege/RLS review, impact/lock and rollback plan, verified backup, then explicit owner approval of that exact migration/hash/target. If the project-wide single-branch policy still governs runtime, stop if the requested UAT topology conflicts with it and reconcile the latest owner instruction before proceeding.
+6. **Verification loop:** unit/contract/security tests, backend/frontend TypeScript, production frontend build, migration policy verifier and dependency audit; then authorized database backtest with role-positive/negative tests, concurrency/idempotency, audit trail and cleanup verification. Repeat revisions and retest until all in-scope gates pass.
+7. **Release separation:** no Production apply, PR merge or Vercel Production deployment from an UAT PASS alone. Require explicit approval for each exact Production action and separately record Application Complete vs Business Production Ready.
+
+### F. Immediate next actions
+- The next safe engineering action is the P0/P1 evidence reconciliation and a complete P1 requirement-to-API/UI/RLS acceptance matrix on the existing working branch.
+- Preserve Production at migration 053. UAT 058–071 is a validation stream only; do not promote or copy it to Production without a reconciled release plan and exact owner approval.
+- Keep this plan as the single source of truth. Update its ledger and relevant domain checklist after each meaningful verified execution; do not create parallel status/plan Markdown files.

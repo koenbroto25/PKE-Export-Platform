@@ -148,6 +148,23 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
     finally { setBusy(false); }
   };
 
+  const verifyProduct = async (id: string) => {
+    const key = 'products:' + id;
+    if (!identityEvidence[key] || (identityRefs[key] || '').trim().length < 2) {
+      onNotice('error', 'Pilih dokumen approved dan isi referensi klasifikasi.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await patch('/projects/' + projectId + '/master-data/products/' + id + '/classification', {
+        evidenceDocumentId: identityEvidence[key], sourceReference: identityRefs[key].trim(),
+      });
+      onNotice('success', 'Klasifikasi produk diverifikasi dengan bukti dan reviewer Admin.');
+      await refresh();
+    } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Verifikasi klasifikasi produk gagal.'); }
+    finally { setBusy(false); }
+  };
+
   const verifyIdentity = async (entity: 'organizations' | 'facilities', id: string) => {
     const key = entity + ':' + id;
     if (!identityEvidence[key] || (identityRefs[key] || '').trim().length < 2) {
@@ -228,6 +245,15 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
               <select value={identityEvidence[key] || ''} onChange={e => setIdentityEvidence(v => ({ ...v, [key]: e.target.value }))}><option value="">Pilih dokumen bukti</option>{(data.evidenceDocuments || []).map((d: AnyRecord) => <option key={d.id} value={d.id}>{d.original_filename || d.document_type_code} · {String(d.sha256_checksum).slice(0,10)}…</option>)}</select>
               <input value={identityRefs[key] || ''} onChange={e => setIdentityRefs(v => ({ ...v, [key]: e.target.value }))} placeholder="Referensi pemeriksaan / dokumen" />
               <button type="button" className="primary-button" disabled={busy || !identityEvidence[key] || (identityRefs[key] || '').trim().length < 2} onClick={() => verifyIdentity('organizations',row.id)}>Verifikasi organisasi</button>
+            </div>;
+          })}
+          {(data.products || []).filter((r: AnyRecord) => r.classification_status !== 'verified').map((row: AnyRecord) => {
+            const key = 'products:' + row.id;
+            return <div className="verification-row" key={key}>
+              <div><strong>{row.product_code} · {row.product_name}</strong><small>Produk · {row.classification_status}</small></div>
+              <select value={identityEvidence[key] || ''} onChange={e => setIdentityEvidence(v => ({ ...v, [key]: e.target.value }))}><option value="">Pilih dokumen bukti</option>{(data.evidenceDocuments || []).map((d: AnyRecord) => <option key={d.id} value={d.id}>{d.original_filename || d.document_type_code} · {String(d.sha256_checksum).slice(0,10)}…</option>)}</select>
+              <input value={identityRefs[key] || ''} onChange={e => setIdentityRefs(v => ({ ...v, [key]: e.target.value }))} placeholder="Referensi klasifikasi / standar" />
+              <button type="button" className="primary-button" disabled={busy || !identityEvidence[key] || (identityRefs[key] || '').trim().length < 2} onClick={() => verifyProduct(row.id)}>Verifikasi produk</button>
             </div>;
           })}
           {(data.facilities || []).filter((r: AnyRecord) => r.verification_status !== 'verified').map((row: AnyRecord) => {

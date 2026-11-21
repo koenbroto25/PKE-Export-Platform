@@ -10082,6 +10082,7 @@ Executed directly on UAT as `app_runtime_secure` with explicit request-user cont
 - Finance fixture: `pks.participation.manage=false`; overlay SELECT returned zero rows and UPDATE returned zero rows. PASS.
 - Runtime role has no DELETE grant on the overlay table; there is no DELETE policy. PASS.
 - PM and Admin can resolve the joined facility/supplier display fields; Finance sees no overlay row. PASS.
+- PM and Platform Admin UPDATE attempts against global `pks_sites` and `partner_organizations` returned zero rows under RLS. The Project overlay is editable, while global legal/facility identity remains protected pending the independent master-data change/approval workflow. PASS.
 - The update/restore backtests produce audit entries by design; the current seed row content was restored and verified after each test.
 - These are database/RLS tests, not authenticated HTTP/browser tests.
 

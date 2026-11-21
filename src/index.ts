@@ -931,6 +931,59 @@ app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", 
   }
 });
 
+
+/** Admin-only verification for canonical identity records. The database trigger
+ * requires an approved, checksum-verified document from the same Project. */
+app.patch("/api/v1/projects/:projectId/master-data/organizations/:organizationId/verification", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const { projectId, organizationId } = req.params;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const sourceReference = typeof req.body?.sourceReference === "string" ? req.body.sourceReference.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(evidenceDocumentId) || sourceReference.length < 2 || sourceReference.length > 500)
+    return res.status(400).json({ error: "Approved evidence document and source reference are required." });
+  try {
+    const doc = await req.db.query(
+      "SELECT id,sha256_checksum,object_key,original_filename,document_type_code FROM public.project_export_documents WHERE id=$1::uuid AND project_id=$2::uuid AND status='approved' AND upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND storage_bucket='pke-private-documents' AND legal_hold=false AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)",
+      [evidenceDocumentId,projectId],
+    );
+    if (!doc.rows.length) return res.status(422).json({ error: "Evidence document must be approved, checksum-verified and belong to this Project." });
+    const updated = await req.db.query(
+      "UPDATE public.partner_organizations SET verification_status='verified',verification_project_id=$1::uuid,verification_evidence_document_id=$2::uuid,verification_source_reference=$3,verification_source_snapshot=$4::jsonb,updated_at=now() WHERE id=$5::uuid AND verification_status<>'verified' RETURNING id,legal_name,verification_status,verified_by,verified_at,verification_evidence_document_id,verification_evidence_sha256",
+      [projectId,evidenceDocumentId,sourceReference,JSON.stringify({document_id:evidenceDocumentId,sha256:doc.rows[0].sha256_checksum,filename:doc.rows[0].original_filename,document_type:doc.rows[0].document_type_code}),organizationId],
+    );
+    if (!updated.rows.length) return res.status(409).json({ error: "Organization not found or is already verified. Material identity changes require a new review." });
+    return res.json({ organization: updated.rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Platform Admin verification is required." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Identity verification evidence failed database validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/master-data/facilities/:facilityId/verification", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const { projectId, facilityId } = req.params;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const sourceReference = typeof req.body?.sourceReference === "string" ? req.body.sourceReference.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(evidenceDocumentId) || sourceReference.length < 2 || sourceReference.length > 500)
+    return res.status(400).json({ error: "Approved evidence document and source reference are required." });
+  try {
+    const doc = await req.db.query(
+      "SELECT id,sha256_checksum,object_key,original_filename,document_type_code FROM public.project_export_documents WHERE id=$1::uuid AND project_id=$2::uuid AND status='approved' AND upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND storage_bucket='pke-private-documents' AND legal_hold=false AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)",
+      [evidenceDocumentId,projectId],
+    );
+    if (!doc.rows.length) return res.status(422).json({ error: "Evidence document must be approved, checksum-verified and belong to this Project." });
+    const updated = await req.db.query(
+      "UPDATE public.pks_sites SET verification_status='verified',verification_project_id=$1::uuid,verification_evidence_document_id=$2::uuid,verification_source_reference=$3,verification_source_snapshot=$4::jsonb,updated_at=now() WHERE id=$5::uuid AND verification_status<>'verified' RETURNING id,name,verification_status,verified_by,verified_at,verification_evidence_document_id,verification_evidence_sha256",
+      [projectId,evidenceDocumentId,sourceReference,JSON.stringify({document_id:evidenceDocumentId,sha256:doc.rows[0].sha256_checksum,filename:doc.rows[0].original_filename,document_type:doc.rows[0].document_type_code}),facilityId],
+    );
+    if (!updated.rows.length) return res.status(409).json({ error: "Facility not found or is already verified. Material identity changes require a new review." });
+    return res.json({ facility: updated.rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Platform Admin verification is required." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Facility verification evidence failed database validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.get("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
   if (req.user?.isAdmin) {

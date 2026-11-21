@@ -10,7 +10,7 @@ type WorkflowType = {code:string;label:string;read:string[];create:string;exampl
 const WORKFLOW_TYPES:WorkflowType[]=[
  {code:"purchase_requisition",label:"Purchase Requisition",read:["procurement.po.view"],create:"procurement.po.create",example:{currencyCode:"IDR",supplierId:"",items:[{description:"Palm kernel cake",quantity:1,unitCode:"MT",unitPrice:0}]}},
  {code:"purchase_order",label:"Purchase Order",read:["procurement.po.view"],create:"procurement.po.create",example:{supplierId:"",currencyCode:"IDR",items:[{description:"Palm kernel cake",quantity:1,unitCode:"MT",unitPrice:0}]}},
- {code:"supplier_commitment",label:"Supplier Delivery Commitment",read:["procurement.commitment.view"],create:"procurement.commitment.manage",example:{purchaseOrderRecordId:"",committedQuantity:1,unitCode:"MT",committedAt:"2026-11-25T08:00:00Z"}},
+ {code:"supplier_commitment",label:"Supplier Delivery Commitment",read:["procurement.commitment.view","procurement.po.manage"],create:"procurement.commitment.manage",example:{purchaseOrderRecordId:"",committedQuantity:1,unitCode:"MT",committedAt:"2026-11-25T08:00:00Z"}},
  {code:"goods_receipt_match",label:"PO–GRN–Invoice Match",read:["procurement.match.view"],create:"procurement.match.create",example:{purchaseOrderRecordId:"",warehouseReceiptId:"",apInvoiceId:"",matchedQuantity:1,matchedAmount:0,unitCode:"MT",currencyCode:"IDR"}},
  {code:"production_batch",label:"Production Batch",read:["operations.view"],create:"operations.create",example:{quantity:1,unitCode:"MT",startedAt:"2026-11-21T08:00:00Z"}},
  {code:"packing_batch",label:"Packing Batch",read:["operations.view"],create:"operations.create",example:{quantity:1,unitCode:"MT",startedAt:"2026-11-21T08:00:00Z"}},

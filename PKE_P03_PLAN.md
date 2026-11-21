@@ -1133,4 +1133,6 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - **Temporary data cleanup PASS:** all synthetic rows and inventory movements were rolled back. The pre-existing UAT AP/AR/GRN fixtures remain unchanged; no Migration 071 test fixture rows remain.
 - **Idempotence:** Migration 071 was re-applied transactionally on UAT after the matched-to-verified transition guard and AP match-audit attribution refinements; postconditions passed and ledger row 71 was updated to the final SHA-256 above.
 
-**Gate status:** Migration 071 database integrity and runtime-role backtests are PASS. This is not a claim that every unrelated P1 workflow or deferred authenticated browser/Preview gate has been re-run by this migration.
+- **GitHub CI PASS:** Unit/security workflow run `44869704432` completed successfully, including offline unit/security tests, backend TypeScript, frontend TypeScript and frontend build. Dependency audit workflow run `44869704472` also completed successfully. The branch head used for source/test validation was `6e4e86a857865682a41bf057384885545a995264`.
+
+**Gate status:** Migration 071 database integrity, runtime-role backtests and GitHub CI are PASS. This is not a claim that every unrelated P1 workflow or deferred authenticated browser/Preview gate has been re-run by this migration.

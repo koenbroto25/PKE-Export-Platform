@@ -36,7 +36,7 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   warehouse_manager: ['warehouse.view', 'inventory.view'],
   funder: ['funder.view'],
   'pks-sites': ['pks.site.view'],
-  'port-network': ['port.view', 'warehouse.view'],
+  'port-network': ['port.view', 'warehouse.view', 'documents.view', 'documents.create', 'documents.update'],
   'p1-workflows': ['procurement.po.view','procurement.commitment.view','procurement.commitment.manage','procurement.po.manage','procurement.match.view','operations.view','quality.sample.view','quality.result.view','quality.release.view','hse.inspection.view','hse.action.view','dispatch.view','shipping.view','shipping.survey.view','shipping.ack.view','shipping.laytime.view','lc.view','audit.finding.view','audit.finding.respond'],
 };
 

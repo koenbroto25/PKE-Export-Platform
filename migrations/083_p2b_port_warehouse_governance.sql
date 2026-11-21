@@ -49,6 +49,11 @@ INSERT INTO public.permissions(name,code,description,is_active) VALUES
 ('Estimate Project Port Routes','route.estimate','View verified route references and advisory route alternatives for the selected Project.',true),
 ('Assess Vessel-Port Compatibility','vessel.port.assess','Create advisory vessel-port compatibility assessments from verified evidence.',true)
 ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=true;
+INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
+VALUES
+ ('pm','port.view'),('pm','port.depth.view'),('pm','route.estimate'),('pm','vessel.port.assess'),
+ ('terminal_representative','port.depth.view'),('terminal_representative','port.depth.submit')
+ON CONFLICT(role_code,permission_code) DO NOTHING;
 INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id)
 SELECT pr.project_id,pr.id,p.id FROM public.project_roles pr JOIN public.permissions p ON
  (pr.role_code='pm' AND p.code IN ('port.view','port.depth.view','route.estimate','vessel.port.assess'))

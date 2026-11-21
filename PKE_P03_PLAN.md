@@ -1136,3 +1136,12 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - **GitHub CI PASS:** Unit/security workflow run `44869704432` completed successfully, including offline unit/security tests, backend TypeScript, frontend TypeScript and frontend build. Dependency audit workflow run `44869704472` also completed successfully. The branch head used for source/test validation was `6e4e86a857865682a41bf057384885545a995264`.
 
 **Gate status:** Migration 071 database integrity, runtime-role backtests and GitHub CI are PASS. This is not a claim that every unrelated P1 workflow or deferred authenticated browser/Preview gate has been re-run by this migration.
+
+
+## P2-B / P16 continuation checkpoint — 2026-11-21
+
+- P15 engineering/UAT is recorded complete in Master Implementation Plan §56.53.4; real supplier/facility/product/COA evidence and authenticated browser acceptance remain open owner-controlled gates.
+- P16 is the next engineering package. The UAT database already contains the port/terminal/berth/channel/anchorage/depth/tide/service/equipment/operating-limit and warehouse schema, but current source has no P16 port API or dedicated Port & Warehouse UI. Warehouse receipt APIs are not a substitute for warehouse master/capability management.
+- UAT ledger: 82 rows (1–16 baselined, 17–82 applied). Production ledger: 53 rows (1–16 baselined, 17–53 applied), verified read-only only.
+- P16 work must proceed on existing branch `f1/project-scoped-cob-20261119` and Neon UAT only. No new GitHub branch, no PR merge, no Vercel deployment, and no Neon Production DDL/DML.
+- Before implementation, prepare targeted UAT policy backups, align role allowlists with RLS and API authorization, and keep all unverified port depths, tide, services, limits and warehouse capabilities explicitly unverified. See Master Implementation Plan §56.54 for the detailed audit and sequence.

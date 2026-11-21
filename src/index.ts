@@ -776,7 +776,7 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
     if (!rows.length) return res.status(404).json({ error: "Project not found." });
   } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.view"))) return;
   try {
-    const [requests, organizations, facilities, manage] = await Promise.all([
+    const [requests, organizations, facilities, manage, evidenceDocuments] = await Promise.all([
       req.db.query(\`SELECT id,project_id,entity_type,operation,target_id,proposed_data,base_snapshot,status,
                 request_reason,source_type,source_reference,source_url,source_snapshot,decision_note,
                 requested_by,reviewed_by,reviewed_at,applied_target_id,applied_at,created_at,updated_at
@@ -785,9 +785,20 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
       req.db.query("SELECT id,legal_name,organization_type,country_code,verification_status FROM public.partner_organizations WHERE is_active=true ORDER BY legal_name"),
       req.db.query("SELECT id,name,facility_type,city,province,country_code,verification_status FROM public.pks_sites WHERE is_active=true ORDER BY name"),
       req.db.query("SELECT public.pke_has_project_permission($1::uuid,'pks.master_data.change_request.manage') AS allowed", [projectId]),
+      req.db.query(
+        `SELECT id,original_filename,document_type_code,sha256_checksum,uploaded_at
+           FROM public.project_export_documents
+          WHERE project_id=$1::uuid AND status='approved' AND upload_verified_at IS NOT NULL
+            AND object_key IS NOT NULL AND sha256_checksum IS NOT NULL
+            AND storage_bucket='pke-private-documents' AND legal_hold=false
+            AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)
+          ORDER BY uploaded_at DESC`,
+        [projectId],
+      ),
     ]);
     return res.json({
       requests: requests.rows, organizations: organizations.rows, facilities: facilities.rows,
+      evidenceDocuments: evidenceDocuments.rows,
       canManage: req.user?.isAdmin === true || manage.rows[0]?.allowed === true,
       canReview: req.user?.isAdmin === true,
     });
@@ -808,25 +819,29 @@ app.post("/api/v1/projects/:projectId/master-data-change-requests", requireAuth,
   const sourceType = ["manual","public_reference","official_document","buyer_confirmed"].includes(b.sourceType) ? b.sourceType : "manual";
   const sourceReference = typeof b.sourceReference === "string" ? b.sourceReference.trim() : "";
   const sourceUrl = typeof b.sourceUrl === "string" && b.sourceUrl.trim() ? b.sourceUrl.trim() : null;
+  const evidenceDocumentId = typeof b.evidenceDocumentId === "string" ? b.evidenceDocumentId : null;
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!["organization","facility"].includes(entityType) || !["create","update"].includes(operation) ||
+  if (!["organization","facility","facility_product","capacity_record","certification"].includes(entityType) || !["create","update"].includes(operation) ||
+      (["facility_product","capacity_record","certification"].includes(entityType) && operation!=="create") ||
       (operation === "update" && (!targetId || !uuidPattern.test(targetId))) ||
       (operation === "create" && targetId !== null) ||
       !proposedData || typeof proposedData !== "object" || Array.isArray(proposedData) ||
       Object.keys(proposedData).length === 0 || requestReason.length < 10 || requestReason.length > 2000 ||
       sourceReference.length < 2 || sourceReference.length > 500 ||
-      (sourceUrl !== null && !/^https?:\/\//i.test(sourceUrl))) {
+      (sourceUrl !== null && !/^https?:\/\//i.test(sourceUrl)) ||
+      (evidenceDocumentId !== null && !uuidPattern.test(evidenceDocumentId)) ||
+      (["facility_product","capacity_record","certification"].includes(entityType) && !evidenceDocumentId)) {
     return res.status(400).json({ error: "Entity, operation, non-empty proposal, reason and source reference must be valid." });
   }
   try {
     const { rows } = await req.db.query(
       \`INSERT INTO public.p2a_master_data_change_requests(
          project_id,entity_type,operation,target_id,proposed_data,status,request_reason,
-         source_type,source_reference,source_url,source_snapshot,requested_by
-       ) VALUES ($1::uuid,$2,$3,$4::uuid,$5::jsonb,'draft',$6,$7,$8,$9,$10::jsonb,$11::uuid)
+         source_type,source_reference,source_url,source_snapshot,requested_by,evidence_document_id
+       ) VALUES ($1::uuid,$2,$3,$4::uuid,$5::jsonb,'draft',$6,$7,$8,$9,$10::jsonb,$11::uuid,$12::uuid)
        RETURNING *\`,
       [projectId,entityType,operation,targetId,JSON.stringify(proposedData),requestReason,sourceType,
-       sourceReference,sourceUrl,JSON.stringify(b.sourceSnapshot ?? {}),req.user?.id ?? null],
+       sourceReference,sourceUrl,JSON.stringify(b.sourceSnapshot ?? {}),req.user?.id ?? null,evidenceDocumentId],
     );
     return res.status(201).json({ request: rows[0] });
   } catch (error: any) {
@@ -849,7 +864,7 @@ app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", 
   const add = (column: string, value: unknown, cast = "") => { updates.push(\`\${column}=$\${idx++}\${cast}\`); values.push(value); };
   if (isAdmin) {
     if (b.proposedData !== undefined || b.requestReason !== undefined || b.sourceType !== undefined ||
-        b.sourceReference !== undefined || b.sourceUrl !== undefined || b.sourceSnapshot !== undefined) {
+        b.sourceReference !== undefined || b.sourceUrl !== undefined || b.sourceSnapshot !== undefined || b.evidenceDocumentId !== undefined) {
       return res.status(403).json({ error: "Platform Admin may decide but may not rewrite the submitted proposal." });
     }
     if (b.status !== undefined) {
@@ -872,6 +887,7 @@ app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", 
       ["sourceReference","source_reference",v=>typeof v==="string"?v.trim():v,""],
       ["sourceUrl","source_url",v=>v===""?null:v,""],
       ["sourceSnapshot","source_snapshot",v=>JSON.stringify(v??{}),"::jsonb"],
+      ["evidenceDocumentId","evidence_document_id",v=>v||null,"::uuid"],
     ];
     for (const [key,column,convert,cast] of editable) {
       if (!Object.prototype.hasOwnProperty.call(b,key)) continue;
@@ -886,6 +902,8 @@ app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", 
         return res.status(400).json({ error: "Source reference must contain 2–500 characters." });
       if (key==="sourceUrl" && value!==null && (typeof value!=="string" || !/^https?:\/\//i.test(value)))
         return res.status(400).json({ error: "Source URL must use HTTP or HTTPS." });
+      if (key==="evidenceDocumentId" && value!==null && (typeof value!=="string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)))
+        return res.status(400).json({ error: "Evidence document ID is invalid." });
       add(column,value,cast);
     }
   }

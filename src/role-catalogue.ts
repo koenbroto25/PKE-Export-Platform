@@ -61,7 +61,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ], { mandatory: true, legacyAliases: ["admin"] }),
   role("pm", "Project Manager", "governance", [
     "project.view", "project.update", "project.members.view", "project.members.invite", "project.members.manage", "project.roles.manage", "project.configuration.manage", "audit.finding.view",
-    "contract.view", "manage_contract_programs", "pks.site.view", "pks.participation.manage", "pks.master_data.change_request.view", "pks.master_data.change_request.manage", "facility.view", "facility.product.view", "facility.capacity.view", "product.view", "supplier.view", "product.requirement.view", "product.requirement.manage", "shipping.view", "shipment.view",
+    "contract.view", "manage_contract_programs", "port.view", "port.depth.view", "route.estimate", "vessel.port.assess", "pks.site.view", "pks.participation.manage", "pks.master_data.change_request.view", "pks.master_data.change_request.manage", "facility.view", "facility.product.view", "facility.capacity.view", "product.view", "supplier.view", "product.requirement.view", "product.requirement.manage", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
     "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view",
     "project.tasks.view", "project.tasks.create", "project.tasks.assign", "project.tasks.update", "project.tasks.resolve", "project.tasks.escalate",
@@ -183,7 +183,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "hse.action.respond",
   ]),
   role("terminal_representative", "Terminal Representative", "shipping_loading", [
-    "port.view", "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",
+    "port.view", "port.depth.view", "port.depth.submit", "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",
     "hse.action.respond",
   ], ["Terminal-authorized scope only."], { classification: "external" }),
   role("shipping_agent", "Shipping Agent", "shipping_loading", [

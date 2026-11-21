@@ -30,7 +30,7 @@ describe("Migration 074 P2-A candidate register and facility-type separation",()
     expect(migration).toContain("Kernel Crushing Plant fixture"); // the existing KCP remains separate
     expect(migration).toContain("23000000-0000-4000-8000-000000000002");
     expect(migration).toContain("P2A-SEED-20261121-02");
-    expect(migration).toContain("no verified production, capacity, stock, certification or availability");
+    expect(migration).toContain("No verified production, capacity, stock, certification or availability");
   });
   it("does not change the verified Production manifest baseline",()=>{
     expect(manifest.applied_count).toBe(52);

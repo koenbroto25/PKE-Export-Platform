@@ -601,6 +601,14 @@ CREATE TRIGGER p2a_pks_site_verification_guard
  BEFORE INSERT OR UPDATE ON public.pks_sites
  FOR EACH ROW EXECUTE FUNCTION public.pke_guard_p2a_identity_verification();
 
+CREATE POLICY p2a_product_catalog_admin_update ON public.product_catalog
+ FOR UPDATE TO app_runtime_secure
+ USING (public.pke_is_platform_admin())
+ WITH CHECK (public.pke_is_platform_admin());
+GRANT UPDATE (classification_status,classification_project_id,classification_evidence_document_id,
+  classification_source_reference,classification_source_snapshot,updated_at)
+ ON public.product_catalog TO app_runtime_secure;
+
 CREATE OR REPLACE FUNCTION public.pke_guard_p2a_product_classification()
 RETURNS trigger
 LANGUAGE plpgsql

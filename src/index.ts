@@ -4204,6 +4204,20 @@ app.patch("/api/v1/p16/master/:resource/:recordId/review",requireAuth,requireAdm
  try{const r=resource==="operating-limits" ? await req.db.query("UPDATE public.port_operating_limits SET verification_status=$2,approval_status=$2,review_note=$3 WHERE id=$1::uuid RETURNING *",[id,status,note]) : await req.db.query("UPDATE public."+cfg.table+" SET verification_status=$2,review_note=$3 WHERE id=$1::uuid RETURNING *",[id,status,note]);if(!r.rows.length)return res.status(404).json({error:"P16 record not found."});return res.json({record:r.rows[0],reviewed:true});}
  catch(e:any){if(e?.code==="23514"||e?.code==="42501")return res.status(409).json({error:"Independent review requires another reviewer, source, SHA-256 and review note."});return res.status(500).json(internalServerErrorPayload());}
 });
+app.delete("/api/v1/p16/master/:resource/:recordId",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
+ const resource=String(req.params.resource||""),cfg=P16_RESOURCES[resource],id=String(req.params.recordId||"");
+ if(!cfg)return res.status(404).json({error:"Unknown P16 resource."});
+ if(!p16UuidPattern.test(id))return res.status(400).json({error:"Valid P16 record id required."});
+ try{
+   const result=await req.db.query("DELETE FROM public."+cfg.table+" WHERE id=$1::uuid RETURNING id",[id]);
+   if(!result.rows.length)return res.status(404).json({error:"P16 record not found."});
+   return res.json({deleted:true,id:result.rows[0].id});
+ }catch(e:any){
+   if(e?.code==="23503")return res.status(409).json({error:"Record is referenced by operational data and cannot be deleted. Deactivate or supersede it instead."});
+   if(e?.code==="42501"||e?.code==="55000")return res.status(403).json({error:"P16 deletion denied by database governance."});
+   return res.status(500).json(internalServerErrorPayload());
+ }
+});
 app.post("/api/v1/ports/:portId/depth-observations",requireAuth,async(req:express.Request,res:express.Response)=>{
  const projectId=String(req.body?.projectId||""),portId=String(req.params.portId||""),b=req.body||{};if(!p16UuidPattern.test(projectId)||!p16UuidPattern.test(portId))return res.status(400).json({error:"Valid Project and port are required."});if(!(await requireProjectPermission(req,res,projectId,"port.depth.submit")))return;
  if(!Number.isFinite(Number(b.depthValue))||Number(b.depthValue)<=0||!b.depthDatum||!b.observedAt||!b.surveyDate||!b.sourceAuthority||!b.evidenceObjectKey||!/^[0-9a-f]{64}$/i.test(String(b.evidenceSha256||"")))return res.status(400).json({error:"Depth requires positive metres, datum, date, authority, evidence key and SHA-256."});

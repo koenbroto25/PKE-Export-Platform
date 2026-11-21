@@ -280,3 +280,19 @@ Exact executable source head: `d18d8d267afcdfa0179b11e7408fa8cb9b43d607`.
 - Existing backup `br-steep-butterfly-b30wgjc3` is the pre-048/049 snapshot and is not a current post-051 backup. It is not an acceptable substitute for a fresh pre-052 snapshot.
 - No old backup/UAT/migration branch was deleted to free quota; deletion is destructive and requires owner authorization.
 - Migration 052 remains prepared-only and cannot be applied until a current Production backup can be created and the exact SHA is approved.
+
+
+## 2026-11-21 — Funder and Project context remediation (UAT)
+
+This section supersedes earlier statements that the Funder workspace remained blocked by the missing `funder.view` permission. Historical Production and Preview limitations recorded above remain unchanged.
+
+- Migration 056 applied **only** to Neon UAT branch `br-young-boat-b3re832d`, SHA-256 `8cfb54c6c9dc728f2ae71975826ad8e589fabb82ee3cd634c3f6672abcd8ecc7`.
+- Migration 057 applied **only** to Neon UAT branch `br-young-boat-b3re832d`, SHA-256 `806b649e49180d7f6b8e5984324d7b8981d3fd6c84ebdf4fbee6da0b27067ae9`.
+- Finance, Accounting and Funder now receive `project.view` for their own Project only. Their existing Finance/Accounting capabilities were not expanded.
+- Funder receives dedicated `funder.view` only. The Funder workspace reads the new Funder shared-report endpoint; generic report routes remain excluded.
+- PM/Project Admin can explicitly share only completed report artifacts to an active Funder assignment. Share rows are immutable in identity, revocable once with actor/reason, and protected by forced RLS. The Funder can read only artifacts shared to their own account; revoked and unshared reports are invisible.
+- UAT DML backtest verified share creation, rejection of a non-Funder recipient, visibility of only the shared artifact, revocation, and immediate loss of visibility. All temporary report/share rows were rolled back.
+- UAT RLS backtest confirmed Finance/Accounting/Funder can see basic Project context but cannot see other members, role catalogue entries, project version snapshots, or operating profiles. PM/Project Admin retained intended governance visibility.
+- UAT permission integrity: 36 installed Project role rows, 294 grants, 260 allowlist entries, zero grants outside allowlist. Funder has no Finance, Accounting, internal Reports, or Payment permission.
+- Source CI exact head `9ec4a1ff378bedd57af5e7c22e3a76fa536dd1e9`: Unit Tests `44848751203` SUCCESS (backend/frontend typecheck and frontend build included); Dependency Audit `44848751184` SUCCESS.
+- No new branch, PR merge, Vercel deployment, Production DDL/DML or Production fixture data. Production remains unchanged.

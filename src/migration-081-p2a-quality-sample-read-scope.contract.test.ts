@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const migration = readFileSync(new URL("../migrations/081_p2a_quality_sample_read_scope.sql", import.meta.url), "utf8");
 describe("Migration 081 P15 quality sample read scope", () => {
   it("matches the exact UAT migration SHA-256", () => {
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("HASH_TO_FILL");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("05ad71458aafcc8042da4707464686ac6f3a01474f72d16a21791e09f538100f");
   });
   it("allows Project sample viewers and creators to read only their Project samples and results", () => {
     expect(migration).toContain("pke_quality_samples_project_view");

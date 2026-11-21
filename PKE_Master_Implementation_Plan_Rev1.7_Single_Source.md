@@ -10231,3 +10231,6 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 - Migration 080 adds Project-quality-role SELECT access to the shared product-attribute dictionary.
 - Migration 081 aligns sample/result SELECT RLS with the existing quality.sample.view and quality.sample.create permissions so sample creators/viewers can actually see their own Project-scoped sample/result rows. The policies remain Project-scoped through pke_has_project_permission and do not grant writes or deletes.
 - Apply migration 081 to UAT only after taking a targeted policy snapshot. Validate QA reader/creator/reviewer and Finance isolation.
+
+- Migration 080 SHA-256: a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150 — applied to UAT only.
+- Migration 081 SHA-256: 05ad71458aafcc8042da4707464686ac6f3a01474f72d16a21791e09f538100f — applied to UAT only. Both migrations are recorded in migration_history and the prior policy definitions were snapshotted in p2a_backup_072_20261121.

@@ -1208,3 +1208,12 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Applied Migration 089 to Neon UAT only; SHA-256 `392bdf42848a258e5e70b236374f982ffe88d83da903d4d8a9fd66d8e7328df9`. UAT ledger now 89 rows (16 baseline, 73 applied); Production remains untouched.
 - Runtime-role read matrix after application: PM with P16 permissions sees ports/warehouses/vessels; Finance sees none; Warehouse role sees warehouse only; Platform Admin sees all three globally without Project context.
 - Added Migration 089 hash/policy assertions to `p16-governance.test.ts` and included the P16 suite in the primary `npm test` script. Final CI and remaining write/evidence/backtest gates still required before P16 completion.
+
+
+### P16 cross-Project RLS correction — 2026-11-21
+
+- A runtime backtest of Migration 089 identified that `pke_has_any_project_permission` still allowed a user with access in Project A to read global master rows while the selected context was Project B. This was not accepted as a passing isolation test.
+- Added and applied Migration 090 to Neon UAT only. It binds `ports`, `warehouses`, and `vessels` SELECT policies to `pke_has_project_permission(current app.current_project_id, exact permission)` and preserves the Platform Admin global-read policy.
+- Migration 090 SHA-256: `07eb13d66822ee014680deb4675e8c9c0d86e52c2d5bd2f6bd7a0632789cafbd`. UAT ledger: 90 rows (16 baselined, 74 applied); no Production DDL/DML.
+- Re-tested as `app_runtime_secure`: PM Alpha in Project Beta sees zero port/warehouse/vessel rows; PM Beta and PM Alpha see their selected Project rows; Terminal Representative sees port/vessel but no warehouse; Finance sees none; Warehouse role sees warehouse only; Platform Admin sees all global master rows without Project context.
+- Updated UAT-only manifest, source hash contracts, and P16 governance test for Migration 090. This remediation is required evidence; do not treat the earlier any-Project result as PASS.

@@ -161,6 +161,19 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     finally { setActionBusy(false); }
   }
 
+  async function reviewPortEvidence(kind: "depth" | "tide", recordId: string, status: "verified" | "rejected") {
+    if (!selectedPort?.id || reviewNote.trim().length < 5) return;
+    setActionBusy(true);
+    try {
+      const path = kind === "depth" ? "port-depth-observations" : "port-tide-observations";
+      await patch(`/${path}/${encodeURIComponent(recordId)}/review`, { status, reviewNote });
+      setMasterMessage(`Review ${kind === "depth" ? "kedalaman" : "pasang-surut"} tersimpan.`);
+      const refreshed = await get<Row>(`/ports/${encodeURIComponent(selectedPort.id)}?projectId=${encodeURIComponent(projectId)}`);
+      setPortDetail(refreshed);
+    } catch (e: any) { setMasterMessage(e?.message || "Review observasi gagal; pastikan reviewer berbeda dari pengaju."); }
+    finally { setActionBusy(false); }
+  }
+
   async function submitDepth(event: FormEvent) {
     event.preventDefault(); if (!selectedPort?.id) return; setActionBusy(true);
     try {
@@ -256,6 +269,11 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       {tab === "ports" && selectedPort && portDetail?.port && <section className="p16-workflows">
         <h3>Alur kerja pelabuhan · {portDetail.port.name}</h3>
         {platformAdmin && <div className="p16-workflow-row"><button type="button" onClick={() => { setMasterResource("ports"); setMasterId(String(portDetail.port.id)); setMasterDraft(JSON.stringify(portDetail.port,null,2)); }}>Edit master pelabuhan</button><input aria-label="Catatan verifikasi" placeholder="Catatan review independen (min. 5 karakter)" value={reviewNote} onChange={e => setReviewNote(e.target.value)} /><button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={reviewPort}>Verifikasi pelabuhan</button></div>}
+        {platformAdmin && <div className="p16-workflow-form"><h4>Review observasi yang diajukan</h4><label>Catatan review independen<input value={reviewNote} onChange={e=>setReviewNote(e.target.value)} placeholder="Min. 5 karakter; reviewer tidak boleh sama dengan pengaju"/></label>
+          {(portDetail.depthObservations||[]).filter((o:Row)=>o.quality_status==="submitted").map((o:Row)=><div className="p16-workflow-row" key={o.id}><span>Survei kedalaman · {o.depth_value} m · {o.survey_date}</span><button type="button" disabled={actionBusy||reviewNote.trim().length<5} onClick={()=>reviewPortEvidence("depth",String(o.id),"verified")}>Verifikasi</button><button type="button" disabled={actionBusy||reviewNote.trim().length<5} onClick={()=>reviewPortEvidence("depth",String(o.id),"rejected")}>Tolak</button></div>)}
+          {(portDetail.tideObservations||[]).filter((o:Row)=>o.quality_status==="submitted").map((o:Row)=><div className="p16-workflow-row" key={o.id}><span>Pasang-surut · {o.tide_height_m} m · {o.observed_at}</span><button type="button" disabled={actionBusy||reviewNote.trim().length<5} onClick={()=>reviewPortEvidence("tide",String(o.id),"verified")}>Verifikasi</button><button type="button" disabled={actionBusy||reviewNote.trim().length<5} onClick={()=>reviewPortEvidence("tide",String(o.id),"rejected")}>Tolak</button></div>)}
+          {!(portDetail.depthObservations||[]).some((o:Row)=>o.quality_status==="submitted") && !(portDetail.tideObservations||[]).some((o:Row)=>o.quality_status==="submitted") && <p className="p16-muted">Tidak ada observasi menunggu review.</p>}
+        </div>}
         {canSubmitDepth && <form className="p16-workflow-form" onSubmit={submitDepth}><h4>Ajukan survei kedalaman</h4>
           <div className="p16-form-grid"><label>Kedalaman (m)<input required type="number" min="0.01" step="0.01" value={depthDraft.depthValue} onChange={e=>setDepthDraft({...depthDraft,depthValue:e.target.value})}/></label><label>Datum vertikal<input required value={depthDraft.depthDatum} onChange={e=>setDepthDraft({...depthDraft,depthDatum:e.target.value})}/></label><label>Waktu observasi<input required type="datetime-local" value={depthDraft.observedAt} onChange={e=>setDepthDraft({...depthDraft,observedAt:e.target.value})}/></label><label>Tanggal survei<input required type="date" value={depthDraft.surveyDate} onChange={e=>setDepthDraft({...depthDraft,surveyDate:e.target.value})}/></label><label>Otoritas survei<input required value={depthDraft.sourceAuthority} onChange={e=>setDepthDraft({...depthDraft,sourceAuthority:e.target.value})}/></label><label>Object key dokumen<input required value={depthDraft.evidenceObjectKey} onChange={e=>setDepthDraft({...depthDraft,evidenceObjectKey:e.target.value})}/></label><label>SHA-256 dokumen<input required pattern="[0-9a-f]{64}" value={depthDraft.evidenceSha256} onChange={e=>setDepthDraft({...depthDraft,evidenceSha256:e.target.value})}/></label></div>
           <p className="p16-muted">Dokumen harus sudah diunggah, checksum terverifikasi, dan berstatus Approved pada Project aktif.</p><button type="submit" disabled={actionBusy}>Ajukan kedalaman</button>

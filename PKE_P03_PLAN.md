@@ -1217,3 +1217,12 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Migration 090 SHA-256: `07eb13d66822ee014680deb4675e8c9c0d86e52c2d5bd2f6bd7a0632789cafbd`. UAT ledger: 90 rows (16 baselined, 74 applied); no Production DDL/DML.
 - Re-tested as `app_runtime_secure`: PM Alpha in Project Beta sees zero port/warehouse/vessel rows; PM Beta and PM Alpha see their selected Project rows; Terminal Representative sees port/vessel but no warehouse; Finance sees none; Warehouse role sees warehouse only; Platform Admin sees all global master rows without Project context.
 - Updated UAT-only manifest, source hash contracts, and P16 governance test for Migration 090. This remediation is required evidence; do not treat the earlier any-Project result as PASS.
+
+
+### P16 final verification — 2026-11-21
+
+- Neon UAT migrations 089 and 090 are applied with exact SHA-256 pins; ledger 90 rows (16 baseline, 74 applied), no pending migrations. Production ledger remains unchanged at 53 rows.
+- Selected-Project RLS isolation retested after migration 090. Cross-Project PM read returns zero rows; PM, Terminal Representative, Finance, Warehouse and Platform Admin matrix matches the exact role/permission design.
+- Admin master write, non-Admin denial, independent maker-checker acceptance and same-actor rejection passed in rollback-safe UAT backtests. Depth/tide missing-evidence rejection passed. No temporary master rows remain.
+- Final branch CI on `359b8ff2715dd7f4b66ba41d61087e81c364afbb`: 45 test files / 403 tests PASS, including P16 governance 11/11; backend/frontend typecheck, frontend build, migration dry-run and dependency audit PASS.
+- P16 remains NOT ALL PASS until positive submission using a real approved/upload-verified Project evidence object and authenticated API/browser acceptance against the current branch. UAT has zero qualifying documents; no fake evidence was inserted. Vercel/deployment remains frozen; PR #2 stays open/draft/unmerged.

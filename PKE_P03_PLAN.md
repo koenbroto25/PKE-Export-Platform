@@ -1267,3 +1267,34 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Added and verified the four `AWS_*` environment variables restricted to Vercel Preview + Git branch `f1/project-scoped-cob-20261119`; endpoint and region encrypted, key ID and secret marked sensitive.
 - Production environment variables were not modified. No deployment was triggered; Vercel remains frozen until final authorized session. The next Preview deployment will receive UAT storage settings.
 - Rotate the branch-scoped credential before 2027-11-21. Browser UAT acceptance remains deferred as instructed.
+
+
+### P16 API acceptance closure work — migrations 094–095 (22 November 2026)
+
+**Blockers discovered and fixed during real HTTP acceptance**
+- Migration 094 `094_p16_rls_safe_permission_context.sql` (SHA-256 `80f8ba75a24bf3b57a53aa7c9268518b10820af40bf58de1d44fa3ba0915f26c`) adds `pke_resolve_project_permission_context`, a SECURITY DEFINER resolver that returns only the authenticated principal's active Project role/permission context. This replaces direct joins against RLS-protected assignment tables in `requireProjectPermission` and `findExplicitProjectPermission`.
+- Migration 095 `095_p16_document_project_context_resolver.sql` (SHA-256 `7d9a59a9a92ac436348a9ab5597cf3f433ddb71ed2441ce0aefae01201e5cbc7`) adds `pke_project_document_project_id`. The document review API can now resolve the parent Project only for Platform Admin or a principal with `documents.view`, then sets Project context and applies the requested update permission.
+- Document review API maps SQLSTATE 42501 to HTTP 403 (`DOCUMENT_REVIEW_FORBIDDEN`) and workflow transition conflicts to HTTP 409 (`DOCUMENT_WORKFLOW_CONFLICT`) rather than returning a generic 500.
+
+**Neon UAT API acceptance — PASS**
+- Ran the branch API handler over HTTP in an isolated Singapore sandbox, connected to Neon UAT using `app_runtime_secure` and the UAT private storage endpoint. No Vercel deployment or Production connection was made.
+- 23 HTTP/API assertions passed across the acceptance runs:
+  1. unauthenticated request returns 401;
+  2. private storage is available and Document Officer can read Project requirements;
+  3. presigned PUT succeeds and document registration performs server-side HEAD/GET byte-size and SHA-256 verification;
+  4. uploader can submit `uploaded → under_review`, but cannot approve their own document (403);
+  5. PM without `documents.update` cannot approve; Platform Admin independently approves;
+  6. PM with Project permission reads the Approved, verified evidence;
+  7. PM submits depth and tide observations using that exact Approved evidence;
+  8. incorrect evidence SHA is rejected by the database guard;
+  9. Platform Admin independently verifies both observations and PM reads their verified states;
+  10. principals without `documents.view` or `port.depth.submit` are denied (403);
+  11. wrong SHA at document registration returns 422 and the server removes the uploaded object.
+- The sandbox used a temporary test-only principal injection to exercise the actual API handlers and request-scoped database/RLS transactions; that harness was ephemeral and was not committed. Real Neon Auth JWT issuance/sign-in and browser acceptance were not part of this test. Browser UAT remains deferred per owner instruction.
+- A fixture review confirmed one test account labelled PM Beta also has active Alpha roles (including `internal_auditor`); it is therefore legitimately authorized for its explicit Alpha permissions. The negative permission test used a separate active Project principal with no `documents.view` or `port.depth.submit`.
+
+**Cleanup and ledger**
+- Temporary evidence document, depth observation, tide observation, and object were removed after acceptance. The relevant project/requirement storage prefix and all `projects/` objects are empty; `project_export_documents` has zero test rows.
+- Six one-shot API acceptance storage credentials were revoked. The dedicated UAT Preview runtime credential remains scoped to the UAT branch; Production credentials and environment variables were not modified.
+- UAT migration ledger is now 95 rows: 79 applied, 16 baselined, 0 pending. Authoritative snapshot: `migration_history_manifest_uat_001_095.json`. Production ledger was not modified.
+- Vercel deployment remains frozen; no deploy, merge, or browser UAT was performed.

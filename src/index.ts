@@ -776,7 +776,7 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
     if (!rows.length) return res.status(404).json({ error: "Project not found." });
   } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.view"))) return;
   try {
-    const [requests, organizations, facilities, manage, evidenceDocuments] = await Promise.all([
+    const [requests, organizations, facilities, manage, evidenceDocuments, products, facilityProducts, capacityRecords, certifications] = await Promise.all([
       req.db.query(`SELECT id,project_id,entity_type,operation,target_id,proposed_data,base_snapshot,status,
                 request_reason,source_type,source_reference,source_url,source_snapshot,evidence_document_id,decision_note,
                 requested_by,reviewed_by,reviewed_at,applied_target_id,applied_at,created_at,updated_at
@@ -795,10 +795,15 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
           ORDER BY uploaded_at DESC`,
         [projectId],
       ),
+      req.db.query("SELECT id,product_code,product_name,classification_status FROM public.product_catalog WHERE is_active=true ORDER BY product_name"),
+      req.db.query(`SELECT fp.id,fp.facility_id,fp.product_id,pc.product_code,pc.product_name,fp.process_type,fp.capability_status,fp.source_reference,fp.evidence_document_id,fp.evidence_sha256,fp.verified_by,fp.verified_at FROM public.facility_products fp JOIN public.product_catalog pc ON pc.id=fp.product_id ORDER BY fp.created_at DESC`),
+      req.db.query(`SELECT id,facility_id,process_type,capacity_kind,capacity_value,unit_code,period_type,effective_from,effective_to,source_reference,evidence_document_id,evidence_sha256,verified_by,verified_at FROM public.facility_capacity_records ORDER BY effective_from DESC`),
+      req.db.query(`SELECT id,facility_id,certification_type,certificate_number,issuer,scope,valid_from,valid_to,status,source_reference,evidence_document_id,evidence_sha256,verified_by,verified_at FROM public.facility_certifications ORDER BY created_at DESC`),
     ]);
     return res.json({
       requests: requests.rows, organizations: organizations.rows, facilities: facilities.rows,
-      evidenceDocuments: evidenceDocuments.rows,
+      evidenceDocuments: evidenceDocuments.rows, products: products.rows,
+      facilityProducts: facilityProducts.rows, capacityRecords: capacityRecords.rows, certifications: certifications.rows,
       canManage: req.user?.isAdmin === true || manage.rows[0]?.allowed === true,
       canReview: req.user?.isAdmin === true,
     });

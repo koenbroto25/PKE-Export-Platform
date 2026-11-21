@@ -5338,6 +5338,12 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(!(await p1Ready(req,res))) return;
       const permission=await p1Permission(req,type,"create");
       if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const priorRequest=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND idempotency_key=$2",[projectId,b.idempotencyKey.trim()]);
+      if(priorRequest.rows.length){
+        const prior=priorRequest.rows[0];
+        if(prior.record_type!==type||prior.title!==title||JSON.stringify(prior.payload)!==JSON.stringify(payload)) return res.status(409).json({error:"Idempotency key conflict.",code:"IDEMPOTENCY_KEY_CONFLICT"});
+        return res.status(200).json({record:prior,idempotentReplay:true});
+      }
       const roleCode=await p1Role(req);
       if(["purchase_requisition","purchase_order","supplier_commitment"].includes(type)&&!["procurement","contract_manager"].includes(roleCode)) return res.status(403).json({error:"Procurement record creation is restricted to Procurement/Contract Manager."});
       if(type==="audit_finding"&&roleCode!=="internal_auditor") return res.status(403).json({error:"Only Internal Auditor may create findings."});

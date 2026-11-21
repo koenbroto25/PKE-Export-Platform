@@ -5467,13 +5467,13 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       }
       if(type==="qa_release"){
         const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sourceRecordId,projectId]);
-        if(source.rows.length!==1||source.rows[0].created_by===actorId) return res.status(409).json({error:"QA release requires an independent actor and source record."});
+        if(source.rows.length!==1||source.rows[0].created_by===actorId) return res.status(409).json({error:"QA release requires an independent actor and source record.",code:"QA_INDEPENDENCE_REQUIRED"});
       }
       if(type==="audit_closure"){
         const fid=String(payload.findingRecordId??"");
         const finding=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='audit_finding'",[fid,projectId]);
         const response=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[fid,projectId]);
-        if(finding.rows.length!==1||!response.rows.length||!canCloseAuditFinding(actorId,finding.rows[0].created_by,response.rows[0].created_by,roleCode)) return res.status(409).json({error:"Audit closure requires independent Internal Auditor verification after owner response."});
+        if(finding.rows.length!==1||!response.rows.length||!canCloseAuditFinding(actorId,finding.rows[0].created_by,response.rows[0].created_by,roleCode)) return res.status(409).json({error:"Audit closure requires independent Internal Auditor verification after owner response.",code:"AUDIT_CLOSURE_INDEPENDENCE_REQUIRED"});
       }
       const external=b.externalScopeUserId?String(b.externalScopeUserId):null;
       let externalRoleCode:string|null=null;
@@ -5550,7 +5550,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(record.record_type==="audit_finding"&&(to==="verified"||to==="closed")){
         if(!(await requireProjectPermission(req,res,projectId,"audit.finding.close"))) return;
         const response=await req.db.query("SELECT created_by,status FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[id,projectId]);
-        if(!response.rows.length||!canCloseAuditFinding(actorId,record.created_by,response.rows[0].created_by,await p1Role(req))||(to==="closed"&&response.rows[0].status!=="verified")) return res.status(403).json({error:"Finding verification/closure requires an independent Internal Auditor after a verified owner response."});
+        if(!response.rows.length||!canCloseAuditFinding(actorId,record.created_by,response.rows[0].created_by,await p1Role(req))||(to==="closed"&&response.rows[0].status!=="verified")) return res.status(403).json({error:"Finding verification/closure requires an independent Internal Auditor after a verified owner response.",code:"AUDIT_CLOSURE_INDEPENDENCE_REQUIRED"});
       }
       const roleCode=await p1Role(req);
       if(record.record_type==="supplier_commitment"&&to==="acknowledged"&&roleCode!=="supplier") return res.status(403).json({error:"Only the assigned Supplier may acknowledge the commitment."});
@@ -5560,7 +5560,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         if(!["master_of_loading","loading_supervisor"].includes(roleCode)||actorId===record.created_by) return res.status(403).json({error:"Survey acceptance/rejection requires an independent Master of Loading or Loading Supervisor."});
       }
       if(record.record_type==="hse_action"&&to==="verified"){
-        if(!(await requireProjectPermission(req,res,projectId,"hse.action.manage"))||roleCode!=="hse_officer"||actorId===record.created_by||actorId===record.assignee_user_id) return res.status(403).json({error:"HSE action verification requires an independent HSE Officer."});
+        if(!(await requireProjectPermission(req,res,projectId,"hse.action.manage"))||roleCode!=="hse_officer"||actorId===record.created_by||actorId===record.assignee_user_id) return res.status(403).json({error:"HSE action verification requires an independent HSE Officer.",code:"HSE_VERIFICATION_INDEPENDENCE_REQUIRED"});
       }
       if(record.record_type==="dispatch_assignment"&&["acknowledged","in_progress","completed"].includes(to)&&["transporter","driver"].includes(roleCode)&&record.external_scope_user_id!==actorId) return res.status(403).json({error:"External dispatch updates are restricted to the assigned user."});
       if(record.record_type==="audit_response"&&to==="submitted"){

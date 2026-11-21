@@ -5347,6 +5347,70 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         });
         if(!match.ok) return res.status(409).json({error:"Three-way match rejected.",code:match.reason});
       }
+      if(type==="production_batch"){
+        if(b.sourceEntityType!=="production_batches"||!b.sourceEntityId) return res.status(400).json({error:"Production batch must link an existing production_batches row."});
+        const q=await req.db.query("SELECT id FROM public.production_batches WHERE id=$1::uuid AND project_id=$2::uuid",[b.sourceEntityId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Production batch source is outside this Project."});
+      }
+      if(type==="packing_batch"){
+        if(b.sourceEntityType!=="packing_batches"||!b.sourceEntityId) return res.status(400).json({error:"Packing batch must link an existing packing_batches row."});
+        const q=await req.db.query("SELECT id FROM public.packing_batches WHERE id=$1::uuid AND project_id=$2::uuid",[b.sourceEntityId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Packing batch source is outside this Project."});
+      }
+      if(type==="quality_sample"){
+        const q=payload.sampleId
+          ? await req.db.query("SELECT id FROM public.product_quality_samples WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sampleId,projectId])
+          : await req.db.query("SELECT id FROM public.product_quality_samples WHERE sample_number=$1 AND project_id=$2::uuid",[payload.sampleNumber,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Quality sample must reference a same-Project sample."});
+      }
+      if(type==="quality_result"){
+        const q=await req.db.query("SELECT id FROM public.product_quality_samples WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sampleId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Quality result sample is outside this Project."});
+      }
+      if(type==="dispatch_assignment"){
+        const q=await req.db.query("SELECT id FROM public.truck_trips WHERE id=$1::uuid AND project_id=$2::uuid",[payload.tripId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Dispatch assignment must reference a same-Project truck trip."});
+      }
+      if(type==="vessel_call"||type==="ship_master_ack"||type==="laytime_event"){
+        const voyageId=String(payload.voyageId??"");
+        const q=await req.db.query("SELECT id FROM public.voyages WHERE id=$1::uuid AND project_id=$2::uuid",[voyageId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Vessel workflow must reference a same-Project voyage."});
+      }
+      if(type==="loading_plan"||type==="loading_survey"){
+        const opId=String(payload.loadingOperationId??"");
+        const q=await req.db.query("SELECT id,quantity FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid",[opId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Loading operation is outside this Project."});
+        if(type==="loading_plan"){
+          const shipment=await req.db.query("SELECT quantity FROM public.shipments WHERE id=$1::uuid AND project_id=$2::uuid",[payload.shipmentId,projectId]);
+          if(!shipment.rows.length||Number(payload.plannedQuantity)>Number(shipment.rows[0].quantity)) return res.status(422).json({error:"Loading plan must reference a same-Project shipment and not exceed shipment quantity."});
+        }
+        if(type==="loading_survey"&&Number(payload.surveyedQuantity)>Number(q.rows[0].quantity)) return res.status(422).json({error:"Surveyed quantity cannot exceed the loading operation quantity."});
+      }
+      if(type==="lc_record"){
+        const q=await req.db.query("SELECT id FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='lc_record' AND payload->>'lcNumber'=$2 LIMIT 1",[projectId,payload.lcNumber]);
+        if(q.rows.length) return res.status(409).json({error:"LC number already exists in this Project.",code:"DUPLICATE_LC_NUMBER"});
+      }
+      if(type==="lc_clause"&&String(payload.lcRecordId)!==String(parentRecord?.id??"")) return res.status(422).json({error:"LC clause must reference its parent LC record."});
+      if(type==="lc_presentation"){
+        const lcId=String(payload.lcRecordId??"");
+        if(lcId!==String(parentRecord?.id??"")||parentRecord?.record_type!=="lc_record"||!["issued","acknowledged"].includes(parentRecord.status)) return res.status(409).json({error:"LC presentation requires an issued, same-Project LC record."});
+        const clauses=await req.db.query("SELECT payload FROM public.p1_domain_records WHERE project_id=$1::uuid AND parent_record_id=$2::uuid AND record_type='lc_clause' AND status IN ('submitted','accepted')",[projectId,lcId]);
+        const selections=payload.documentSelections as Array<{documentRecordId:string;clauseCode:string;copyType:"original"|"copy"}>;
+        const ids=[...new Set(selections.map(x=>x.documentRecordId))];
+        const docs=await req.db.query("SELECT id,document_type_code,status,expiry_date,sha256_checksum FROM public.project_export_documents WHERE project_id=$1::uuid AND id=ANY($2::uuid[])",[projectId,ids]);
+        if(docs.rows.length!==ids.length) return res.status(422).json({error:"Every presented document must exist in the same Project."});
+        const expired=docs.rows.some((d:any)=>d.status!=="approved"||!d.sha256_checksum||(d.expiry_date&&new Date(d.expiry_date)<new Date()));
+        const required=clauses.rows.map((x:any)=>String(x.payload.clauseCode));
+        const supplied=[...new Set(selections.map(x=>x.clauseCode))];
+        const checklist=validateLcPresentation(required,supplied,expired);
+        if(!checklist.ok) return res.status(409).json({error:"LC presentation checklist is incomplete or contains invalid/expired evidence.",code:"LC_PRESENTATION_INCOMPLETE",missing:checklist.missing});
+        for(const clause of clauses.rows){
+          const code=String(clause.payload.clauseCode),matches=selections.filter(x=>x.clauseCode===code);
+          const docType=String(clause.payload.documentTypeCode);
+          if(matches.some(x=>docs.rows.find((d:any)=>d.id===x.documentRecordId)?.document_type_code!==docType)) return res.status(409).json({error:"Presented document type does not satisfy the LC clause.",code:"LC_DOCUMENT_TYPE_MISMATCH",clauseCode:code});
+          if(matches.filter(x=>x.copyType==="original").length<Number(clause.payload.requiredOriginals??0)||matches.filter(x=>x.copyType==="copy").length<Number(clause.payload.requiredCopies??0)) return res.status(409).json({error:"LC original/copy count is below the clause requirement.",code:"LC_DOCUMENT_COUNT_MISMATCH",clauseCode:code});
+        }
+      }
       if(type==="laytime_event"){
         const calc=calculateLaytime({allowedHours:Number(payload.allowedHours),startAt:String(payload.startAt),endAt:String(payload.endAt),excludedHours:Number(payload.excludedHours??0)});
         if(!calc.valid) return res.status(400).json({error:"Invalid laytime interval or allowance.",code:"INVALID_LAYTIME"});
@@ -5363,21 +5427,32 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         const response=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[fid,projectId]);
         if(finding.rows.length!==1||!response.rows.length||!canCloseAuditFinding(actorId,finding.rows[0].created_by,response.rows[0].created_by,roleCode)) return res.status(409).json({error:"Audit closure requires independent Internal Auditor verification after owner response."});
       }
+      const external=b.externalScopeUserId?String(b.externalScopeUserId):null;
+      let externalRoleCode:string|null=null;
+      if(external){
+        const allowed=p1ExternalRoles[type]??[];
+        const extRole=await req.db.query(
+          `SELECT pr.role_code FROM public.project_role_assignments a
+           JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+           JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id
+           WHERE a.project_id=$1::uuid AND a.user_id=$2::uuid AND pr.role_code=ANY($3::text[])
+             AND a.is_active AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+             AND pm.is_active AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+             AND pr.is_active ORDER BY pr.role_code LIMIT 1`,[projectId,external,allowed]);
+        if(!allowed.length||!extRole.rows.length) return res.status(422).json({error:"External scope must match an active external Project assignment."});
+        externalRoleCode=extRole.rows[0].role_code;
+      }
       const ownerRoleCode=typeof b.ownerRoleCode==="string"?b.ownerRoleCode:
         type==="audit_finding"?String(payload.ownerRoleCode):
         type==="audit_response"?String(parentRecord?.owner_role_code??""):
         type==="hse_action"?String(payload.actionOwnerRoleCode??""):
-        p1DefaultOwner[type];
+        externalRoleCode??p1DefaultOwner[type];
       const owner=await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true",[projectId,ownerRoleCode]);
       if(owner.rows.length!==1) return res.status(422).json({error:"ownerRoleCode must be active in this Project."});
       let assignee=b.assigneeUserId?String(b.assigneeUserId):null;
-      const external=b.externalScopeUserId?String(b.externalScopeUserId):null;
       if(external&&!assignee) assignee=external;
       if(assignee&&!await p1HasRole(req,projectId,assignee,[ownerRoleCode])) return res.status(422).json({error:"Assignee must hold the selected active Project role."});
-      if(external){
-        const allowed=p1ExternalRoles[type]??[];
-        if(!allowed.length||!await p1HasRole(req,projectId,external,allowed)||assignee!==external) return res.status(422).json({error:"External scope must match the assigned external Project user."});
-      }
+      if(external&&assignee!==external) return res.status(422).json({error:"External scope and assignee must be the same user."});
       if(["supplier_commitment","dispatch_assignment","loading_survey","ship_master_ack"].includes(type)&&!external) return res.status(422).json({error:"This workflow requires an explicitly assigned external Project user.",code:"EXTERNAL_ASSIGNMENT_REQUIRED"});
       const dueAt=b.dueAt?new Date(b.dueAt):null;
       if(b.dueAt&&Number.isNaN(dueAt!.getTime())) return res.status(400).json({error:"Invalid dueAt."});

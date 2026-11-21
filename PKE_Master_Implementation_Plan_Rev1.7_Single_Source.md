@@ -10193,3 +10193,19 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 5. Implement the separate global master-data change-request/approval workflow before allowing legal identity, registration or verified facility identity changes.
 6. Add distinct facility-product capability evidence and capacity/quality provenance; do not infer PKE production capability from the facility name/type.
 7. Keep all three seed batches removable by exact `seed_batch_id`; owner/PM must decide whether to retain them as documented UAT demo fixtures or clean them after review.
+
+
+## 56.53 — P15 final Project-scope hardening (21 November 2026)
+
+### Scope and security correction
+- Review of UAT migrations 077/078 and the existing P15 API/UI found that the change-request register was Project-scoped, but its canonical organization/facility target lookup and change-request trigger did not independently assert that an update target belonged to the request's selected Project.
+- Migration 079 adds a database-level BEFORE INSERT OR UPDATE guard. PM requests to update an organization must reference an organization linked to that Project through supplier participation, PKS participation, buyer contract program, or the Project operating profile. Facility updates and facility-product/capacity/certification proposals must reference a facility participating in the same Project. Platform Admin remains the global master-data steward.
+- The P15 GET API now filters organization, facility, facility capability, capacity and certification records to the selected Project for non-Admin users. This supplements RLS and prevents cross-Project target discovery through the P15 workspace.
+- The P15 request table now displays distinct labels for organization, facility, facility-product capability, capacity and certification requests.
+
+### Validation and release boundaries
+- Apply migration 079 only to Neon UAT after taking a targeted backup of the current 077/078 trigger/function definitions.
+- Backtest PM Alpha against its own Project-linked records and against Beta/unlinked records; PM must be denied on cross-Project targets. Verify PM draft edit/submit only, Admin-only approve/reject, no self-approval, reviewer stamps, optimistic concurrency, and audit snapshots.
+- Verify Admin can review global master data, Finance/read-only roles cannot create or decide requests, and evidence documents must remain approved/checksum-verified and Project-matched.
+- Re-run contract tests, backend/frontend typecheck and frontend build. CI must be green before P15 is marked source-ready.
+- The pre-existing UAT row [TEST FIXTURE] P15 Approval Backtest 20261121 remains a known synthetic backtest artifact pending an explicitly authorized cleanup decision; it is not Production business data. No Production DDL/DML, Vercel deployment/promotion, PR merge or branch creation is included.

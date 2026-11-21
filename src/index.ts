@@ -782,8 +782,26 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
                 requested_by,reviewed_by,reviewed_at,applied_target_id,applied_at,created_at,updated_at
            FROM public.p2a_master_data_change_requests
           WHERE project_id=$1::uuid ORDER BY created_at DESC`, [projectId]),
-      req.db.query("SELECT id,legal_name,organization_type,country_code,verification_status FROM public.partner_organizations WHERE is_active=true ORDER BY legal_name"),
-      req.db.query("SELECT id,name,facility_type,city,province,country_code,verification_status FROM public.pks_sites WHERE is_active=true ORDER BY name"),
+      req.db.query(`SELECT po.id,po.legal_name,po.organization_type,po.country_code,po.verification_status
+        FROM public.partner_organizations po
+       WHERE po.is_active=true
+         AND (public.pke_is_platform_admin() OR
+           EXISTS (SELECT 1 FROM public.project_supplier_participation sp JOIN public.vendors v ON v.id=sp.vendor_id
+                    WHERE sp.project_id=$1::uuid AND sp.is_active=true AND v.is_active=true AND v.organization_id=po.id)
+           OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp JOIN public.vendors v ON v.id=pp.vendor_id
+                    WHERE pp.project_id=$1::uuid AND pp.status<>'closed' AND v.is_active=true AND v.organization_id=po.id)
+           OR EXISTS (SELECT 1 FROM public.buyers b JOIN public.contract_programs cp ON cp.buyer_id=b.id
+                    WHERE cp.project_id=$1::uuid AND cp.is_active=true AND b.is_active=true AND b.organization_id=po.id)
+           OR EXISTS (SELECT 1 FROM public.pks_sites s JOIN public.project_operating_profiles op ON op.primary_pks_site_id=s.id
+                    WHERE op.project_id=$1::uuid AND s.organization_id=po.id))
+       ORDER BY po.legal_name`, [projectId]),
+      req.db.query(`SELECT s.id,s.name,s.facility_type,s.city,s.province,s.country_code,s.verification_status
+        FROM public.pks_sites s
+       WHERE s.is_active=true
+         AND (public.pke_is_platform_admin() OR EXISTS (
+           SELECT 1 FROM public.project_pks_site_participation pp
+            WHERE pp.project_id=$1::uuid AND pp.pks_site_id=s.id AND pp.status<>'closed'))
+       ORDER BY s.name`, [projectId]),
       req.db.query("SELECT public.pke_has_project_permission($1::uuid,'pks.master_data.change_request.manage') AS allowed", [projectId]),
       req.db.query(
         `SELECT id,original_filename,document_type_code,sha256_checksum,uploaded_at
@@ -796,9 +814,9 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
         [projectId],
       ),
       req.db.query("SELECT id,product_code,product_name,classification_status,classification_project_id,classification_evidence_document_id,classification_evidence_sha256,classification_source_reference,classification_verified_by,classification_verified_at FROM public.product_catalog WHERE is_active=true ORDER BY product_name"),
-      req.db.query(`SELECT fp.id,fp.facility_id,fs.name AS facility_name,fp.product_id,pc.product_code,pc.product_name,fp.process_type,fp.capability_status,fp.source_reference,fp.evidence_document_id,fp.evidence_sha256,fp.verified_by,fp.verified_at FROM public.facility_products fp JOIN public.product_catalog pc ON pc.id=fp.product_id JOIN public.pks_sites fs ON fs.id=fp.facility_id ORDER BY fp.created_at DESC`),
-      req.db.query(`SELECT cr.id,cr.facility_id,fs.name AS facility_name,cr.process_type,cr.capacity_kind,cr.capacity_value,cr.unit_code,cr.period_type,cr.effective_from,cr.effective_to,cr.source_reference,cr.evidence_document_id,cr.evidence_sha256,cr.verified_by,cr.verified_at FROM public.facility_capacity_records cr JOIN public.pks_sites fs ON fs.id=cr.facility_id ORDER BY cr.effective_from DESC`),
-      req.db.query(`SELECT fc.id,fc.facility_id,fs.name AS facility_name,fc.certification_type,fc.certificate_number,fc.issuer,fc.scope,fc.valid_from,fc.valid_to,fc.status,fc.source_reference,fc.evidence_document_id,fc.evidence_sha256,fc.verified_by,fc.verified_at FROM public.facility_certifications fc JOIN public.pks_sites fs ON fs.id=fc.facility_id ORDER BY fc.created_at DESC`),
+      req.db.query(`SELECT fp.id,fp.facility_id,fs.name AS facility_name,fp.product_id,pc.product_code,pc.product_name,fp.process_type,fp.capability_status,fp.source_reference,fp.evidence_document_id,fp.evidence_sha256,fp.verified_by,fp.verified_at FROM public.facility_products fp JOIN public.product_catalog pc ON pc.id=fp.product_id JOIN public.pks_sites fs ON fs.id=fp.facility_id WHERE (public.pke_is_platform_admin() OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp WHERE pp.project_id=$1::uuid AND pp.pks_site_id=fs.id AND pp.status<>'closed')) ORDER BY fp.created_at DESC`, [projectId]),
+      req.db.query(`SELECT cr.id,cr.facility_id,fs.name AS facility_name,cr.process_type,cr.capacity_kind,cr.capacity_value,cr.unit_code,cr.period_type,cr.effective_from,cr.effective_to,cr.source_reference,cr.evidence_document_id,cr.evidence_sha256,cr.verified_by,cr.verified_at FROM public.facility_capacity_records cr JOIN public.pks_sites fs ON fs.id=cr.facility_id WHERE (public.pke_is_platform_admin() OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp WHERE pp.project_id=$1::uuid AND pp.pks_site_id=fs.id AND pp.status<>'closed')) ORDER BY cr.effective_from DESC`, [projectId]),
+      req.db.query(`SELECT fc.id,fc.facility_id,fs.name AS facility_name,fc.certification_type,fc.certificate_number,fc.issuer,fc.scope,fc.valid_from,fc.valid_to,fc.status,fc.source_reference,fc.evidence_document_id,fc.evidence_sha256,fc.verified_by,fc.verified_at FROM public.facility_certifications fc JOIN public.pks_sites fs ON fs.id=fc.facility_id WHERE (public.pke_is_platform_admin() OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp WHERE pp.project_id=$1::uuid AND pp.pks_site_id=fs.id AND pp.status<>'closed')) ORDER BY fc.created_at DESC`, [projectId]),
     ]);
     return res.json({
       requests: requests.rows, organizations: organizations.rows, facilities: facilities.rows,

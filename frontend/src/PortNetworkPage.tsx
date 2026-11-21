@@ -48,6 +48,12 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [masterDraft, setMasterDraft] = useState("");
   const [masterMessage, setMasterMessage] = useState("");
   const [reviewNote, setReviewNote] = useState("");
+  const [documentRequirements, setDocumentRequirements] = useState<Row[]>([]);
+  const [projectDocuments, setProjectDocuments] = useState<Row[]>([]);
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [selectedRequirementId, setSelectedRequirementId] = useState("");
+  const [evidenceMessage, setEvidenceMessage] = useState("");
+  const [lastUploadedEvidence, setLastUploadedEvidence] = useState<{objectKey:string;sha256:string}|null>(null);
   const [depthDraft, setDepthDraft] = useState({ depthValue: "", depthDatum: "", observedAt: "", surveyDate: "", sourceAuthority: "", evidenceObjectKey: "", evidenceSha256: "" });
   const [tideDraft, setTideDraft] = useState({ tideHeightM: "", verticalDatum: "", observedAt: "", sourceReference: "", evidenceObjectKey: "", evidenceSha256: "" });
   const [vessels, setVessels] = useState<Row[]>([]);
@@ -64,6 +70,8 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const canSubmitDepth = permissions.includes("port.depth.submit");
   const canEstimateRoutes = platformAdmin || permissions.includes("route.estimate");
   const canAssessVessel = permissions.includes("vessel.port.assess") && permissions.includes("vessel.view");
+  const canUploadDocuments = platformAdmin || permissions.includes("documents.create");
+  const canManageDocuments = platformAdmin || permissions.includes("documents.view") || permissions.includes("documents.create") || permissions.includes("documents.update");
 
 
   useEffect(() => {
@@ -112,6 +120,22 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       .catch(() => { if (active) setError("Daftar kapal tidak dapat dimuat."); });
     return () => { active = false; };
   }, [projectId, canAssessVessel]);
+
+  useEffect(() => {
+    let active = true;
+    if (!projectId || !canManageDocuments) { setDocumentRequirements([]); setProjectDocuments([]); return; }
+    Promise.all([
+      get<{documentRequirements?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/document-requirements`),
+      get<{documents?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/documents`)
+    ]).then(([requirements,documents]) => {
+      if (!active) return;
+      const reqs=Array.isArray(requirements?.documentRequirements)?requirements.documentRequirements:[];
+      setDocumentRequirements(reqs);
+      setProjectDocuments(Array.isArray(documents?.documents)?documents.documents:[]);
+      if (!selectedRequirementId && reqs[0]?.id) setSelectedRequirementId(String(reqs[0].id));
+    }).catch(() => { if (active) setEvidenceMessage("Daftar dokumen Project tidak dapat dimuat."); });
+    return () => { active=false; };
+  }, [projectId, canManageDocuments]);
 
   useEffect(() => {
     let active = true;
@@ -194,6 +218,55 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     finally { setActionBusy(false); }
   }
 
+  async function refreshProjectDocuments() {
+    const [requirements,documents]=await Promise.all([
+      get<{documentRequirements?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/document-requirements`),
+      get<{documents?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/documents`)
+    ]);
+    setDocumentRequirements(requirements.documentRequirements||[]);
+    setProjectDocuments(documents.documents||[]);
+  }
+
+  async function uploadProjectEvidence(event: FormEvent) {
+    event.preventDefault();
+    if (!evidenceFile || !selectedRequirementId || !projectId) return;
+    setActionBusy(true); setEvidenceMessage("");
+    try {
+      if (evidenceFile.size<=0 || evidenceFile.size>50*1024*1024) throw new Error("Ukuran dokumen harus 1 byte–50 MB.");
+      const bytes=await evidenceFile.arrayBuffer();
+      const digest=await crypto.subtle.digest("SHA-256",bytes);
+      const sha256=Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,"0")).join("");
+      const safeName=evidenceFile.name.normalize("NFKC").replace(/[^A-Za-z0-9._-]+/g,"-").slice(-120)||"evidence";
+      const objectKey=`projects/${projectId}/documents/${selectedRequirementId}/${Date.now()}-${safeName}`;
+      const signed=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>}}>(
+        "/storage/presigned-upload",{objectKey,mimeType:evidenceFile.type||"application/octet-stream",contentLength:evidenceFile.size,filename:evidenceFile.name}
+      );
+      const uploaded=await fetch(signed.upload.uploadUrl,{method:"PUT",headers:signed.upload.requiredHeaders,body:evidenceFile,redirect:"error"});
+      if(!uploaded.ok) throw new Error(`Upload object gagal (HTTP ${uploaded.status}).`);
+      await post(`/projects/${encodeURIComponent(projectId)}/documents`,{
+        projectRequirementId:selectedRequirementId,fileReference:objectKey,objectKey,originalFilename:evidenceFile.name,
+        mimeType:evidenceFile.type||"application/octet-stream",sha256Checksum:sha256,contentLength:evidenceFile.size
+      });
+      setLastUploadedEvidence({objectKey,sha256});
+      setDepthDraft(v=>({...v,evidenceObjectKey:objectKey,evidenceSha256:sha256}));
+      setTideDraft(v=>({...v,evidenceObjectKey:objectKey,evidenceSha256:sha256}));
+      setEvidenceFile(null);
+      setEvidenceMessage("Dokumen berhasil diunggah, diverifikasi ulang dari object storage, dan didaftarkan dengan status Uploaded. Dokumen belum dapat dipakai sebagai evidence sampai reviewer independen menyetujuinya.");
+      await refreshProjectDocuments();
+    } catch(e:any) { setEvidenceMessage(e?.message||"Upload evidence gagal; dokumen belum didaftarkan."); }
+    finally { setActionBusy(false); }
+  }
+
+  async function reviewProjectDocument(documentId:string,status:"under_review"|"approved"|"rejected") {
+    setActionBusy(true); setEvidenceMessage("");
+    try {
+      await patch(`/documents/${encodeURIComponent(documentId)}`,{status,notes:reviewNote.trim()||undefined});
+      await refreshProjectDocuments();
+      setEvidenceMessage(status==="approved"?"Dokumen disetujui setelah pemeriksaan independen.":status==="rejected"?"Dokumen ditolak.":"Dokumen masuk antrean review.");
+    } catch(e:any) { setEvidenceMessage(e?.message||"Perubahan status dokumen ditolak oleh aturan review."); }
+    finally { setActionBusy(false); }
+  }
+
   async function assessVessel(event: FormEvent) {
     event.preventDefault(); if (!selectedPort?.id || !selectedVesselId) return; setActionBusy(true); setAssessment(null);
     try {
@@ -266,6 +339,27 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
         </div>
       )}
       {masterMessage && <div className="p16-notice" role="status">{masterMessage}</div>}
+      {projectId && canManageDocuments && <section className="p16-workflows">
+        <h3>Dokumen evidence Project</h3>
+        {canUploadDocuments && <form className="p16-workflow-form" onSubmit={uploadProjectEvidence}>
+          <p className="p16-muted">Unggah bukti resmi ke bucket privat. Sistem menghitung SHA-256, memeriksa ulang ukuran dan isi object dari storage, lalu mencatat dokumen pada Project aktif.</p>
+          <div className="p16-form-grid">
+            <label>Jenis persyaratan dokumen<select required value={selectedRequirementId} onChange={e=>setSelectedRequirementId(e.target.value)}>
+              <option value="">Pilih persyaratan</option>{documentRequirements.map(r=><option key={r.id} value={r.id}>{r.documentCode} · {r.documentName}</option>)}
+            </select></label>
+            <label>File evidence<input required type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" onChange={e=>setEvidenceFile(e.target.files?.[0]||null)}/></label>
+          </div>
+          <button type="submit" disabled={actionBusy||!evidenceFile||!selectedRequirementId}>{actionBusy?"Memproses…":"Unggah & verifikasi object"}</button>
+        </form>}
+        {evidenceMessage && <p role="status" className="p16-muted">{evidenceMessage}</p>}
+        {platformAdmin && <label>Catatan review dokumen<input value={reviewNote} onChange={e=>setReviewNote(e.target.value)} placeholder="Catatan independen (wajib saat menolak)"/></label>}
+        {projectDocuments.length ? projectDocuments.map(d=><div className="p16-record" key={d.id}>
+          <div><strong>{d.documentCode} · {d.originalFilename}</strong><small>{d.mimeType} · {d.file_size_bytes||d.fileSizeBytes||"—"} bytes · SHA-256 {String(d.sha256Checksum||"").slice(0,16)}…</small></div>
+          <Status value={d.status}/>
+          {platformAdmin && d.status==="uploaded" && <button type="button" disabled={actionBusy} onClick={()=>reviewProjectDocument(String(d.id),"under_review")}>Mulai review</button>}
+          {platformAdmin && d.status==="under_review" && <><button type="button" disabled={actionBusy||String(d.uploadedBy||"")===String(activeUser?.id||"")} onClick={()=>reviewProjectDocument(String(d.id),"approved")}>Setujui</button><button type="button" disabled={actionBusy||reviewNote.trim().length<5} onClick={()=>reviewProjectDocument(String(d.id),"rejected")}>Tolak</button></>}
+        </div>) : <p className="p16-muted">Belum ada dokumen terdaftar pada Project ini.</p>}
+      </section>}
       {tab === "ports" && selectedPort && portDetail?.port && <section className="p16-workflows">
         <h3>Alur kerja pelabuhan · {portDetail.port.name}</h3>
         {platformAdmin && <div className="p16-workflow-row"><button type="button" onClick={() => { setMasterResource("ports"); setMasterId(String(portDetail.port.id)); setMasterDraft(JSON.stringify(portDetail.port,null,2)); }}>Edit master pelabuhan</button><input aria-label="Catatan verifikasi" placeholder="Catatan review independen (min. 5 karakter)" value={reviewNote} onChange={e => setReviewNote(e.target.value)} /><button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={reviewPort}>Verifikasi pelabuhan</button></div>}

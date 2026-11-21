@@ -6,6 +6,7 @@ import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAs
 
 const INDEX_SRC = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 const ROLE_ASSIGNMENT_MIGRATION_SRC = readFileSync(new URL("../migrations/043_project_role_assignments_and_history.sql", import.meta.url), "utf8");
+const P16_PERMISSION_CONTEXT_MIGRATION_SRC = readFileSync(new URL("../migrations/094_p16_rls_safe_permission_context.sql", import.meta.url), "utf8");
 const FRONTEND_APP_SRC = readFileSync(new URL("../frontend/src/App.tsx", import.meta.url), "utf8");
 const ROLE_ASSIGNMENT_RULES_SRC = readFileSync(new URL("./f1-role-assignment-rules.ts", import.meta.url), "utf8");
 
@@ -194,9 +195,10 @@ describe("F1 / PRI-0 independent Project role assignment contract", () => {
     const start = INDEX_SRC.indexOf("async function requireProjectPermission(");
     const end = INDEX_SRC.indexOf("async function getProjectOr404(", start);
     const block = INDEX_SRC.slice(start, end);
-    expect(block).toContain("FROM public.project_role_assignments a");
-    expect(block).toContain("a.revoked_at IS NULL");
-    expect(block).toContain("a.expires_at > now()");
+    expect(block).toContain("pke_resolve_project_permission_context");
+    expect(P16_PERMISSION_CONTEXT_MIGRATION_SRC).toContain("FROM public.project_role_assignments a");
+    expect(P16_PERMISSION_CONTEXT_MIGRATION_SRC).toContain("a.revoked_at IS NULL");
+    expect(P16_PERMISSION_CONTEXT_MIGRATION_SRC).toContain("a.expires_at > now()");
     expect(block).toContain("assignmentRows[0].project_role_id");
     expect(INDEX_SRC).toContain("validateRoleAssignmentExpiry(expiresAt)");
     expect(ROLE_ASSIGNMENT_RULES_SRC).toContain("Date.parse(expiresAt) <= nowMs");

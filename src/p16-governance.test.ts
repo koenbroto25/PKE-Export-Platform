@@ -10,7 +10,7 @@ const MIGRATION_084 = readFileSync(join(ROOT, "..", "migrations", "084_p2b_pm_de
 const MIGRATION_085 = readFileSync(join(ROOT, "..", "migrations", "085_p2b_port_evidence_document_guard.sql"), "utf8");
 const MIGRATION_086 = readFileSync(join(ROOT, "..", "migrations", "086_p2b_master_guard_updated_at_fix.sql"), "utf8");
 const UI = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
-const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_085.json"), "utf8"));
+const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_086.json"), "utf8"));
 
 describe("P16 Port, Warehouse and Vessel governance", () => {
   it("registers P16 master CRUD, evidence, review, route and assessment endpoints", () => {

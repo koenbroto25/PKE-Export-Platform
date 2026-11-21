@@ -78,6 +78,10 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(API).toContain("eligible_for_review");
     expect(API).toContain("insufficient_data");
     expect(API).toContain("manual_review_required");
+    expect(API).toContain("evidence_object_key IS NOT NULL");
+    expect(API).toContain("COALESCE(p.evidence_sha256");
+    expect(API).toContain("effective_verification_status");
+    expect(UI).toContain("effective_verification_status");
   });
 
   it("exposes Project evidence submission, Admin master editing and review controls in the UI", () => {

@@ -1969,6 +1969,136 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
   }
 });
 
+// Explicit Funder report sharing. Only Project staffing managers can share/revoke,
+// and the database trigger independently verifies the recipient's active Funder role.
+app.get("/api/v1/funder/shared-reports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter required." });
+  if (!(await requireProjectPermission(req, res, projectId, "funder.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT rr.id, rr.project_id, rr.template_id, rr.template_version,
+              rr.cutoff_at, rr.generated_at, rr.data_freshness, rr.file_reference,
+              rr.report_payload, s.shared_at
+         FROM public.project_funder_report_shares s
+         JOIN public.report_runs rr
+           ON rr.id = s.report_run_id AND rr.project_id = s.project_id
+        WHERE s.project_id = $1::uuid
+          AND s.funder_user_id = $2::uuid
+          AND s.revoked_at IS NULL
+          AND rr.status = 'completed'
+        ORDER BY s.shared_at DESC
+        LIMIT 100`,
+      [projectId, req.user?.id],
+    );
+    return res.json({ reports: rows.map((r: any) => ({
+      id: r.id, projectId: r.project_id, templateId: r.template_id,
+      templateVersion: r.template_version, cutoff: r.cutoff_at,
+      generatedAt: r.generated_at, dataFreshness: r.data_freshness,
+      fileReference: r.file_reference, reportPayload: r.report_payload,
+      sharedAt: r.shared_at,
+    })) });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/projects/:projectId/funder/report-shares", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "project.members.manage"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT s.id, s.report_run_id, s.funder_user_id, u.email AS funder_email,
+              rr.template_id, rr.status AS report_status, s.shared_at
+         FROM public.project_funder_report_shares s
+         JOIN public.users u ON u.id = s.funder_user_id
+         JOIN public.report_runs rr ON rr.id = s.report_run_id AND rr.project_id = s.project_id
+        WHERE s.project_id = $1::uuid AND s.revoked_at IS NULL
+        ORDER BY s.shared_at DESC`,
+      [projectId],
+    );
+    return res.json({ shares: rows });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/projects/:projectId/funder/report-shares", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  const reportRunId = typeof req.body?.reportRunId === "string" ? req.body.reportRunId : "";
+  const funderUserId = typeof req.body?.funderUserId === "string" ? req.body.funderUserId : "";
+  if (!reportRunId || !funderUserId) {
+    return res.status(400).json({ error: "reportRunId and funderUserId are required." });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "project.members.manage"))) return;
+  try {
+    const { rows: reportRows } = await req.db.query(
+      `SELECT id FROM public.report_runs
+        WHERE id = $1::uuid AND project_id = $2::uuid
+          AND status = 'completed' AND NULLIF(btrim(file_reference), '') IS NOT NULL`,
+      [reportRunId, projectId],
+    );
+    if (reportRows.length !== 1) {
+      return res.status(409).json({ error: "Only a completed report artifact in this Project can be shared.", code: "REPORT_NOT_SHAREABLE" });
+    }
+    const { rows: funderRows } = await req.db.query(
+      `SELECT 1
+         FROM public.project_role_assignments a
+         JOIN public.project_members pm ON pm.id = a.project_member_id
+           AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+         JOIN public.project_role_permissions prp ON prp.project_id = a.project_id AND prp.project_role_id = pr.id
+         JOIN public.permissions perm ON perm.id = prp.permission_id
+           AND perm.code = 'funder.view' AND perm.is_active = true
+        WHERE a.project_id = $1::uuid AND a.user_id = $2::uuid
+          AND a.is_active = true AND a.revoked_at IS NULL
+          AND (a.expires_at IS NULL OR a.expires_at > now())
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+          AND pr.role_code = 'funder' AND pr.is_active = true
+        LIMIT 1`,
+      [projectId, funderUserId],
+    );
+    if (funderRows.length !== 1) {
+      return res.status(400).json({ error: "Recipient must have an active Funder assignment in this Project.", code: "FUNDER_ASSIGNMENT_REQUIRED" });
+    }
+    const { rows } = await req.db.query(
+      `INSERT INTO public.project_funder_report_shares
+         (project_id, report_run_id, funder_user_id, shared_by)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid)
+       RETURNING id, project_id, report_run_id, funder_user_id, shared_at`,
+      [projectId, reportRunId, funderUserId, req.user?.id],
+    );
+    return res.status(201).json({ share: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "This report is already shared with this Funder.", code: "FUNDER_REPORT_ALREADY_SHARED" });
+    if (error?.code === "22P02") return res.status(400).json({ error: "Invalid report or Funder identifier." });
+    if (error?.code === "42501" || error?.code === "23514") return res.status(403).json({ error: "Funder share validation failed.", code: "FUNDER_SHARE_NOT_ALLOWED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/funder/report-shares/:shareId/revoke", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, shareId } = req.params;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 5) return res.status(400).json({ error: "A revocation reason of at least 5 characters is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "project.members.manage"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE public.project_funder_report_shares
+          SET revoked_at = now(), revoked_by = $3::uuid, revoke_reason = $4::text
+        WHERE id = $1::uuid AND project_id = $2::uuid AND revoked_at IS NULL
+        RETURNING id, revoked_at, revoked_by, revoke_reason`,
+      [shareId, projectId, req.user?.id, reason],
+    );
+    if (rows.length !== 1) return res.status(404).json({ error: "Active Funder report share not found." });
+    return res.json({ share: rows[0], revoked: true });
+  } catch (error: any) {
+    if (error?.code === "22P02") return res.status(400).json({ error: "Invalid share identifier." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.post("/api/v1/reports/generate", requireAuth, async (req: express.Request, res: express.Response) => {
   const { templateId, projectId, cutoff } = req.body ?? {};
   if (!templateId) return res.status(400).json({ error: "templateId required" });
@@ -2435,7 +2565,19 @@ app.get("/api/v1/projects/:id/detail", requireAuth, async (req: express.Request,
   if (!(await requireProjectPermission(req, res, id, "project.view"))) return;
   const { rows: projRows } = await req.db.query("SELECT * FROM projects WHERE id = $1::uuid", [id]);
   if (projRows.length === 0) return res.status(404).json({ error: "Project not found" });
-  const { rows: members } = await req.db.query(
+  const { rows: memberAccess } = await req.db.query(
+    "SELECT public.pke_has_project_permission($1::uuid, 'project.members.view') AS allowed",
+    [id],
+  );
+  const { rows: roleAccess } = await req.db.query(
+    "SELECT public.pke_has_project_permission($1::uuid, 'project.roles.manage') AS allowed",
+    [id],
+  );
+  const { rows: operationsAccess } = await req.db.query(
+    "SELECT public.pke_has_project_permission($1::uuid, 'operations.view') AS allowed",
+    [id],
+  );
+  const members = memberAccess[0]?.allowed ? (await req.db.query(
     `SELECT pm.id, pm.user_id, u.email, u.name,
             pm.is_active, pm.joined_at, pm.expires_at,
             coalesce(assignments.roles, '[]'::jsonb) AS role_assignments
@@ -2454,8 +2596,8 @@ app.get("/api/v1/projects/:id/detail", requireAuth, async (req: express.Request,
       WHERE pm.project_id = $1::uuid
       ORDER BY u.email`,
     [id]
-  );
-  const { rows: roles } = await req.db.query(
+  )).rows : [];
+  const roles = roleAccess[0]?.allowed ? (await req.db.query(
     `SELECT pr.id, pr.role_code, pr.name, pr.description, pr.is_active,
             (SELECT jsonb_agg(perm.code) FROM project_role_permissions prp
              JOIN permissions perm ON perm.id = prp.permission_id
@@ -2464,9 +2606,13 @@ app.get("/api/v1/projects/:id/detail", requireAuth, async (req: express.Request,
       WHERE pr.project_id = $1::uuid
       ORDER BY pr.role_code`,
     [id]
-  );
-  const { rows: profile } = await req.db.query("SELECT * FROM project_operating_profiles WHERE project_id = $1::uuid", [id]);
-  const { rows: readiness } = await req.db.query("SELECT * FROM project_module_readiness WHERE project_id = $1::uuid", [id]);
+  )).rows : [];
+  const { rows: profile } = operationsAccess[0]?.allowed
+    ? await req.db.query("SELECT * FROM project_operating_profiles WHERE project_id = $1::uuid", [id])
+    : { rows: [] };
+  const { rows: readiness } = roleAccess[0]?.allowed
+    ? await req.db.query("SELECT * FROM project_module_readiness WHERE project_id = $1::uuid", [id])
+    : { rows: [] };
   res.json({
     project: projRows[0],
     members,

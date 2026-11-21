@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode, type FormEvent } from "react";
 import { get, post, patch } from "./api";
 
 type Row = Record<string, any>;
-type Props = { projectId: string; activeUser?: { projectPermissions?: string[]; platformAdmin?: boolean } };
+type Props = { projectId: string; activeUser?: { id?: string; projectPermissions?: string[]; platformAdmin?: boolean } };
 
 const statusLabel = (value: unknown) => {
   const key = String(value || "unverified").toLowerCase();
@@ -71,7 +71,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const canEstimateRoutes = platformAdmin || permissions.includes("route.estimate");
   const canAssessVessel = permissions.includes("vessel.port.assess") && permissions.includes("vessel.view");
   const canUploadDocuments = platformAdmin || permissions.includes("documents.create");
-  const canManageDocuments = platformAdmin || permissions.includes("documents.view") || permissions.includes("documents.create") || permissions.includes("documents.update");
+  const canManageDocuments = platformAdmin || permissions.includes("documents.view") || permissions.includes("documents.create") || permissions.includes("documents.update");\n  const canReviewDocuments = permissions.includes("documents.update");
 
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!projectId || !canManageDocuments) { setDocumentRequirements([]); setProjectDocuments([]); return; }
+    if (!projectId || !canManageDocuments) { setDocumentRequirements([]); setProjectDocuments([]); return; }\n    setSelectedRequirementId("");
     Promise.all([
       get<{documentRequirements?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/document-requirements`),
       get<{documents?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/documents`)
@@ -239,13 +239,13 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       const safeName=evidenceFile.name.normalize("NFKC").replace(/[^A-Za-z0-9._-]+/g,"-").slice(-120)||"evidence";
       const objectKey=`projects/${projectId}/documents/${selectedRequirementId}/${Date.now()}-${safeName}`;
       const signed=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>}}>(
-        "/storage/presigned-upload",{objectKey,mimeType:evidenceFile.type||"application/octet-stream",contentLength:evidenceFile.size,filename:evidenceFile.name}
+        "/storage/presigned-upload",{objectKey,mimeType,contentLength:evidenceFile.size,filename:evidenceFile.name}
       );
       const uploaded=await fetch(signed.upload.uploadUrl,{method:"PUT",headers:signed.upload.requiredHeaders,body:evidenceFile,redirect:"error"});
       if(!uploaded.ok) throw new Error(`Upload object gagal (HTTP ${uploaded.status}).`);
       await post(`/projects/${encodeURIComponent(projectId)}/documents`,{
         projectRequirementId:selectedRequirementId,fileReference:objectKey,objectKey,originalFilename:evidenceFile.name,
-        mimeType:evidenceFile.type||"application/octet-stream",sha256Checksum:sha256,contentLength:evidenceFile.size
+        mimeType,sha256Checksum:sha256,contentLength:evidenceFile.size
       });
       setLastUploadedEvidence({objectKey,sha256});
       setDepthDraft(v=>({...v,evidenceObjectKey:objectKey,evidenceSha256:sha256}));
@@ -347,17 +347,17 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
             <label>Jenis persyaratan dokumen<select required value={selectedRequirementId} onChange={e=>setSelectedRequirementId(e.target.value)}>
               <option value="">Pilih persyaratan</option>{documentRequirements.map(r=><option key={r.id} value={r.id}>{r.documentCode} · {r.documentName}</option>)}
             </select></label>
-            <label>File evidence<input required type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" onChange={e=>setEvidenceFile(e.target.files?.[0]||null)}/></label>
+            <label>File evidence<input required type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.csv" onChange={e=>setEvidenceFile(e.target.files?.[0]||null)}/></label>
           </div>
           <button type="submit" disabled={actionBusy||!evidenceFile||!selectedRequirementId}>{actionBusy?"Memproses…":"Unggah & verifikasi object"}</button>
         </form>}
         {evidenceMessage && <p role="status" className="p16-muted">{evidenceMessage}</p>}
-        {platformAdmin && <label>Catatan review dokumen<input value={reviewNote} onChange={e=>setReviewNote(e.target.value)} placeholder="Catatan independen (wajib saat menolak)"/></label>}
+        {canReviewDocuments && <label>Catatan review dokumen<input value={reviewNote} onChange={e=>setReviewNote(e.target.value)} placeholder="Catatan independen (wajib saat menolak)"/></label>}
         {projectDocuments.length ? projectDocuments.map(d=><div className="p16-record" key={d.id}>
-          <div><strong>{d.documentCode} · {d.originalFilename}</strong><small>{d.mimeType} · {d.file_size_bytes||d.fileSizeBytes||"—"} bytes · SHA-256 {String(d.sha256Checksum||"").slice(0,16)}…</small></div>
+          <div><strong>{d.documentCode} · {d.originalFilename}</strong><small>{d.mimeType} · {d.fileSizeBytes||"—"} bytes · SHA-256 {String(d.sha256Checksum||"").slice(0,16)}…</small></div>
           <Status value={d.status}/>
-          {platformAdmin && d.status==="uploaded" && <button type="button" disabled={actionBusy} onClick={()=>reviewProjectDocument(String(d.id),"under_review")}>Mulai review</button>}
-          {platformAdmin && d.status==="under_review" && <><button type="button" disabled={actionBusy||String(d.uploadedBy||"")===String(activeUser?.id||"")} onClick={()=>reviewProjectDocument(String(d.id),"approved")}>Setujui</button><button type="button" disabled={actionBusy||reviewNote.trim().length<5} onClick={()=>reviewProjectDocument(String(d.id),"rejected")}>Tolak</button></>}
+          {canReviewDocuments && d.status==="uploaded" && <button type="button" disabled={actionBusy} onClick={()=>reviewProjectDocument(String(d.id),"under_review")}>Mulai review</button>}
+          {canReviewDocuments && d.status==="under_review" && <><button type="button" disabled={actionBusy||String(d.uploadedBy||"")===String(activeUser?.id||"")} onClick={()=>reviewProjectDocument(String(d.id),"approved")}>Setujui</button><button type="button" disabled={actionBusy||reviewNote.trim().length<5} onClick={()=>reviewProjectDocument(String(d.id),"rejected")}>Tolak</button></>}
         </div>) : <p className="p16-muted">Belum ada dokumen terdaftar pada Project ini.</p>}
       </section>}
       {tab === "ports" && selectedPort && portDetail?.port && <section className="p16-workflows">

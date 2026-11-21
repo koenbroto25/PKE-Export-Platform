@@ -5347,19 +5347,16 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         if(type==="lc_presentation"&&parent.rows[0].record_type!=="lc_record") return res.status(422).json({error:"LC presentation must reference an LC record."});
       }
       if(type==="goods_receipt_match"){
-        const [po,grn,inv]=await Promise.all([
-          req.db.query("SELECT id,status,payload FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='purchase_order'",[payload.purchaseOrderRecordId,projectId]),
-          req.db.query("SELECT project_id,received_quantity,unit,status FROM public.warehouse_receipts WHERE id=$1::uuid AND project_id=$2::uuid",[payload.warehouseReceiptId,projectId]),
-          req.db.query("SELECT ai.project_id,ai.supplier_id,ai.total_amount,c.code AS currency_code,ai.purchase_order_id,ai.goods_receipt_id FROM public.ap_invoices ai JOIN public.currencies c ON c.id=ai.currency_id WHERE ai.id=$1::uuid AND ai.project_id=$2::uuid",[payload.apInvoiceId,projectId]),
-        ]);
-        if(po.rows.length!==1||grn.rows.length!==1||inv.rows.length!==1||!["issued","acknowledged","partially_received","received"].includes(po.rows[0].status)||!["verified","partial"].includes(grn.rows[0].status)) return res.status(422).json({error:"PO, verified same-Project GRN and AP invoice are required."});
-        const pp=po.rows[0].payload??{},ii=inv.rows[0],gg=grn.rows[0];
-        if(ii.purchase_order_id&&ii.purchase_order_id!==payload.purchaseOrderRecordId) return res.status(409).json({error:"AP invoice is linked to another PO."});
-        if(ii.goods_receipt_id&&ii.goods_receipt_id!==payload.warehouseReceiptId) return res.status(409).json({error:"AP invoice is linked to another GRN."});
+        const po=await req.db.query("SELECT id,status,payload FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='purchase_order'",[payload.purchaseOrderRecordId,projectId]);
+        const inputs=await req.db.query("SELECT * FROM public.p1_get_three_way_match_inputs($1::uuid,$2::uuid,$3::uuid)",[projectId,payload.warehouseReceiptId,payload.apInvoiceId]);
+        if(po.rows.length!==1||inputs.rows.length!==1||!["issued","acknowledged","partially_received","received"].includes(po.rows[0].status)||!["verified","partial"].includes(inputs.rows[0].receipt_status)) return res.status(422).json({error:"PO, verified same-Project GRN and AP invoice are required."});
+        const pp=po.rows[0].payload??{},ii=inputs.rows[0],gg=inputs.rows[0];
+        if(ii.invoice_purchase_order_id&&String(ii.invoice_purchase_order_id)!==String(payload.purchaseOrderRecordId)) return res.status(409).json({error:"AP invoice is linked to another PO."});
+        if(ii.invoice_goods_receipt_id&&String(ii.invoice_goods_receipt_id)!==String(payload.warehouseReceiptId)) return res.status(409).json({error:"AP invoice is linked to another GRN."});
         const match=validateThreeWayMatch({
           po:{projectId,supplierId:String(pp.supplierId??""),currencyCode:String(pp.currencyCode??""),items:Array.isArray(pp.items)?pp.items:[]},
-          receipt:{projectId,quantity:Number(gg.received_quantity),unitCode:String(gg.unit),supplierId:null},
-          invoice:{projectId,supplierId:String(ii.supplier_id),currencyCode:String(ii.currency_code),totalAmount:Number(ii.total_amount)},
+          receipt:{projectId,quantity:Number(gg.receipt_quantity),unitCode:String(gg.receipt_unit),supplierId:null},
+          invoice:{projectId,supplierId:String(ii.invoice_supplier_id),currencyCode:String(ii.invoice_currency_code),totalAmount:Number(ii.invoice_total_amount)},
           matchedQuantity:Number(payload.matchedQuantity),matchedAmount:Number(payload.matchedAmount),unitCode:String(payload.unitCode),currencyCode:String(payload.currencyCode),
         });
         if(!match.ok) return res.status(409).json({error:"Three-way match rejected.",code:match.reason});

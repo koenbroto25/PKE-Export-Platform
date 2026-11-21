@@ -63,6 +63,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [actionBusy, setActionBusy] = useState(false);
 
   const permissions = activeUser?.projectPermissions || [];
+  const projectQuery = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
   const platformAdmin = activeUser?.platformAdmin === true;
   const canViewPorts = platformAdmin || permissions.includes("port.view");
   const canViewWarehouses = platformAdmin || permissions.includes("warehouse.view");
@@ -84,17 +85,17 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     setLoading(true);
     setError("");
     const requests: Promise<any>[] = [];
-    if (canViewPorts) requests.push(get<{ ports?: Row[] }>(`/ports?projectId=${encodeURIComponent(projectId)}`).then(data => { if (active) setPorts(Array.isArray(data?.ports) ? data.ports : []); }).catch(() => { if (active) setError("Katalog pelabuhan tidak dapat dimuat."); }));
-    if (canViewWarehouses) requests.push(get<{ warehouses?: Row[] }>(`/warehouses?projectId=${encodeURIComponent(projectId)}`).then(data => { if (active) setWarehouses(Array.isArray(data?.warehouses) ? data.warehouses : []); }).catch(() => { if (active) setError("Katalog gudang tidak dapat dimuat."); }));
+    if (canViewPorts) requests.push(get<{ ports?: Row[] }>(`/ports${projectQuery}`).then(data => { if (active) setPorts(Array.isArray(data?.ports) ? data.ports : []); }).catch(() => { if (active) setError("Katalog pelabuhan tidak dapat dimuat."); }));
+    if (canViewWarehouses) requests.push(get<{ warehouses?: Row[] }>(`/warehouses${projectQuery}`).then(data => { if (active) setWarehouses(Array.isArray(data?.warehouses) ? data.warehouses : []); }).catch(() => { if (active) setError("Katalog gudang tidak dapat dimuat."); }));
     Promise.allSettled(requests).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [projectId]);
 
   useEffect(() => {
     let active = true;
-    if (!selectedPort || !projectId || !canViewPorts) { setPortDetail(null); return; }
+    if (!selectedPort || (!projectId && !platformAdmin) || !canViewPorts) { setPortDetail(null); return; }
     setDetailLoading(true);
-    get<Row>(`/ports/${encodeURIComponent(String(selectedPort.id))}?projectId=${encodeURIComponent(projectId)}`)
+    get<Row>(`/ports/${encodeURIComponent(String(selectedPort.id))}${projectQuery}`)
       .then(data => { if (active) setPortDetail(data); })
       .catch(() => { if (active) setError("Detail pelabuhan gagal dimuat."); })
       .finally(() => { if (active) setDetailLoading(false); });
@@ -103,9 +104,9 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!selectedWarehouse || !projectId || !canViewWarehouses) { setWarehouseDetail(null); return; }
+    if (!selectedWarehouse || (!projectId && !platformAdmin) || !canViewWarehouses) { setWarehouseDetail(null); return; }
     setDetailLoading(true);
-    get<Row>(`/warehouses/${encodeURIComponent(String(selectedWarehouse.id))}?projectId=${encodeURIComponent(projectId)}`)
+    get<Row>(`/warehouses/${encodeURIComponent(String(selectedWarehouse.id))}${projectQuery}`)
       .then(data => { if (active) setWarehouseDetail(data); })
       .catch(() => { if (active) setError("Detail gudang gagal dimuat."); })
       .finally(() => { if (active) setDetailLoading(false); });
@@ -140,7 +141,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   useEffect(() => {
     let active = true;
     if ((!projectId && !platformAdmin) || !canEstimateRoutes) return;
-    get<{ routes?: Row[] }>(`/port-routes?projectId=${encodeURIComponent(projectId)}`)
+    get<{ routes?: Row[] }>(`/port-routes${projectQuery}`)
       .then(data => { if (active) setRoutes(Array.isArray(data?.routes) ? data.routes : []); })
       .catch(() => { if (active) setError("Referensi rute tidak dapat dimuat."); });
     return () => { active = false; };
@@ -192,7 +193,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       const path = kind === "depth" ? "port-depth-observations" : "port-tide-observations";
       await patch(`/${path}/${encodeURIComponent(recordId)}/review`, { status, reviewNote });
       setMasterMessage(`Review ${kind === "depth" ? "kedalaman" : "pasang-surut"} tersimpan.`);
-      const refreshed = await get<Row>(`/ports/${encodeURIComponent(selectedPort.id)}?projectId=${encodeURIComponent(projectId)}`);
+      const refreshed = await get<Row>(`/ports/${encodeURIComponent(selectedPort.id)}${projectQuery}`);
       setPortDetail(refreshed);
     } catch (e: any) { setMasterMessage(e?.message || "Review observasi gagal; pastikan reviewer berbeda dari pengaju."); }
     finally { setActionBusy(false); }
@@ -266,8 +267,8 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     try {
       await del(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}`);
       setMasterId(null); setMasterDraft(""); setMasterMessage("Record master berhasil dihapus.");
-      if(canViewPorts){const p=await get<{ports?:Row[]}>(`/ports?projectId=${encodeURIComponent(projectId)}`);setPorts(p.ports||[]);}
-      if(canViewWarehouses){const w=await get<{warehouses?:Row[]}>(`/warehouses?projectId=${encodeURIComponent(projectId)}`);setWarehouses(w.warehouses||[]);}
+      if(canViewPorts){const p=await get<{ports?:Row[]}>(`/ports${projectQuery}`);setPorts(p.ports||[]);}
+      if(canViewWarehouses){const w=await get<{warehouses?:Row[]}>(`/warehouses${projectQuery}`);setWarehouses(w.warehouses||[]);}
     } catch(e:any) { setMasterMessage(e?.message||"Penghapusan ditolak karena record masih direferensikan atau tidak diizinkan."); }
     finally { setActionBusy(false); }
   }

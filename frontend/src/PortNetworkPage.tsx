@@ -126,10 +126,11 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     event.preventDefault(); setActionBusy(true); setMasterMessage("");
     try {
       const body = JSON.parse(masterDraft);
-      if (masterId) await patch(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}`, body);
-      else await post(`/p16/master/${masterResource}`, body);
+      const saved = masterId
+        ? await patch<{record?:Row}>(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}`, body)
+        : await post<{record?:Row}>(`/p16/master/${masterResource}`, body);
       setMasterMessage("Data tersimpan sebagai Diajukan; verifikasi independen masih diperlukan.");
-      setMasterId(null);
+      if (saved?.record?.id) setMasterId(String(saved.record.id));
       if (canViewPorts) { const p = await get<{ports?:Row[]}>(`/ports?projectId=${encodeURIComponent(projectId)}`); setPorts(p.ports || []); }
       if (canViewWarehouses) { const w = await get<{warehouses?:Row[]}>(`/warehouses?projectId=${encodeURIComponent(projectId)}`); setWarehouses(w.warehouses || []); }
     } catch (e: any) { setMasterMessage(e?.message || "Data tidak berhasil disimpan."); }
@@ -217,7 +218,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
         <label>Data master (JSON, hanya kolom yang diizinkan akan disimpan)
           <textarea rows={7} value={masterDraft} onChange={e => setMasterDraft(e.target.value)} spellCheck={false} />
         </label>
-        <div className="p16-editor__actions"><button type="submit" disabled={actionBusy}>{actionBusy ? "Menyimpan…" : "Simpan sebagai diajukan"}</button>{masterMessage && <span role="status">{masterMessage}</span>}</div>
+        <div className="p16-editor__actions"><button type="submit" disabled={actionBusy}>{actionBusy ? "Menyimpan…" : "Simpan sebagai diajukan"}</button>{masterId && <button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={async () => { setActionBusy(true); try { await patch(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}/review`, {status:"verified",reviewNote}); setMasterMessage("Verifikasi independen tersimpan."); } catch (e:any) { setMasterMessage(e?.message || "Verifikasi gagal: reviewer harus berbeda dari pengaju."); } finally { setActionBusy(false); } }}>Verifikasi independen</button>}{masterMessage && <span role="status">{masterMessage}</span>}</div>
       </form>}
       {error && <div className="p16-error" role="alert">{error}</div>}
 

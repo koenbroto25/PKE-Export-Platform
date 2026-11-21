@@ -8,6 +8,7 @@ const API = readFileSync(join(ROOT, "index.ts"), "utf8");
 const MIGRATION_083 = readFileSync(join(ROOT, "..", "migrations", "083_p2b_port_warehouse_governance.sql"), "utf8");
 const MIGRATION_084 = readFileSync(join(ROOT, "..", "migrations", "084_p2b_pm_depth_vessel_permissions.sql"), "utf8");
 const MIGRATION_085 = readFileSync(join(ROOT, "..", "migrations", "085_p2b_port_evidence_document_guard.sql"), "utf8");
+const MIGRATION_086 = readFileSync(join(ROOT, "..", "migrations", "086_p2b_master_guard_updated_at_fix.sql"), "utf8");
 const UI = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
 const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_085.json"), "utf8"));
 
@@ -89,12 +90,13 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
   });
   it("pins UAT migration ledger 083-085 to exact SQL source hashes without modifying Production history", () => {
     expect(UAT_MANIFEST.branch_id).toBe("br-young-boat-b3re832d");
-    expect(UAT_MANIFEST.applied_count).toBe(85);
-    expect(UAT_MANIFEST.entries).toHaveLength(85);
+    expect(UAT_MANIFEST.applied_count).toBe(86);
+    expect(UAT_MANIFEST.entries).toHaveLength(86);
     for (const [id, filename] of [
       [83, "083_p2b_port_warehouse_governance.sql"],
       [84, "084_p2b_pm_depth_vessel_permissions.sql"],
       [85, "085_p2b_port_evidence_document_guard.sql"],
+      [86, "086_p2b_master_guard_updated_at_fix.sql"],
     ] as const) {
       const entry = UAT_MANIFEST.entries[id - 1];
       const actual = createHash("sha256").update(readFileSync(join(ROOT, "..", "migrations", filename))).digest("hex");
@@ -104,6 +106,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
       expect(entry.status).toBe("applied");
     }
     expect(UAT_MANIFEST.purpose).toBe("verified_uat_history_only_not_production_history");
+    expect(MIGRATION_086).toContain("'updated_at'");
   });
 
 });

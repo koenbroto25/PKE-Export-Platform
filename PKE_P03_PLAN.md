@@ -1298,3 +1298,12 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Six one-shot API acceptance storage credentials were revoked. The dedicated UAT Preview runtime credential remains scoped to the UAT branch; Production credentials and environment variables were not modified.
 - UAT migration ledger is now 95 rows: 79 applied, 16 baselined, 0 pending. Authoritative snapshot: `migration_history_manifest_uat_001_095.json`. Production ledger was not modified.
 - Vercel deployment remains frozen; no deploy, merge, or browser UAT was performed.
+
+
+**Final CI gate after P16 API acceptance fixes (22 Nov 2026)**
+- Source branch head before this documentation-only update: `a34177ee80066908951dfb6c433327d9af482884`.
+- Unit Tests run `44962258108`: PASS — 45 test files, 407 tests; P16 governance 14/14; backend TypeScript, frontend build, migration dry-run all passed.
+- Dependency Audit Evidence run `44962258187`: PASS.
+- Two pre-existing contract tests were updated to assert the new RLS-safe resolver boundary and preserve Funder isolation checks; final branch CI is green.
+- Current UAT ledger remains 95 rows (79 applied, 16 baselined, 0 pending); Production ledger remains 53 rows. No test document, depth/tide observation, object, or one-shot credential remains.
+- No merge or Vercel deployment was performed; browser UAT remains deferred.

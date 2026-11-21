@@ -1,5 +1,5 @@
 import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, RefreshCw, Workflow } from "lucide-react";
+import { RefreshCw, Workflow } from "lucide-react";
 import { get, patch, post } from "./api";
 import { hasProjectPermission } from "./role-permissions";
 
@@ -60,13 +60,13 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
  const loadRecords=useCallback(async()=>{
   if(!projectId||!selected){setRecords([]);return;}
   setLoading(true);
-  try{const data=await get(`/projects/${encodeURIComponent(projectId)}/p1-workflows?recordType=${encodeURIComponent(selected.code)}`);setRecords(data.records||[]);}
+  try{const data=await get<{records?:AnyRecord[]}>(`/projects/${encodeURIComponent(projectId)}/p1-workflows?recordType=${encodeURIComponent(selected.code)}`);setRecords(data.records||[]);}
   catch(e){setRecords([]);onNotice("error",e instanceof Error?e.message:"Gagal memuat workflow.");}
   finally{setLoading(false);}
  },[projectId,selected?.code,onNotice]);
  const loadKpis=useCallback(async()=>{
   if(!projectId||!hasProjectPermission("reports.view",activeUser)){setKpis([]);return;}
-  try{const data=await get(`/projects/${encodeURIComponent(projectId)}/p1-kpis`);setKpis(data.kpis||[]);}catch{setKpis([]);}
+  try{const data=await get<{kpis?:AnyRecord[]}>(`/projects/${encodeURIComponent(projectId)}/p1-kpis`);setKpis(data.kpis||[]);}catch{setKpis([]);}
  },[projectId,activeUser?.projectPermissions]);
  useEffect(()=>{if(!available.some(x=>x.code===type))setType(available[0]?.code||"");},[available,type]);
  useEffect(()=>{void loadRecords();},[loadRecords]);
@@ -93,7 +93,7 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
  const showEvents=async(id:string)=>{
   if(expanded===id){setExpanded("");return;}setExpanded(id);
   if(events[id])return;
-  try{const data=await get(`/projects/${encodeURIComponent(projectId)}/p1-workflows/${encodeURIComponent(id)}/events`);setEvents(v=>({...v,[id]:data.events||[]}));}
+  try{const data=await get<{events?:AnyRecord[]}>(`/projects/${encodeURIComponent(projectId)}/p1-workflows/${encodeURIComponent(id)}/events`);setEvents(v=>({...v,[id]:data.events||[]}));}
   catch(err){onNotice("error",err instanceof Error?err.message:"Gagal memuat event history.");}
  };
  const addEvidence=async()=>{

@@ -1154,3 +1154,11 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - UAT SQL smoke checks passed for port hierarchy/detail and warehouse detail queries. No UAT write/migration was performed for this read-only slice.
 - P16 is still incomplete: Admin master-data writes, depth/tide evidence workflow, route alternatives, vessel advisory assessment and warehouse capability edit/review require matching RLS migration, backups, allowlist alignment and role backtests before APIs are enabled.
 - Latest source work and CI are recorded in Master Implementation Plan §56.54.1–56.54.2. Preserve the existing branch, keep Neon Production read-only, do not merge PR #2 or deploy Vercel.
+
+
+### P16 read-only slice validation — 2026-11-21
+
+- Latest validated source head before this documentation update: `3cefba4144706391ec51eb83675c7e43cbe09673`.
+- Unit Tests workflow `44901403163` PASS: offline tests, migration dry-run, backend/frontend typecheck and frontend build.
+- Dependency Audit Evidence workflow `44901403120` PASS.
+- Port fixture with missing source reference is displayed as unverified; no UAT fixture row was modified. P16 source APIs are read-only until Migration 083+ and matching write authorization/backtests are complete.

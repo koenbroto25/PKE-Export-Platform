@@ -4001,8 +4001,8 @@ app.patch("/api/v1/truck-trips/:id", requireAuth, async (req: express.Request, r
 });
 
 // ============================================
-// P16: Port network and warehouse master read surfaces.
-// Writes remain disabled until the UAT RLS/maker-checker migration is applied.
+// P16: Port network and warehouse master read/write surfaces.
+// Global master CRUD is Platform Admin-only; Project roles submit scoped evidence.
 // ============================================
 const p16UuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 async function requireP16ReadAccess(req: express.Request, res: express.Response, projectId: string, permissionCode: string): Promise<boolean> {
@@ -4037,7 +4037,7 @@ app.get("/api/v1/ports", requireAuth, async (req: express.Request, res: express.
         ORDER BY p.country_code,p.province,p.city,p.name
         LIMIT 250`,
     );
-    return res.json({ ports: rows, canManage: false, projectId });
+    return res.json({ ports: rows, canManage: req.user?.isAdmin === true, projectId });
   } catch {
     return res.status(500).json(internalServerErrorPayload());
   }
@@ -4066,7 +4066,7 @@ app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: 
       port: ports[0], terminals: terminals.rows, berths: berths.rows, channels: channels.rows,
       anchorages: anchorages.rows, depthObservations: depths.rows, tideObservations: tides.rows,
       loadingServices: services.rows, equipment: equipment.rows, operatingLimits: operatingLimits.rows,
-      canManage: false, assessmentMode: "advisory_only",
+      canManage: req.user?.isAdmin === true, assessmentMode: "advisory_only",
     });
   } catch {
     return res.status(500).json(internalServerErrorPayload());
@@ -4090,7 +4090,7 @@ app.get("/api/v1/warehouses", requireAuth, async (req: express.Request, res: exp
         ORDER BY p.name,w.name
         LIMIT 250`,
     );
-    return res.json({ warehouses: rows, projectId, canManage: false });
+    return res.json({ warehouses: rows, projectId, canManage: req.user?.isAdmin === true });
   } catch {
     return res.status(500).json(internalServerErrorPayload());
   }
@@ -4116,7 +4116,7 @@ app.get("/api/v1/warehouses/:warehouseId", requireAuth, async (req: express.Requ
     const bins = zoneIds.length
       ? await req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.warehouse_bins WHERE zone_id=ANY($1::uuid[]) ORDER BY bin_code", [zoneIds])
       : { rows: [] };
-    return res.json({ warehouse: warehouses[0], zones: zones.rows, bins: bins.rows, equipment: equipment.rows, reservations: reservations.rows, projectId, canManage: false });
+    return res.json({ warehouse: warehouses[0], zones: zones.rows, bins: bins.rows, equipment: equipment.rows, reservations: reservations.rows, projectId, canManage: req.user?.isAdmin === true });
   } catch {
     return res.status(500).json(internalServerErrorPayload());
   }

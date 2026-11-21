@@ -52,7 +52,7 @@ describe("API route registry (regression)", () => {
 
 
   it("registers P15 Project-scoped master-data change requests with Admin-only approval", () => {
-    const set = new Set(registerRoutes(INDEX_SRC).map((r) => \`\${r.method} \${r.path}\`));
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
     expect(set.has("GET /api/v1/projects/:projectId/master-data-change-requests")).toBe(true);
     expect(set.has("POST /api/v1/projects/:projectId/master-data-change-requests")).toBe(true);
     expect(set.has("PATCH /api/v1/projects/:projectId/master-data-change-requests/:requestId")).toBe(true);

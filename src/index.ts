@@ -1164,6 +1164,31 @@ app.post("/api/v1/projects/:projectId/quality-samples/:sampleId/results", requir
   }
 });
 
+app.patch("/api/v1/projects/:projectId/quality-samples/:sampleId/mark-tested", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, sampleId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.create"))) return;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const laboratoryName = typeof req.body?.laboratoryName === "string" ? req.body.laboratoryName.trim() : "";
+  const accreditationReference = typeof req.body?.laboratoryAccreditationReference === "string" ? req.body.laboratoryAccreditationReference.trim() : null;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(evidenceDocumentId) || laboratoryName.length < 2 || laboratoryName.length > 240 ||
+      (accreditationReference !== null && accreditationReference.length > 500)) {
+    return res.status(400).json({ error: "Approved lab report and valid laboratory identity are required." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "SELECT * FROM public.pke_attach_quality_lab_report($1::uuid,$2::uuid,$3::uuid,$4,$5)",
+      [projectId,sampleId,evidenceDocumentId,laboratoryName,accreditationReference],
+    );
+    return res.json({ sample: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality lab-evidence permission denied." });
+    if (error?.code === "P0002") return res.status(404).json({ error: "Quality sample not found in this Project." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Sample cannot be marked tested without approved same-Project evidence." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.patch("/api/v1/projects/:projectId/quality-samples/:sampleId/review", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, sampleId } = req.params;
   if (!(await requireProjectPermission(req, res, projectId, "quality.result.review"))) return;

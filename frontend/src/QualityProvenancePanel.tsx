@@ -20,6 +20,7 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
   const [error, setError] = useState('');
   const [sample, setSample] = useState(emptySample);
   const [resultForms, setResultForms] = useState<Record<string, typeof emptyResult>>({});
+  const [labForms, setLabForms] = useState<Record<string, { documentId: string; laboratoryName: string; accreditation: string }>>({});
 
   const refresh = async () => {
     if (!projectId) return;
@@ -94,6 +95,23 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
     finally { setBusy(false); }
   };
 
+  const markSampleTested = async (sampleId: string) => {
+    const draft = labForms[sampleId] || { documentId: '', laboratoryName: '', accreditation: '' };
+    if (!draft.documentId || draft.laboratoryName.trim().length < 2) {
+      onNotice('error', 'Pilih laporan lab approved dan isi nama laboratorium.'); return;
+    }
+    setBusy(true);
+    try {
+      await patch('/projects/' + projectId + '/quality-samples/' + sampleId + '/mark-tested', {
+        evidenceDocumentId: draft.documentId,
+        laboratoryName: draft.laboratoryName,
+        laboratoryAccreditationReference: draft.accreditation || null,
+      });
+      onNotice('success', 'Sampel ditandai tested dengan laporan lab dan checksum terikat.'); await refresh();
+    } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Laporan lab gagal ditautkan.'); }
+    finally { setBusy(false); }
+  };
+
   const reviewSample = async (sampleId: string, status: 'reviewed' | 'rejected') => {
     setBusy(true);
     try {
@@ -144,6 +162,13 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
             {data.canReview && s.status !== 'reviewed' && s.status !== 'rejected' && <div className="table-actions"><button type="button" className="primary-button" disabled={busy || !s.lab_report_document_id || !s.lab_report_sha256 || !s.laboratory_name} onClick={() => reviewSample(s.id,'reviewed')}>Review sampel</button><button type="button" className="secondary-button" disabled={busy} onClick={() => reviewSample(s.id,'rejected')}>Tolak</button></div>}
           </div>
           <p>Metode: {s.sampling_method} · Lab: {s.laboratory_name || 'Belum ditetapkan'} · Sumber: {s.source_type} / {s.source_reference || '—'}</p>
+          {data.canCreateResults && ['pending','submitted'].includes(s.status) && <div className="form-grid compact-form">
+            <FormField label="Laporan lab approved"><select value={(labForms[s.id] || {documentId:'',laboratoryName:'',accreditation:''}).documentId} onChange={e => setLabForms(v => ({ ...v, [s.id]: { ...(v[s.id] || {documentId:'',laboratoryName:'',accreditation:''}), documentId: e.target.value } }))}><option value="">Pilih dokumen Project</option>{(data.evidenceDocuments || []).map((d: AnyRecord) => <option key={d.id} value={d.id}>{d.original_filename || d.document_type_code} · SHA-256 {String(d.sha256_checksum).slice(0,12)}…</option>)}</select></FormField>
+            <FormField label="Nama laboratorium"><input value={(labForms[s.id] || {documentId:'',laboratoryName:'',accreditation:''}).laboratoryName} onChange={e => setLabForms(v => ({ ...v, [s.id]: { ...(v[s.id] || {documentId:'',laboratoryName:'',accreditation:''}), laboratoryName: e.target.value } }))} /></FormField>
+            <FormField label="Referensi akreditasi lab"><input value={(labForms[s.id] || {documentId:'',laboratoryName:'',accreditation:''}).accreditation} onChange={e => setLabForms(v => ({ ...v, [s.id]: { ...(v[s.id] || {documentId:'',laboratoryName:'',accreditation:''}), accreditation: e.target.value } }))} /></FormField>
+            <div className="form-actions form-wide"><button type="button" className="primary-button" disabled={busy || !(labForms[s.id] || {}).documentId || ((labForms[s.id] || {}).laboratoryName || '').trim().length < 2} onClick={() => markSampleTested(s.id)}>Tautkan laporan lab & tandai tested</button></div>
+          </div>}
+
           <p>Bukti lab: {s.lab_report_document_id || 'Belum ada'} · SHA-256 {s.lab_report_sha256 || '—'} · Chain of custody: {JSON.stringify(s.chain_of_custody || {})} · Source snapshot: {JSON.stringify(s.source_snapshot || {})}</p>
           {(!s.lab_report_document_id || !s.lab_report_sha256 || !s.laboratory_name) && <div className="notice notice-info">PROVENANCE BELUM LENGKAP — record ini tidak boleh dipakai sebagai bukti COA atau dasar rilis komersial.</div>}
           {(data.results || []).filter((r: AnyRecord) => r.sample_id === s.id).map((r: AnyRecord) => <div className="quality-result-row" key={r.id}>

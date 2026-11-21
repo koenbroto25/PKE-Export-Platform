@@ -10238,3 +10238,5 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 - UAT quality fixture audit: one pre-existing sample and three accepted results are explicitly fixture data but have no approved lab-report document or evidence checksum; the new workspace flags them as provenance-incomplete and prevents result entry from treating them as complete COA evidence. No values were promoted to commercial specification or release evidence.
 
 - The quality sample API now persists the source snapshot supplied by the Project workspace in addition to the structured chain-of-custody JSON; the read API returns sample and result source snapshots so reviewers can inspect the provenance actually submitted.
+
+- Added a controlled pending/submitted-to-tested transition for lab officers/QC roles. The database function only permits a Project-scoped approved, checksum-verified lab report and stamps the evidence provenance; the UI can attach the report after sampling, rather than requiring the report to exist when the sample record is first created.

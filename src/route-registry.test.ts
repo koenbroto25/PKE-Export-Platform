@@ -74,6 +74,7 @@ describe("API route registry (regression)", () => {
   it("registers P15 evidence-linked quality sample and result APIs", () => {
     const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
     expect(set.has("GET /api/v1/projects/:projectId/quality-samples")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/quality-samples/:sampleId/mark-tested")).toBe(true);
     expect(set.has("POST /api/v1/projects/:projectId/quality-samples")).toBe(true);
     expect(set.has("POST /api/v1/projects/:projectId/quality-samples/:sampleId/results")).toBe(true);
     expect(set.has("PATCH /api/v1/projects/:projectId/quality-samples/:sampleId/review")).toBe(true);

@@ -1187,3 +1187,15 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - UAT migration ledger/manifest advanced to 87 rows (16 baselined, 71 applied); no Neon Production writes or Vercel deployment.
 - Read-only role matrix backtest passed for PM Project A, PM cross-Project denial, Finance denial, Warehouse Manager denial and non-Admin status.
 - P16 remains open pending final live-write positive/negative tests, evidence object/hash checks, authenticated browser workflows and latest CI all-green confirmation.
+
+
+
+### P16 Platform Admin global access and review queue — 2026-11-21
+
+- Migration 088 applied on Neon UAT only; SHA-256 `7ad13edc36a9a49fe0f7eaed96a4bffdb7483fc33478a45ab058c47aaff20424`.
+- Platform Admin can read global P16 master data and review queues without Project membership. Admin navigation exposes Port & Warehouse workspace globally; CRUD/review controls cover all master resource types plus depth/tide review.
+- Project users remain permission-scoped. PM Project A read/submit/route/vessel permission matrix passes; PM cross-Project checks, Finance and Warehouse Manager P16 permission denials pass.
+- Effective verification status now checks source reference, verified timestamp, SHA-256, official port code and evidence object key. Future observations are excluded from vessel screening.
+- UAT migration ledger: 88 contiguous rows, 16 baseline markers and 72 applied migrations; authoritative manifest `migration_history_manifest_uat_001_088.json`. Production remains at 53 ledger rows and was not modified.
+- CI commit `f5f735bc9927290e7eaa1054cd5efe0b59d9d322`: Unit Tests and Dependency Audit PASS; backend/frontend typecheck, frontend build and migration runner dry-run PASS.
+- P16 remains open pending authenticated live Admin write/negative denial backtests, PM evidence-document acceptance/denial and browser acceptance. No Vercel deployment or PR merge.

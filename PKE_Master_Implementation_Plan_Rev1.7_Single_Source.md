@@ -10367,7 +10367,7 @@ P15 engineering implementation and UAT database/security backtests are complete.
 - Migration 084 `084_p2b_pm_depth_vessel_permissions.sql` applied; SHA-256 `5b958b73c57ff21fe7e359742478d1351708ba79f36f7ecca38a0db3ba92fd97`.
 - Migration 085 `085_p2b_port_evidence_document_guard.sql` applied; SHA-256 `94dd4bb66c529066ad1e008ab25529ee2fcd0e7e6ea9b4bb6b2724de3eef6160`.
 - Migration 086 `086_p2b_master_guard_updated_at_fix.sql` applied; SHA-256 `40a28c888f618f555f27b9b54b2a6a9c5d8fd12bec887f55a6686dedd7fdec0b`.
-- UAT migration history now contains 86 contiguous rows; exact UAT-only evidence is recorded in `migration_history_manifest_uat_001_086.json`. Production manifest remains separate and unchanged.
+- UAT migration history now contains 87 contiguous rows (16 baselined, 71 applied); exact UAT-only evidence is recorded in `migration_history_manifest_uat_001_086.json`. Production manifest remains separate and unchanged.
 
 **Source implementation**
 - Added admin-only generic P16 master create/update/review API for port and warehouse hierarchy, services, equipment, operating limits and PKS-port routes.

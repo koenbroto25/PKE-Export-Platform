@@ -777,11 +777,11 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
   } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.view"))) return;
   try {
     const [requests, organizations, facilities, manage, evidenceDocuments] = await Promise.all([
-      req.db.query(\`SELECT id,project_id,entity_type,operation,target_id,proposed_data,base_snapshot,status,
-                request_reason,source_type,source_reference,source_url,source_snapshot,decision_note,
+      req.db.query(`SELECT id,project_id,entity_type,operation,target_id,proposed_data,base_snapshot,status,
+                request_reason,source_type,source_reference,source_url,source_snapshot,evidence_document_id,decision_note,
                 requested_by,reviewed_by,reviewed_at,applied_target_id,applied_at,created_at,updated_at
            FROM public.p2a_master_data_change_requests
-          WHERE project_id=$1::uuid ORDER BY created_at DESC\`, [projectId]),
+          WHERE project_id=$1::uuid ORDER BY created_at DESC`, [projectId]),
       req.db.query("SELECT id,legal_name,organization_type,country_code,verification_status FROM public.partner_organizations WHERE is_active=true ORDER BY legal_name"),
       req.db.query("SELECT id,name,facility_type,city,province,country_code,verification_status FROM public.pks_sites WHERE is_active=true ORDER BY name"),
       req.db.query("SELECT public.pke_has_project_permission($1::uuid,'pks.master_data.change_request.manage') AS allowed", [projectId]),
@@ -835,11 +835,11 @@ app.post("/api/v1/projects/:projectId/master-data-change-requests", requireAuth,
   }
   try {
     const { rows } = await req.db.query(
-      \`INSERT INTO public.p2a_master_data_change_requests(
+      `INSERT INTO public.p2a_master_data_change_requests(
          project_id,entity_type,operation,target_id,proposed_data,status,request_reason,
          source_type,source_reference,source_url,source_snapshot,requested_by,evidence_document_id
        ) VALUES ($1::uuid,$2,$3,$4::uuid,$5::jsonb,'draft',$6,$7,$8,$9,$10::jsonb,$11::uuid,$12::uuid)
-       RETURNING *\`,
+       RETURNING *`,
       [projectId,entityType,operation,targetId,JSON.stringify(proposedData),requestReason,sourceType,
        sourceReference,sourceUrl,JSON.stringify(b.sourceSnapshot ?? {}),req.user?.id ?? null,evidenceDocumentId],
     );
@@ -861,7 +861,7 @@ app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", 
   } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.manage"))) return;
   const b = req.body ?? {}, updates: string[] = [], values: any[] = [];
   let idx = 1;
-  const add = (column: string, value: unknown, cast = "") => { updates.push(\`\${column}=$\${idx++}\${cast}\`); values.push(value); };
+  const add = (column: string, value: unknown, cast = "") => { updates.push(`${column}=$${idx++}${cast}`); values.push(value); };
   if (isAdmin) {
     if (b.proposedData !== undefined || b.requestReason !== undefined || b.sourceType !== undefined ||
         b.sourceReference !== undefined || b.sourceUrl !== undefined || b.sourceSnapshot !== undefined || b.evidenceDocumentId !== undefined) {
@@ -912,8 +912,8 @@ app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", 
   values.push(requestId,projectId);
   try {
     const { rows } = await req.db.query(
-      \`UPDATE public.p2a_master_data_change_requests SET \${updates.join(",")}
-        WHERE id=$\${idx++}::uuid AND project_id=$\${idx}::uuid RETURNING *\`,
+      `UPDATE public.p2a_master_data_change_requests SET ${updates.join(",")}
+        WHERE id=$${idx++}::uuid AND project_id=$${idx}::uuid RETURNING *`,
       values,
     );
     if (!rows.length) return res.status(404).json({ error: "Master-data change request not found in this Project." });

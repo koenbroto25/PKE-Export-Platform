@@ -1010,6 +1010,127 @@ app.patch("/api/v1/projects/:projectId/master-data/products/:productId/classific
   }
 });
 
+
+/** P15 quality provenance API: sample creation, evidence-linked results and reviewer decisions. */
+app.post("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.sample.create"))) return;
+  const b = req.body ?? {};
+  const sampleNumber = typeof b.sampleNumber === "string" ? b.sampleNumber.trim() : "";
+  const sampleType = b.sampleType;
+  const samplingMethod = typeof b.samplingMethod === "string" ? b.samplingMethod.trim() : "";
+  const sampledAt = typeof b.sampledAt === "string" ? b.sampledAt : "";
+  const status = ["pending","submitted","tested"].includes(b.status) ? b.status : "pending";
+  const lotId = typeof b.lotId === "string" && b.lotId ? b.lotId : null;
+  const labReportDocumentId = typeof b.labReportDocumentId === "string" && b.labReportDocumentId ? b.labReportDocumentId : null;
+  const sourceType = ["manual","public_reference","official_document","buyer_confirmed"].includes(b.sourceType) ? b.sourceType : "manual";
+  const sourceReference = typeof b.sourceReference === "string" ? b.sourceReference.trim() : null;
+  const laboratoryName = typeof b.laboratoryName === "string" ? b.laboratoryName.trim() : null;
+  const laboratoryAccreditationReference = typeof b.laboratoryAccreditationReference === "string" ? b.laboratoryAccreditationReference.trim() : null;
+  const chainOfCustody = b.chainOfCustody && typeof b.chainOfCustody === "object" && !Array.isArray(b.chainOfCustody) ? b.chainOfCustody : {};
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (sampleNumber.length < 2 || sampleNumber.length > 100 ||
+      !["composite","retained","pre_shipment","discharge","claim","other"].includes(sampleType) ||
+      samplingMethod.length < 2 || samplingMethod.length > 500 || !sampledAt || Number.isNaN(Date.parse(sampledAt)) ||
+      (lotId !== null && !uuidPattern.test(lotId)) ||
+      (labReportDocumentId !== null && !uuidPattern.test(labReportDocumentId)) ||
+      (sourceReference !== null && sourceReference.length > 500) ||
+      (laboratoryAccreditationReference !== null && laboratoryAccreditationReference.length > 500) ||
+      (status === "tested" && (!labReportDocumentId || !laboratoryName))) {
+    return res.status(400).json({ error: "Sample type, number, method, time and evidence fields must be valid. Tested samples require an approved lab report and laboratory." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "INSERT INTO public.product_quality_samples(project_id,lot_id,sample_number,sample_type,sampling_method,sampled_at,sampled_by,sample_location,seal_number,sample_condition,laboratory_name,status,lab_report_document_id,source_type,source_reference,laboratory_accreditation_reference,chain_of_custody) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6::timestamptz,$7::uuid,$8,$9,$10,$11,$12,$13::uuid,$14,$15,$16,$17::jsonb) RETURNING *",
+      [projectId,lotId,sampleNumber,sampleType,samplingMethod,sampledAt,req.user?.id ?? null,
+       b.sampleLocation ?? null,b.sealNumber ?? null,b.sampleCondition ?? null,laboratoryName,status,
+       labReportDocumentId,sourceType,sourceReference,laboratoryAccreditationReference,JSON.stringify(chainOfCustody)],
+    );
+    return res.status(201).json({ sample: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality sample permission denied." });
+    if (error?.code === "23514" || error?.code === "23503" || error?.code === "22P02") return res.status(422).json({ error: "Sample evidence, Project, lot or document failed validation." });
+    if (error?.code === "23505") return res.status(409).json({ error: "Sample number already exists." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/projects/:projectId/quality-samples/:sampleId/results", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, sampleId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.create"))) return;
+  const b = req.body ?? {};
+  const attributeId = typeof b.attributeId === "string" ? b.attributeId : "";
+  const numeric = typeof b.resultNumeric === "number" && Number.isFinite(b.resultNumeric) ? b.resultNumeric : null;
+  const textResult = typeof b.resultText === "string" ? b.resultText : null;
+  const booleanResult = typeof b.resultBoolean === "boolean" ? b.resultBoolean : null;
+  const basis = typeof b.measurementBasis === "string" ? b.measurementBasis.trim() : "";
+  const method = typeof b.methodCode === "string" ? b.methodCode.trim() : "";
+  const unit = typeof b.unitCode === "string" ? b.unitCode.trim() : null;
+  const detectionLimit = typeof b.detectionLimit === "number" && Number.isFinite(b.detectionLimit) ? b.detectionLimit : null;
+  const uncertainty = typeof b.uncertainty === "number" && Number.isFinite(b.uncertainty) ? b.uncertainty : null;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(attributeId) || [numeric,textResult,booleanResult].filter(v => v !== null).length !== 1 ||
+      basis.length < 2 || basis.length > 100 || method.length < 2 || method.length > 100 ||
+      (numeric !== null && (!unit || unit.length > 40)) ||
+      (detectionLimit !== null && detectionLimit < 0) || (uncertainty !== null && uncertainty < 0)) {
+    return res.status(400).json({ error: "Exactly one result value, attribute, unit (for numeric), measurement basis and method are required." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "INSERT INTO public.product_quality_results(sample_id,attribute_id,result_numeric,result_text,result_boolean,unit_code,measurement_basis,method_code,detection_limit,uncertainty,review_status) SELECT s.id,$3::uuid,$4::numeric,$5,$6::boolean,$7,$8,$9,$10::numeric,$11::numeric,'unreviewed' FROM public.product_quality_samples s WHERE s.id=$1::uuid AND s.project_id=$2::uuid RETURNING *",
+      [sampleId,projectId,attributeId,numeric,textResult,booleanResult,unit,basis,method,detectionLimit,uncertainty],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Quality sample not found in this Project." });
+    return res.status(201).json({ result: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality result creation permission denied." });
+    if (error?.code === "23514" || error?.code === "23503" || error?.code === "22P02") return res.status(422).json({ error: "Quality result requires a tested sample with approved lab evidence and complete measurement provenance." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/quality-samples/:sampleId/review", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, sampleId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.review"))) return;
+  const status = req.body?.status;
+  const reviewNote = typeof req.body?.reviewNote === "string" ? req.body.reviewNote.trim() : null;
+  if (!["reviewed","rejected"].includes(status) || (reviewNote !== null && reviewNote.length > 2000))
+    return res.status(400).json({ error: "Sample review status or note is invalid." });
+  try {
+    const { rows } = await req.db.query(
+      "UPDATE public.product_quality_samples SET status=$1,review_note=$2,updated_at=now() WHERE id=$3::uuid AND project_id=$4::uuid RETURNING id,status,reviewed_by,reviewed_at,review_note,lab_report_document_id,lab_report_sha256",
+      [status,reviewNote,sampleId,projectId],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Quality sample not found in this Project." });
+    return res.json({ sample: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality sample review permission denied." });
+    if (error?.code === "23514") return res.status(422).json({ error: "Sample review requires approved lab evidence and valid reviewer context." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/quality-results/:resultId/review", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, resultId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.review"))) return;
+  const reviewStatus = req.body?.reviewStatus;
+  const reviewNote = typeof req.body?.reviewNote === "string" ? req.body.reviewNote.trim() : null;
+  if (!["accepted","rejected","retest_required"].includes(reviewStatus) || (reviewNote !== null && reviewNote.length > 2000))
+    return res.status(400).json({ error: "Quality result review status or note is invalid." });
+  try {
+    const { rows } = await req.db.query(
+      "UPDATE public.product_quality_results r SET review_status=$1,review_note=$2,updated_at=now() FROM public.product_quality_samples s WHERE r.id=$3::uuid AND r.sample_id=s.id AND s.project_id=$4::uuid RETURNING r.id,r.sample_id,r.review_status,r.reviewed_by,r.reviewed_at,r.review_note,r.evidence_document_id,r.evidence_sha256",
+      [reviewStatus,reviewNote,resultId,projectId],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Quality result not found in this Project." });
+    return res.json({ result: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality result review permission denied." });
+    if (error?.code === "23514") return res.status(422).json({ error: "Quality result lacks complete sample-linked evidence or measurement provenance." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.get("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
   if (req.user?.isAdmin) {

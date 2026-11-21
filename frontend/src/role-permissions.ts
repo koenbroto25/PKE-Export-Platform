@@ -79,6 +79,7 @@ function hasAuthorizedRoleForPage(user: WorkspaceAccessUser, allowedRoles: Set<s
 
 export function hasPageAccess(pageKey: WorkspacePageKey | string, user: WorkspaceAccessUser): boolean {
   if (pageKey === 'notifications') return true;
+  if (pageKey === 'port-network') return user.platformAdmin === true || hasAnyProjectPermission(PAGE_PERMISSION_REQUIREMENTS['port-network'], user);
   if (pageKey === 'access') return user.platformAdmin === true || hasAnyProjectPermission(['project.members.view', 'project.members.manage', 'project.roles.manage'], user);
   if (pageKey === 'project-detail') return hasProjectPermission('project.view', user);
   if (pageKey === 'project-edit') return hasProjectPermission('project.update', user);

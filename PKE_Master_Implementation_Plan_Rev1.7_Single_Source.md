@@ -10314,3 +10314,25 @@ P15 engineering implementation and UAT database/security backtests are complete.
 7. Keep P15 business-evidence and browser-acceptance gates open until real source documents and the owner-directed final combined deployment/browser session are available. Do not claim P2-A fully business-accepted merely because P16 engineering begins.
 
 **Current decision:** P16 is the next engineering work package (P2-B), but its schema-only foundation is not yet an implemented or accepted workflow. This section is an audit baseline, not a claim that P16 has been delivered. All implementation and backtests remain on the existing source branch and Neon UAT; Neon Production, PR merge and Vercel remain out of scope.
+
+
+### 56.54.1 — P16 read-only source/UI foundation (21 November 2026)
+
+- Added authenticated `GET /api/v1/ports` and `GET /api/v1/ports/:portId` endpoints, guarded by the selected Project's `port.view` permission. The detail payload separates terminals, berths, channels, anchorages, depth/tide observations, loading services, equipment and operating limits.
+- Added authenticated `GET /api/v1/warehouses` and `GET /api/v1/warehouses/:warehouseId` endpoints, guarded by the selected Project's `warehouse.view` permission. Warehouse reservations are filtered to the selected Project; zones, bins and equipment are returned as separate structures.
+- Added `frontend/src/PortNetworkPage.tsx`, the `/port-network` route and navigation item. Port and warehouse tabs load independently according to the active Project permission; users with only one permission do not need access to the other surface.
+- The initial workspace is intentionally read-only (`canManage=false`). It does not claim that master-data edit, depth submission, route estimation or vessel screening has been implemented. The existing warehouse receipt workflow remains separate and unchanged.
+- Provenance truthfulness guard: a port row whose database status says `verified` but has no source reference, verification timestamp or official/national/port code is returned as effectively `unverified`. UAT SQL smoke test confirmed the existing `[TEST FIXTURE] Alpha Export Port` is downgraded for display; the underlying fixture row was not modified.
+- SQL smoke tests passed against UAT for port master/detail, terminals, berths, channels, anchorages, depth/tide observations, services, equipment, operating limits, warehouse master/detail and Project-filtered reservations. Existing UAT fixture counts remain unchanged.
+- CI at source commit `f9feefa8af5f1af1801bbe02f63f9e365ab955c0`: Unit Tests SUCCESS (including backend typecheck, frontend typecheck, frontend build and migration-runner dry-run); Dependency Audit Evidence SUCCESS. A further route-contract test now pins the fail-closed port provenance rule; its CI result must be checked on the latest head.
+
+### 56.54.2 — P16 remaining implementation gates
+
+1. Implement Platform Admin port/terminal/berth/channel/anchorage/service/equipment/operating-limit create/update and independent review, with audit snapshots and no self-approval where applicable.
+2. Implement depth/tide submission and reviewer lifecycle with mandatory feature, unit, datum, observed/survey date, source authority, evidence checksum, reviewer and validity/freshness controls. Stale or incomplete observations must never be returned as operationally verified.
+3. Implement Project-scoped route alternatives and preliminary vessel-port assessment only after route provenance and port-limit evidence are present. The result must remain advisory and never be navigation clearance.
+4. Add warehouse master/capability edit and verification with explicit Platform Admin vs warehouse-role responsibilities; preserve Project-scoped reservation/receipt/inventory custody rules.
+5. Prepare and back up Migration 083+ on UAT only, then align RLS write policies, permission allowlists and API gates. No write API may be exposed before the matching UAT RLS policy and role backtest pass.
+6. Add Admin/PM/terminal/warehouse/Finance negative and positive backtests, then rerun full CI. Authenticated browser acceptance remains in the final combined deployment session.
+
+**Status:** P16 read-only source/UI foundation is implemented; P16 write workflows and UAT migration are NOT COMPLETE. No Neon Production write, PR merge, Vercel deployment or new branch was performed.

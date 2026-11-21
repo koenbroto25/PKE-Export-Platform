@@ -14,8 +14,10 @@ const MIGRATION_087 = readFileSync(join(ROOT, "..", "migrations", "087_p2b_admin
 const MIGRATION_088 = readFileSync(join(ROOT, "..", "migrations", "088_p2b_admin_global_read_policies.sql"), "utf8");
 const MIGRATION_089 = readFileSync(join(ROOT, "..", "migrations", "089_p2b_resource_read_permission_scope.sql"), "utf8");
 const MIGRATION_090 = readFileSync(join(ROOT, "..", "migrations", "090_p2b_resource_read_project_context.sql"), "utf8");
+const MIGRATION_091 = readFileSync(join(ROOT, "..", "migrations", "091_p16_selected_project_child_rls.sql"), "utf8");
+const MIGRATION_092 = readFileSync(join(ROOT, "..", "migrations", "092_p16_parent_and_project_scope.sql"), "utf8");
 const UI = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
-const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_088.json"), "utf8"));
+const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_092.json"), "utf8"));
 
 describe("P16 Port, Warehouse and Vessel governance", () => {
   it("registers P16 master CRUD, evidence, review, route and assessment endpoints", () => {
@@ -99,10 +101,10 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
   });
   it("pins UAT migration ledger 083-085 to exact SQL source hashes without modifying Production history", () => {
     expect(UAT_MANIFEST.branch_id).toBe("br-young-boat-b3re832d");
-    expect(UAT_MANIFEST.ledger_row_count).toBe(90);
-    expect(UAT_MANIFEST.applied_count).toBe(74);
+    expect(UAT_MANIFEST.ledger_row_count).toBe(92);
+    expect(UAT_MANIFEST.applied_count).toBe(76);
     expect(UAT_MANIFEST.baseline_count).toBe(16);
-    expect(UAT_MANIFEST.entries).toHaveLength(90);
+    expect(UAT_MANIFEST.entries).toHaveLength(92);
     for (const [id, filename] of [
       [83, "083_p2b_port_warehouse_governance.sql"],
       [84, "084_p2b_pm_depth_vessel_permissions.sql"],
@@ -111,7 +113,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
       [87, "087_p2b_admin_master_rls_guard_alignment.sql"],
       [88, "088_p2b_admin_global_read_policies.sql"],
       [89, "089_p2b_resource_read_permission_scope.sql"],
-      [90, "090_p2b_resource_read_project_context.sql"],
+      [90, "090_p2b_resource_read_project_context.sql"],\n      [91, "091_p16_selected_project_child_rls.sql"],\n      [92, "092_p16_parent_and_project_scope.sql"],
     ] as const) {
       const entry = UAT_MANIFEST.entries[id - 1];
       const actual = createHash("sha256").update(readFileSync(join(ROOT, "..", "migrations", filename))).digest("hex");
@@ -137,6 +139,14 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(MIGRATION_090).toContain("pke_has_project_permission");
     expect(MIGRATION_090).toContain("app.current_project_id");
     expect(MIGRATION_090).not.toContain("pke_has_any_project_permission");
+    expect(MIGRATION_091).toContain("pke_p16_project_warehouse_permission");
+    expect(MIGRATION_091).toContain("pke_p16_project_vessel_permission");
+    expect(MIGRATION_091).toContain("pke_is_platform_admin()");
+    expect(MIGRATION_091).not.toContain("pke_has_any_project_permission");
+    expect(MIGRATION_092).toContain("pke_p16_project_port_permission");
+    expect(MIGRATION_092).toContain("pke_p16_project_warehouse_permission");
+    expect(MIGRATION_092).toContain("project_export_documents");
+    expect(MIGRATION_092).toContain("app.current_project_id");
     expect(API).toContain("requireP16ReadAccess");
     expect(UI).toContain("platformAdmin || permissions.includes(\"port.view\")");
   });

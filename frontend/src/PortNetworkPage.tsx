@@ -71,7 +71,8 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const canEstimateRoutes = platformAdmin || permissions.includes("route.estimate");
   const canAssessVessel = permissions.includes("vessel.port.assess") && permissions.includes("vessel.view");
   const canUploadDocuments = platformAdmin || permissions.includes("documents.create");
-  const canManageDocuments = platformAdmin || permissions.includes("documents.view") || permissions.includes("documents.create") || permissions.includes("documents.update");\n  const canReviewDocuments = platformAdmin || permissions.includes("documents.update");
+  const canManageDocuments = platformAdmin || permissions.includes("documents.view") || permissions.includes("documents.create") || permissions.includes("documents.update");
+  const canReviewDocuments = platformAdmin || permissions.includes("documents.update");
   const eligibleEvidence = projectDocuments.filter(d=>d.status==="approved"&&d.uploadVerifiedAt&&d.storageBucket==="pke-private-documents"&&(!d.expiryDate||new Date(d.expiryDate).getTime()>=Date.now()));
 
 
@@ -124,7 +125,8 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!projectId || !canManageDocuments) { setDocumentRequirements([]); setProjectDocuments([]); return; }\n    setSelectedRequirementId("");
+    if (!projectId || !canManageDocuments) { setDocumentRequirements([]); setProjectDocuments([]); return; }
+    setSelectedRequirementId("");
     Promise.all([
       get<{documentRequirements?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/document-requirements`),
       get<{documents?:Row[]}>(`/projects/${encodeURIComponent(projectId)}/documents`)

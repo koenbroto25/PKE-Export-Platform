@@ -13,9 +13,10 @@ import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePa
 import RoleDashboardPage from './RoleDashboardPage';
 import P1WorkflowWorkbench from './P1WorkflowWorkbench';
 import MasterDataChangeRequests from './MasterDataChangeRequests';
+import PortNetworkPage from './PortNetworkPage';
 
 type AnyRecord = Record<string, any>;
-type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites';
+type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -24,6 +25,7 @@ const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDa
   { to: '/', key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, group: 'Workspace' },
   { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'Workspace' },
   { to: '/pks-sites', key: 'pks-sites', label: 'PKS & Supplier', icon: Building2, group: 'Workspace' },
+  { to: '/port-network', key: 'port-network', label: 'Pelabuhan & Gudang', icon: Ship, group: 'Workspace' },
   { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'Workspace' },
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'Eksekusi' },
   { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow P1', icon: Workflow, group: 'Eksekusi' },
@@ -185,6 +187,7 @@ function App() {
             <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><RoleDashboardPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/pks-sites" element={<RoleGuard allowedKeys={['pks-sites']} activeUser={workspaceUser}><PksSitesPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/port-network" element={<RoleGuard allowedKeys={['port-network']} activeUser={workspaceUser}><PortNetworkPage projectId={projectId} /></RoleGuard>} />
             <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id" element={<RoleGuard allowedKeys={['project-detail']} activeUser={workspaceUser}><ProjectDetailPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id/edit" element={<RoleGuard allowedKeys={['project-edit']} activeUser={workspaceUser}><ProjectEditPage onNotice={notify} /></RoleGuard>} />

@@ -1238,3 +1238,13 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Remaining blockers: actual private-object upload and server-side SHA/size verification; independent document approval using a real uploaded UAT test object; positive depth/tide submission/review using that Approved object; authenticated API/browser acceptance for Admin, PM and Document Officer; final CI on the latest commit.
 - Backtest order: (1) authenticated UAT object upload and read-back hash verification; (2) independent document maker-checker plus invalid object/project/hash/size/expiry negative tests; (3) PM depth/tide positive and negative submissions; (4) Admin master CRUD/delete and unauthorized-role denial; (5) full P0–P15 regression, typechecks, build, migration dry-run and dependency audit.
 - Do not deploy Vercel or merge PR #2 in this work slice. P16 status remains **NOT ALL PASS** until every remaining acceptance gate passes; Neon Production remains untouched.
+
+
+### P16 CI and final cleanup checkpoint (21 November 2026)
+
+- Final branch commit: `805b6dff51a7ae78d600f61b25003b26d9c430aa`.
+- CI: Unit Tests push run `44915910819` PASS; PR run `44915914801` PASS; Dependency Audit `44915914733` PASS. 45 test files / 405 tests passed, including P16 governance 13/13. Backend API TypeScript check, frontend typecheck/build, migration dry-run and release-policy checks passed. Root and frontend dependency audits: 0 vulnerabilities.
+- Admin master INSERT → DELETE smoke test passed under `app_runtime_secure` and was fully rolled back; PM master UPDATE returned zero rows and PM INSERT was denied.
+- Final UAT cleanup: 93 ledger rows (16 baseline, 77 applied, 0 pending); Production unchanged at 53 rows; private bucket exists and remains empty; zero temporary Project evidence documents or master fixtures remain.
+- Vercel reports no deployment for final commit. PR #2 remains OPEN/DRAFT and unmerged.
+- P16 remains **NOT ALL PASS**: actual private storage PUT and read-back verification could not run because the execution environment cannot resolve the Neon storage hostname; authenticated HTTP/browser acceptance and positive evidence-driven depth/tide workflow therefore remain blocked. Continue with the ordered B1–B5 backtest plan in the Master Implementation Plan §56.54.8.

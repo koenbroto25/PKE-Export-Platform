@@ -647,6 +647,126 @@ app.get("/api/v1/projects/:projectId/pks-sites/catalog", requireAuth, async (req
   } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
+app.get("/api/v1/projects/:projectId/product-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "product.requirement.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT r.id,r.project_id,r.product_id,r.requirement_code,r.version_no,r.specification_label,
+              r.measurement_basis,r.specification_data,r.test_methods,r.packaging_requirements,
+              r.shipment_requirements,r.source_type,r.source_reference,r.approval_status,r.notes,
+              r.is_seed_data,r.seed_batch_id,r.approved_by,r.approved_at,r.created_at,r.updated_at,
+              p.product_code,p.product_name,p.canonical_name
+         FROM public.project_product_requirements r
+         JOIN public.product_catalog p ON p.id=r.product_id
+        WHERE r.project_id=$1::uuid
+        ORDER BY r.updated_at DESC,p.product_code,r.requirement_code,r.version_no DESC`,
+      [projectId],
+    );
+    const { rows: products } = await req.db.query(
+      "SELECT id,product_code,product_name,canonical_name FROM public.product_catalog WHERE is_active=true ORDER BY product_code",
+    );
+    const { rows: manageRows } = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'product.requirement.manage') AS allowed",
+      [projectId],
+    );
+    return res.json({
+      requirements: rows,
+      products,
+      canManage: req.user?.isAdmin === true || manageRows[0]?.allowed === true,
+      canApprove: req.user?.isAdmin === true,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/product-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "product.requirement.manage"))) return;
+  const b=req.body ?? {};
+  const productId=typeof b.productId==="string"?b.productId:"";
+  const requirementCode=typeof b.requirementCode==="string"?b.requirementCode.trim():"";
+  const label=typeof b.specificationLabel==="string"?b.specificationLabel.trim():"";
+  const sourceReference=typeof b.sourceReference==="string"?b.sourceReference.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(productId) ||
+     requirementCode.length<2 || requirementCode.length>120 || label.length<2 || label.length>240 || !sourceReference){
+    return res.status(400).json({error:"Product, requirement code, specification label and source reference are required."});
+  }
+  try{
+    const {rows}=await req.db.query(
+      `INSERT INTO public.project_product_requirements(
+        project_id,product_id,requirement_code,version_no,specification_label,measurement_basis,
+        specification_data,test_methods,packaging_requirements,shipment_requirements,
+        source_type,source_reference,source_snapshot,approval_status,notes,is_seed_data,seed_batch_id,
+        created_by,updated_by
+      ) VALUES ($1::uuid,$2::uuid,$3,1,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12::jsonb,'draft',$13,false,NULL,$14::uuid,$14::uuid)
+      RETURNING *`,
+      [projectId,productId,requirementCode,label,b.measurementBasis ?? "as_received",
+       JSON.stringify(b.specificationData ?? {}),JSON.stringify(b.testMethods ?? {}),
+       b.packagingRequirements ?? null,b.shipmentRequirements ?? null,
+       b.sourceType==="public_reference"?"public_reference":"manual",sourceReference,
+       JSON.stringify(b.sourceSnapshot ?? {}),b.notes ?? null,req.user?.id ?? null],
+    );
+    return res.status(201).json({requirement:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23505") return res.status(409).json({error:"This requirement code and version already exist for the Project/product."});
+    if(error?.code==="23503" || error?.code==="23514" || error?.code==="22P02") return res.status(400).json({error:"Product requirement fields failed validation."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/product-requirements/:requirementId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId,requirementId }=req.params;
+  if(req.user?.isAdmin){
+    const {rows}=await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true",[projectId]);
+    if(!rows.length) return res.status(404).json({error:"Project not found."});
+  }else if(!(await requireProjectPermission(req,res,projectId,"product.requirement.manage"))) return;
+  const b=req.body??{};
+  const fields:Array<[string,string,(v:any)=>any]>=[
+    ["specificationLabel","specification_label",v=>typeof v==="string"?v.trim():v],
+    ["measurementBasis","measurement_basis",v=>v],
+    ["specificationData","specification_data",v=>JSON.stringify(v??{})],
+    ["testMethods","test_methods",v=>JSON.stringify(v??{})],
+    ["packagingRequirements","packaging_requirements",v=>v],
+    ["shipmentRequirements","shipment_requirements",v=>v],
+    ["notes","notes",v=>v],
+  ];
+  const updates:string[]=[];const values:any[]=[];let idx=1;
+  for(const [key,column,convert] of fields) if(Object.prototype.hasOwnProperty.call(b,key)){
+    const value=convert(b[key]);
+    if(column==="specification_label" && (typeof value!=="string"||value.length<2||value.length>240))
+      return res.status(400).json({error:"Specification label must contain 2–240 characters."});
+    updates.push(`${column}=${column==="specification_data"||column==="test_methods"?"$"+idx+++"::jsonb":"$"+idx++}`);
+    values.push(value);
+  }
+  if(b.approvalStatus!==undefined){
+    if(req.user?.isAdmin!==true) return res.status(403).json({error:"Only Platform Admin may approve Project product requirements."});
+    if(!["draft","submitted","approved","rejected","superseded"].includes(b.approvalStatus))
+      return res.status(400).json({error:"Invalid approval status."});
+    updates.push("approval_status=$"+idx++);values.push(b.approvalStatus);
+  }
+  if(!updates.length) return res.status(400).json({error:"No editable product requirement fields supplied."});
+  updates.push("updated_by=$"+idx+++"::uuid");values.push(req.user?.id??null);
+  updates.push("updated_at=now()");
+  values.push(requirementId,projectId);
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.project_product_requirements SET ${updates.join(",")}
+        WHERE id=${idx++}::uuid AND project_id=${idx}::uuid RETURNING *`,values);
+    if(!rows.length) return res.status(404).json({error:"Product requirement not found in this Project."});
+    return res.json({requirement:rows[0]});
+  }catch(error:any){
+    if(error?.code==="42501") return res.status(403).json({error:"Product provenance and approval decisions are protected."});
+    if(error?.code==="23514"||error?.code==="22P02") return res.status(400).json({error:"Product requirement fields failed validation."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.get("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
   if (req.user?.isAdmin) {

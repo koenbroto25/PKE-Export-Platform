@@ -1868,39 +1868,8 @@ async function requireProjectPermission(
     return false;
   }
   const { rows: assignmentRows } = await req.db.query(
-    `SELECT a.id AS project_role_assignment_id, pr.id AS project_role_id, pr.role_code
-       FROM public.project_role_assignments a
-       JOIN public.project_members pm
-         ON pm.id = a.project_member_id
-        AND pm.project_id = a.project_id
-        AND pm.user_id = a.user_id
-       JOIN public.project_roles pr
-         ON pr.id = a.project_role_id AND pr.project_id = a.project_id
-       JOIN public.project_role_permissions prp
-         ON prp.project_id = a.project_id AND prp.project_role_id = pr.id
-       JOIN public.permissions perm
-         ON perm.id = prp.permission_id AND perm.is_active = true
-      WHERE a.project_id = $1::uuid
-        AND a.user_id = $2::uuid
-        AND a.is_active = true
-        AND a.revoked_at IS NULL
-        AND (a.expires_at IS NULL OR a.expires_at > now())
-        AND pm.is_active = true
-        AND pm.deactivated_at IS NULL
-        AND (pm.expires_at IS NULL OR pm.expires_at > now())
-        AND pr.is_active = true
-        AND perm.code = $3::text
-        AND NOT (
-          pr.role_code = 'funder'
-          AND (
-            $3::text LIKE 'finance.%' OR $3::text LIKE 'accounting.%' OR
-            $3::text LIKE 'reports.%' OR $3::text LIKE 'payment.%' OR
-            $3::text IN ('report.view','view_financial','view_rab')
-          )
-        )
-      ORDER BY pr.role_code, a.assigned_at DESC
-      LIMIT 1`,
-    [pid, principalId, permissionCode],
+    "SELECT project_role_assignment_id, project_role_id, role_code FROM public.pke_resolve_project_permission_context($1::uuid, ARRAY[$2::text])",
+    [pid, permissionCode],
   );
 
   if (assignmentRows.length === 0) {
@@ -1935,27 +1904,9 @@ async function requireProjectDocumentPermission(
 async function findExplicitProjectPermission(req: express.Request, projectId: string, permissionCodes: string[]): Promise<any | null> {
   const principalId=req.user?.id; if(!principalId) return null;
   const {rows}=await req.db.query(
-    `SELECT a.project_role_id,pr.role_code,perm.code AS permission_code
-       FROM public.project_role_assignments a
-       JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
-       JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id
-       JOIN public.project_role_permissions prp ON prp.project_id=a.project_id AND prp.project_role_id=pr.id
-       JOIN public.permissions perm ON perm.id=prp.permission_id AND perm.is_active=true
-       JOIN public.users u ON u.id=a.user_id AND u.is_active=true
-      WHERE a.project_id=$1::uuid AND a.user_id=$2::uuid AND a.is_active=true AND a.revoked_at IS NULL
-        AND (a.expires_at IS NULL OR a.expires_at>now())
-        AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
-        AND pr.is_active=true AND perm.code=ANY($3::text[])
-        AND NOT (
-          pr.role_code='funder'
-          AND (
-            perm.code LIKE 'finance.%' OR perm.code LIKE 'accounting.%' OR
-            perm.code LIKE 'reports.%' OR perm.code LIKE 'payment.%' OR
-            perm.code IN ('report.view','view_financial','view_rab')
-          )
-        )
-      ORDER BY array_position($3::text[],perm.code),a.assigned_at DESC LIMIT 1`,
-    [projectId,principalId,permissionCodes]);
+    "SELECT project_role_assignment_id, project_role_id, role_code, permission_code FROM public.pke_resolve_project_permission_context($1::uuid,$2::text[])",
+    [projectId,permissionCodes],
+  );
   return rows[0]??null;
 }
 async function applyExplicitProjectPermissionContext(req: express.Request,projectId: string,permission:any):Promise<void>{

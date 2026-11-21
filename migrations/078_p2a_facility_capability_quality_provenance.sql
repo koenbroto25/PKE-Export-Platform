@@ -804,18 +804,19 @@ BEGIN
    ELSIF v_sample.lab_report_sha256 IS NOT NULL THEN
      NEW.evidence_sha256:=v_sample.lab_report_sha256;
    END IF;
-   IF NEW.review_status='accepted' AND
+   IF NEW.review_status IN ('accepted','rejected','retest_required') AND
       (TG_OP='INSERT' OR (TG_OP='UPDATE' AND OLD.review_status IS DISTINCT FROM NEW.review_status)) THEN
      IF NOT (public.pke_is_platform_admin() OR public.pke_has_project_permission(v_sample.project_id,'quality.result.review')) THEN
-       RAISE EXCEPTION 'Only a Project QA reviewer or Platform Admin may accept a quality result' USING ERRCODE='42501';
+       RAISE EXCEPTION 'Only a Project QA reviewer or Platform Admin may decide a quality result' USING ERRCODE='42501';
      END IF;
      NEW.reviewed_by:=v_user_id;
      NEW.reviewed_at:=now();
-     IF NEW.evidence_document_id IS NULL OR NEW.evidence_sha256 IS NULL
-        OR NULLIF(btrim(NEW.measurement_basis),'') IS NULL
-        OR NULLIF(btrim(NEW.method_code),'') IS NULL
-        OR (NEW.result_numeric IS NOT NULL AND NULLIF(btrim(NEW.unit_code),'') IS NULL)
-        OR NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL THEN
+     IF NEW.review_status='accepted' AND
+        (NEW.evidence_document_id IS NULL OR NEW.evidence_sha256 IS NULL
+         OR NULLIF(btrim(NEW.measurement_basis),'') IS NULL
+         OR NULLIF(btrim(NEW.method_code),'') IS NULL
+         OR (NEW.result_numeric IS NOT NULL AND NULLIF(btrim(NEW.unit_code),'') IS NULL)
+         OR NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL) THEN
        RAISE EXCEPTION 'Accepted quality result requires sample-linked lab evidence, unit/basis/method and reviewer stamps' USING ERRCODE='23514';
      END IF;
    END IF;

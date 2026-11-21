@@ -16,8 +16,9 @@ const MIGRATION_089 = readFileSync(join(ROOT, "..", "migrations", "089_p2b_resou
 const MIGRATION_090 = readFileSync(join(ROOT, "..", "migrations", "090_p2b_resource_read_project_context.sql"), "utf8");
 const MIGRATION_091 = readFileSync(join(ROOT, "..", "migrations", "091_p16_selected_project_child_rls.sql"), "utf8");
 const MIGRATION_092 = readFileSync(join(ROOT, "..", "migrations", "092_p16_parent_and_project_scope.sql"), "utf8");
+const MIGRATION_093 = readFileSync(join(ROOT, "..", "migrations", "093_p16_admin_evidence_review_access.sql"), "utf8");
 const UI = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
-const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_092.json"), "utf8"));
+const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_093.json"), "utf8"));
 
 describe("P16 Port, Warehouse and Vessel governance", () => {
   it("registers P16 master CRUD, evidence, review, route and assessment endpoints", () => {
@@ -99,12 +100,12 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(UI).toContain("Ajukan observasi pasang-surut");
     expect(UI).toContain("Jalankan screening");
   });
-  it("pins UAT migration ledger 083-092 to exact SQL source hashes without modifying Production history", () => {
+  it("pins UAT migration ledger 083-093 to exact SQL source hashes without modifying Production history", () => {
     expect(UAT_MANIFEST.branch_id).toBe("br-young-boat-b3re832d");
-    expect(UAT_MANIFEST.ledger_row_count).toBe(92);
-    expect(UAT_MANIFEST.applied_count).toBe(76);
+    expect(UAT_MANIFEST.ledger_row_count).toBe(93);
+    expect(UAT_MANIFEST.applied_count).toBe(77);
     expect(UAT_MANIFEST.baseline_count).toBe(16);
-    expect(UAT_MANIFEST.entries).toHaveLength(92);
+    expect(UAT_MANIFEST.entries).toHaveLength(93);
     for (const [id, filename] of [
       [83, "083_p2b_port_warehouse_governance.sql"],
       [84, "084_p2b_pm_depth_vessel_permissions.sql"],
@@ -115,7 +116,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
       [89, "089_p2b_resource_read_permission_scope.sql"],
       [90, "090_p2b_resource_read_project_context.sql"],
       [91, "091_p16_selected_project_child_rls.sql"],
-      [92, "092_p16_parent_and_project_scope.sql"],
+      [92, "092_p16_parent_and_project_scope.sql"],\n      [93, "093_p16_admin_evidence_review_access.sql"],
     ] as const) {
       const entry = UAT_MANIFEST.entries[id - 1];
       const actual = createHash("sha256").update(readFileSync(join(ROOT, "..", "migrations", filename))).digest("hex");
@@ -141,6 +142,16 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(UI).toContain("inferredMime");
   });
 
+  it("routes document officer uploads and Admin review through selected-Project evidence controls", () => {
+    expect(API).toContain("async function requireProjectDocumentPermission");
+    expect(API).toContain("set_config('app.current_project_id',$1,true)");
+    expect(API).toContain("privateStorage.verifyObject(key, Number(contentLength), String(sha256Checksum))");
+    expect(UI).toContain('permissions.includes("documents.create")');
+    expect(UI).toContain('permissions.includes("documents.update")');
+    expect(UI).toContain("Dokumen evidence Approved");
+    expect(UI).toContain("Dokumen berhasil diunggah");
+  });
+
   it("uses an authenticated RLS gate while the SECURITY DEFINER trigger enforces Platform Admin", () => {
     expect(MIGRATION_087).toContain("pke_current_user_id() IS NOT NULL");
     expect(MIGRATION_087).toContain("pke_is_platform_admin()");
@@ -162,6 +173,11 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(MIGRATION_092).toContain("pke_p16_project_warehouse_permission");
     expect(MIGRATION_092).toContain("project_export_documents");
     expect(MIGRATION_092).toContain("app.current_project_id");
+    expect(MIGRATION_093).toContain("p16_admin_document_read");
+    expect(MIGRATION_093).toContain("p16_admin_document_update");
+    expect(API).toContain("requireProjectDocumentPermission");
+    expect(UI).toContain("eligibleEvidence.map");
+    expect(UI).toContain("inferredMime");
     expect(API).toContain("requireP16ReadAccess");
     expect(UI).toContain("platformAdmin || permissions.includes(\"port.view\")");
   });
@@ -170,6 +186,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(hasPageAccess("port-network", { platformAdmin: true })).toBe(true);
     expect(hasPageAccess("port-network", { selectedProjectId: "a1000000-0000-4000-8000-000000000001", projectPermissions: ["port.view"] })).toBe(true);
     expect(hasPageAccess("port-network", { selectedProjectId: "a1000000-0000-4000-8000-000000000001", projectPermissions: [] })).toBe(false);
+    expect(hasPageAccess("port-network", { selectedProjectId: "a1000000-0000-4000-8000-000000000001", projectPermissions: ["documents.view"] })).toBe(true);
   });
 
 });

@@ -617,6 +617,143 @@ app.get("/api/v1/vendors", requireAuth, async (req: express.Request, res: expres
   } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
+/**
+ * P2-A / P15: Project-scoped PKS operational overlay.
+ * Global legal/facility identity remains read-only here and requires a separate
+ * independently reviewed master-data change workflow.
+ */
+app.get("/api/v1/projects/:projectId/pks-sites", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows: projects } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!projects.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.site.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT pp.id,pp.project_id,pp.pks_site_id,pp.vendor_id,
+              pp.operational_contact_name,pp.operational_contact_email,pp.operational_contact_phone,
+              pp.contracted_capacity_mt_month,pp.allocated_capacity_mt_month,pp.delivery_window,
+              pp.project_terms,pp.notes,pp.status,pp.effective_from,pp.effective_to,
+              pp.source_type,pp.source_reference,pp.is_seed_data,pp.seed_batch_id,
+              pp.created_at,pp.updated_at,
+              s.name AS facility_name,s.code AS facility_code,s.facility_type,
+              s.city,s.province,s.verification_status AS facility_verification_status,
+              v.name AS supplier_name,v.code AS supplier_code
+         FROM public.project_pks_site_participation pp
+         JOIN public.pks_sites s ON s.id=pp.pks_site_id
+         LEFT JOIN public.vendors v ON v.id=pp.vendor_id
+        WHERE pp.project_id=$1::uuid
+        ORDER BY pp.updated_at DESC, s.name`,
+      [projectId],
+    );
+    return res.json({ participations: rows, canManage: req.user?.isAdmin === true || true });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/pks-sites", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows: projects } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!projects.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b = req.body ?? {};
+  const pksSiteId = typeof b.pksSiteId === "string" ? b.pksSiteId : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pksSiteId)) {
+    return res.status(400).json({ error: "A valid existing pksSiteId is required." });
+  }
+  const contracted = b.contractedCapacityMtMonth == null || b.contractedCapacityMtMonth === "" ? null : Number(b.contractedCapacityMtMonth);
+  const allocated = b.allocatedCapacityMtMonth == null || b.allocatedCapacityMtMonth === "" ? null : Number(b.allocatedCapacityMtMonth);
+  if ((contracted !== null && (!Number.isFinite(contracted) || contracted < 0)) ||
+      (allocated !== null && (!Number.isFinite(allocated) || allocated < 0)) ||
+      (contracted !== null && allocated !== null && allocated > contracted)) {
+    return res.status(400).json({ error: "Capacity values must be non-negative and allocated capacity cannot exceed contracted capacity." });
+  }
+  const vendorId = typeof b.vendorId === "string" && b.vendorId ? b.vendorId : null;
+  try {
+    const { rows: siteRows } = await req.db.query("SELECT id FROM public.pks_sites WHERE id=$1::uuid AND is_active=true", [pksSiteId]);
+    if (!siteRows.length) return res.status(404).json({ error: "Active facility not found." });
+    if (vendorId) {
+      const { rows: vendorRows } = await req.db.query(
+        `SELECT v.id FROM public.vendors v
+          JOIN public.project_supplier_participation psp ON psp.vendor_id=v.id
+         WHERE v.id=$1::uuid AND psp.project_id=$2::uuid AND psp.is_active=true AND v.is_active=true`,
+        [vendorId, projectId],
+      );
+      if (!vendorRows.length) return res.status(400).json({ error: "Supplier is not active in this Project." });
+    }
+    const { rows } = await req.db.query(
+      `INSERT INTO public.project_pks_site_participation(
+         project_id,pks_site_id,vendor_id,operational_contact_name,operational_contact_email,operational_contact_phone,
+         contracted_capacity_mt_month,allocated_capacity_mt_month,delivery_window,project_terms,notes,status,
+         effective_from,effective_to,source_type,source_reference,is_seed_data,seed_batch_id,created_by,updated_by
+       ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13::date,$14::date,'manual',NULL,false,NULL,$15::uuid,$15::uuid)
+       RETURNING *`,
+      [projectId,pksSiteId,vendorId,b.operationalContactName ?? null,b.operationalContactEmail ?? null,
+       b.operationalContactPhone ?? null,contracted,allocated,JSON.stringify(b.deliveryWindow ?? {}),
+       b.projectTerms ?? null,b.notes ?? null,b.status ?? "proposed",b.effectiveFrom ?? null,b.effectiveTo ?? null,req.user?.id ?? null],
+    );
+    return res.status(201).json({ participation: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "This facility is already linked to the Project." });
+    if (error?.code === "23503") return res.status(400).json({ error: "Invalid Project, facility, supplier or actor reference." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/pks-sites/:participationId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, participationId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows: projects } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!projects.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b = req.body ?? {};
+  const fields: Array<[string,string,(v:any)=>any]> = [
+    ["operationalContactName","operational_contact_name",v=>v],
+    ["operationalContactEmail","operational_contact_email",v=>v],
+    ["operationalContactPhone","operational_contact_phone",v=>v],
+    ["contractedCapacityMtMonth","contracted_capacity_mt_month",v=>v===""||v==null?null:Number(v)],
+    ["allocatedCapacityMtMonth","allocated_capacity_mt_month",v=>v===""||v==null?null:Number(v)],
+    ["deliveryWindow","delivery_window",v=>JSON.stringify(v??{})],
+    ["projectTerms","project_terms",v=>v],
+    ["notes","notes",v=>v],
+    ["status","status",v=>v],
+    ["effectiveFrom","effective_from",v=>v||null],
+    ["effectiveTo","effective_to",v=>v||null],
+  ];
+  const updates:string[]=[]; const values:any[]=[]; let idx=1;
+  for(const [key,column,convert] of fields) if(Object.prototype.hasOwnProperty.call(b,key)){
+    const value=convert(b[key]);
+    if(["contracted_capacity_mt_month","allocated_capacity_mt_month"].includes(column) && value!==null && (!Number.isFinite(value)||value<0))
+      return res.status(400).json({error:"Capacity values must be non-negative."});
+    updates.push(`${column}=${column==="delivery_window"?"$"+idx+++"::jsonb":"$"+idx++}`);
+    values.push(value);
+  }
+  if(!updates.length) return res.status(400).json({error:"No editable Project overlay fields supplied."});
+  if(b.status!==undefined && !["proposed","active","suspended","closed"].includes(b.status))
+    return res.status(400).json({error:"Invalid Project participation status."});
+  updates.push("updated_by=$"+idx+++"::uuid"); values.push(req.user?.id ?? null);
+  updates.push("updated_at=now()");
+  values.push(participationId,projectId);
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE public.project_pks_site_participation SET ${updates.join(",")}
+        WHERE id=${idx++}::uuid AND project_id=${idx}::uuid
+        RETURNING *`,
+      values,
+    );
+    if(!rows.length) return res.status(404).json({error:"Project PKS participation not found."});
+    const row=rows[0];
+    if(row.contracted_capacity_mt_month!=null && row.allocated_capacity_mt_month!=null &&
+       Number(row.allocated_capacity_mt_month)>Number(row.contracted_capacity_mt_month))
+      return res.status(400).json({error:"Allocated capacity cannot exceed contracted capacity."});
+    return res.json({participation:row});
+  } catch (error:any) {
+    if(error?.code==="23503") return res.status(400).json({error:"Invalid actor or Project reference."});
+    if(error?.code==="23514") return res.status(400).json({error:"Capacity or effective-date constraint failed."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.post("/api/v1/buyers", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { name, code, countryCode } = req.body;
   if (!name) return res.status(400).json({ error: "name required" });

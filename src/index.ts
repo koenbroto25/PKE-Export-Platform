@@ -5382,6 +5382,12 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         });
         if(!match.ok) return res.status(409).json({error:"Three-way match rejected.",code:match.reason});
       }
+      if(type==="loading_survey"){
+        const key=String(payload.certificateObjectKey??""),checksum=String(payload.sha256Checksum??""),size=Number(payload.certificateFileSizeBytes);
+        const storage=privateStorage.status();
+        if(!key.startsWith(`projects/${projectId}/`)||!storage.available||storage.bucket!=="pke-private-documents") return res.status(400).json({error:"Survey certificate must be stored in the Project private bucket.",code:"SURVEY_CERTIFICATE_STORAGE_INVALID"});
+        await privateStorage.verifyObject(key,size,checksum);
+      }
       if(type==="production_batch"){
         if(b.sourceEntityType!=="production_batches"||!b.sourceEntityId) return res.status(400).json({error:"Production batch must link an existing production_batches row."});
         const q=await req.db.query("SELECT id FROM public.production_batches WHERE id=$1::uuid AND project_id=$2::uuid",[b.sourceEntityId,projectId]);

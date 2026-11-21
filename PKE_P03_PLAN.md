@@ -1184,6 +1184,6 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Migration 087 applied to Neon UAT; SHA-256 `d834e4e5b843c2a9dad45c5f66b753aaf9f7d0bfe9dc93fa3006f636f38bda3e`.
 - Admin master RLS now gates on authenticated context; a SECURITY DEFINER trigger is the authoritative guard and checks Platform Admin for every global master INSERT/UPDATE/DELETE.
 - Maker-checker diff ignores `updated_at` on both OLD and NEW snapshots.
-- UAT migration ledger/manifest advanced to 87; no Neon Production writes or Vercel deployment.
+- UAT migration ledger/manifest advanced to 87 rows (16 baselined, 71 applied); no Neon Production writes or Vercel deployment.
 - Read-only role matrix backtest passed for PM Project A, PM cross-Project denial, Finance denial, Warehouse Manager denial and non-Admin status.
 - P16 remains open pending final live-write positive/negative tests, evidence object/hash checks, authenticated browser workflows and latest CI all-green confirmation.

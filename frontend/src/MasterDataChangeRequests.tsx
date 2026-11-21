@@ -234,6 +234,24 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
             </div></td>
           </tr>)}
         </tbody></table></div>}
+      {(data.facilityProducts || []).length > 0 && <div className="master-data-verification">
+        <h4>Kapabilitas fasilitas terverifikasi</h4>
+        <div className="table-wrap"><table><thead><tr><th>Fasilitas</th><th>Produk / Proses</th><th>Bukti</th><th>Reviewer</th></tr></thead><tbody>
+          {(data.facilityProducts || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}</td><td>{r.product_code} · {r.product_name}<small>{r.process_type}</small></td><td><small>{r.evidence_document_id || '—'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td><td>{r.verified_at ? new Date(r.verified_at).toLocaleString('id-ID') : '—'}</td></tr>)}
+        </tbody></table></div>
+      </div>}
+      {(data.capacityRecords || []).length > 0 && <div className="master-data-verification">
+        <h4>Riwayat kapasitas terverifikasi</h4>
+        <div className="table-wrap"><table><thead><tr><th>Fasilitas / Proses</th><th>Kapasitas</th><th>Periode berlaku</th><th>Bukti</th></tr></thead><tbody>
+          {(data.capacityRecords || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}<small>{r.process_type} · {r.capacity_kind}</small></td><td>{Number(r.capacity_value).toLocaleString('id-ID')} {r.unit_code} / {r.period_type}</td><td>{String(r.effective_from).slice(0,10)} – {r.effective_to ? String(r.effective_to).slice(0,10) : 'berjalan'}</td><td><small>{r.evidence_document_id || '—'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td></tr>)}
+        </tbody></table></div>
+      </div>}
+      {(data.certifications || []).length > 0 && <div className="master-data-verification">
+        <h4>Sertifikasi fasilitas</h4>
+        <div className="table-wrap"><table><thead><tr><th>Fasilitas</th><th>Sertifikasi</th><th>Masa berlaku</th><th>Status / Bukti</th></tr></thead><tbody>
+          {(data.certifications || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}</td><td>{r.certification_type}<small>{r.certificate_number} · {r.issuer}</small></td><td>{r.valid_from ? String(r.valid_from).slice(0,10) : '—'} – {r.valid_to ? String(r.valid_to).slice(0,10) : '—'}</td><td>{r.status}<small>{r.evidence_document_id || '—'}</small></td></tr>)}
+        </tbody></table></div>
+      </div>}
       {canReview && <div className="master-data-verification">
         <h4>Verifikasi identitas kanonis</h4>
         <p>Hanya record yang belum verified ditampilkan. Setiap verifikasi harus memakai dokumen Project yang approved dan checksum-terverifikasi.</p>

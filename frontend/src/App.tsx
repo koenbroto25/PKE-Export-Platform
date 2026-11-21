@@ -1349,7 +1349,7 @@ function ReportsPage({ projectId, activeUser, onNotice }: { projectId: string; a
       {key:'status',label:'Status',render:r=><StatusPill value={r.status||'queued'}/>},
       {key:'generatedAt',label:'Dibuat',render:r=>dateTime(r.generatedAt)},
       {key:'fileReference',label:'File',render:r=>r.fileReference||'—'},
-      ...(canShare ? [{key:'share',label:'Funder',render:(r:AnyRecord)=><ActionButton variant="secondary" disabled={shareBusy || !funderUserId || r.status!=='completed' || !r.fileReference} onClick={()=>void shareReport(r.id)}>Bagikan</ActionButton>}] : []),
+      {key:'share',label:'Funder',render:(r:AnyRecord)=>canShare ? <ActionButton variant="secondary" disabled={shareBusy || !funderUserId || r.status!=='completed' || !r.fileReference} onClick={()=>void shareReport(r.id)}>Bagikan</ActionButton> : '—'},
     ]} emptyTitle="Belum ada run" emptyText="Belum ada report run pada Project terpilih." /></Card>
     {canShare && <Card><PanelHeading title="Bagikan laporan ke Funder" description="Pilih penerima yang memiliki assignment Funder aktif di Project ini." />
       {members.loading ? <Loading /> : members.error ? <ErrorState message={members.error} retry={members.refresh} /> : funderCandidates.length === 0

@@ -34,7 +34,7 @@ describe("Migration 078 P15 facility capability and quality provenance", () => {
   it("requires sample-linked lab evidence, units, basis, method and reviewer for accepted quality results", () => {
     expect(migration).toContain("pke_validate_p2a_quality_provenance");
     expect(migration).toContain("Quality result evidence must be the lab report linked to its sample");
-    expect(migration).toContain("Accepted quality result requires sample-linked lab evidence, unit/basis/method and reviewer stamps");
+    expect(migration).toContain("Every quality result requires sample-linked lab evidence, unit/basis/method provenance");
   });
   it("does not add runtime delete access or fabricate capability fixtures", () => {
     expect(migration).not.toContain("GRANT DELETE");

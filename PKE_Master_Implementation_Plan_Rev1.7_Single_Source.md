@@ -10346,3 +10346,42 @@ P15 engineering implementation and UAT database/security backtests are complete.
 - P16 route contract tests include all four read endpoints and the fail-closed effective port-verification rule.
 - The read-only API SQL statements were smoke-checked against Neon UAT schema and returned successfully. No database rows or policies were changed by this P16 source slice.
 - PR #2 remains OPEN / DRAFT and points to the latest head. No merge or Vercel action occurred.
+
+
+
+### 56.54.4 — P16 governed write implementation and UAT migrations 083–086 (21 November 2026)
+
+**Scope and safeguards**
+- Continued on the existing branch `f1/project-scoped-cob-20261119`; no new GitHub branch.
+- Neon UAT only. Neon Production was not modified. PR #2 remains OPEN/DRAFT; no merge and no Vercel/deployment activity.
+- Created a pre-migration snapshot schema `p2b_backup_082_20261121` containing the P16 master, evidence, route and warehouse tables plus permission/policy snapshots.
+- Added Platform Admin-only mutation policies and trigger guards for global ports, terminals, berths, channels, anchorages, port services/equipment/limits, routes, warehouses, zones, bins and warehouse equipment.
+- Added maker-checker review: a submitter cannot verify their own master-data submission; verification requires a source reference, SHA-256 and reviewer note. Audits capture before/after snapshots.
+- PM receives Project-scoped depth/tide submission, route-estimate and vessel-port-assessment permissions. Terminal Representative receives Project-scoped depth/tide submission. These roles do not receive global master-data write rights.
+- Depth/tide submissions must be linked to a port assigned to the active Project and must reference an Approved, upload-verified Project document in `pke-private-documents` with a matching SHA-256, object key and unexpired retention status.
+- Vessel screening uses verified vessel/port/berth particulars, current operating limits, current verified depth survey and fresh observed tide (not forecast). Outputs are strictly advisory and never navigation/berthing clearance.
+- Generic master-data change detection ignores automatic `updated_at` changes so background timestamp triggers cannot reset verified records.
+
+**UAT migration ledger**
+- Migration 083 `083_p2b_port_warehouse_governance.sql` applied; SHA-256 `6587ae132c376b66a48a6fa4be0dc91717b7fdd4099894572baa067fafe18500`.
+- Migration 084 `084_p2b_pm_depth_vessel_permissions.sql` applied; SHA-256 `5b958b73c57ff21fe7e359742478d1351708ba79f36f7ecca38a0db3ba92fd97`.
+- Migration 085 `085_p2b_port_evidence_document_guard.sql` applied; SHA-256 `94dd4bb66c529066ad1e008ab25529ee2fcd0e7e6ea9b4bb6b2724de3eef6160`.
+- Migration 086 `086_p2b_master_guard_updated_at_fix.sql` applied; SHA-256 `40a28c888f618f555f27b9b54b2a6a9c5d8fd12bec887f55a6686dedd7fdec0b`.
+- UAT migration history now contains 86 contiguous rows; exact UAT-only evidence is recorded in `migration_history_manifest_uat_001_086.json`. Production manifest remains separate and unchanged.
+
+**Source implementation**
+- Added admin-only generic P16 master create/update/review API for port and warehouse hierarchy, services, equipment, operating limits and PKS-port routes.
+- Added Project-scoped depth/tide submission and Platform Admin independent review APIs.
+- Added Project-scoped route listing, vessel picker and advisory vessel-port assessment API.
+- Port & Warehouse UI now includes Platform Admin master editor/review controls, PM/Terminal Representative evidence submission, route reference view and vessel screening.
+- Added `src/p16-governance.test.ts` for route registration, permission boundaries, evidence provenance, maker-checker, advisory-only screening and UAT migration checksum manifest.
+
+**Outstanding acceptance gates (do not mark P16 complete until all pass)**
+1. Run final Unit Tests workflow and Dependency Audit Evidence workflow on the latest branch head; resolve any failure and rerun.
+2. Complete API/RLS positive and negative backtests as actual `app_runtime_secure` role: Platform Admin create/update/review; PM depth/tide submit and route/vessel view; Terminal Representative submit; non-Admin global-master mutation denied; cross-Project port/document access denied; self-review denied; mismatched or unapproved evidence denied.
+3. Exercise the Admin and PM workflows in an authenticated browser against Neon UAT; confirm forms save, detail refreshes, maker-checker state transitions and error handling.
+4. Confirm all P16 subresource fields/constraints and operating-limit approval transition; confirm route and vessel screening return insufficient-data when evidence is absent or stale.
+5. Rerun UAT migration-ledger/hash check, RLS isolation audit, route contract tests, backend/frontend typecheck and frontend build.
+6. Update this plan and `PKE_P03_PLAN.md` only after acceptance evidence is captured. Deployment/browser acceptance remains deferred to the user's requested final combined deployment session.
+
+**Status:** P16 write paths and UAT schema governance are implemented; P16 is NOT YET ALL PASS until the listed backtests, browser acceptance and latest CI runs pass.

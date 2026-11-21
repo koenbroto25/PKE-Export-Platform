@@ -13,7 +13,7 @@ describe("P1 workflow domain contracts", () => {
   it("requires PO line details and ISO currency", () => {
     expect(validateP1Create("purchase_order", {supplierId:"supplier-1",currencyCode:"IDR",items:[{description:"Palm kernel cake",quantity:10,unitCode:"MT",unitPrice:120}]})).toEqual([]);
     expect(validateP1Create("purchase_order", {currencyCode:"IDR",items:[{description:"Palm kernel cake",quantity:10,unitCode:"MT",unitPrice:120}]})).toContain("supplierId is required for a Purchase Order");
-    expect(validateP1Create("purchase_order", {currencyCode:"idr",items:[]})).toHaveLength(2);
+    expect(validateP1Create("purchase_order", {currencyCode:"idr",items:[]})).toHaveLength(3);
   });
   it("requires positive commitment quantity and a timestamp", () => {
     expect(validateP1Create("supplier_commitment",{purchaseOrderRecordId:"po-1",committedQuantity:0,unitCode:"MT",committedAt:"invalid"})).toHaveLength(2);

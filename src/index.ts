@@ -5310,7 +5310,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     return q.rows[0]?.can_view?view:q.rows[0]?.can_manage?manage:null;
   };
   const p1Roles = async (req: express.Request,projectId:string):Promise<string[]> => {
-    const candidates=["pm","project_admin","platform_admin","procurement","contract_manager","buyer","supplier","pks_site_manager",
+    const candidates=["pm","project_admin","platform_admin","finance","accounting","procurement","contract_manager","buyer","supplier","pks_site_manager",
       "production_manager","packing_supervisor","qc_officer","laboratory_officer","qa_manager","hse_officer",
       "transport_manager","dispatcher","transporter","driver","checker","master_of_loading","loading_manager",
       "loading_supervisor","loading_operator","marine_surveyor","ship_master","terminal_representative","shipping_agent",
@@ -5692,11 +5692,15 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     const projectId=req.params.projectId as string;
     try{
       if(!(await p1Ready(req,res))) return;
-      if(!(await requireProjectPermission(req,res,projectId,"reports.view"))) return;
+      const kpiAccess=await req.db.query(
+        "SELECT public.pke_has_project_permission($1::uuid,'p1.kpi.view') OR public.pke_has_project_permission($1::uuid,'reports.view') AS allowed",
+        [projectId]
+      );
+      if(!kpiAccess.rows[0]?.allowed) return res.status(403).json({error:"Missing required Project permission: p1.kpi.view or reports.view"});
       const defs=await req.db.query("SELECT * FROM public.p1_report_kpi_definitions WHERE is_active=true AND (project_id IS NULL OR project_id=$1::uuid) ORDER BY template_id,metric_key",[projectId]);
       const roleCodes=await p1Roles(req,projectId);
       const p1KpiTemplatesByRole:Record<string,string[]> = {
-        procurement:["tpl-procurement"],contract_manager:["tpl-procurement"],buyer:["tpl-procurement"],supplier:["tpl-procurement"],
+        procurement:["tpl-procurement"],contract_manager:["tpl-procurement"],buyer:["tpl-procurement"],finance:["tpl-procurement"],accounting:["tpl-procurement"],
         pks_site_manager:["tpl-procurement","tpl-operational"],
         production_manager:["tpl-operational"],packing_supervisor:["tpl-operational"],qc_officer:["tpl-operational"],
         laboratory_officer:["tpl-operational"],qa_manager:["tpl-operational"],hse_officer:["tpl-operational"],

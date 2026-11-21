@@ -5282,7 +5282,14 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'audit.finding.view') AS auditor,public.pke_has_project_permission($1::uuid,'audit.finding.respond') AS owner",[projectId]);
       return q.rows[0]?.auditor?"audit.finding.view":q.rows[0]?.owner?"audit.finding.respond":null;
     }
-    return p1Permission(req,type,"view");
+    if(type==="hse_action"){
+      const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'hse.action.view') AS viewer,public.pke_has_project_permission($1::uuid,'hse.action.respond') AS owner,public.pke_has_project_permission($1::uuid,'hse.action.manage') AS manager",[projectId]);
+      return q.rows[0]?.viewer?"hse.action.view":q.rows[0]?.owner?"hse.action.respond":q.rows[0]?.manager?"hse.action.manage":null;
+    }
+    const view=await p1Permission(req,type,"view"),manage=await p1Permission(req,type,"manage_external");
+    if(!view)return manage;
+    const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,$2) AS can_view,public.pke_has_project_permission($1::uuid,$3) AS can_manage",[projectId,view,manage]);
+    return q.rows[0]?.can_view?view:q.rows[0]?.can_manage?manage:null;
   };
   const p1Role = async (req: express.Request):Promise<string> => {
     const q=await req.db.query("SELECT current_setting('app.current_role',true) AS code");

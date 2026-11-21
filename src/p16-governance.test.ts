@@ -95,7 +95,9 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
   });
   it("pins UAT migration ledger 083-085 to exact SQL source hashes without modifying Production history", () => {
     expect(UAT_MANIFEST.branch_id).toBe("br-young-boat-b3re832d");
-    expect(UAT_MANIFEST.applied_count).toBe(87);
+    expect(UAT_MANIFEST.ledger_row_count).toBe(87);
+    expect(UAT_MANIFEST.applied_count).toBe(71);
+    expect(UAT_MANIFEST.baseline_count).toBe(16);
     expect(UAT_MANIFEST.entries).toHaveLength(87);
     for (const [id, filename] of [
       [83, "083_p2b_port_warehouse_governance.sql"],

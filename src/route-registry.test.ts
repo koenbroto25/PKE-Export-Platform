@@ -98,7 +98,7 @@ describe("API route registry (regression)", () => {
     expect(INDEX_SRC).toContain('assessmentMode: "advisory_only"');
     expect(INDEX_SRC).toContain("effective_verification_status");
     expect(INDEX_SRC).toContain("NULLIF(btrim(p.source_reference),'') IS NULL");
-    expect(INDEX_SRC).toContain('canManage: false');
+    expect(INDEX_SRC).toContain('canManage: req.user?.isAdmin === true');
   });
 
   it("registers exactly one handler per method+path (no duplicate route groups)", () => {

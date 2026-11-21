@@ -63,4 +63,9 @@ describe("P1 workflow API security contracts",()=>{
     expect(api).toContain("status='verified'");
     expect(api).toContain("status IN ('presented','accepted','discrepancy')");
   });
+  it("seeds newly activated Project roles from the canonical permission allowlist",()=>{
+    expect(api).toContain("pke_project_role_permission_allowlist a");
+    expect(api).toContain("WHERE a.role_code=$4::text");
+    expect(api).toContain("grantedRows.map");
+  });
 });

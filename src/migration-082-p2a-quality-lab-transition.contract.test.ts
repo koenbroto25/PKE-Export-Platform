@@ -6,7 +6,7 @@ const indexSource = readFileSync(new URL("./index.ts", import.meta.url), "utf8")
 const uiSource = readFileSync(new URL("../frontend/src/QualityProvenancePanel.tsx", import.meta.url), "utf8");
 describe("Migration 082 P15 controlled lab-report transition", () => {
   it("matches the exact UAT migration SHA-256", () => {
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("HASH_TO_FILL");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("8f768a41acfcccbe8879a296dbf1a8530f6436660712f39fe8e0aa39f2819205");
   });
   it("requires Project quality-result permission and an approved checksum-verified same-Project lab report", () => {
     expect(migration).toContain("pke_has_project_permission(p_project_id,'quality.result.create')");

@@ -10240,3 +10240,6 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 - The quality sample API now persists the source snapshot supplied by the Project workspace in addition to the structured chain-of-custody JSON; the read API returns sample and result source snapshots so reviewers can inspect the provenance actually submitted.
 
 - Added a controlled pending/submitted-to-tested transition for lab officers/QC roles. The database function only permits a Project-scoped approved, checksum-verified lab report and stamps the evidence provenance; the UI can attach the report after sampling, rather than requiring the report to exist when the sample record is first created.
+
+- Migration 082 SHA-256: 8f768a41acfcccbe8879a296dbf1a8530f6436660712f39fe8e0aa39f2819205 — applied to UAT only. It enables the lab officer/QC role to attach an approved same-Project lab report after a sample was first registered as pending/submitted; it does not grant broad UPDATE access to quality sample rows.
+- Positive tested-sample transition cannot be demonstrated in this UAT session because there are no real approved, checksum-verified lab-report documents in the test Project. The function will be backtested for denial of nonexistent/unapproved evidence; positive use awaits an actual approved test document.

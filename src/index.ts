@@ -20,6 +20,11 @@ import { validateAllocationCapacity, validateAllocationTransition } from "./f1-p
 import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
 import { isValidCashAdvanceRequest, canDecideCashAdvance } from "./f1-cash-advance-rules.js";
 import { listCashAdvances, createCashAdvance, decideCashAdvance } from "./cash-advance-service.js";
+import {
+  isP1RecordType, validateP1Create, validateP1Transition, validateThreeWayMatch,
+  canApprovePurchaseOrder, canDecideQaRelease, canCloseAuditFinding, validateP1Evidence,
+  evaluateFreshness, isDispatchOnTime, type P1RecordType, type P1Status,
+} from "./p1-workflow-engine.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -5239,6 +5244,247 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     res.status(500).json({ error: "Failed to create audit event" });
   }
 });
+
+
+  // P1 project-scoped domain workflows — schema-gated and fail-closed where not provisioned.
+  const p1Ready = async (req: express.Request, res: express.Response): Promise<boolean> => {
+    const { rows } = await req.db.query("SELECT to_regclass('public.p1_domain_records') IS NOT NULL AS ready");
+    if (!rows[0]?.ready) { res.status(503).json({error:"P1 workflow schema is not provisioned.",code:"P1_WORKFLOW_NOT_PROVISIONED"}); return false; }
+    return true;
+  };
+  const p1DefaultOwner: Record<P1RecordType,string> = {
+    purchase_requisition:"procurement",purchase_order:"procurement",supplier_commitment:"procurement",goods_receipt_match:"procurement",
+    production_batch:"production_manager",packing_batch:"packing_supervisor",quality_sample:"qc_officer",quality_result:"laboratory_officer",
+    qa_release:"qa_manager",hse_inspection:"hse_officer",hse_action:"hse_officer",dispatch_assignment:"dispatcher",
+    vessel_call:"master_of_loading",loading_plan:"master_of_loading",loading_survey:"marine_surveyor",ship_master_ack:"ship_master",
+    laytime_event:"master_of_loading",lc_record:"document_officer",lc_clause:"document_officer",lc_discrepancy:"document_officer",
+    lc_presentation:"document_officer",audit_finding:"internal_auditor",audit_response:"internal_auditor",audit_closure:"internal_auditor",
+  };
+  const p1ExternalRoles: Partial<Record<P1RecordType,string[]>> = {
+    supplier_commitment:["supplier"],dispatch_assignment:["transporter","driver"],vessel_call:["shipping_agent","terminal_representative"],
+    loading_survey:["marine_surveyor"],ship_master_ack:["ship_master"],laytime_event:["shipping_agent"],
+    lc_record:["shipping_agent"],lc_clause:["shipping_agent"],lc_discrepancy:["shipping_agent"],lc_presentation:["shipping_agent"],
+  };
+  const p1Permission = async (req: express.Request,type:P1RecordType,action:"view"|"create"|"update"):Promise<string|null> => {
+    const q=await req.db.query("SELECT public.p1_workflow_permission($1,$2) AS code",[type,action]);
+    return typeof q.rows[0]?.code==="string"?q.rows[0].code:null;
+  };
+  const p1Role = async (req: express.Request):Promise<string> => {
+    const q=await req.db.query("SELECT current_setting('app.current_role',true) AS code");
+    return String(q.rows[0]?.code??"");
+  };
+  const p1HasRole = async (req: express.Request,projectId:string,userId:string,roleCodes:string[]):Promise<boolean> => {
+    const q=await req.db.query(
+      `SELECT 1 FROM public.project_role_assignments a
+       JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+       JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id
+       WHERE a.project_id=$1::uuid AND a.user_id=$2::uuid AND pr.role_code=ANY($3::text[])
+       AND a.is_active AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+       AND pm.is_active AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+       AND pr.is_active LIMIT 1`,[projectId,userId,roleCodes]);
+    return q.rows.length>0;
+  };
+
+  app.get("/api/v1/projects/:projectId/p1-workflows",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,type=String(req.query.recordType??"");
+    if(!isP1RecordType(type)) return res.status(400).json({error:"recordType is required and must be valid."});
+    try {
+      if(!(await p1Ready(req,res))) return;
+      const permission=await p1Permission(req,type,"view");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const status=typeof req.query.status==="string"?req.query.status:null;
+      const q=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2 AND ($3::text IS NULL OR status=$3) ORDER BY updated_at DESC LIMIT 200",[projectId,type,status]);
+      return res.json({projectId,recordType:type,records:q.rows});
+    } catch { return res.status(500).json(internalServerErrorPayload()); }
+  });
+
+  app.post("/api/v1/projects/:projectId/p1-workflows",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,actorId=String(req.user?.id??""),b=req.body??{},type=b.recordType;
+    if(!isP1RecordType(type)) return res.status(400).json({error:"Valid recordType is required."});
+    const title=typeof b.title==="string"?b.title.trim():"",payload=b.payload&&typeof b.payload==="object"&&!Array.isArray(b.payload)?b.payload:{};
+    const errors=validateP1Create(type,payload);
+    if(title.length<3||title.length>240) errors.push("title must contain 3-240 characters");
+    if(typeof b.idempotencyKey!=="string"||b.idempotencyKey.trim().length<12) errors.push("idempotencyKey must contain at least 12 characters");
+    if(errors.length) return res.status(400).json({error:"P1 validation failed.",code:"P1_VALIDATION_FAILED",details:errors});
+    try {
+      if(!(await p1Ready(req,res))) return;
+      const permission=await p1Permission(req,type,"create");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const roleCode=await p1Role(req);
+      if(["purchase_requisition","purchase_order","supplier_commitment"].includes(type)&&!["procurement","contract_manager"].includes(roleCode)) return res.status(403).json({error:"Procurement record creation is restricted to Procurement/Contract Manager."});
+      if(type==="audit_finding"&&roleCode!=="internal_auditor") return res.status(403).json({error:"Only Internal Auditor may create findings."});
+      if(type==="audit_closure"&&roleCode!=="internal_auditor") return res.status(403).json({error:"Only Internal Auditor may initiate closure."});
+      if(type==="qa_release"&&roleCode!=="qa_manager") return res.status(403).json({error:"Only QA Manager may create release decisions."});
+      if(type==="loading_survey"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit surveys."});
+      if(type==="ship_master_ack"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may submit acknowledgements."});
+      if(["purchase_order","supplier_commitment","audit_response"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
+      if(b.parentRecordId){
+        const parent=await req.db.query("SELECT id,record_type,status,created_by,owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[b.parentRecordId,projectId]);
+        if(parent.rows.length!==1) return res.status(422).json({error:"Parent record is not in the selected Project."});
+        if(type==="purchase_order"&&(parent.rows[0].record_type!=="purchase_requisition"||parent.rows[0].status!=="approved")) return res.status(409).json({error:"Purchase Order requires an approved requisition."});
+        if(type==="supplier_commitment"&&(parent.rows[0].record_type!=="purchase_order"||!["issued","acknowledged","partially_received"].includes(parent.rows[0].status))) return res.status(409).json({error:"Supplier commitment requires an issued PO."});
+        if(type==="audit_response"&&(parent.rows[0].record_type!=="audit_finding"||!["open","responded"].includes(parent.rows[0].status)||!(await p1HasRole(req,projectId,actorId,[parent.rows[0].owner_role_code])))) return res.status(403).json({error:"Only the active finding owner role may respond."});
+      }
+      if(type==="goods_receipt_match"){
+        const [po,grn,inv]=await Promise.all([
+          req.db.query("SELECT id,status,payload FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='purchase_order'",[payload.purchaseOrderRecordId,projectId]),
+          req.db.query("SELECT project_id,received_quantity,unit,status FROM public.warehouse_receipts WHERE id=$1::uuid AND project_id=$2::uuid",[payload.warehouseReceiptId,projectId]),
+          req.db.query("SELECT ai.project_id,ai.supplier_id,ai.total_amount,c.code AS currency_code,ai.purchase_order_id,ai.goods_receipt_id FROM public.ap_invoices ai JOIN public.currencies c ON c.id=ai.currency_id WHERE ai.id=$1::uuid AND ai.project_id=$2::uuid",[payload.apInvoiceId,projectId]),
+        ]);
+        if(po.rows.length!==1||grn.rows.length!==1||inv.rows.length!==1||!["issued","acknowledged","partially_received","received"].includes(po.rows[0].status)||!["verified","partial"].includes(grn.rows[0].status)) return res.status(422).json({error:"PO, verified same-Project GRN and AP invoice are required."});
+        const pp=po.rows[0].payload??{},ii=inv.rows[0],gg=grn.rows[0];
+        if(ii.purchase_order_id&&ii.purchase_order_id!==payload.purchaseOrderRecordId) return res.status(409).json({error:"AP invoice is linked to another PO."});
+        if(ii.goods_receipt_id&&ii.goods_receipt_id!==payload.warehouseReceiptId) return res.status(409).json({error:"AP invoice is linked to another GRN."});
+        const match=validateThreeWayMatch({
+          po:{projectId,supplierId:String(pp.supplierId??""),currencyCode:String(pp.currencyCode??""),items:Array.isArray(pp.items)?pp.items:[]},
+          receipt:{projectId,quantity:Number(gg.received_quantity),unitCode:String(gg.unit),supplierId:null},
+          invoice:{projectId,supplierId:String(ii.supplier_id),currencyCode:String(ii.currency_code),totalAmount:Number(ii.total_amount)},
+          matchedQuantity:Number(payload.matchedQuantity),matchedAmount:Number(payload.matchedAmount),unitCode:String(payload.unitCode),currencyCode:String(payload.currencyCode),
+        });
+        if(!match.ok) return res.status(409).json({error:"Three-way match rejected.",code:match.reason});
+      }
+      if(type==="qa_release"){
+        const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sourceRecordId,projectId]);
+        if(source.rows.length!==1||source.rows[0].created_by===actorId) return res.status(409).json({error:"QA release requires an independent actor and source record."});
+      }
+      if(type==="audit_closure"){
+        const fid=String(payload.findingRecordId??"");
+        const finding=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='audit_finding'",[fid,projectId]);
+        const response=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[fid,projectId]);
+        if(finding.rows.length!==1||!response.rows.length||!canCloseAuditFinding(actorId,finding.rows[0].created_by,response.rows[0].created_by,roleCode)) return res.status(409).json({error:"Audit closure requires independent Internal Auditor verification after owner response."});
+      }
+      const ownerRoleCode=typeof b.ownerRoleCode==="string"?b.ownerRoleCode:p1DefaultOwner[type];
+      const owner=await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true",[projectId,ownerRoleCode]);
+      if(owner.rows.length!==1) return res.status(422).json({error:"ownerRoleCode must be active in this Project."});
+      const assignee=b.assigneeUserId?String(b.assigneeUserId):null;
+      if(assignee&&!await p1HasRole(req,projectId,assignee,[ownerRoleCode])) return res.status(422).json({error:"Assignee must hold the selected active Project role."});
+      const external=b.externalScopeUserId?String(b.externalScopeUserId):null;
+      if(external){const allowed=p1ExternalRoles[type]??[];if(!allowed.length||!await p1HasRole(req,projectId,external,allowed)) return res.status(422).json({error:"External scope must match an active external Project assignment."});}
+      const dueAt=b.dueAt?new Date(b.dueAt):null;
+      if(b.dueAt&&Number.isNaN(dueAt!.getTime())) return res.status(400).json({error:"Invalid dueAt."});
+      const ins=await req.db.query(
+        `INSERT INTO public.p1_domain_records(project_id,record_type,record_code,parent_record_id,source_entity_type,source_entity_id,title,payload,owner_role_code,assignee_user_id,external_scope_user_id,created_by,updated_by,due_at,idempotency_key)
+         VALUES($1::uuid,$2,COALESCE(NULLIF($3,''),'P1-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12))),$4::uuid,$5,$6::uuid,$7,$8::jsonb,$9,$10::uuid,$11::uuid,$12::uuid,$12::uuid,$13::timestamptz,$14)
+         ON CONFLICT (project_id,idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING *`,
+        [projectId,type,b.recordCode??"",b.parentRecordId??null,b.sourceEntityType??null,b.sourceEntityId??null,title,JSON.stringify(payload),ownerRoleCode,assignee,external,actorId,dueAt,b.idempotencyKey.trim()]);
+      if(!ins.rows.length){
+        const prior=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND idempotency_key=$2",[projectId,b.idempotencyKey.trim()]);
+        if(prior.rows.length!==1||prior.rows[0].record_type!==type||prior.rows[0].title!==title||JSON.stringify(prior.rows[0].payload)!==JSON.stringify(payload)) return res.status(409).json({error:"Idempotency key conflict.",code:"IDEMPOTENCY_KEY_CONFLICT"});
+        return res.status(200).json({record:prior.rows[0],idempotentReplay:true});
+      }
+      const currentRole=await p1Role(req);
+      await req.db.query("INSERT INTO public.p1_domain_events(record_id,project_id,event_type,actor_user_id,actor_role_code,payload) VALUES($1::uuid,$2::uuid,'created',$3::uuid,$4,$5::jsonb)",[ins.rows[0].id,projectId,actorId,currentRole,JSON.stringify({recordType:type})]);
+      return res.status(201).json({record:ins.rows[0],idempotentReplay:false});
+    } catch { return res.status(500).json(internalServerErrorPayload()); }
+  });
+
+  app.patch("/api/v1/projects/:projectId/p1-workflows/:id/transition",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string,actorId=String(req.user?.id??""),b=req.body??{};
+    if(typeof b.status!=="string") return res.status(400).json({error:"status is required."});
+    try {
+      if(!(await p1Ready(req,res))) return;
+      const found=await req.db.query("SELECT * FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid FOR UPDATE",[id,projectId]);
+      if(found.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const record=found.rows[0];
+      if(!isP1RecordType(record.record_type)) return res.status(409).json({error:"Unsupported stored workflow type."});
+      const permission=await p1Permission(req,record.record_type,"update");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const from=record.status as P1Status,to=b.status as P1Status;
+      if(!validateP1Transition(record.record_type,from,to)) return res.status(409).json({error:"Invalid status transition.",code:"INVALID_P1_TRANSITION",from,to});
+      if(["rejected","held","blocked","cancelled","discrepancy"].includes(to)&&String(b.reason??"").trim().length<5) return res.status(400).json({error:"A reason of at least 5 characters is required."});
+      if(record.record_type==="purchase_order"&&to==="approved"){
+        if(!(await requireProjectPermission(req,res,projectId,"procurement.po.approve"))) return;
+        if(!canApprovePurchaseOrder(actorId,record.created_by,await p1Role(req))) return res.status(403).json({error:"PO approval requires an independent Procurement/Contract Manager.",code:"MAKER_CHECKER_REQUIRED"});
+      }
+      if(record.record_type==="qa_release"&&(to==="released"||to==="held")){
+        if(!(await requireProjectPermission(req,res,projectId,"quality.release.decide"))) return;
+        const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[record.payload.sourceRecordId,projectId]);
+        if(source.rows.length!==1||!canDecideQaRelease(actorId,source.rows[0].created_by,await p1Role(req))) return res.status(403).json({error:"QA release requires an independent QA Manager."});
+      }
+      if(record.record_type==="audit_finding"&&to==="closed"){
+        if(!(await requireProjectPermission(req,res,projectId,"audit.finding.close"))) return;
+        const response=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[id,projectId]);
+        if(!response.rows.length||!canCloseAuditFinding(actorId,record.created_by,response.rows[0].created_by,await p1Role(req))) return res.status(403).json({error:"Audit closure requires an independent Internal Auditor and owner response."});
+      }
+      const roleCode=await p1Role(req);
+      if(record.record_type==="supplier_commitment"&&to==="acknowledged"&&roleCode!=="supplier") return res.status(403).json({error:"Only the assigned Supplier may acknowledge the commitment."});
+      if(record.record_type==="ship_master_ack"&&to==="acknowledged"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may acknowledge."});
+      if(record.record_type==="loading_survey"&&to==="submitted"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit the survey."});
+      if(record.record_type==="dispatch_assignment"&&["acknowledged","in_progress","completed"].includes(to)&&["transporter","driver"].includes(roleCode)&&record.external_scope_user_id!==actorId) return res.status(403).json({error:"External dispatch updates are restricted to the assigned user."});
+      if(record.record_type==="audit_response"&&to==="submitted"){
+        const finding=await req.db.query("SELECT owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='audit_finding'",[record.parent_record_id]);
+        if(finding.rows.length!==1||!await p1HasRole(req,projectId,actorId,[finding.rows[0].owner_role_code])) return res.status(403).json({error:"Only finding owner role may submit the response."});
+      }
+      if(record.record_type==="lc_presentation"&&(to==="accepted"||to==="discrepancy")&&(!b.transitionData?.bankAcknowledgementReference||String(b.transitionData.bankAcknowledgementReference).trim().length<3)) return res.status(409).json({error:"Bank acknowledgement reference is required before recording LC presentation outcome."});
+      const data=b.transitionData&&typeof b.transitionData==="object"?b.transitionData:{};
+      const update=await req.db.query(
+        `UPDATE public.p1_domain_records SET status=$1,updated_by=$2::uuid,updated_at=now(),version=version+1,payload=payload||$3::jsonb,
+         closed_at=CASE WHEN $1='closed' THEN now() WHEN $1 IN ('open','responded','verified') THEN NULL ELSE closed_at END,
+         closed_by=CASE WHEN $1='closed' THEN $2::uuid WHEN $1 IN ('open','responded','verified') THEN NULL ELSE closed_by END
+         WHERE id=$4::uuid AND project_id=$5::uuid AND version=$6 RETURNING *`,
+        [to,actorId,JSON.stringify(data),id,projectId,b.expectedVersion??record.version]);
+      if(update.rows.length!==1) return res.status(409).json({error:"Record changed concurrently; reload and retry.",code:"P1_VERSION_CONFLICT"});
+      const eventType:Record<string,string>={submitted:"submitted",approved:"approved",issued:"issued",acknowledged:"acknowledged",in_progress:"started",blocked:"blocked",partially_received:"updated",received:"completed",matched:"matched",held:"held",released:"released",rejected:"rejected",completed:"completed",cancelled:"cancelled",open:"created",responded:"responded",verified:"verified",closed:"closed",presented:"presented",accepted:"accepted",discrepancy:"discrepancy",expired:"updated"};
+      await req.db.query("INSERT INTO public.p1_domain_events(record_id,project_id,event_type,actor_user_id,actor_role_code,reason,payload) VALUES($1::uuid,$2::uuid,$3,$4::uuid,$5,$6,$7::jsonb)",[id,projectId,eventType[to]??"updated",actorId,roleCode,b.reason??null,JSON.stringify({from,to,version:update.rows[0].version,...data})]);
+      return res.json({record:update.rows[0]});
+    } catch { return res.status(500).json(internalServerErrorPayload()); }
+  });
+
+  app.post("/api/v1/projects/:projectId/p1-workflows/:id/evidence",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string,actorId=String(req.user?.id??""),b=req.body??{};
+    if(!validateP1Evidence({objectKey:String(b.objectKey??""),sha256:String(b.sha256Checksum??""),bucket:String(b.storageBucket??"pke-private-documents"),sizeBytes:b.fileSizeBytes==null?null:Number(b.fileSizeBytes)})) return res.status(400).json({error:"Evidence requires private bucket, valid SHA-256 and file size <=50 MB."});
+    try{
+      if(!(await p1Ready(req,res))) return;
+      const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
+      if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const permission=await p1Permission(req,record.rows[0].record_type,"update");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const inserted=await req.db.query(
+        `INSERT INTO public.p1_domain_evidence(record_id,project_id,evidence_type,object_key,storage_bucket,original_filename,mime_type,file_size_bytes,sha256_checksum,uploaded_by)
+         VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10::uuid) RETURNING *`,
+        [id,projectId,b.evidenceType??"supporting",b.objectKey,b.storageBucket??"pke-private-documents",b.originalFilename??null,b.mimeType??null,b.fileSizeBytes??null,b.sha256Checksum,actorId]);
+      const roleCode=await p1Role(req);
+      await req.db.query("INSERT INTO public.p1_domain_events(record_id,project_id,event_type,actor_user_id,actor_role_code,payload) VALUES($1::uuid,$2::uuid,'evidence_added',$3::uuid,$4,$5::jsonb)",[id,projectId,actorId,roleCode,JSON.stringify({evidenceId:inserted.rows[0].id})]);
+      return res.status(201).json({evidence:inserted.rows[0]});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
+
+  app.get("/api/v1/projects/:projectId/p1-kpis",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string;
+    try{
+      if(!(await p1Ready(req,res))) return;
+      if(!(await requireProjectPermission(req,res,projectId,"reports.view"))) return;
+      const defs=await req.db.query("SELECT * FROM public.p1_report_kpi_definitions WHERE is_active=true AND (project_id IS NULL OR project_id=$1::uuid) ORDER BY template_id,metric_key",[projectId]);
+      const kpis=[];
+      for(const d of defs.rows){
+        let value:number|null=null,asOf:any=null,n=0;
+        if(d.formula_key==="po_cycle_time_hours"){
+          const q=await req.db.query("SELECT avg(extract(epoch FROM(updated_at-created_at))/3600)::float value,max(updated_at) as_of,count(*)::int n FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='purchase_order' AND status IN ('approved','issued','acknowledged','partially_received','received')",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
+        }else if(d.formula_key==="three_way_match_rate"||d.formula_key==="loading_completion_rate"||d.formula_key==="qa_release_rate"||d.formula_key==="lc_discrepancy_rate"){
+          const type=d.formula_key==="three_way_match_rate"?"goods_receipt_match":d.formula_key==="loading_completion_rate"?"loading_plan":d.formula_key==="qa_release_rate"?"qa_release":"lc_presentation";
+          const done=d.formula_key==="three_way_match_rate"?"status IN ('matched','verified')":d.formula_key==="loading_completion_rate"?"status='completed'":d.formula_key==="qa_release_rate"?"status='released'":"status='discrepancy'";
+          const q=await req.db.query(`SELECT count(*) FILTER(WHERE ${done})::int good,count(*)::int n,max(updated_at) as_of FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2`,[projectId,type]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
+        }else if(d.formula_key==="production_output_quantity"){
+          const q=await req.db.query("SELECT sum(quantity)::float value,max(updated_at) as_of,count(*)::int n FROM public.production_batches WHERE project_id=$1::uuid AND quality_status='passed'",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
+        }else if(d.formula_key==="hse_open_actions"||d.formula_key==="audit_overdue_count"){
+          const type=d.formula_key==="hse_open_actions"?"hse_action":"audit_finding";
+          const q=await req.db.query(`SELECT count(*)::int n,max(updated_at) as_of FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2`,[projectId,type]);n=Number(q.rows[0].n);asOf=q.rows[0].as_of;
+          if(n){const count=await req.db.query(d.formula_key==="hse_open_actions"?"SELECT count(*)::int value FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='hse_action' AND status NOT IN ('completed','verified','closed','cancelled')":"SELECT count(*)::int value FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='audit_finding' AND status NOT IN ('closed','cancelled') AND due_at<now()",[projectId]);value=Number(count.rows[0].value);}
+        }else if(d.formula_key==="dispatch_on_time_rate"){
+          const q=await req.db.query("SELECT payload->>'plannedArrivalAt' planned,payload->>'actualArrivalAt' actual,updated_at FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='dispatch_assignment' AND status='completed'",[projectId]);n=q.rows.length;
+          const outcomes=q.rows.map((x:any)=>isDispatchOnTime(String(x.planned??""),x.actual?String(x.actual):null)).filter((x:any)=>x!==null);value=outcomes.length?outcomes.filter(Boolean).length/outcomes.length*100:null;asOf=q.rows.reduce((m:any,x:any)=>!m||new Date(x.updated_at)>new Date(m)?x.updated_at:m,null);
+        }else if(d.formula_key==="laytime_hours"){
+          const q=await req.db.query("SELECT sum(COALESCE((payload->>'laytimeImpactHours')::numeric,0))::float value,max(updated_at) as_of,count(*)::int n FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='laytime_event' AND status='verified'",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
+        }else if(d.formula_key==="inventory_variance_quantity"){
+          const q=await req.db.query("SELECT count(*)::int n,max(created_at) as_of FROM public.inventory_reconciliations WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);asOf=q.rows[0].as_of;if(n){const sum=await req.db.query("SELECT COALESCE(sum(variance_quantity),0)::float value FROM public.inventory_reconciliations WHERE project_id=$1::uuid",[projectId]);value=Number(sum.rows[0].value);}
+        }else if(d.formula_key==="document_freshness_rate"){
+          const q=await req.db.query("SELECT count(*)::int n,count(*) FILTER(WHERE status='approved' AND (expiry_date IS NULL OR expiry_date>=current_date) AND sha256_checksum IS NOT NULL)::int good,max(uploaded_at) as_of FROM public.project_export_documents WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
+        }
+        kpis.push({templateId:d.template_id,metricKey:d.metric_key,label:d.label,value,unit:d.unit_code,sourceEntity:d.source_entity,sourceRows:n,asOf,freshnessStatus:evaluateFreshness(asOf?new Date(asOf).toISOString():null,Number(d.freshness_minutes)),status:value===null?"unavailable":"available",missingDataPolicy:d.missing_data_policy});
+      }
+      return res.json({projectId,kpis,generatedAt:new Date().toISOString()});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
 
 }
 

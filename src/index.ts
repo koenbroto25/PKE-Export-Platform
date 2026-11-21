@@ -1045,7 +1045,7 @@ app.get("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: 
       req.db.query(
         `SELECT id,project_id,lot_id,sample_number,sample_type,sampling_method,sampled_at,sampled_by,
                 sample_location,seal_number,sample_condition,laboratory_name,status,lab_report_document_id,
-                lab_report_sha256,laboratory_accreditation_reference,chain_of_custody,source_type,source_reference,
+                lab_report_sha256,laboratory_accreditation_reference,chain_of_custody,source_type,source_reference,source_snapshot,
                 reviewed_by,reviewed_at,review_note,created_at,updated_at
            FROM public.product_quality_samples
           WHERE project_id=$1::uuid ORDER BY sampled_at DESC,sample_number`,
@@ -1055,7 +1055,7 @@ app.get("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: 
         `SELECT r.id,r.sample_id,r.attribute_id,a.attribute_code,a.name AS attribute_name,a.data_type,
                 r.result_numeric,r.result_text,r.result_boolean,r.unit_code,r.measurement_basis,r.method_code,
                 r.detection_limit,r.uncertainty,r.review_status,r.reviewed_by,r.reviewed_at,r.review_note,
-                r.evidence_document_id,r.evidence_sha256,r.source_type,r.source_reference
+                r.evidence_document_id,r.evidence_sha256,r.source_type,r.source_reference,r.source_snapshot
            FROM public.product_quality_results r
            JOIN public.product_quality_samples s ON s.id=r.sample_id
            LEFT JOIN public.product_attributes a ON a.id=r.attribute_id
@@ -1102,6 +1102,7 @@ app.post("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req:
   const laboratoryName = typeof b.laboratoryName === "string" ? b.laboratoryName.trim() : null;
   const laboratoryAccreditationReference = typeof b.laboratoryAccreditationReference === "string" ? b.laboratoryAccreditationReference.trim() : null;
   const chainOfCustody = b.chainOfCustody && typeof b.chainOfCustody === "object" && !Array.isArray(b.chainOfCustody) ? b.chainOfCustody : {};
+  const sourceSnapshot = b.sourceSnapshot && typeof b.sourceSnapshot === "object" && !Array.isArray(b.sourceSnapshot) ? b.sourceSnapshot : {source_type:sourceType,source_reference:sourceReference,sample_number:sampleNumber};
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (sampleNumber.length < 2 || sampleNumber.length > 100 ||
       !["composite","retained","pre_shipment","discharge","claim","other"].includes(sampleType) ||
@@ -1115,10 +1116,10 @@ app.post("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req:
   }
   try {
     const { rows } = await req.db.query(
-      "INSERT INTO public.product_quality_samples(project_id,lot_id,sample_number,sample_type,sampling_method,sampled_at,sampled_by,sample_location,seal_number,sample_condition,laboratory_name,status,lab_report_document_id,source_type,source_reference,laboratory_accreditation_reference,chain_of_custody) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6::timestamptz,$7::uuid,$8,$9,$10,$11,$12,$13::uuid,$14,$15,$16,$17::jsonb) RETURNING *",
+      "INSERT INTO public.product_quality_samples(project_id,lot_id,sample_number,sample_type,sampling_method,sampled_at,sampled_by,sample_location,seal_number,sample_condition,laboratory_name,status,lab_report_document_id,source_type,source_reference,source_snapshot,laboratory_accreditation_reference,chain_of_custody) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6::timestamptz,$7::uuid,$8,$9,$10,$11,$12,$13::uuid,$14,$15,$16::jsonb,$17,$18::jsonb) RETURNING *",
       [projectId,lotId,sampleNumber,sampleType,samplingMethod,sampledAt,req.user?.id ?? null,
        b.sampleLocation ?? null,b.sealNumber ?? null,b.sampleCondition ?? null,laboratoryName,status,
-       labReportDocumentId,sourceType,sourceReference,laboratoryAccreditationReference,JSON.stringify(chainOfCustody)],
+       labReportDocumentId,sourceType,sourceReference,JSON.stringify(sourceSnapshot),laboratoryAccreditationReference,JSON.stringify(chainOfCustody)],
     );
     return res.status(201).json({ sample: rows[0] });
   } catch (error: any) {

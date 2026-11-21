@@ -9,7 +9,7 @@ const emptySample = {
   sampledAt: new Date().toISOString().slice(0, 16), status: 'pending',
   laboratoryName: '', laboratoryAccreditationReference: '',
   labReportDocumentId: '', sourceType: 'manual', sourceReference: '',
-  lotId: '', sampleLocation: '', sealNumber: '', sampleCondition: '',
+  lotId: '', sampleLocation: '', sealNumber: '', sampleCondition: '', chainOfCustodyJson: '{\"events\":[]} ',
 };
 const emptyResult = { attributeId: '', value: '', unitCode: '', measurementBasis: 'as_received', methodCode: '', detectionLimit: '', uncertainty: '' };
 
@@ -43,6 +43,9 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
   const createSample = async (e: FormEvent) => {
     e.preventDefault();
     if (!data.canCreate || !projectId) return;
+    let chainOfCustody: AnyRecord = {};
+    try { chainOfCustody = JSON.parse(sample.chainOfCustodyJson || '{}'); } catch { onNotice('error', 'Chain of custody harus berupa JSON yang valid.'); return; }
+    if (!chainOfCustody || typeof chainOfCustody !== 'object' || Array.isArray(chainOfCustody)) { onNotice('error', 'Chain of custody harus berupa objek JSON.'); return; }
     if (sample.status === 'tested' && (!sample.labReportDocumentId || !sample.laboratoryName.trim())) {
       onNotice('error', 'Sampel berstatus tested wajib memiliki laporan lab approved dan nama laboratorium.'); return;
     }
@@ -55,6 +58,8 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
         labReportDocumentId: sample.labReportDocumentId || null,
         laboratoryName: sample.laboratoryName || null,
         laboratoryAccreditationReference: sample.laboratoryAccreditationReference || null,
+        chainOfCustody,
+        sourceSnapshot: {source_type: sample.sourceType, source_reference: sample.sourceReference, sample_number: sample.sampleNumber, sampled_at: sample.sampledAt, sample_location: sample.sampleLocation, seal_number: sample.sealNumber, sample_condition: sample.sampleCondition, chain_of_custody: chainOfCustody},
       });
       onNotice('success', 'Sampel kualitas tersimpan dengan provenance Project.');
       setSample(emptySample); await refresh();
@@ -127,6 +132,7 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
       <FormField label="Lokasi sampling"><input value={sample.sampleLocation} onChange={e => setSample(v => ({ ...v, sampleLocation: e.target.value }))} /></FormField>
       <FormField label="Nomor seal"><input value={sample.sealNumber} onChange={e => setSample(v => ({ ...v, sealNumber: e.target.value }))} /></FormField>
       <FormField label="Kondisi sampel"><input value={sample.sampleCondition} onChange={e => setSample(v => ({ ...v, sampleCondition: e.target.value }))} /></FormField>
+      <FormField label="Chain of custody (JSON)" wide><textarea rows={3} value={sample.chainOfCustodyJson} onChange={e => setSample(v => ({ ...v, chainOfCustodyJson: e.target.value }))} /></FormField>
       <FormField label="Tipe sumber"><select value={sample.sourceType} onChange={e => setSample(v => ({ ...v, sourceType: e.target.value }))}><option value="manual">Manual</option><option value="official_document">Dokumen resmi</option><option value="buyer_confirmed">Konfirmasi buyer</option><option value="public_reference">Referensi publik</option></select></FormField>
       <FormField label="Referensi sumber"><input value={sample.sourceReference} onChange={e => setSample(v => ({ ...v, sourceReference: e.target.value }))} maxLength={500} /></FormField>
       <div className="form-actions form-wide"><button className="primary-button" disabled={busy || sample.sampleNumber.trim().length < 2 || sample.samplingMethod.trim().length < 2}>{busy ? 'Menyimpan…' : 'Simpan sampel'}</button></div>
@@ -138,10 +144,10 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
             {data.canReview && s.status !== 'reviewed' && s.status !== 'rejected' && <div className="table-actions"><button type="button" className="primary-button" disabled={busy || !s.lab_report_document_id || !s.lab_report_sha256 || !s.laboratory_name} onClick={() => reviewSample(s.id,'reviewed')}>Review sampel</button><button type="button" className="secondary-button" disabled={busy} onClick={() => reviewSample(s.id,'rejected')}>Tolak</button></div>}
           </div>
           <p>Metode: {s.sampling_method} · Lab: {s.laboratory_name || 'Belum ditetapkan'} · Sumber: {s.source_type} / {s.source_reference || '—'}</p>
-          <p>Bukti lab: {s.lab_report_document_id || 'Belum ada'} · SHA-256 {s.lab_report_sha256 || '—'} · Chain of custody: {JSON.stringify(s.chain_of_custody || {})}</p>
+          <p>Bukti lab: {s.lab_report_document_id || 'Belum ada'} · SHA-256 {s.lab_report_sha256 || '—'} · Chain of custody: {JSON.stringify(s.chain_of_custody || {})} · Source snapshot: {JSON.stringify(s.source_snapshot || {})}</p>
           {(!s.lab_report_document_id || !s.lab_report_sha256 || !s.laboratory_name) && <div className="notice notice-info">PROVENANCE BELUM LENGKAP — record ini tidak boleh dipakai sebagai bukti COA atau dasar rilis komersial.</div>}
           {(data.results || []).filter((r: AnyRecord) => r.sample_id === s.id).map((r: AnyRecord) => <div className="quality-result-row" key={r.id}>
-            <span><strong>{r.attribute_name || r.attribute_code || r.attribute_id}</strong> · {r.result_numeric ?? r.result_text ?? String(r.result_boolean)} {r.unit_code || ''}<small>{r.measurement_basis} · {r.method_code} · {r.review_status} · {r.evidence_document_id && r.evidence_sha256 ? 'Bukti terikat' : 'Bukti belum tersedia'} · SHA-256 {r.evidence_sha256 || '—'}</small></span>
+            <span><strong>{r.attribute_name || r.attribute_code || r.attribute_id}</strong> · {r.result_numeric ?? r.result_text ?? String(r.result_boolean)} {r.unit_code || ''}<small>{r.measurement_basis} · {r.method_code} · {r.review_status} · {r.evidence_document_id && r.evidence_sha256 ? 'Bukti terikat' : 'Bukti belum tersedia'} · SHA-256 {r.evidence_sha256 || '—'} · Snapshot {JSON.stringify(r.source_snapshot || {})}</small></span>
             {data.canReview && r.review_status === 'unreviewed' && <div className="table-actions"><button type="button" className="primary-button" disabled={busy} onClick={() => reviewResult(r.id,'accepted')}>Terima</button><button type="button" className="secondary-button" disabled={busy} onClick={() => reviewResult(r.id,'rejected')}>Tolak</button><button type="button" className="secondary-button" disabled={busy} onClick={() => reviewResult(r.id,'retest_required')}>Uji ulang</button></div>}
           </div>)}
           {data.canCreateResults && ['tested','reviewed'].includes(s.status) && s.lab_report_document_id && s.lab_report_sha256 && s.laboratory_name && <div className="form-grid compact-form">

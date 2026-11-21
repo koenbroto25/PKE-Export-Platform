@@ -10236,3 +10236,5 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 - Migration 081 SHA-256: 05ad71458aafcc8042da4707464686ac6f3a01474f72d16a21791e09f538100f — applied to UAT only. Both migrations are recorded in migration_history and the prior policy definitions were snapshotted in p2a_backup_072_20261121.
 
 - UAT quality fixture audit: one pre-existing sample and three accepted results are explicitly fixture data but have no approved lab-report document or evidence checksum; the new workspace flags them as provenance-incomplete and prevents result entry from treating them as complete COA evidence. No values were promoted to commercial specification or release evidence.
+
+- The quality sample API now persists the source snapshot supplied by the Project workspace in addition to the structured chain-of-custody JSON; the read API returns sample and result source snapshots so reviewers can inspect the provenance actually submitted.

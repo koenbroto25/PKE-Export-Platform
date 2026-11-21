@@ -55,7 +55,7 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
  const [idempotencyKey,setIdempotencyKey]=useState(()=>crypto.randomUUID());
  const [nextStatus,setNextStatus]=useState<Record<string,string>>({}),[reason,setReason]=useState<Record<string,string>>({});
  const [expanded,setExpanded]=useState(""),[events,setEvents]=useState<Record<string,AnyRecord[]>>({});
- const [evidenceRecord,setEvidenceRecord]=useState(""),[objectKey,setObjectKey]=useState(""),[sha,setSha]=useState("");
+ const [evidenceRecord,setEvidenceRecord]=useState(""),[objectKey,setObjectKey]=useState(""),[sha,setSha]=useState(""),[fileSize,setFileSize]=useState("");
 
  const loadRecords=useCallback(async()=>{
   if(!projectId||!selected){setRecords([]);return;}
@@ -98,7 +98,7 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
  };
  const addEvidence=async()=>{
   if(!evidenceRecord||!objectKey.trim()||!sha.trim())return;setBusy(true);
-  try{await post(`/projects/${encodeURIComponent(projectId)}/p1-workflows/${encodeURIComponent(evidenceRecord)}/evidence`,{objectKey:objectKey.trim(),sha256Checksum:sha.trim(),storageBucket:"pke-private-documents",evidenceType:"supporting"});onNotice("success","Referensi evidence dicatat.");setEvidenceRecord("");setObjectKey("");setSha("");}
+  try{await post(`/projects/${encodeURIComponent(projectId)}/p1-workflows/${encodeURIComponent(evidenceRecord)}/evidence`,{objectKey:objectKey.trim(),sha256Checksum:sha.trim(),fileSizeBytes:Number(fileSize),storageBucket:"pke-private-documents",evidenceType:"supporting"});onNotice("success","Referensi evidence dicatat.");setEvidenceRecord("");setObjectKey("");setSha("");setFileSize("");}
   catch(err){onNotice("error",err instanceof Error?err.message:"Gagal mencatat evidence.");}finally{setBusy(false);}
  };
  if(!projectId)return <section className="page"><div className="panel"><h2>Pilih Project</h2><p>Workflow P1 membutuhkan Project aktif.</p></div></section>;
@@ -130,7 +130,7 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
       {expanded===record.id&&<tr><td colSpan={5}><div className="p1-event-list">{(events[record.id]||[]).map(ev=><div key={ev.id}><strong>{ev.event_type}</strong><span>{ev.actor_role_code} · {new Date(ev.occurred_at).toLocaleString("id-ID")}</span><small>{ev.reason||""}</small></div>)}</div></td></tr>}
      </Fragment>)}
     </tbody></table></div>}
-   {canAttach&&<div className="p1-evidence-row"><select value={evidenceRecord} onChange={e=>setEvidenceRecord(e.target.value)}><option value="">Record untuk evidence</option>{records.map(r=><option key={r.id} value={r.id}>{r.record_code}</option>)}</select><input value={objectKey} onChange={e=>setObjectKey(e.target.value)} placeholder="Private object key (file sudah diunggah)"/><input value={sha} onChange={e=>setSha(e.target.value)} placeholder="SHA-256"/><button className="secondary-button" disabled={busy||!evidenceRecord} onClick={()=>void addEvidence()}>Catat evidence</button></div>}
+   {canAttach&&<div className="p1-evidence-row"><select value={evidenceRecord} onChange={e=>setEvidenceRecord(e.target.value)}><option value="">Record untuk evidence</option>{records.map(r=><option key={r.id} value={r.id}>{r.record_code}</option>)}</select><input value={objectKey} onChange={e=>setObjectKey(e.target.value)} placeholder="Private object key (file sudah diunggah)"/><input value={sha} onChange={e=>setSha(e.target.value)} placeholder="SHA-256"/><input type="number" min="1" max="52428800" value={fileSize} onChange={e=>setFileSize(e.target.value)} placeholder="File size (bytes)"/><button className="secondary-button" disabled={busy||!evidenceRecord||!fileSize} onClick={()=>void addEvidence()}>Verifikasi & catat evidence</button></div>}
   </div>
  </section>;
 }

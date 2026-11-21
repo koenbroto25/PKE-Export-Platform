@@ -5291,7 +5291,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     loading_survey:["marine_surveyor"],ship_master_ack:["ship_master"],laytime_event:["shipping_agent"],
     lc_record:["shipping_agent"],lc_clause:["shipping_agent"],lc_discrepancy:["shipping_agent"],lc_presentation:["shipping_agent"],
   };
-  const p1Permission = async (req: express.Request,type:P1RecordType,action:"view"|"create"|"update"):Promise<string|null> => {
+  const p1Permission = async (req: express.Request,type:P1RecordType,action:"view"|"create"|"update"|"manage_external"):Promise<string|null> => {
     const q=await req.db.query("SELECT public.p1_workflow_permission($1,$2) AS code",[type,action]);
     return typeof q.rows[0]?.code==="string"?q.rows[0].code:null;
   };

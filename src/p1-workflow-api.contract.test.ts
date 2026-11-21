@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 const api=readFileSync(new URL("./index.ts",import.meta.url),"utf8");
 const migration=readFileSync(new URL("../migrations/062_p1_owner_action_and_delegated_verification.sql",import.meta.url),"utf8");
 const roleCatalogue=readFileSync(new URL("./role-catalogue.ts",import.meta.url),"utf8");
+const ui=readFileSync(new URL("../frontend/src/P1WorkflowWorkbench.tsx",import.meta.url),"utf8");
+const { P1_RECORD_TYPES } = await import("./p1-workflow-engine.js");
 
 describe("P1 workflow API security contracts",()=>{
   it("exposes Project-scoped list, create, transition, evidence, events and KPI endpoints",()=>{
@@ -81,5 +83,11 @@ describe("P1 workflow API security contracts",()=>{
     const route=api.slice(start,end);
     expect(route).toContain("public.p1_get_kpi_metric($1::uuid,$2::text)");
     expect(route).not.toContain("FROM public.p1_domain_records");
+  });
+  it("renders every P1 workflow type and role-scoped KPI panel in the workbench",()=>{
+    for(const type of P1_RECORD_TYPES) expect(ui).toContain(`type:"${type}"`);
+    expect(ui).toContain('hasProjectPermission("p1.kpi.view",activeUser)');
+    expect(ui).toContain("canViewKpis");
+    expect(ui).toContain("freshnessStatus");
   });
 });

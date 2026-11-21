@@ -316,3 +316,13 @@ This section supersedes earlier statements that the Funder workspace remained bl
 
 ### Remaining acceptance gate
 The code and CI are green, but this P1 slice is **not runtime-accepted** until Migration 066 is explicitly authorized and applied on UAT, then direct RLS/API/backtest proves role-safe creation, evidence access, KPI visibility, task/event synchronization, notifications and idempotency. Production remains untouched.
+
+
+## 2026-11-21 — UAT ledger reconciliation and KPI formula isolation
+
+- Fresh UAT ledger query confirms Migrations 058–069 are applied with their exact pinned checksums; latest UAT ledger is 69. Production read-only check remains at ledger 53.
+- Runtime role-resolution test as `app_runtime_secure`: Procurement resolves its own active role via the SECURITY DEFINER helper, has zero visible `project_roles` rows, and fails cross-Project assignment resolution.
+- Migration 066 task-sync backtest used a savepoint: P1 Purchase Requisition creation generated one PM task, one task event and one notification; status transition to completed resolved the task and emitted a second event. Rollback was verified; all test rows are absent.
+- **New P1 KPI isolation finding:** Procurement can call the database aggregate function with `production_output_quantity` despite only having the Procurement KPI dashboard template. The API filter is not a sufficient database security boundary.
+- Migration 070 source adds a database-enforced active-role/formula allowlist. SHA-256 `0a8d30176bde45f71cf6147a2dc9ab60d736bdc62ced53640ceec6e9080cfc6b`. It is prepared only; the direct test remains a blocker until applied to UAT and retested.
+- Pre-Migration 066 backup schema `p1_backup_066_20261121` exists. No Production changes were made.

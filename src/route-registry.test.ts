@@ -91,8 +91,10 @@ describe("API route registry (regression)", () => {
       "GET /api/v1/warehouses",
       "GET /api/v1/warehouses/:warehouseId",
     ]) expect(set.has(route)).toBe(true);
-    expect(INDEX_SRC).toContain('requireProjectPermission(req, res, projectId, "port.view")');
-    expect(INDEX_SRC).toContain('requireProjectPermission(req, res, projectId, "warehouse.view")');
+    expect(INDEX_SRC).toContain('requireP16ReadAccess(req, res, projectId, "port.view")');
+    expect(INDEX_SRC).toContain('requireP16ReadAccess(req, res, projectId, "warehouse.view")');
+    expect(INDEX_SRC).toContain("return requireProjectPermission(req, res, projectId, permissionCode)");
+    expect(INDEX_SRC).toContain("public.pke_is_platform_admin() AS is_admin");
     expect(INDEX_SRC).toContain('assessmentMode: "advisory_only"');
     expect(INDEX_SRC).toContain("effective_verification_status");
     expect(INDEX_SRC).toContain("NULLIF(btrim(p.source_reference),'') IS NULL");

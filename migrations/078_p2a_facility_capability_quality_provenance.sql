@@ -32,6 +32,17 @@ ALTER TABLE public.p2a_master_data_change_requests
  ADD CONSTRAINT p2a_master_change_evidence_create_only
  CHECK (entity_type IN ('organization','facility') OR operation='create');
 
+ALTER TABLE public.product_catalog
+ ADD COLUMN classification_project_id uuid NULL REFERENCES public.projects(id),
+ ADD COLUMN classification_evidence_document_id uuid NULL REFERENCES public.project_export_documents(id) ON DELETE RESTRICT,
+ ADD COLUMN classification_evidence_sha256 text NULL,
+ ADD COLUMN classification_source_reference text NULL,
+ ADD COLUMN classification_source_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+ ADD COLUMN classification_verified_by uuid NULL REFERENCES public.users(id),
+ ADD COLUMN classification_verified_at timestamptz NULL;
+ALTER TABLE public.product_catalog
+ ADD CONSTRAINT product_classification_evidence_sha256_check CHECK (classification_evidence_sha256 IS NULL OR classification_evidence_sha256 ~ '^[0-9a-f]{64}$') NOT VALID;
+
 ALTER TABLE public.partner_organizations
  ADD COLUMN verification_project_id uuid NULL REFERENCES public.projects(id),
  ADD COLUMN verification_evidence_document_id uuid NULL REFERENCES public.project_export_documents(id) ON DELETE RESTRICT,
@@ -590,6 +601,73 @@ CREATE TRIGGER p2a_pks_site_verification_guard
  BEFORE INSERT OR UPDATE ON public.pks_sites
  FOR EACH ROW EXECUTE FUNCTION public.pke_guard_p2a_identity_verification();
 
+CREATE OR REPLACE FUNCTION public.pke_guard_p2a_product_classification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog','public'
+AS $function$
+DECLARE
+ v_user_id uuid;
+ v_doc record;
+BEGIN
+ v_user_id:=NULLIF(current_setting('app.current_user_id',true),'')::uuid;
+ IF NEW.classification_status='verified' AND
+    (TG_OP='INSERT' OR OLD.classification_status IS DISTINCT FROM NEW.classification_status) THEN
+   IF NOT public.pke_is_platform_admin() THEN
+     RAISE EXCEPTION 'Only Platform Admin may verify canonical product classification' USING ERRCODE='42501';
+   END IF;
+   IF NEW.classification_project_id IS NULL OR NEW.classification_evidence_document_id IS NULL
+      OR NULLIF(btrim(NEW.classification_source_reference),'') IS NULL THEN
+     RAISE EXCEPTION 'Product classification verification requires a Project, source reference and approved evidence document' USING ERRCODE='23514';
+   END IF;
+   SELECT id,sha256_checksum,original_filename,document_type_code INTO v_doc
+     FROM public.project_export_documents
+    WHERE id=NEW.classification_evidence_document_id AND project_id=NEW.classification_project_id
+      AND status='approved' AND upload_verified_at IS NOT NULL
+      AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL
+      AND storage_bucket='pke-private-documents' AND legal_hold=false
+      AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE);
+   IF NOT FOUND THEN RAISE EXCEPTION 'Product classification evidence must be approved and checksum-verified in the same Project' USING ERRCODE='23514'; END IF;
+   NEW.classification_evidence_sha256:=v_doc.sha256_checksum;
+   NEW.classification_verified_by:=v_user_id;
+   NEW.classification_verified_at:=now();
+   NEW.classification_source_snapshot:=COALESCE(NEW.classification_source_snapshot,'{}'::jsonb) || jsonb_build_object(
+     'evidence_document_id',v_doc.id,'sha256_checksum',v_doc.sha256_checksum,
+     'original_filename',v_doc.original_filename,'document_type_code',v_doc.document_type_code
+   );
+   INSERT INTO public.audit_events(actor_user_id,actor_type,actor_role,permission_code,action,target_type,target_id,
+     project_id,source,reason,after_snapshot,metadata,outcome)
+   VALUES(v_user_id,'user',NULLIF(current_setting('app.current_role',true),''),'product.view',
+     'p2a.product_classification.verified','product_catalog',NEW.id,NEW.classification_project_id,
+     'p2a_product_classification',NEW.classification_source_reference,to_jsonb(NEW),
+     jsonb_build_object('evidence_document_id',v_doc.id,'sha256_checksum',v_doc.sha256_checksum),'success');
+ ELSIF TG_OP='UPDATE' AND OLD.classification_status='verified' AND NEW.classification_status='verified'
+   AND (NEW.product_code IS DISTINCT FROM OLD.product_code
+     OR NEW.product_name IS DISTINCT FROM OLD.product_name
+     OR NEW.canonical_name IS DISTINCT FROM OLD.canonical_name
+     OR NEW.product_family IS DISTINCT FROM OLD.product_family
+     OR NEW.process_route IS DISTINCT FROM OLD.process_route
+     OR NEW.physical_form IS DISTINCT FROM OLD.physical_form
+     OR NEW.synonyms IS DISTINCT FROM OLD.synonyms) THEN
+   RAISE EXCEPTION 'Verified product identity is immutable; reset classification and submit new evidence first' USING ERRCODE='42501';
+ ELSIF TG_OP='UPDATE' AND OLD.classification_status='verified' AND NEW.classification_status<>'verified' THEN
+   NEW.classification_project_id:=NULL;
+   NEW.classification_evidence_document_id:=NULL;
+   NEW.classification_evidence_sha256:=NULL;
+   NEW.classification_source_reference:=NULL;
+   NEW.classification_source_snapshot:='{}'::jsonb;
+   NEW.classification_verified_by:=NULL;
+   NEW.classification_verified_at:=NULL;
+ END IF;
+ RETURN NEW;
+END
+$function$;
+
+CREATE TRIGGER p2a_product_classification_guard
+ BEFORE INSERT OR UPDATE ON public.product_catalog
+ FOR EACH ROW EXECUTE FUNCTION public.pke_guard_p2a_product_classification();
+
 CREATE OR REPLACE FUNCTION public.pke_validate_p2a_facility_evidence()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -746,9 +824,11 @@ CREATE TRIGGER p2a_quality_result_provenance_guard
  FOR EACH ROW EXECUTE FUNCTION public.pke_validate_p2a_quality_provenance();
 
 REVOKE ALL ON FUNCTION public.pke_guard_p2a_identity_verification() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.pke_guard_p2a_product_classification() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_validate_p2a_facility_evidence() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_validate_p2a_quality_provenance() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pke_guard_p2a_identity_verification() TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_guard_p2a_product_classification() TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_validate_p2a_facility_evidence() TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_validate_p2a_quality_provenance() TO app_runtime_secure;
 

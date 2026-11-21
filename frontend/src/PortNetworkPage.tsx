@@ -152,7 +152,7 @@ function PortDetail({ data }: { data: Row | null }) {
   ];
   return (
     <div className="p16-detail-stack">
-      <div className="p16-detail-heading"><div><span className="p16-eyebrow">PORT MASTER</span><h2>{port.name}</h2><p>{[port.city, port.province, port.country_code].filter(Boolean).join(", ") || port.address || "Lokasi belum diverifikasi"}</p></div><Status value={port.verification_status} /></div>
+      <div className="p16-detail-heading"><div><span className="p16-eyebrow">PORT MASTER</span><h2>{port.name}</h2><p>{[port.city, port.province, port.country_code].filter(Boolean).join(", ") || port.address || "Lokasi belum diverifikasi"}</p></div><Status value={port.effective_verification_status || port.verification_status} /></div>
       <div className="p16-facts">
         <Fact label="Kode pelabuhan" value={port.code || port.national_code} />
         <Fact label="UN/LOCODE" value={port.unlocode} />

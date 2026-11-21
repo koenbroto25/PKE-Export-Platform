@@ -51,7 +51,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ], { scope: "platform", mandatory: true, assignmentMode: "appointment", legacyAliases: ["admin"] }),
   role("project_admin", "Project Administrator", "governance", [
     "project.view", "project.update", "project.members.view", "project.members.invite",
-    "project.members.manage", "project.roles.manage", "project.configuration.manage",
+    "project.members.manage", "project.roles.manage", "project.configuration.manage", "audit.finding.view",
     "project.change.view", "project.change.create", "project.change.update",
     "audit.view", "accounting.view", "reports.view", "report.view", "documents.view", "workflow.view", "approvals.view", "finance.view",
   ], [
@@ -60,7 +60,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "No payment execution or independent technical approval.",
   ], { mandatory: true, legacyAliases: ["admin"] }),
   role("pm", "Project Manager", "governance", [
-    "project.view", "project.update", "project.members.view", "project.members.invite", "project.members.manage", "project.roles.manage", "project.configuration.manage",
+    "project.view", "project.update", "project.members.view", "project.members.invite", "project.members.manage", "project.roles.manage", "project.configuration.manage", "audit.finding.view",
     "contract.view", "manage_contract_programs", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
     "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view",
@@ -73,7 +73,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   role("internal_auditor", "Internal Auditor", "governance", [
     "project.view", "audit.view", "operations.view", "inventory.view", "warehouse.view",
     "logistics.view", "shipping.view", "shipment.view", "finance.view", "accounting.view",
-    "documents.view", "workflow.view", "reports.view",
+    "documents.view", "workflow.view", "reports.view", "audit.finding.view", "audit.finding.create", "audit.finding.close",
   ], [
     "Read-only on business records; may not modify audit_events or source transactions.",
     "Finding/corrective-action write capability requires its separately governed permission set.",
@@ -81,39 +81,42 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   role("procurement", "Procurement Officer", "procurement", [
     "supplier.view", "supplier.manage", "buyer.requirement.view", "buyer.requirement.manage",
     "contract.view", "product.view", "facility.view", "facility.capacity.view",
+    "procurement.po.view", "procurement.po.create", "procurement.po.update", "procurement.po.manage", "procurement.po.approve",
+    "procurement.commitment.view", "procurement.commitment.manage", "procurement.match.view", "procurement.match.create", "audit.finding.respond",
   ]),
   role("pks_site_manager", "PKS Site Manager", "procurement", [
     "facility.view", "facility.update", "facility.capacity.view", "facility.capacity.manage",
     "facility.product.view", "facility.product.manage", "product.view",
   ], ["Project participation and operating data only; global legal identity edits require independent approval."]),
   role("supplier", "Supplier", "procurement", [
-    "supplier.view", "product.view", "documents.view", "shipment.view",
+    "supplier.view", "product.view", "documents.view", "shipment.view", "procurement.commitment.view", "procurement.commitment.manage",
   ], ["Object-assigned records and documents only."], { classification: "external" }),
   role("buyer", "Buyer", "procurement", [
     "buyer.requirement.view", "buyer.shipment.view", "documents.view", "shipment.view",
   ], ["Only the buyer's own contract and shipment projection."], { classification: "external" }),
   role("contract_manager", "Contract Manager", "procurement", [
     "contract.view", "manage_contract_programs", "buyer.requirement.view", "buyer.requirement.manage",
+    "procurement.po.view", "procurement.po.create", "procurement.po.update", "procurement.po.manage", "procurement.po.approve", "procurement.commitment.view", "procurement.commitment.manage", "procurement.match.view", "audit.finding.respond",
   ]),
   role("production_manager", "Production Manager", "production_quality", [
     "operations.view", "operations.create", "operations.update", "inventory.view",
-    "facility.view", "facility.capacity.view", "product.view",
+    "facility.view", "facility.capacity.view", "product.view", "audit.finding.respond",
   ]),
   role("packing_supervisor", "Packing Supervisor", "production_quality", [
     "operations.view", "operations.create", "operations.update", "record_packing",
-    "inventory.view", "product.view",
+    "inventory.view", "product.view", "audit.finding.respond",
   ], [], { legacyAliases: ["packing_supervisor"] }),
   role("qc_officer", "Quality Control Officer", "production_quality", [
-    "quality.sample.create", "quality.result.create", "product.view", "inventory.view",
+    "quality.sample.view", "quality.sample.create", "quality.result.view", "quality.result.create", "product.view", "inventory.view", "audit.finding.respond",
   ]),
   role("qa_manager", "Quality Assurance Manager", "production_quality", [
-    "quality.result.review", "product.view", "inventory.view", "documents.view",
+    "quality.result.view", "quality.result.review", "quality.release.view", "quality.release.decide", "product.view", "inventory.view", "documents.view", "audit.finding.respond",
   ], ["Independent QA release/hold approval must remain separate from production execution."]),
   role("laboratory_officer", "Laboratory Officer", "production_quality", [
-    "quality.result.create", "product.view", "documents.view",
+    "quality.result.view", "quality.result.create", "product.view", "documents.view",
   ]),
   role("hse_officer", "HSE Officer", "production_quality", [
-    "operations.view", "operations.update", "compliance.view", "compliance.assess", "documents.view",
+    "operations.view", "operations.update", "compliance.view", "compliance.assess", "documents.view", "hse.inspection.view", "hse.inspection.create", "hse.inspection.update", "hse.action.view", "hse.action.manage", "audit.finding.respond",
   ]),
   role("warehouse_manager", "Warehouse Manager", "warehouse_logistics", [
     "warehouse.view", "warehouse.create", "warehouse.update", "warehouse.receipt.create",
@@ -127,45 +130,45 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "inventory.hold", "inventory.reconcile", "warehouse.view",
   ]),
   role("transport_manager", "Transport Manager", "warehouse_logistics", [
-    "logistics.view", "logistics.create", "logistics.update", "record_truck_trips",
-    "shipping.view", "shipment.view",
+    "logistics.view", "logistics.create", "logistics.update", "record_truck_trips", "dispatch.view", "dispatch.create", "dispatch.update", "dispatch.manage", "audit.finding.respond",
+    "dispatch.view", "dispatch.create", "dispatch.update", "dispatch.manage", "shipping.view", "shipment.view", "audit.finding.respond",
   ]),
   role("dispatcher", "Dispatcher", "warehouse_logistics", [
     "logistics.view", "logistics.create", "logistics.update", "record_truck_trips",
   ]),
   role("transporter", "Transporter", "warehouse_logistics", [
-    "logistics.view", "record_truck_trips", "verify_checkpoints",
+    "logistics.view", "record_truck_trips", "verify_checkpoints", "dispatch.view", "dispatch.update", "dispatch.view", "dispatch.update",
   ], ["Assigned trips and evidence only."], { classification: "external" }),
   role("checker", "Checker", "warehouse_logistics", [
-    "logistics.view", "verify_checkpoints", "operations.view",
+    "logistics.view", "verify_checkpoints", "operations.view", "dispatch.view", "dispatch.update",
   ]),
   role("driver", "Driver", "warehouse_logistics", [
     "record_truck_trips", "verify_checkpoints",
   ], ["Assigned trip/checkpoint scope only."], { classification: "external" }),
   role("master_of_loading", "Master of Loading", "shipping_loading", [
     "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create",
-    "inventory.view", "documents.view", "workflow.view", "voyage.view", "vessel.view", "port.view",
+    "inventory.view", "documents.view", "workflow.view", "voyage.view", "vessel.view", "port.view", "shipping.survey.view", "shipping.ack.view", "shipping.laytime.view", "shipping.laytime.manage", "audit.finding.respond",
   ], [
     "Coordinates shore-side readiness and loading evidence.",
     "Cannot approve independent survey, QA release, warehouse receipt, vessel stability or statutory terminal decisions.",
   ], { legacyAliases: ["loading_manager"] }),
   role("loading_supervisor", "Loading Supervisor", "shipping_loading", [
-    "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create",
+    "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create", "shipping.laytime.view", "shipping.laytime.manage", "audit.finding.respond",
   ]),
   role("loading_operator", "Loading Operator", "shipping_loading", [
-    "shipping.view", "shipment.view", "loading.ticket.create",
+    "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",
   ]),
   role("terminal_representative", "Terminal Representative", "shipping_loading", [
-    "port.view", "shipping.view", "shipment.view", "loading.ticket.create",
+    "port.view", "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",
   ], ["Terminal-authorized scope only."], { classification: "external" }),
   role("shipping_agent", "Shipping Agent", "shipping_loading", [
-    "shipment.view", "shipping.view", "shipping.create", "vessel.view", "voyage.view", "documents.view",
+    "shipment.view", "shipping.view", "shipping.create", "vessel.view", "voyage.view", "documents.view", "shipping.laytime.view", "shipping.laytime.manage", "lc.view", "lc.update", "lc.discrepancy.manage", "lc.present",
   ], ["Assigned shipment/voyage and permitted document scope only."], { classification: "external" }),
   role("marine_surveyor", "Marine Surveyor", "shipping_loading", [
-    "shipment.view", "vessel.view", "shipping.view", "documents.view",
+    "shipment.view", "vessel.view", "shipping.view", "documents.view", "shipping.survey.view", "shipping.survey.submit",
   ], ["Independent survey evidence only; no operational approval authority."], { classification: "external" }),
   role("ship_master", "Ship Master", "shipping_loading", [
-    "vessel.view", "voyage.view", "shipment.view", "documents.view",
+    "vessel.view", "voyage.view", "shipment.view", "documents.view", "shipping.ack.view", "shipping.acknowledge",
   ], ["Vessel/voyage assigned scope only; not the application's Master of Loading."], { classification: "external" }),
   role("finance", "Finance Officer", "finance", [
     "project.view", "finance.view", "finance.create", "finance.update", "finance.delete", "reports.view", "reports.create",

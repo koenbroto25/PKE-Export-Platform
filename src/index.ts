@@ -1524,19 +1524,27 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
   try {
     await privateStorage.verifyObject(String(objectKey), Number(contentLength), String(sha256Checksum));
     const { rows: reqRows } = await req.db.query(
-      "SELECT id FROM project_export_document_requirements WHERE id = $1::uuid AND project_id = $2::uuid",
+      `SELECT per.id, edt.document_code
+         FROM project_export_document_requirements per
+         JOIN country_export_document_requirements cdr ON cdr.id=per.country_requirement_id
+         JOIN export_document_types edt ON edt.id=cdr.document_type_id
+        WHERE per.id=$1::uuid AND per.project_id=$2::uuid`,
       [projectRequirementId, projectId],
     );
     if (reqRows.length === 0) return res.status(404).json({ error: "Not found" });
+    const storageStatus=privateStorage.status();
+    if(!storageStatus.available) return res.status(503).json({error:"Private object storage is unavailable.",code:"STORAGE_UNAVAILABLE"});
     const { rows } = await req.db.query(
       `INSERT INTO project_export_documents
-        (project_id, project_requirement_id, file_reference, object_key, original_filename, mime_type,
-         sha256_checksum, version_no, status, uploaded_by, expiry_date, notes, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, 'uploaded', $9::uuid, $10::date, $11, now(), now())
+        (project_id,project_requirement_id,file_reference,object_key,original_filename,mime_type,
+         sha256_checksum,version_no,status,uploaded_by,expiry_date,notes,created_at,updated_at,
+         storage_bucket,file_size_bytes,upload_verified_at,uploaded_content_type,document_type_code)
+       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,'uploaded',$9::uuid,$10::date,$11,now(),now(),
+               $12,$13::bigint,now(),$6,$14)
        RETURNING *`,
-      [projectId, projectRequirementId, fileReference, objectKey, originalFilename, mimeType || null,
-       sha256Checksum, versionNo !== undefined ? versionNo : 1, req.user?.id || null,
-       expiryDate || null, notes || null],
+      [projectId,projectRequirementId,fileReference,objectKey,originalFilename,mimeType||null,
+       sha256Checksum,versionNo!==undefined?versionNo:1,req.user?.id||null,expiryDate||null,notes||null,
+       storageStatus.bucket,Number(contentLength),reqRows[0].document_code],
     );
     res.status(201).json({ document: rows[0] });
   } catch (error) {

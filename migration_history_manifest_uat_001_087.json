@@ -5,9 +5,11 @@
   "branch_id": "br-young-boat-b3re832d",
   "database": "neondb",
   "verified_at": "2026-11-21",
-  "applied_count": 87,
+  "ledger_row_count": 87,
+  "applied_count": 71,
+  "baseline_count": 16,
   "pending_migrations": [],
-  "source_recovery_note": "Read directly from Neon UAT branch after P16 migrations 083-087. UAT-only evidence; never use as Production migration history.",
+  "source_recovery_note": "Read directly from Neon UAT branch. 16 rows are baseline markers; 71 migrations (IDs 017-087) are applied. This UAT-only evidence must never be used as Production migration history.",
   "entries": [
     {
       "id": 1,

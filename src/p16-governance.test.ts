@@ -10,8 +10,9 @@ const MIGRATION_084 = readFileSync(join(ROOT, "..", "migrations", "084_p2b_pm_de
 const MIGRATION_085 = readFileSync(join(ROOT, "..", "migrations", "085_p2b_port_evidence_document_guard.sql"), "utf8");
 const MIGRATION_086 = readFileSync(join(ROOT, "..", "migrations", "086_p2b_master_guard_updated_at_fix.sql"), "utf8");
 const MIGRATION_087 = readFileSync(join(ROOT, "..", "migrations", "087_p2b_admin_master_rls_guard_alignment.sql"), "utf8");
+const MIGRATION_088 = readFileSync(join(ROOT, "..", "migrations", "088_p2b_admin_global_read_policies.sql"), "utf8");
 const UI = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
-const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_087.json"), "utf8"));
+const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_088.json"), "utf8"));
 
 describe("P16 Port, Warehouse and Vessel governance", () => {
   it("registers P16 master CRUD, evidence, review, route and assessment endpoints", () => {
@@ -95,8 +96,8 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
   });
   it("pins UAT migration ledger 083-085 to exact SQL source hashes without modifying Production history", () => {
     expect(UAT_MANIFEST.branch_id).toBe("br-young-boat-b3re832d");
-    expect(UAT_MANIFEST.ledger_row_count).toBe(87);
-    expect(UAT_MANIFEST.applied_count).toBe(71);
+    expect(UAT_MANIFEST.ledger_row_count).toBe(88);
+    expect(UAT_MANIFEST.applied_count).toBe(72);
     expect(UAT_MANIFEST.baseline_count).toBe(16);
     expect(UAT_MANIFEST.entries).toHaveLength(87);
     for (const [id, filename] of [
@@ -105,6 +106,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
       [85, "085_p2b_port_evidence_document_guard.sql"],
       [86, "086_p2b_master_guard_updated_at_fix.sql"],
       [87, "087_p2b_admin_master_rls_guard_alignment.sql"],
+      [88, "088_p2b_admin_global_read_policies.sql"],
     ] as const) {
       const entry = UAT_MANIFEST.entries[id - 1];
       const actual = createHash("sha256").update(readFileSync(join(ROOT, "..", "migrations", filename))).digest("hex");
@@ -121,6 +123,10 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(MIGRATION_087).toContain("pke_current_user_id() IS NOT NULL");
     expect(MIGRATION_087).toContain("pke_is_platform_admin()");
     expect(MIGRATION_087).toContain("updated_at");
+    expect(MIGRATION_088).toContain("p16_admin_select");
+    expect(MIGRATION_088).toContain("pke_is_platform_admin()");
+    expect(API).toContain("requireP16ReadAccess");
+    expect(UI).toContain("platformAdmin || permissions.includes(\"port.view\")");
   });
 
 });

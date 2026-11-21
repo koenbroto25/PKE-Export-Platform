@@ -62,6 +62,15 @@ describe("API route registry (regression)", () => {
     expect(INDEX_SRC).toContain("Canonical data changed after submission");
   });
 
+  it("registers P15 Admin-only verification routes for organizations, facilities and products", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data/organizations/:organizationId/verification")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data/facilities/:facilityId/verification")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data/products/:productId/classification")).toBe(true);
+    expect(INDEX_SRC).toContain("requireAuth, requireAdmin");
+    expect(INDEX_SRC).toContain("Evidence document must be approved, checksum-verified and belong to this Project.");
+  });
+
   it("registers exactly one handler per method+path (no duplicate route groups)", () => {
     const routes = registerRoutes(INDEX_SRC).filter((r) => r.method !== "USE");
     const seen = new Set<string>();

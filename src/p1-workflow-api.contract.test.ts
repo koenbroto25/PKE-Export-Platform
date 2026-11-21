@@ -61,6 +61,7 @@ describe("P1 workflow API security contracts",()=>{
     expect(api).toContain("p1KpiTemplatesByRole");
     expect(api).toContain("const p1Roles");
     expect(api).toContain("public.pke_current_user_id()");
+    expect(api).toContain("initialP1Status(type)");
     expect(api).toContain("public.loading_tickets");
     expect(api).toContain("status='verified'");
     expect(api).toContain("status IN ('presented','accepted','discrepancy')");

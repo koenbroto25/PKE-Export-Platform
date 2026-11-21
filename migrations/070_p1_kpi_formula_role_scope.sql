@@ -13,6 +13,9 @@ SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public'
 AS $function$
   SELECT CASE
+    WHEN public.p1_has_active_project_role_assignment(p_project_id,'pm',public.pke_current_user_id())
+      OR public.p1_has_active_project_role_assignment(p_project_id,'project_admin',public.pke_current_user_id())
+      OR public.p1_has_active_project_role_assignment(p_project_id,'platform_admin',public.pke_current_user_id()) THEN true
     WHEN p_formula_key IN ('po_cycle_time_hours','three_way_match_rate') THEN
       public.p1_has_active_project_role_assignment(p_project_id,'procurement',public.pke_current_user_id())
       OR public.p1_has_active_project_role_assignment(p_project_id,'contract_manager',public.pke_current_user_id())
@@ -86,13 +89,14 @@ BEGIN
     RAISE EXCEPTION 'Project and KPI formula are required' USING ERRCODE='22023';
   END IF;
 
-  IF public.pke_has_project_permission(p_project_id,'reports.view') THEN
-    NULL;
-  ELSIF NOT (
-    public.pke_has_project_permission(p_project_id,'p1.kpi.view')
+  IF NOT (
+    (
+      public.pke_has_project_permission(p_project_id,'p1.kpi.view')
+      OR public.pke_has_project_permission(p_project_id,'reports.view')
+    )
     AND public.p1_kpi_formula_allowed(p_project_id,p_formula_key)
   ) THEN
-    RAISE EXCEPTION 'P1 KPI permission or role-scoped formula access required' USING ERRCODE='42501';
+    RAISE EXCEPTION 'P1 KPI permission and active-role formula scope required' USING ERRCODE='42501';
   END IF;
 
   IF p_formula_key='po_cycle_time_hours' THEN

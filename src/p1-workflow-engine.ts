@@ -104,7 +104,7 @@ export function validateP1Create(type: P1RecordType, payload: Record<string, unk
       if (!nonEmpty(payload.loadingOperationId) || !nonEmpty(payload.shipmentId) || !positive(payload.plannedQuantity) || !nonEmpty(payload.unitCode)) errors.push("loadingOperationId, shipmentId, positive plannedQuantity and unitCode are required");
       break;
     case "loading_survey":
-      if (!nonEmpty(payload.loadingOperationId) || !nonEmpty(payload.certificateObjectKey) || !/^[0-9a-f]{64}$/.test(String(payload.sha256Checksum ?? "")) || !positive(payload.surveyedQuantity)) errors.push("loadingOperationId, certificate object key, SHA-256 and positive surveyedQuantity are required");
+      if (!nonEmpty(payload.loadingOperationId) || !nonEmpty(payload.certificateObjectKey) || !/^[0-9a-f]{64}$/.test(String(payload.sha256Checksum ?? "")) || !positive(payload.surveyedQuantity) || !Number.isInteger(payload.certificateFileSizeBytes) || Number(payload.certificateFileSizeBytes)<=0 || Number(payload.certificateFileSizeBytes)>52428800) errors.push("loadingOperationId, certificate object key, SHA-256, verified file size and positive surveyedQuantity are required");
       break;
     case "ship_master_ack":
       if (!nonEmpty(payload.voyageId) || !nonEmpty(payload.acknowledgementType) || !isDate(payload.acknowledgedAt)) errors.push("voyageId, acknowledgementType and acknowledgedAt are required");

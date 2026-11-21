@@ -29,7 +29,9 @@ const PREPARED_MIGRATION_PINS = Object.freeze({
   "052_funder_finance_report_scope_isolation.sql": "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b",
 });
 
-const P1_UAT_ONLY_START = 58; // P1 domain workflows are applied and validated on the isolated UAT branch only.\n\nconst LEGACY_HOST_HINTS = [
+const P1_UAT_ONLY_START = 58; // P1 domain workflows are applied and validated on the isolated UAT branch only.
+
+const LEGACY_HOST_HINTS = [
   "ep-restless-hat-b35j9x0d", "ep-blue-rice-b3ywrqrq",
   "br-calm-glade-b3nrleet", "br-billowing-math-b31f4wos",
   "lucky-glitter-99553107", "localhost", "127.0.0.1", "[::1]"
@@ -113,7 +115,11 @@ async function main() {
 
   // Fail closed if unapproved/new migration files are present for mutating modes.
   const nums = files.map((f) => ({ f, n: parseMigrationNumber(f) })).filter((x) => Number.isInteger(x.n));
-  const has036Plus = nums.some((x) => x.n >= 36);\n  const p1UatOnlyFiles = nums.filter((x) => x.n >= P1_UAT_ONLY_START);\n  if (["apply", "baseline"].includes(mode) && p1UatOnlyFiles.length) {\n    fail("P1 migrations are UAT-only; generic Production migration apply/baseline is prohibited for migrations 058+.");\n  }
+  const has036Plus = nums.some((x) => x.n >= 36);
+  const p1UatOnlyFiles = nums.filter((x) => x.n >= P1_UAT_ONLY_START);
+  if (["apply", "baseline"].includes(mode) && p1UatOnlyFiles.length) {
+    fail("P1 migrations are UAT-only; generic Production migration apply/baseline is prohibited for migrations 058+.");
+  }
   const has029to032or035Gap = [29,30,31,32,35].some((n) => !files.some((f) => parseMigrationNumber(f) === n));
   if (has029to032or035Gap) {
     console.log("NOTICE: migration files 029-032 and/or 035 are not present in migrations/ (cannot assume applied or approved from local files).");

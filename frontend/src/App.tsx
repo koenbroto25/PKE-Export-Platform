@@ -5,15 +5,16 @@ import {
   BookOpen, CalendarClock, Check, CheckCircle2, ChevronDown, CircleAlert, CircleDollarSign,
   ClipboardCheck, Clock3, Edit, FileCheck2, FileText, Flag, Gauge, Globe2, LayoutDashboard,
   LogOut, Menu, Plus, RefreshCw, Search, Settings2, ShieldCheck, Ship, Truck,
-  Users, Wallet, X, Building2, MapPin, PackageCheck, TrendingUp,
+  Users, Wallet, X, Building2, MapPin, PackageCheck, TrendingUp, Workflow,
 } from 'lucide-react';
 import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 import RoleDashboardPage from './RoleDashboardPage';
+import P1WorkflowWorkbench from './P1WorkflowWorkbench';
 
 type AnyRecord = Record<string, any>;
-type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder';
+type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -23,6 +24,7 @@ const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDa
   { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'Workspace' },
   { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'Workspace' },
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'Eksekusi' },
+  { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow P1', icon: Workflow, group: 'Eksekusi' },
   { to: '/my-work', key: 'my-work', label: 'Tugas Saya', icon: ClipboardCheck, group: 'Eksekusi' },
   { to: '/finance', key: 'finance', label: 'Keuangan & FX', icon: Wallet, group: 'Kontrol' },
   { to: '/compliance', key: 'compliance', label: 'Dokumen & Compliance', icon: ShieldCheck, group: 'Kontrol' },
@@ -188,6 +190,7 @@ function App() {
             <Route path="/projects/:id/members" element={<RoleGuard allowedKeys={['project-members']} activeUser={workspaceUser}><ProjectMembersPage onNotice={notify} /></RoleGuard>} />
             <Route path="/contracts" element={<RoleGuard allowedKeys={['contracts']} activeUser={workspaceUser}><ContractsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><OperationsPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/p1-workflows" element={<RoleGuard allowedKeys={['p1-workflows']} activeUser={workspaceUser}><P1WorkflowWorkbench projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/my-work" element={<RoleGuard allowedKeys={['my-work']} activeUser={workspaceUser}><MyWorkPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />

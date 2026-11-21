@@ -51,6 +51,17 @@ describe("API route registry (regression)", () => {
   });
 
 
+  it("registers P15 Project-scoped master-data change requests with Admin-only approval", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => \`\${r.method} \${r.path}\`));
+    expect(set.has("GET /api/v1/projects/:projectId/master-data-change-requests")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/master-data-change-requests")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data-change-requests/:requestId")).toBe(true);
+    expect(INDEX_SRC).toContain('"pks.master_data.change_request.view"');
+    expect(INDEX_SRC).toContain('"pks.master_data.change_request.manage"');
+    expect(INDEX_SRC).toContain("Only Platform Admin may approve or reject");
+    expect(INDEX_SRC).toContain("Canonical data changed after submission");
+  });
+
   it("registers exactly one handler per method+path (no duplicate route groups)", () => {
     const routes = registerRoutes(INDEX_SRC).filter((r) => r.method !== "USE");
     const seen = new Set<string>();

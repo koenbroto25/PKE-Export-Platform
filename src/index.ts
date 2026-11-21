@@ -2435,10 +2435,10 @@ app.patch("/api/v1/documents/:id", requireAuth, async (req: express.Request, res
   }
   try {
     const { rows: existingRows } = await req.db.query(
-      "SELECT id, project_id FROM project_export_documents WHERE id = $1::uuid",
+      "SELECT public.pke_project_document_project_id($1::uuid) AS project_id",
       [req.params.id],
     );
-    if (existingRows.length === 0) return res.status(404).json({ error: "Not found" });
+    if (!existingRows[0]?.project_id) return res.status(404).json({ error: "Not found" });
     const projectId = existingRows[0].project_id;
     if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.update"))) return;
     const reviewerId = req.user?.id || null;

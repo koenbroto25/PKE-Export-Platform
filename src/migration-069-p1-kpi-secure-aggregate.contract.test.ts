@@ -7,7 +7,7 @@ const manifest=JSON.parse(readFileSync(new URL("../migration_history_manifest_00
 
 describe("Migration 069 secure P1 KPI aggregates",()=>{
   it("matches the exact UAT-only migration SHA-256",()=>{
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("0000000000000000000000000000000000000000000000000000000000000000");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("402f26bebc0016fa2fbcc3b7c661f96e07df08db4769e94d66d709206b78e349");
   });
   it("returns aggregate values only behind active P1 KPI or reports permission",()=>{
     expect(migration).toContain("p1_get_kpi_metric");

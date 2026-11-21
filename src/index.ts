@@ -5269,6 +5269,13 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     const q=await req.db.query("SELECT public.p1_workflow_permission($1,$2) AS code",[type,action]);
     return typeof q.rows[0]?.code==="string"?q.rows[0].code:null;
   };
+  const p1ReadPermission = async (req:express.Request,projectId:string,type:P1RecordType):Promise<string|null> => {
+    if(type==="audit_finding"||type==="audit_response"){
+      const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'audit.finding.view') AS auditor,public.pke_has_project_permission($1::uuid,'audit.finding.respond') AS owner",[projectId]);
+      return q.rows[0]?.auditor?"audit.finding.view":q.rows[0]?.owner?"audit.finding.respond":null;
+    }
+    return p1Permission(req,type,"view");
+  };
   const p1Role = async (req: express.Request):Promise<string> => {
     const q=await req.db.query("SELECT current_setting('app.current_role',true) AS code");
     return String(q.rows[0]?.code??"");
@@ -5290,7 +5297,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     if(!isP1RecordType(type)) return res.status(400).json({error:"recordType is required and must be valid."});
     try {
       if(!(await p1Ready(req,res))) return;
-      const permission=await p1Permission(req,type,"view");
+      const permission=await p1ReadPermission(req,projectId,type);
       if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
       const status=typeof req.query.status==="string"?req.query.status:null;
       const q=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2 AND ($3::text IS NULL OR status=$3) ORDER BY updated_at DESC LIMIT 200",[projectId,type,status]);
@@ -5304,7 +5311,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(!(await p1Ready(req,res))) return;
       const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
       if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
-      const permission=await p1Permission(req,record.rows[0].record_type,"view");
+      const permission=await p1ReadPermission(req,projectId,record.rows[0].record_type);
       if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
       const events=await req.db.query("SELECT * FROM public.p1_domain_events WHERE record_id=$1::uuid AND project_id=$2::uuid ORDER BY occurred_at ASC",[id,projectId]);
       return res.json({events:events.rows});

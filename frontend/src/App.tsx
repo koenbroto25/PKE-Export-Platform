@@ -14,7 +14,7 @@ import RoleDashboardPage from './RoleDashboardPage';
 import P1WorkflowWorkbench from './P1WorkflowWorkbench';
 
 type AnyRecord = Record<string, any>;
-type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows';
+type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -22,6 +22,7 @@ const PASSWORD_MAX_LENGTH = 128;
 const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDashboard; group: string }[] = [
   { to: '/', key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, group: 'Workspace' },
   { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'Workspace' },
+  { to: '/pks-sites', key: 'pks-sites', label: 'PKS & Supplier', icon: Building2, group: 'Workspace' },
   { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'Workspace' },
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'Eksekusi' },
   { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow P1', icon: Workflow, group: 'Eksekusi' },
@@ -182,6 +183,7 @@ function App() {
           <Routes>
             <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><RoleDashboardPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/pks-sites" element={<RoleGuard allowedKeys={['pks-sites']} activeUser={workspaceUser}><PksSitesPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id" element={<RoleGuard allowedKeys={['project-detail']} activeUser={workspaceUser}><ProjectDetailPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id/edit" element={<RoleGuard allowedKeys={['project-edit']} activeUser={workspaceUser}><ProjectEditPage onNotice={notify} /></RoleGuard>} />
@@ -425,6 +427,105 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
         { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
       ]} />}
     </Card>
+  </>;
+}
+
+function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const data = useLoad<{ participations?: AnyRecord[]; canManage?: boolean }>(
+    () => projectId ? get(`/projects/${projectId}/pks-sites`) : Promise.resolve({ participations: [], canManage: false }),
+    [projectId],
+  );
+  const [editingId, setEditingId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    operationalContactName: '', operationalContactEmail: '', operationalContactPhone: '',
+    contractedCapacityMtMonth: '', allocatedCapacityMtMonth: '',
+    deliveryStart: '07:00', deliveryEnd: '17:00', deliveryDays: 'Monday, Tuesday, Wednesday, Thursday, Friday',
+    projectTerms: '', notes: '', status: 'proposed',
+  });
+  const canManage = data.data?.canManage === true;
+  const startEdit = (row: AnyRecord) => {
+    const window = row.delivery_window || {};
+    setEditingId(String(row.id));
+    setForm({
+      operationalContactName: row.operational_contact_name || '',
+      operationalContactEmail: row.operational_contact_email || '',
+      operationalContactPhone: row.operational_contact_phone || '',
+      contractedCapacityMtMonth: row.contracted_capacity_mt_month == null ? '' : String(row.contracted_capacity_mt_month),
+      allocatedCapacityMtMonth: row.allocated_capacity_mt_month == null ? '' : String(row.allocated_capacity_mt_month),
+      deliveryStart: window.start_local || '07:00',
+      deliveryEnd: window.end_local || '17:00',
+      deliveryDays: Array.isArray(window.days) ? window.days.join(', ') : 'Monday, Tuesday, Wednesday, Thursday, Friday',
+      projectTerms: row.project_terms || '',
+      notes: row.notes || '',
+      status: row.status || 'proposed',
+    });
+  };
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!canManage || !editingId) return;
+    setBusy(true);
+    try {
+      await patch(`/projects/${projectId}/pks-sites/${editingId}`, {
+        operationalContactName: form.operationalContactName || null,
+        operationalContactEmail: form.operationalContactEmail || null,
+        operationalContactPhone: form.operationalContactPhone || null,
+        contractedCapacityMtMonth: form.contractedCapacityMtMonth === '' ? null : Number(form.contractedCapacityMtMonth),
+        allocatedCapacityMtMonth: form.allocatedCapacityMtMonth === '' ? null : Number(form.allocatedCapacityMtMonth),
+        deliveryWindow: {
+          days: form.deliveryDays.split(',').map(day => day.trim()).filter(Boolean),
+          start_local: form.deliveryStart,
+          end_local: form.deliveryEnd,
+          timezone: 'Asia/Makassar',
+        },
+        projectTerms: form.projectTerms || null,
+        notes: form.notes || null,
+        status: form.status,
+      });
+      onNotice('success', 'Data operasional PKS pada Project berhasil diperbarui.');
+      setEditingId('');
+      data.refresh();
+    } catch (error) {
+      onNotice('error', error instanceof Error ? error.message : 'Perubahan data PKS tidak dapat disimpan.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <>
+    <PageTitle eyebrow="P2-A · P15 SUPPLY MASTER" title="PKS & Supplier Project" subtitle="Kelola data operasional dan kapasitas kontraktual pada Project. Identitas legal dan identitas fasilitas global tetap melalui proses verifikasi terpisah." />
+    {!projectId ? <Card><EmptyState title="Pilih Project terlebih dahulu" desc="Pilih Project pada pemilih di bagian atas untuk melihat dan mengubah data PKS yang terkait." /></Card> : <>
+      <Card><PanelHeading title="Batas data dan verifikasi" description="Kapasitas kontraktual bukan stok tersedia. Data berstatus seed/mock bukan penawaran pemasok dan tidak boleh dipakai sebagai angka komersial." />
+        <div className="insight-grid"><div><span>Hak akses</span><strong>{canManage ? 'Admin / PM · dapat mengedit' : 'Baca saja'}</strong></div><div><span>Identitas global</span><strong>Perlu verifikasi terpisah</strong></div><div><span>Audit</span><strong>Perubahan tercatat</strong></div><div><span>Seed data</span><strong>Ditandai dan dapat direvisi</strong></div></div>
+      </Card>
+      {editingId && canManage && <Card className="form-panel"><PanelHeading title="Edit partisipasi PKS" description="Perubahan hanya berlaku untuk Project terpilih; nama legal dan data identitas fasilitas tidak dapat diubah di formulir ini." action={<button className="icon-button" onClick={() => setEditingId('')}><X size={18} /></button>} />
+        <form className="form-grid" onSubmit={save}>
+          <FormField label="Nama kontak operasional"><input value={form.operationalContactName} onChange={e => setForm(v => ({ ...v, operationalContactName: e.target.value }))} maxLength={160} /></FormField>
+          <FormField label="Email kontak"><input type="email" value={form.operationalContactEmail} onChange={e => setForm(v => ({ ...v, operationalContactEmail: e.target.value }))} maxLength={254} /></FormField>
+          <FormField label="Telepon kontak"><input value={form.operationalContactPhone} onChange={e => setForm(v => ({ ...v, operationalContactPhone: e.target.value }))} maxLength={50} /></FormField>
+          <FormField label="Kapasitas kontraktual (MT/bulan)"><input type="number" min="0" step="0.01" value={form.contractedCapacityMtMonth} onChange={e => setForm(v => ({ ...v, contractedCapacityMtMonth: e.target.value }))} /></FormField>
+          <FormField label="Kapasitas dialokasikan (MT/bulan)"><input type="number" min="0" step="0.01" value={form.allocatedCapacityMtMonth} onChange={e => setForm(v => ({ ...v, allocatedCapacityMtMonth: e.target.value }))} /></FormField>
+          <FormField label="Status partisipasi"><select value={form.status} onChange={e => setForm(v => ({ ...v, status: e.target.value }))}><option value="proposed">Proposed</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="closed">Closed</option></select></FormField>
+          <FormField label="Jam mulai pengiriman"><input type="time" value={form.deliveryStart} onChange={e => setForm(v => ({ ...v, deliveryStart: e.target.value }))} /></FormField>
+          <FormField label="Jam akhir pengiriman"><input type="time" value={form.deliveryEnd} onChange={e => setForm(v => ({ ...v, deliveryEnd: e.target.value }))} /></FormField>
+          <FormField label="Hari pengiriman (pisahkan koma)" wide><input value={form.deliveryDays} onChange={e => setForm(v => ({ ...v, deliveryDays: e.target.value }))} placeholder="Monday, Tuesday, Wednesday" /></FormField>
+          <FormField label="Ketentuan Project" wide><textarea rows={2} value={form.projectTerms} onChange={e => setForm(v => ({ ...v, projectTerms: e.target.value }))} /></FormField>
+          <FormField label="Catatan" wide><textarea rows={3} value={form.notes} onChange={e => setForm(v => ({ ...v, notes: e.target.value }))} /></FormField>
+          <div className="form-actions"><ActionButton variant="secondary" onClick={() => setEditingId('')}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan perubahan'}</button></div>
+        </form>
+      </Card>}
+      <Card><PanelHeading title="Daftar fasilitas pada Project" description="Data global fasilitas ditampilkan sebagai referensi; yang dapat diedit di sini adalah overlay operasional Project." action={<button className="icon-button" onClick={() => data.refresh()} title="Refresh"><RefreshCw size={16} /></button>} />
+        {data.loading ? <Loading /> : data.error ? <ErrorState message={data.error} retry={data.refresh} /> : <DataTable rows={data.data?.participations || []} columns={[
+          { key: 'facility_name', label: 'Fasilitas', render: r => <div className="primary-cell"><strong>{r.facility_name}</strong><small>{r.facility_code || shortId(r.pks_site_id)} · {String(r.facility_type || '').replaceAll('_', ' ')}</small></div> },
+          { key: 'supplier_name', label: 'Supplier', render: r => r.supplier_name || (r.vendor_id ? shortId(r.vendor_id) : 'Belum ditautkan') },
+          { key: 'capacity', label: 'Kapasitas kontraktual / alokasi', render: r => `${number(r.contracted_capacity_mt_month)} / ${number(r.allocated_capacity_mt_month)} MT/bulan` },
+          { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
+          { key: 'verification', label: 'Verifikasi fasilitas', render: r => <StatusPill value={r.facility_verification_status} /> },
+          { key: 'source', label: 'Sumber', render: r => r.is_seed_data ? <span className="status-pill pill-amber">SEED / MOCK</span> : <StatusPill value={r.source_type} /> },
+          { key: 'updated_at', label: 'Diperbarui', render: r => dateTime(r.updated_at) },
+          { key: 'actions', label: 'Aksi', render: r => canManage ? <ActionButton variant="secondary" onClick={() => startEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
+        ]} emptyTitle="Belum ada partisipasi PKS" emptyText="Belum ada fasilitas yang ditautkan ke Project ini." />}
+      </Card>
+    </>}
   </>;
 }
 

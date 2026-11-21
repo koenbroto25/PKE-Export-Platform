@@ -90,6 +90,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   }
   if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");
   if (pageKey === 'projects') return user.platformAdmin === true || hasActiveProjectMembership(user);
+  if (pageKey === 'funder') return activeProjectRoleCodes(user).includes('funder') && hasProjectPermission('funder.view', user);
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
     return pageKey === 'dashboard' && hasActiveProjectMembership(user);
   }

@@ -391,8 +391,22 @@ export class PrivateStorageAdapter {
     if (!keyCheck.ok) {
       throw new Error(keyCheck.reason);
     }
-    // Fail-closed: deletion requires a real network round-trip (DELETE) to storage service.
-    throw new Error("Object deletion requires storage service round-trip; not implemented (fail-closed).");
+    const { url } = this.buildPresignedUrl("DELETE", objectKey, 60);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        method: "DELETE",
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      // Never include the presigned URL or provider credentials in an error.
+      throw new Error("Storage object deletion failed before a provider response was received.");
+    }
+    // S3 DELETE is idempotent; 404/410 are also considered clean.
+    if (!response.ok && response.status !== 404 && response.status !== 410) {
+      throw new Error(`Storage object deletion failed (HTTP ${response.status}).`);
+    }
   }
 }
 

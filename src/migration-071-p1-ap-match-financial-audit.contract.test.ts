@@ -62,6 +62,8 @@ describe("Migration 071 — P1 AP match integrity and P3 financial audit", () =>
     expect(migration).toContain("before_snapshot,after_snapshot,metadata,outcome");
     expect(migration).toContain("to_jsonb(OLD)-'updated_at'");
     expect(migration).toContain("changed_fields");
+    expect(migration).toContain("ap_invoice.three_way_match_linked");
+    expect(migration).toContain("v_permission:='procurement.match.create'");
   });
 
   it("asserts the required triggers and uniqueness index in migration postconditions", () => {

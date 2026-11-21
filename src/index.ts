@@ -5296,15 +5296,14 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     return String(q.rows[0]?.code??"");
   };
   const p1HasRole = async (req: express.Request,projectId:string,userId:string,roleCodes:string[]):Promise<boolean> => {
-    const q=await req.db.query(
-      `SELECT 1 FROM public.project_role_assignments a
-       JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
-       JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id
-       WHERE a.project_id=$1::uuid AND a.user_id=$2::uuid AND pr.role_code=ANY($3::text[])
-       AND a.is_active AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
-       AND pm.is_active AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
-       AND pr.is_active LIMIT 1`,[projectId,userId,roleCodes]);
-    return q.rows.length>0;
+    for(const roleCode of roleCodes){
+      const q=await req.db.query(
+        "SELECT public.p1_has_active_project_role_assignment($1::uuid,$2::text,$3::uuid) AS active",
+        [projectId,roleCode,userId]
+      );
+      if(q.rows[0]?.active) return true;
+    }
+    return false;
   };
 
   app.get("/api/v1/projects/:projectId/p1-workflows",requireAuth,async(req:express.Request,res:express.Response)=>{
@@ -5330,6 +5329,22 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
       const events=await req.db.query("SELECT * FROM public.p1_domain_events WHERE record_id=$1::uuid AND project_id=$2::uuid ORDER BY occurred_at ASC",[id,projectId]);
       return res.json({events:events.rows});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
+
+  app.get("/api/v1/projects/:projectId/p1-workflows/:id/evidence",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string;
+    try{
+      if(!(await p1Ready(req,res))) return;
+      const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
+      if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const permission=await p1ReadPermission(req,projectId,record.rows[0].record_type);
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const evidence=await req.db.query(
+        "SELECT id,evidence_type,object_key,storage_bucket,original_filename,mime_type,file_size_bytes,sha256_checksum,uploaded_by,uploaded_at,verified_by,verified_at,status FROM public.p1_domain_evidence WHERE record_id=$1::uuid AND project_id=$2::uuid ORDER BY uploaded_at DESC",
+        [id,projectId]
+      );
+      return res.json({evidence:evidence.rows});
     }catch{return res.status(500).json(internalServerErrorPayload());}
   });
 
@@ -5504,24 +5519,25 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       let externalRoleCode:string|null=null;
       if(external){
         const allowed=p1ExternalRoles[type]??[];
-        const extRole=await req.db.query(
-          `SELECT pr.role_code FROM public.project_role_assignments a
-           JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
-           JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id
-           WHERE a.project_id=$1::uuid AND a.user_id=$2::uuid AND pr.role_code=ANY($3::text[])
-             AND a.is_active AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
-             AND pm.is_active AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
-             AND pr.is_active ORDER BY pr.role_code LIMIT 1`,[projectId,external,allowed]);
-        if(!allowed.length||!extRole.rows.length) return res.status(422).json({error:"External scope must match an active external Project assignment."});
-        externalRoleCode=extRole.rows[0].role_code;
+        for(const candidateRole of allowed){
+          const extRole=await req.db.query(
+            "SELECT public.p1_has_active_project_role_assignment($1::uuid,$2::text,$3::uuid) AS active",
+            [projectId,candidateRole,external]
+          );
+          if(extRole.rows[0]?.active){externalRoleCode=candidateRole;break;}
+        }
+        if(!externalRoleCode) return res.status(422).json({error:"External scope must match an active external Project assignment."});
       }
       const ownerRoleCode=typeof b.ownerRoleCode==="string"?b.ownerRoleCode:
         type==="audit_finding"?String(payload.ownerRoleCode):
         type==="audit_response"?String(parentRecord?.owner_role_code??""):
         type==="hse_action"?String(payload.actionOwnerRoleCode??""):
         externalRoleCode??p1DefaultOwner[type];
-      const owner=await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true",[projectId,ownerRoleCode]);
-      if(owner.rows.length!==1) return res.status(422).json({error:"ownerRoleCode must be active in this Project."});
+      const owner=await req.db.query(
+        "SELECT public.p1_has_active_project_role_assignment($1::uuid,$2::text,NULL::uuid) AS active",
+        [projectId,ownerRoleCode]
+      );
+      if(!owner.rows[0]?.active) return res.status(422).json({error:"ownerRoleCode must have an active assignee in this Project.",code:"P1_OWNER_ROLE_UNASSIGNED"});
       let assignee=b.assigneeUserId?String(b.assigneeUserId):null;
       if(external&&!assignee) assignee=external;
       if(assignee&&!await p1HasRole(req,projectId,assignee,[ownerRoleCode])) return res.status(422).json({error:"Assignee must hold the selected active Project role."});
@@ -5627,7 +5643,9 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(!(await p1Ready(req,res))) return;
       const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
       if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
-      const permission=await p1Permission(req,record.rows[0].record_type,"update");
+      const permission=record.rows[0].record_type==="quality_result"
+        ?"quality.result.create"
+        :await p1Permission(req,record.rows[0].record_type,"update");
       if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
       const inserted=await req.db.query(
         `INSERT INTO public.p1_domain_evidence(record_id,project_id,evidence_type,object_key,storage_bucket,original_filename,mime_type,file_size_bytes,sha256_checksum,uploaded_by)
@@ -5645,16 +5663,51 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(!(await p1Ready(req,res))) return;
       if(!(await requireProjectPermission(req,res,projectId,"reports.view"))) return;
       const defs=await req.db.query("SELECT * FROM public.p1_report_kpi_definitions WHERE is_active=true AND (project_id IS NULL OR project_id=$1::uuid) ORDER BY template_id,metric_key",[projectId]);
+      const roleCode=await p1Role(req);
+      const p1KpiTemplatesByRole:Record<string,string[]> = {
+        procurement:["tpl-procurement"],contract_manager:["tpl-procurement"],buyer:["tpl-procurement"],supplier:["tpl-procurement"],
+        pks_site_manager:["tpl-procurement","tpl-operational"],
+        production_manager:["tpl-operational"],packing_supervisor:["tpl-operational"],qc_officer:["tpl-operational"],
+        laboratory_officer:["tpl-operational"],qa_manager:["tpl-operational"],hse_officer:["tpl-operational"],
+        transport_manager:["tpl-logistics"],dispatcher:["tpl-logistics"],transporter:["tpl-logistics"],driver:["tpl-logistics"],checker:["tpl-logistics"],
+        master_of_loading:["tpl-shipping"],loading_manager:["tpl-shipping"],loading_supervisor:["tpl-shipping"],loading_operator:["tpl-shipping"],
+        marine_surveyor:["tpl-shipping"],ship_master:["tpl-shipping"],terminal_representative:["tpl-shipping"],
+        shipping_agent:["tpl-shipping","tpl-trade"],document_officer:["tpl-trade","tpl-compliance"],
+        internal_auditor:["tpl-audit","tpl-compliance"],
+        warehouse:["tpl-warehouse"],warehouse_manager:["tpl-warehouse"],warehouse_officer:["tpl-warehouse"],inventory_controller:["tpl-warehouse"]
+      };
+      const allTemplates=["pm","project_admin","platform_admin"].includes(roleCode)
+        ?new Set(defs.rows.map((d:any)=>String(d.template_id)))
+        :new Set(p1KpiTemplatesByRole[roleCode]??[]);
+      const kpiDefinitions=defs.rows.filter((d:any)=>allTemplates.has(String(d.template_id)));
       const kpis=[];
-      for(const d of defs.rows){
+      for(const d of kpiDefinitions){
         let value:number|null=null,asOf:any=null,n=0;
         if(d.formula_key==="po_cycle_time_hours"){
           const q=await req.db.query("SELECT avg(extract(epoch FROM(e.occurred_at-r.created_at))/3600)::float value,max(e.occurred_at) as_of,count(*)::int n FROM public.p1_domain_records r JOIN LATERAL (SELECT occurred_at FROM public.p1_domain_events WHERE record_id=r.id AND project_id=r.project_id AND event_type='approved' ORDER BY occurred_at LIMIT 1) e ON true WHERE r.project_id=$1::uuid AND r.record_type='purchase_order' AND r.status IN ('approved','issued','acknowledged','partially_received','received')",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
-        }else if(d.formula_key==="three_way_match_rate"||d.formula_key==="loading_completion_rate"||d.formula_key==="qa_release_rate"||d.formula_key==="lc_discrepancy_rate"){
+        }else if(d.formula_key==="three_way_match_rate"||d.formula_key==="qa_release_rate"||d.formula_key==="lc_discrepancy_rate"){
           const type=d.formula_key==="three_way_match_rate"?"goods_receipt_match":d.formula_key==="loading_completion_rate"?"loading_plan":d.formula_key==="qa_release_rate"?"qa_release":"lc_presentation";
           const done=d.formula_key==="three_way_match_rate"?"status IN ('matched','verified')":d.formula_key==="loading_completion_rate"?"status='completed'":d.formula_key==="qa_release_rate"?"status='released'":"status='discrepancy'";
-          const denominator=d.formula_key==="qa_release_rate"?"status IN ('released','held')":"true";
+          const denominator=d.formula_key==="qa_release_rate"?"status IN ('released','held')":d.formula_key==="lc_discrepancy_rate"?"status IN ('presented','accepted','discrepancy')":"true";
           const q=await req.db.query(`SELECT count(*) FILTER(WHERE ${done})::int good,count(*) FILTER(WHERE ${denominator})::int n,max(updated_at) as_of FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2`,[projectId,type]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
+        }else if(d.formula_key==="loading_completion_rate"){
+          const q=await req.db.query(
+            `SELECT count(*)::int n,
+                    COALESCE(sum(op.quantity),0)::float planned,
+                    COALESCE(sum(t.verified_quantity),0)::float verified,
+                    max(COALESCE(t.as_of,op.started_at)) as_of
+             FROM public.loading_operations op
+             LEFT JOIN LATERAL (
+               SELECT sum(quantity) FILTER(WHERE status='verified')::float verified_quantity,
+                      max(verified_at) as_of
+               FROM public.loading_tickets
+               WHERE project_id=op.project_id AND loading_operation_id=op.id
+             ) t ON true
+             WHERE op.project_id=$1::uuid AND op.quantity>0`,
+            [projectId]
+          );
+          n=Number(q.rows[0].n);asOf=q.rows[0].as_of;
+          value=n&&Number(q.rows[0].planned)>0?Number(q.rows[0].verified)/Number(q.rows[0].planned)*100:null;
         }else if(d.formula_key==="production_output_quantity"){
           const q=await req.db.query("SELECT sum(quantity)::float value,max(updated_at) as_of,count(*)::int n FROM public.production_batches WHERE project_id=$1::uuid AND quality_status='passed'",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
         }else if(d.formula_key==="hse_open_actions"||d.formula_key==="audit_overdue_count"){

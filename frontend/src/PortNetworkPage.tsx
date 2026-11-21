@@ -58,11 +58,11 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [actionBusy, setActionBusy] = useState(false);
 
   const permissions = activeUser?.projectPermissions || [];
-  const canViewPorts = permissions.includes("port.view");
-  const canViewWarehouses = permissions.includes("warehouse.view");
   const platformAdmin = activeUser?.platformAdmin === true;
+  const canViewPorts = platformAdmin || permissions.includes("port.view");
+  const canViewWarehouses = platformAdmin || permissions.includes("warehouse.view");
   const canSubmitDepth = permissions.includes("port.depth.submit");
-  const canEstimateRoutes = permissions.includes("route.estimate");
+  const canEstimateRoutes = platformAdmin || permissions.includes("route.estimate");
   const canAssessVessel = permissions.includes("vessel.port.assess") && permissions.includes("vessel.view");
 
 
@@ -115,12 +115,12 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!projectId || !canEstimateRoutes) return;
+    if ((!projectId && !platformAdmin) || !canEstimateRoutes) return;
     get<{ routes?: Row[] }>(`/port-routes?projectId=${encodeURIComponent(projectId)}`)
       .then(data => { if (active) setRoutes(Array.isArray(data?.routes) ? data.routes : []); })
       .catch(() => { if (active) setError("Referensi rute tidak dapat dimuat."); });
     return () => { active = false; };
-  }, [projectId, canEstimateRoutes]);
+  }, [projectId, canEstimateRoutes, platformAdmin]);
 
   async function saveMaster(event: FormEvent) {
     event.preventDefault(); setActionBusy(true); setMasterMessage("");

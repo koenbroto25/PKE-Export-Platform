@@ -10047,3 +10047,70 @@ This section supersedes any ambiguous or stale phase-status wording in §56.49 a
 - P1: UAT schema through 071; targeted KPI and AP-match security tests PASS; full operational/browser/document/report acceptance remains partial as listed above.
 - P2: crosswalk is established as P15→P16→P17→P18 (Sprint 04–10), with P06/P08/P09/P10/P11/P12/P13 dependencies and P07 v1.2 preserved.
 - Next implementation unit when execution resumes: P2-A / P15, subject to the P0/P1 release and test boundaries above. No clarification question is required to understand the phase mapping established here.
+
+
+
+## 56.51 — P2-A / P15 kickoff: UAT seed data and editable Project PKS overlay (21 November 2026)
+
+**Owner instruction:** the owner authorized creation of temporary starter data and requested that Admin and/or the appointed PM be able to revise the working data inside the application. This section records the first implementation slice. It does not authorize Production changes, PR merge, or deployment.
+
+### 56.51.1 Research and data-provenance rules
+
+- BPS's *Direktori Perusahaan Perkebunan Kelapa Sawit Indonesia 2025* (released 30 September 2026) is a public reference for company legal names, legal status, addresses and contact channels. It is a candidate-discovery source, not proof of current supplier capacity, stock, commercial availability or Project participation: https://www.bps.go.id/id/publication/2026/09/30/e895d1a25bd8b51c4136ae1a/direktori-perusahaan-perkebunan-kelapa-sawit-indonesia-2025.html
+- BSN lists SNI 2901:2021, *Minyak kelapa sawit mentah (Crude palm oil)*, as active. Product classification/specification work must preserve the applicable standard/version and measurement basis; do not treat this standard as a PKC specification: https://pesta.bsn.go.id/produk/detail/13323-sni29012021
+- Public directory entries remain unverified candidates until independent source/evidence review. Do not infer capacity, stock, certification, ownership, product capability or availability from a company/facility name.
+- The current UAT starter row is synthetic only. It is explicitly linked to existing `[TEST FIXTURE]` Project, KCP and supplier records; it is not a real supplier offer or available stock. The facility type is `kernel_crushing_plant`, not `palm_oil_mill`. This distinction is intentional.
+
+### 56.51.2 UAT database implementation
+
+Target: Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d`, database `neondb`. Production branch `br-damp-shape-b3xlh4nr` was not accessed for writes.
+
+- Migration 072 `072_p2a_project_pks_participation.sql` applied and recorded as ID 72, SHA-256 `76e094238f430835fe068fd733e8eb111363d5d686507f89646e9f42c9579107`.
+- Migration 073 `073_p2a_platform_admin_supplier_read.sql` applied and recorded as ID 73, SHA-256 `6f7e84ad7823de9f29a9545dd877ed43fb0e04b1faa7004d3afe5b736f7cb010`.
+- Migration 072 creates `project_pks_site_participation`, a Project-scoped operational overlay separate from global legal identity and facility identity. It stores operational contacts, contracted/allocated monthly capacity, delivery windows, Project terms, notes, effective dates, source/provenance and explicit seed markers. There is no DELETE policy or DELETE grant for the runtime role.
+- PM permissions added to the canonical allowlist and current Project PM role grants: `pks.site.view`, `pks.participation.manage`, and `supplier.view`. The PM can edit the Project overlay only; it cannot overwrite global legal name, registration, tax identity or verified facility identity.
+- Platform Admin access is checked through `pke_is_platform_admin()` and is read/write only on the Project overlay. Additional Admin SELECT policies expose facility and supplier adapter names; they do not grant global master mutation.
+- UAT backup snapshots are retained in schema `p2a_backup_072_20261121`: permission rows, PM allowlist, PM Project-role grants, PKS-site policies and vendor policies, all captured before the corresponding migration changes.
+- Seed batch `P2A-SEED-20261121-01` contains one row, participation ID `1fb75cf0-a27a-48e4-bfd8-881edae5227d`, attached to the existing Alpha synthetic Project, Alpha KCP fixture and Alpha supplier fixture. Fields are marked `source_type='synthetic_seed'`, `is_seed_data=true`, with a batch ID so later cleanup can be targeted without deleting real records.
+
+### 56.51.3 Permission and RLS backtest
+
+Executed directly on UAT as `app_runtime_secure` with explicit request-user context:
+
+- PM fixture: `pks.participation.manage=true`; could SELECT the Project overlay, UPDATE the row, and restore the original notes. PASS.
+- Platform Admin fixture: `pke_is_platform_admin()=true`; could SELECT the overlay, facility and linked supplier; UPDATE the overlay and restore the original notes. PASS.
+- Finance fixture: `pks.participation.manage=false`; overlay SELECT returned zero rows and UPDATE returned zero rows. PASS.
+- Runtime role has no DELETE grant on the overlay table; there is no DELETE policy. PASS.
+- PM and Admin can resolve the joined facility/supplier display fields; Finance sees no overlay row. PASS.
+- The update/restore backtests produce audit entries by design; the current seed row content was restored and verified after each test.
+- These are database/RLS tests, not authenticated HTTP/browser tests.
+
+### 56.51.4 Source/API/UI implementation
+
+Committed on existing branch `f1/project-scoped-cob-20261119`; no new GitHub branch was created.
+
+- `src/index.ts`: added authenticated GET/POST/PATCH endpoints under `/api/v1/projects/:projectId/pks-sites`. Writes require `pks.participation.manage` or global Platform Admin; PATCH exposes only Project overlay fields. The global master identity is deliberately excluded.
+- `src/role-catalogue.ts`: added the PKS view/manage permissions to the canonical PM template.
+- `frontend/src/role-permissions.ts`: added permission-gated `pks-sites` workspace visibility.
+- `frontend/src/App.tsx`: added the `PKS & Supplier` Project workspace with an edit form for operational contacts, contracted/allocated capacity, delivery windows, Project terms, notes and status. Seed/mock state and facility verification status are visible; global facility identity is not editable there.
+- `src/route-registry.test.ts` and `package.json`: added P2-A endpoint registration regression coverage to the test suite.
+- Relevant source commits: API `c184fe84fd64b9d809d2566d9b8c4a9665906c52`, API permission response fix `be87801b1157ea029d0e72627a5f523c4fc2b491`, PM permission UI `b89a02d7f6c198710998f135615105c0657e934c`, PM role template `e1a23fd713206f6f70d0c57e303f7c7be795efe0`, UI `c3a0f040dae92f3d4d12142eca4af3c9ad3af659`, route tests/package inclusion `47f4af829cca2105aa379e9a12a52d10d033e2b7` and `cee73e8e33ea847f3706960710a6206b4a753a6b`.
+
+### 56.51.5 CI and current acceptance
+
+- Unit Tests workflow run `44873948018` for latest source/test commit: **SUCCESS**. Offline tests, backend typecheck, frontend typecheck and frontend build all completed successfully.
+- Dependency Audit workflow run `44873947993`: **SUCCESS**.
+- Earlier UI commit CI run `44873834587` also completed SUCCESS, including backend/frontend typecheck and frontend build.
+- P2-A initial database overlay and permission slice: **UAT PASS**.
+- Source/API/UI implementation: **CI PASS**.
+- Authenticated HTTP/browser acceptance against the running application: **NOT YET VERIFIED**. The new source is committed to the working branch but has not been deployed. Do not describe the UI as live or claim that a real PM session has edited it through the browser.
+- Global legal identity change-request/independent approval workflow, public candidate ingestion, distinct PKS mill seed records, capacity/certification/contact evidence tables, product taxonomy/specification approval and full source verification remain open P15 work.
+- No Production DDL/DML, Production permission changes, PR merge, Vercel deployment/promotion, external subscription or purchase occurred.
+
+### 56.51.6 Next P2-A work
+
+1. Complete authenticated HTTP/browser acceptance in an explicitly approved non-Production deployment/test target; verify Admin and PM edit, read-only roles denied, cross-Project isolation, audit before/after and seed marker visibility.
+2. Add a separate, explicitly synthetic palm-oil-mill fixture so the UI demonstrates PKS vs KCP as distinct facility types; do not repurpose the existing KCP record.
+3. Add the independent global master-data change request/approval workflow before permitting edits to legal identity or verified facility identity.
+4. Enrich product/specification master using applicable authoritative standards and source-backed parameter definitions. Do not apply SNI CPO values to PKC.
+5. Keep seed batch removable by `seed_batch_id`; after owner/PM review, either retain it as a documented demo fixture or remove only that batch and verify cleanup.

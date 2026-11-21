@@ -10283,3 +10283,34 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 
 ### Status
 P15 engineering implementation and UAT database/security backtests are complete. Production rollout, authenticated browser acceptance, and verification of real supplier/facility/product/COA evidence remain separate owner-controlled gates.
+
+
+## 56.54 — P2-B / P16 readiness audit (21 November 2026)
+
+### Repository and database baseline
+- P15 engineering/UAT closeout is recorded in §56.53.4. Its real supplier/facility/product/COA evidence and authenticated browser acceptance gates remain open; they must not be represented as passed by synthetic fixtures.
+- Current source branch remains `f1/project-scoped-cob-20261119`; no new branch, PR merge, Vercel deployment or Production write is part of this audit.
+- Neon UAT branch `br-young-boat-b3re832d` has 82 migration rows: ids 1–16 are explicitly `baselined`, ids 17–82 are `applied` (66 applied migrations; zero non-applied migrations after excluding the historical baseline status).
+- Neon Production branch `br-damp-shape-b3xlh4nr` remains at 53 migration rows: ids 1–16 `baselined`, ids 17–53 `applied` (37 applied migrations). Read-only verification only; no Production DDL/DML.
+
+### P16 schema inventory found in UAT
+- Existing tables already cover ports, terminals, berths, channels, anchorages, depth/tide observations, loading services, equipment, operating limits, PKS-port routes, warehouses, zones, bins, warehouse equipment and reservations.
+- Current UAT counts: 1 port, 1 warehouse, 3 warehouse zones, 1 warehouse bin and 1 warehouse-equipment row. Port terminals, berths, channels, anchorages, depth/tide observations, loading services, port equipment, operating limits, PKS-port routes and warehouse reservations are currently empty.
+- RLS is enabled on all inspected P16 tables. The port/terminal/berth/channel/anchorage/depth/tide/service/equipment/operating-limit and warehouse-master tables currently expose SELECT policies only. Warehouse reservations have Project-scoped SELECT/INSERT/UPDATE policies. This means database schema presence is not equivalent to a complete operational P16 workflow.
+- Active permission codes already exist for port viewing/creation/update, terminal/berth management, depth submission, service management, preliminary vessel assessment, route estimation and warehouse/zone/receipt operations. Existing role grants are limited: selected loading/terminal roles have port.view; PM and Internal Audit have warehouse.view; the warehouse role has warehouse create/update/receipt permissions. Do not infer write capability from the permission catalogue alone; role allowlists, RLS policies and API checks must agree.
+
+### Source/UI gap
+- Current source has no dedicated `/api/v1/ports`, terminal/berth/depth/service/equipment/operating-limit, vessel-port-assessment or route-estimate handlers.
+- Existing warehouse APIs cover project warehouse receipts and transport operations, not the P16 warehouse master, zones/bins/equipment or capability verification.
+- Frontend has no Port & Terminal network workspace. The existing Warehouse workspace is an operational stakeholder route, not a full port/warehouse master-data control surface.
+
+### P2-B implementation sequence
+1. Reconcile P16 permission allowlists and role ownership. Keep global port/terminal/berth/channel/anchorage/operating-limit master changes under Platform Admin stewardship unless a separately audited proposal workflow is added. Keep operational warehouse reservations and receipts Project-scoped.
+2. Prepare Migration 083+ for UAT only: targeted pre-change policy/trigger backup; explicit write RLS for the approved actor classes; provenance, reviewer and stale-data guards; no widening of generic project access. Hash the exact SQL and verify the UAT ledger after application.
+3. Implement authenticated API handlers for port hierarchy, depth/tide observations, loading services/equipment, warehouse master/capabilities, zones/bins, reservations and preliminary vessel compatibility. Every response must distinguish verified, submitted, unverified, stale and rejected records. Vessel screening is advisory only and never navigation clearance.
+4. Add a dedicated Port & Warehouse workspace with role-specific read/edit/review controls. Preserve the existing Warehouse receipt workflow and inventory movement source of truth.
+5. Backtest Platform Admin master-data edits, PM/terminal/warehouse scoped reads and submissions, cross-Project reservation isolation, maker-checker review, evidence provenance, stale-depth denial, and Finance isolation. Re-run unit tests, typechecks, frontend build and migration dry-run.
+6. Keep real port authority limits, hydrographic depth/datum, tide, terminal service capacity and warehouse capability unverified until authoritative source evidence and reviewer stamps exist. Do not invent operational limits or mark fixture data verified.
+7. Keep P15 business-evidence and browser-acceptance gates open until real source documents and the owner-directed final combined deployment/browser session are available. Do not claim P2-A fully business-accepted merely because P16 engineering begins.
+
+**Current decision:** P16 is the next engineering work package (P2-B), but its schema-only foundation is not yet an implemented or accepted workflow. This section is an audit baseline, not a claim that P16 has been delivered. All implementation and backtests remain on the existing source branch and Neon UAT; Neon Production, PR merge and Vercel remain out of scope.

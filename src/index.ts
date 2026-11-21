@@ -5566,8 +5566,13 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
 
   app.post("/api/v1/projects/:projectId/p1-workflows/:id/evidence",requireAuth,async(req:express.Request,res:express.Response)=>{
     const projectId=req.params.projectId as string,id=req.params.id as string,actorId=String(req.user?.id??""),b=req.body??{};
-    if(!validateP1Evidence({objectKey:String(b.objectKey??""),sha256:String(b.sha256Checksum??""),bucket:String(b.storageBucket??"pke-private-documents"),sizeBytes:b.fileSizeBytes==null?null:Number(b.fileSizeBytes)})) return res.status(400).json({error:"Evidence requires private bucket, valid SHA-256 and file size <=50 MB."});
+    const evidenceKey=String(b.objectKey??""),evidenceSha=String(b.sha256Checksum??""),evidenceBucket=String(b.storageBucket??"pke-private-documents"),evidenceSize=Number(b.fileSizeBytes);
+    if(!validateP1Evidence({objectKey:evidenceKey,sha256:evidenceSha,bucket:evidenceBucket,sizeBytes:evidenceSize})||!Number.isSafeInteger(evidenceSize)||evidenceSize<=0) return res.status(400).json({error:"Evidence requires private bucket, valid SHA-256 and verified file size <=50 MB."});
+    if(!evidenceKey.startsWith(`projects/${projectId}/`)) return res.status(400).json({error:"Evidence object key must be namespaced to the selected Project.",code:"INVALID_OBJECT_KEY"});
+    const storageStatus=privateStorage.status();
+    if(!storageStatus.available||storageStatus.bucket!==evidenceBucket) return res.status(503).json({error:"Private object storage is unavailable or bucket does not match.",code:"STORAGE_UNAVAILABLE"});
     try{
+      await privateStorage.verifyObject(evidenceKey,evidenceSize,evidenceSha);
       if(!(await p1Ready(req,res))) return;
       const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
       if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
@@ -5576,7 +5581,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       const inserted=await req.db.query(
         `INSERT INTO public.p1_domain_evidence(record_id,project_id,evidence_type,object_key,storage_bucket,original_filename,mime_type,file_size_bytes,sha256_checksum,uploaded_by)
          VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10::uuid) RETURNING *`,
-        [id,projectId,b.evidenceType??"supporting",b.objectKey,b.storageBucket??"pke-private-documents",b.originalFilename??null,b.mimeType??null,b.fileSizeBytes??null,b.sha256Checksum,actorId]);
+        [id,projectId,b.evidenceType??"supporting",evidenceKey,evidenceBucket,b.originalFilename??null,b.mimeType??null,evidenceSize,evidenceSha,actorId]);
       const roleCode=await p1Role(req);
       await req.db.query("INSERT INTO public.p1_domain_events(record_id,project_id,event_type,actor_user_id,actor_role_code,payload) VALUES($1::uuid,$2::uuid,'evidence_added',$3::uuid,$4,$5::jsonb)",[id,projectId,actorId,roleCode,JSON.stringify({evidenceId:inserted.rows[0].id})]);
       return res.status(201).json({evidence:inserted.rows[0]});

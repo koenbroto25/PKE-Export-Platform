@@ -137,6 +137,8 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
   it("provides real private Project evidence upload, server-side checksum verification and independent review", () => {
     expect(API).toContain('app.post("/api/v1/storage/presigned-upload"');
     expect(API).toContain("privateStorage.verifyObject(key, Number(contentLength), String(sha256Checksum))");
+    expect(API).toContain("privateStorage.deleteObject(key)");
+    expect(API).toContain("DOCUMENT_OBJECT_CLEANUP_REQUIRED");
     expect(API).toContain("upload_verified_at");
     expect(API).toContain("FOR UPDATE OF per");
     expect(UI).toContain('"/storage/presigned-upload"');

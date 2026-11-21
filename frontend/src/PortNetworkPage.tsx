@@ -45,7 +45,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [error, setError] = useState("");
   const [masterResource, setMasterResource] = useState("ports");
   const [masterId, setMasterId] = useState<string | null>(null);
-  const [masterDraft, setMasterDraft] = useState("{\n  \"name\": \"\",\n  \"source_reference\": \"\",\n  \"evidence_sha256\": \"\"\n}");
+  const [masterDraft, setMasterDraft] = useState("");
   const [masterMessage, setMasterMessage] = useState("");
   const [reviewNote, setReviewNote] = useState("");
   const [depthDraft, setDepthDraft] = useState({ depthValue: "", depthDatum: "", observedAt: "", surveyDate: "", sourceAuthority: "", evidenceObjectKey: "", evidenceSha256: "" });

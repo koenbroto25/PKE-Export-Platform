@@ -94,6 +94,8 @@ describe("API route registry (regression)", () => {
     expect(INDEX_SRC).toContain('requireProjectPermission(req, res, projectId, "port.view")');
     expect(INDEX_SRC).toContain('requireProjectPermission(req, res, projectId, "warehouse.view")');
     expect(INDEX_SRC).toContain('assessmentMode: "advisory_only"');
+    expect(INDEX_SRC).toContain("effective_verification_status");
+    expect(INDEX_SRC).toContain("NULLIF(btrim(p.source_reference),'') IS NULL");
     expect(INDEX_SRC).toContain('canManage: false');
   });
 

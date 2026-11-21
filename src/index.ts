@@ -2346,6 +2346,7 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
       `SELECT d.id, d.project_id, d.project_requirement_id, d.file_reference, d.object_key,
               d.original_filename, d.mime_type, d.sha256_checksum, d.version_no, d.status,
               d.uploaded_by, d.reviewed_by, d.uploaded_at, d.reviewed_at, d.expiry_date, d.notes,
+              d.file_size_bytes, d.storage_bucket, d.upload_verified_at,
               d.created_at, d.updated_at,
               per.country_requirement_id, cdr.country_code, edt.document_code, edt.document_name
        FROM project_export_documents d
@@ -2375,6 +2376,9 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
       reviewedBy: r.reviewed_by,
       uploadedAt: r.uploaded_at,
       reviewedAt: r.reviewed_at,
+      fileSizeBytes: r.file_size_bytes,
+      storageBucket: r.storage_bucket,
+      uploadVerifiedAt: r.upload_verified_at,
       expiryDate: r.expiry_date,
       notes: r.notes,
       createdAt: r.created_at,
@@ -2390,10 +2394,19 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
   const projectId = req.params.projectId as string;
   if (!(await requireProjectPermission(req, res, projectId, "documents.create"))) return;
   const { projectRequirementId, fileReference, objectKey, originalFilename, mimeType, sha256Checksum, contentLength, versionNo, expiryDate, notes } = req.body ?? {};
-  if (!projectRequirementId || !fileReference || !objectKey || !originalFilename || !sha256Checksum || contentLength === undefined) return res.status(400).json({ error: "Project requirement, private object key, filename, SHA-256 and content length are required." });
-  if (String(objectKey).indexOf(`projects/${projectId}/`) !== 0 || fileReference !== objectKey) return res.status(400).json({ error: "Document reference must match a project-namespaced private object key.", code: "INVALID_OBJECT_KEY" });
+  if (!projectRequirementId || !fileReference || !objectKey || !originalFilename || !sha256Checksum || contentLength === undefined || !mimeType) {
+    return res.status(400).json({ error: "Project requirement, private object key, filename, MIME type, SHA-256 and content length are required." });
+  }
+  const key = String(objectKey);
+  const expectedPrefix = `projects/${projectId}/documents/${projectRequirementId}/`;
+  if (!key.startsWith(expectedPrefix) || fileReference !== key || key.includes("..") || key.includes("\\")) {
+    return res.status(400).json({ error: "Document reference must match the exact private Project/requirement object namespace.", code: "INVALID_OBJECT_KEY" });
+  }
+  const storageStatus = privateStorage.status();
+  if (!storageStatus.available || storageStatus.bucket !== "pke-private-documents") {
+    return res.status(503).json({ error: "Private object storage is unavailable or bucket does not match.", code: "STORAGE_UNAVAILABLE" });
+  }
   try {
-    await privateStorage.verifyObject(String(objectKey), Number(contentLength), String(sha256Checksum));
     const { rows: reqRows } = await req.db.query(
       `SELECT per.id, edt.document_code
          FROM project_export_document_requirements per
@@ -2402,9 +2415,13 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
         WHERE per.id=$1::uuid AND per.project_id=$2::uuid`,
       [projectRequirementId, projectId],
     );
-    if (reqRows.length === 0) return res.status(404).json({ error: "Not found" });
-    const storageStatus=privateStorage.status();
-    if(!storageStatus.available) return res.status(503).json({error:"Private object storage is unavailable.",code:"STORAGE_UNAVAILABLE"});
+    if (reqRows.length === 0) return res.status(404).json({ error: "Project document requirement not found." });
+    let verifiedObject;
+    try {
+      verifiedObject = await privateStorage.verifyObject(key, Number(contentLength), String(sha256Checksum));
+    } catch {
+      return res.status(422).json({ error: "Stored object size or SHA-256 verification failed.", code: "DOCUMENT_OBJECT_VERIFICATION_FAILED" });
+    }
     const { rows } = await req.db.query(
       `INSERT INTO project_export_documents
         (project_id,project_requirement_id,file_reference,object_key,original_filename,mime_type,
@@ -2413,13 +2430,16 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
        VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,'uploaded',$9::uuid,$10::date,$11,now(),now(),
                $12,$13::bigint,now(),$6,$14)
        RETURNING *`,
-      [projectId,projectRequirementId,fileReference,objectKey,originalFilename,mimeType||null,
-       sha256Checksum,versionNo!==undefined?versionNo:1,req.user?.id||null,expiryDate||null,notes||null,
-       storageStatus.bucket,Number(contentLength),reqRows[0].document_code],
+      [projectId,projectRequirementId,key,key,String(originalFilename),String(mimeType),
+       verifiedObject.sha256,versionNo!==undefined?versionNo:1,req.user?.id||null,expiryDate||null,notes||null,
+       storageStatus.bucket,verifiedObject.size,reqRows[0].document_code],
     );
-    res.status(201).json({ document: rows[0] });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+    return res.status(201).json({ document: rows[0], uploadVerified: true });
+  } catch (error: any) {
+    if (error?.code === "23503" || error?.code === "23514" || error?.code === "42501") {
+      return res.status(400).json({ error: "Project document metadata or workflow validation failed." });
+    }
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

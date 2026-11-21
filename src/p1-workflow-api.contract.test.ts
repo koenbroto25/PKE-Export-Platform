@@ -59,6 +59,8 @@ describe("P1 workflow API security contracts",()=>{
   });
   it("scopes KPI templates by the selected active role and uses verified loading-ticket source",()=>{
     expect(api).toContain("p1KpiTemplatesByRole");
+    expect(api).toContain("const p1Roles");
+    expect(api).toContain("public.pke_current_user_id()");
     expect(api).toContain("public.loading_tickets");
     expect(api).toContain("status='verified'");
     expect(api).toContain("status IN ('presented','accepted','discrepancy')");

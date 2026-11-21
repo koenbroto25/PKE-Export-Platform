@@ -9983,3 +9983,67 @@ Do not adopt a large external application merely because it has many features. T
 - The next safe engineering action is the P0/P1 evidence reconciliation and a complete P1 requirement-to-API/UI/RLS acceptance matrix on the existing working branch.
 - Preserve Production at migration 053. UAT 058–071 is a validation stream only; do not promote or copy it to Production without a reconciled release plan and exact owner approval.
 - Keep this plan as the single source of truth. Update its ledger and relevant domain checklist after each meaningful verified execution; do not create parallel status/plan Markdown files.
+
+
+---
+
+## §56.50 — P0/P1 evidence reconciliation and P2 phase crosswalk (2026-11-21)
+
+### A. Reconciliation of §56.49 against live ledgers and latest evidence
+This section supersedes any ambiguous or stale phase-status wording in §56.49 and older checkpoints.
+
+**Neon migration boundary (direct read-only ledger evidence):**
+- Production `br-damp-shape-b3xlh4nr`: migrations **001–053** are applied; latest row 053 is `053_project_admin_accounting_reports_read_only.sql`. Migrations 054–071 are absent from Production.
+- UAT `br-young-boat-b3re832d`: migrations **001–071** are applied. The directly read 054–057 rows match the known canonical permission/governance/project-context changes; 058–071 match the P1 workflow/KPI/AP-match chain. No gaps were observed in rows 039–071.
+- Therefore P0's current database state is split: its earlier foundation migrations through 053 are in Production; the 054–057 completion set is in UAT only. P0 must not be described as Production-released. Its isolated UAT schema chain is applied through 057, while Production remains protected at 053.
+- The Production backup branch `pke-production-pre-053-backup-20261121` is READY. This is a retained Neon branch-level recovery point, not evidence of a completed restore drill.
+
+**P0 functional disposition:**
+- The historical PRI-0 blockers in earlier sections were subsequently remediated in Production through Migrations 042–047 and the later 048–053 chain: reservation release-reason schema compatibility, multi-role assignment foundation, Finance requestor/Finance separation and Finance-only maker-checker, Project Admin Finance read-only, AP/AR/document and role/project permission hardening.
+- UAT Migrations 054–057 add canonical role-permission allowlists, Platform Admin PM-governance-only RLS, Project context plus explicitly shared Funder reports, and restriction of basic Project context from exposing role catalogues/configuration versions.
+- UAT evidence recorded earlier includes role/permission allowlist checks, Project-scoped role resolution, Finance/Accounting/Funder context isolation and Funder share/revoke lifecycle rollback. The 054–057 ledger is now confirmed applied.
+- **P0 disposition:** core P0 implementation and UAT database sequence are materially complete through 057; Production promotion of 054–057 and any remaining business/browser acceptance are separate release gates. Do not reopen the resolved reservation/cash-advance/permission-dictionary findings as if they remain unaddressed; retain their original history as superseded evidence.
+
+**P1 functional disposition:**
+- UAT migrations 058–071 are all applied. The final 070 and 071 hashes were re-read from Neon and match §56.49. The UAT-only P1 release verifier pins 058–070 and the separate Migration 071 source/test record pins the final Migration 071 hash; the Production manifest remains isolated from the UAT P1 chain.
+- Migration 071 targeted AP three-way-match integrity, Finance verification, immutable verified evidence/source tuple and AP/AR audit tests are recorded PASS; synthetic writes were rolled back.
+- Additional direct UAT KPI formula-scope tests executed in this reconciliation: **9/9 PASS** across Procurement, Finance, Warehouse, PM, Supplier and cross-Project negative cases. Positive checks included Procurement PO-cycle, Finance three-way-match, Warehouse inventory-variance and PM cross-domain access. Negative checks denied Procurement/Finance production-output formulas, Warehouse audit KPI, Supplier KPI access and Procurement access to another Project.
+- Runtime role posture read-back: `app_runtime_secure` is not superuser, has no BYPASSRLS/CREATEDB/CREATEROLE and is not a member of `neondb_owner`. PUBLIC cannot execute `p1_kpi_formula_allowed`, `p1_get_kpi_metric` or the private AP match helper; `app_runtime_secure` can execute the KPI functions but cannot execute the private AP match helper.
+- **P1 disposition:** UAT migration and targeted database/security gates are PASS. Full P1 business acceptance is still **PARTIAL / BLOCKED**: P1 domain record/event/evidence tables currently contain zero real workflow records; no verified export-document object exists; no completed report artifact with a real file reference exists; shipment allocation/load/issue end-to-end has not been demonstrated from a newly created reservation fixture; authenticated role HTTP/browser acceptance is not claimed. Earlier owner waiver of the separate Neon Auth HTTP test remains a waiver, not a PASS.
+
+### B. P0/P1 closeout work remaining (bounded)
+1. Keep Production at 053 until the owner separately approves a release package for 054–071; do not infer that UAT application grants Production approval.
+2. Preserve the UAT P1 chain as the isolated test/review baseline. Do not add UAT migration hashes to the Production manifest.
+3. Close P1 business acceptance with the remaining source-backed scenarios: real-but-isolated PO→GRN→AP and reservation→allocation→loading→inventory issue transitions; document upload/review using a real private object and checksum; report generation with a real artifact; role workbench/API drill-through and cross-Project negative cases. Use only an explicitly authorized isolated test context and verify cleanup.
+4. Record any unavailable provider, credential or owner-only action as `BLOCKED_EXTERNAL` / `OWNER_WAIVED`; never replace it with fabricated successful data.
+5. Keep P07 Finance v1.2 unchanged. Any P2 integration with Finance is read/integration-only unless a separately approved P07 change is required.
+
+### C. P2 phase definition and crosswalk — ESTABLISHED
+**P2 is a delivery phase label, not P02.** P02 continues to mean the foundational Backend, Database & Neon Platform package. P2 is now mapped to the Master Plan's next domain expansion: **P15 → P16 → P17 → P18**, with P06/P08/P09/P10/P11/P12/P13 as dependent or cross-cutting packages. This resolves the historical ambiguity without renaming the existing package IDs.
+
+| P2 workstream | Master Plan package | Sprint crosswalk | Required outcome / exit gate |
+|---|---|---|---|
+| P2-A Supply & facility intelligence | **P15** Supplier, Facility & Product Master Intelligence | Sprint 04–05 | Canonical organization/PKS/KCP/facility/product/specification/capacity/quality/stock provenance; distinguish capacity from stock and PKS from KCP; scoped Admin/PM/supplier access and matching tests |
+| P2-B Port & multimodal network | **P16 + P06** Port, Port Warehouse & Multimodal Logistics; operational inventory/transport | Sprint 06–07 | Port/terminal/berth/channel/depth/services and port warehouse; connect facility→truck→warehouse→port; inventory custody, reservation/allocation, quantity reconciliation and idempotent movements |
+| P2-C Vessel & Export Control Tower | **P17 + P10 + P11** Maritime/Vessel Intelligence, role workspaces and reporting | Sprint 08, then Sprint 11 integration | Indonesia-only AIS source strategy; vessel/port compatibility; readiness checklist, source-stamped ETA/position, loading plan/shift/hold/laytime and buyer-scoped shipment visibility; role work queues and PM exception roll-up |
+| P2-D Regulatory knowledge & AI readiness | **P18 + P08 + P09** Regulatory Knowledge Graph, compliance engine and Gemini/RAG | Sprint 09–10 | Official source registry and effective-dated rules; document readiness and provenance; grounded RAG with citations, scoped read-only tools and human approval for any proposed write |
+| P2-E Cross-cutting release and traceability | **P12 + P13** QA/UAT/DevOps and Change Control | Sprint 01–12 continuous; final gate Sprint 12 | Requirement-to-code-to-test traceability; multi-role and multi-Project tests; migration/backup/recovery/release evidence; no Production promotion from UAT PASS alone |
+
+**Foundational dependencies retained, not re-opened as new P2 work packages:**
+- P01/P02/P03/P04/P05 provide the business, database, identity/RLS, API and private-document foundation.
+- P06 is extended in P2-B; P07 v1.2 is preserved; P08 is completed in P2-D; P09 activates only after P18 knowledge/source controls; P10/P11 integrate incrementally with P2-C/P2-D; P12 gates release; P13 remains always-on; P14 remains advisory and does not introduce a second ERP/ledger/PM authority.
+- Sprint 01–03 are foundational platform/document prerequisites; Sprint 04–10 are the P15–P18 domain build sequence; Sprint 11 integrates complete role UX; Sprint 12 performs P07-preserving regression and release readiness.
+
+### D. P2 execution order and decision rules
+1. Start with **P2-A / P15**. Establish supplier, organization, PKS/KCP, facility, product and quality master records with provenance and scoped permissions before building dependent port/vessel automation.
+2. Continue **P2-B / P16 + P06**. Make port warehouse and multimodal movement depend on verified P15 facility/product identity and P06 inventory custody/reservation/allocation controls.
+3. Build **P2-C / P17** only after stock/port foundations exist. Vessel position is Indonesia-only per §56.43; AIS is situational awareness, not navigation or loading authorization. No feed, hardware, subscription or package purchase is approved by this crosswalk.
+4. Build **P2-D / P18 + P08 + P09** after source provenance and document object controls are proven. AI remains scoped/read-only by default; no fabricated regulatory authority or automatic legal pass.
+5. Integrate P10/P11 continuously, but do not create a second PM task system, duplicate permission authority or second finance ledger. P07 v1.2 remains authoritative.
+6. Every workstream requires source/DB/API/UI/permission/RLS/test/evidence traceability. Use synthetic records only in authorized isolated test scope and clean them up. No Production DDL/DML, role grants, external subscriptions, Vercel deployment or PR merge is implied by this crosswalk.
+
+### E. Immediate execution baseline after this session
+- P0: UAT schema through 057; Production through 053. P0 implementation/UAT progress is recognized, but Production release of 054–057 is not implied.
+- P1: UAT schema through 071; targeted KPI and AP-match security tests PASS; full operational/browser/document/report acceptance remains partial as listed above.
+- P2: crosswalk is established as P15→P16→P17→P18 (Sprint 04–10), with P06/P08/P09/P10/P11/P12/P13 dependencies and P07 v1.2 preserved.
+- Next implementation unit when execution resumes: P2-A / P15, subject to the P0/P1 release and test boundaries above. No clarification question is required to understand the phase mapping established here.

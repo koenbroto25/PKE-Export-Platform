@@ -1242,8 +1242,8 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 
 ### P16 CI and final cleanup checkpoint (21 November 2026)
 
-- Final branch commit: `805b6dff51a7ae78d600f61b25003b26d9c430aa`.
-- CI: Unit Tests push run `44915910819` PASS; PR run `44915914801` PASS; Dependency Audit `44915914733` PASS. 45 test files / 405 tests passed, including P16 governance 13/13. Backend API TypeScript check, frontend typecheck/build, migration dry-run and release-policy checks passed. Root and frontend dependency audits: 0 vulnerabilities.
+- Final branch commit: `75c3b066f662b8509f7cc8e23eba136adf5cb776`.
+- CI: Unit Tests push run `44916145797` PASS; PR run `44916149377` PASS; Dependency Audit `44916149344` PASS. 45 test files / 405 tests passed, including P16 governance 13/13. Backend API TypeScript check, frontend typecheck/build, migration dry-run and release-policy checks passed. Root and frontend dependency audits: 0 vulnerabilities.
 - Admin master INSERT → DELETE smoke test passed under `app_runtime_secure` and was fully rolled back; PM master UPDATE returned zero rows and PM INSERT was denied.
 - Final UAT cleanup: 93 ledger rows (16 baseline, 77 applied, 0 pending); Production unchanged at 53 rows; private bucket exists and remains empty; zero temporary Project evidence documents or master fixtures remain.
 - Vercel reports no deployment for final commit. PR #2 remains OPEN/DRAFT and unmerged.

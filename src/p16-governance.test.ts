@@ -9,8 +9,9 @@ const MIGRATION_083 = readFileSync(join(ROOT, "..", "migrations", "083_p2b_port_
 const MIGRATION_084 = readFileSync(join(ROOT, "..", "migrations", "084_p2b_pm_depth_vessel_permissions.sql"), "utf8");
 const MIGRATION_085 = readFileSync(join(ROOT, "..", "migrations", "085_p2b_port_evidence_document_guard.sql"), "utf8");
 const MIGRATION_086 = readFileSync(join(ROOT, "..", "migrations", "086_p2b_master_guard_updated_at_fix.sql"), "utf8");
+const MIGRATION_087 = readFileSync(join(ROOT, "..", "migrations", "087_p2b_admin_master_rls_guard_alignment.sql"), "utf8");
 const UI = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
-const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_086.json"), "utf8"));
+const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_087.json"), "utf8"));
 
 describe("P16 Port, Warehouse and Vessel governance", () => {
   it("registers P16 master CRUD, evidence, review, route and assessment endpoints", () => {
@@ -90,13 +91,14 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
   });
   it("pins UAT migration ledger 083-085 to exact SQL source hashes without modifying Production history", () => {
     expect(UAT_MANIFEST.branch_id).toBe("br-young-boat-b3re832d");
-    expect(UAT_MANIFEST.applied_count).toBe(86);
-    expect(UAT_MANIFEST.entries).toHaveLength(86);
+    expect(UAT_MANIFEST.applied_count).toBe(87);
+    expect(UAT_MANIFEST.entries).toHaveLength(87);
     for (const [id, filename] of [
       [83, "083_p2b_port_warehouse_governance.sql"],
       [84, "084_p2b_pm_depth_vessel_permissions.sql"],
       [85, "085_p2b_port_evidence_document_guard.sql"],
       [86, "086_p2b_master_guard_updated_at_fix.sql"],
+      [87, "087_p2b_admin_master_rls_guard_alignment.sql"],
     ] as const) {
       const entry = UAT_MANIFEST.entries[id - 1];
       const actual = createHash("sha256").update(readFileSync(join(ROOT, "..", "migrations", filename))).digest("hex");
@@ -107,6 +109,12 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     }
     expect(UAT_MANIFEST.purpose).toBe("verified_uat_history_only_not_production_history");
     expect(MIGRATION_086).toContain("'updated_at'");
+  });
+
+  it("uses an authenticated RLS gate while the SECURITY DEFINER trigger enforces Platform Admin", () => {
+    expect(MIGRATION_087).toContain("pke_current_user_id() IS NOT NULL");
+    expect(MIGRATION_087).toContain("pke_is_platform_admin()");
+    expect(MIGRATION_087).toContain("updated_at");
   });
 
 });

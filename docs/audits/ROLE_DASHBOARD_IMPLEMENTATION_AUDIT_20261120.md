@@ -296,3 +296,23 @@ This section supersedes earlier statements that the Funder workspace remained bl
 - UAT permission integrity: 36 installed Project role rows, 294 grants, 260 allowlist entries, zero grants outside allowlist. Funder has no Finance, Accounting, internal Reports, or Payment permission.
 - Source CI exact head `9ec4a1ff378bedd57af5e7c22e3a76fa536dd1e9`: Unit Tests `44848751203` SUCCESS (backend/frontend typecheck and frontend build included); Dependency Audit `44848751184` SUCCESS.
 - No new branch, PR merge, Vercel deployment, Production DDL/DML or Production fixture data. Production remains unchanged.
+
+
+## 2026-11-21 — P1 workflow follow-up findings
+
+### Findings and source remediation
+- **RLS role-catalogue mismatch:** P1 API validation queried `project_roles` directly, while the operational roles intentionally cannot SELECT that catalogue. P1 role resolution now uses a narrow boolean SECURITY DEFINER helper in Migration 066; it checks active Project, user, member and role assignment without exposing catalogue rows.
+- **Evidence usability gap:** P1 exposed evidence upload but not evidence retrieval in the workbench. A permission-gated evidence read endpoint and UI history were added. Laboratory Officer evidence attachment uses `quality.result.create`; independent QA release/review remains separate.
+- **KPI correctness and disclosure:** P1 KPI template selection is now scoped by role, and loading completion is derived from verified tickets against planned loading quantity. LC discrepancy KPI metadata now identifies the LC presentation source.
+- **PM task queue integration:** Migration 066 adds an idempotent source-to-task synchronization trigger with a stable per-record dedupe key and per-version task-event key. Assignment notifications are generated only for active assignees.
+- **Vessel call authorization:** Migration 066 adds the canonical `shipping.create` permission through the master-of-loading role allowlist/grant path.
+
+### Test and release evidence
+- Latest source head: `2c8d6d39f1d0060f73fdb6f18b428dde148c7a68`.
+- Unit Tests workflow `44857604699`: SUCCESS, including all 324 unit/contract tests, migration release-source gates, dry-run, backend/frontend typecheck and frontend production build.
+- Dependency Audit workflow `44857609596`: check final status before release.
+- UAT pre-change backup schema: `p1_backup_066_20261121`; table row counts at capture were zero for P1 records/events/evidence and Project task queue/events.
+- UAT migration ledger remains 65. Migration 066 SHA-256: `76b19520116f26525379f694a95d2081f2d62721f7b07625d0507ac07a29bce4`; prepared only, not applied.
+
+### Remaining acceptance gate
+The code and CI are green, but this P1 slice is **not runtime-accepted** until Migration 066 is explicitly authorized and applied on UAT, then direct RLS/API/backtest proves role-safe creation, evidence access, KPI visibility, task/event synchronization, notifications and idempotency. Production remains untouched.

@@ -237,7 +237,7 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
       {(data.facilityProducts || []).length > 0 && <div className="master-data-verification">
         <h4>Register kapabilitas produk fasilitas</h4>
         <div className="table-wrap"><table><thead><tr><th>Fasilitas</th><th>Produk / Proses</th><th>Status / Bukti</th><th>Reviewer</th></tr></thead><tbody>
-          {(data.facilityProducts || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}</td><td>{r.product_code} · {r.product_name}<small>{r.process_type}</small></td><td><strong>{r.capability_status}</strong><small>{r.source_type} · {r.source_reference || 'Referensi belum diisi'}</small><small>{r.evidence_document_id || 'Bukti belum tersedia'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td><td>{r.verified_at ? new Date(r.verified_at).toLocaleString('id-ID') : 'Belum diverifikasi'}</tr>)}
+          {(data.facilityProducts || []).map((r: AnyRecord) => <tr key={r.id}><td>{r.facility_name}</td><td>{r.product_code} · {r.product_name}<small>{r.process_type}</small></td><td><strong>{r.capability_status}</strong><small>{r.source_type} · {r.source_reference || 'Referensi belum diisi'}</small><small>{r.evidence_document_id || 'Bukti belum tersedia'}</small><small>SHA-256 {r.evidence_sha256 || '—'}</small></td><td>{r.verified_at ? new Date(r.verified_at).toLocaleString('id-ID') : 'Belum diverifikasi'}</td></tr>)}
         </tbody></table></div>
       </div>}
       {(data.capacityRecords || []).length > 0 && <div className="master-data-verification">

@@ -9,6 +9,10 @@ export const P1_RECORD_TYPES = [
 export type P1RecordType = typeof P1_RECORD_TYPES[number];
 export type P1Status = "draft"|"submitted"|"approved"|"issued"|"acknowledged"|"in_progress"|"blocked"|"partially_received"|"received"|"matched"|"held"|"released"|"rejected"|"completed"|"cancelled"|"open"|"responded"|"verified"|"closed"|"presented"|"accepted"|"discrepancy"|"expired";
 
+export function initialP1Status(type:P1RecordType):P1Status {
+  return ["hse_action","audit_finding","lc_discrepancy"].includes(type)?"open":"draft";
+}
+
 const transitions: Record<P1RecordType, Partial<Record<P1Status, readonly P1Status[]>>> = {
   purchase_requisition:{draft:["submitted","cancelled"],submitted:["approved","rejected","cancelled"],approved:["cancelled"]},
   purchase_order:{draft:["submitted","cancelled"],submitted:["approved","rejected"],approved:["issued","cancelled"],issued:["acknowledged","partially_received","received"],acknowledged:["partially_received","received"],partially_received:["received","discrepancy"]},

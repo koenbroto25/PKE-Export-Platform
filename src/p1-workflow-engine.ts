@@ -178,7 +178,7 @@ export function validateP1Evidence(input:{objectKey:string;sha256:string;bucket:
     input.bucket==="pke-private-documents" && (input.sizeBytes==null || (Number.isInteger(input.sizeBytes)&&input.sizeBytes>0&&input.sizeBytes<=52428800));
 }
 
-export function evaluateFreshness(lastUpdatedAt:string|null, nowMs=Date.now(), maxAgeMinutes:number):"fresh"|"stale"|"unavailable" {
+export function evaluateFreshness(lastUpdatedAt:string|null, maxAgeMinutes:number, nowMs=Date.now()):"fresh"|"stale"|"unavailable" {
   if (!lastUpdatedAt || !Number.isFinite(Date.parse(lastUpdatedAt))) return "unavailable";
   const age=nowMs-Date.parse(lastUpdatedAt);
   if (age<0) return "unavailable";

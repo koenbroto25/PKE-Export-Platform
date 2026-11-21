@@ -1,14 +1,14 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.19 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.36 — Indonesia AIS and Vessel Readiness scope
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.19 (18 November 2026 — one-time comprehensive F0 audit and security revisions)  
+**Revision:** 2.36 (20 November 2026 — Indonesia AIS and Vessel Readiness scope; see §56.43)  
 
-**Tanggal dokumen:** 11 November 2026  
+**Tanggal dokumen:** 19 November 2026  
 
 **Repository:** `D:\PKE`  
 
@@ -6444,6 +6444,11 @@ Bukti validasi disimpan sebagai ringkasan pada Section 32: nama command, timesta
 | **v1.6** | **11 Nov 2026** | **Mencatat hasil revisi Cline pada branch Git `pke-admin-project-foundation-20261108` (route collision, table removals, FX-rate/GL mapping, report queued, regression tests); memisahkan klaim Cline dari verifikasi independen; memperbarui status P04/P07/P08/P10/P11/P12; work order lanjutan difokuskan ke MFA arsitektural, P08/P05 storage, FX exposure, Operations/tracking, jurnal, dan workflow frontend.** |
 
 | **v1.7** | **11 Nov 2026** | **Keputusan owner D-107: MFA ditunda sebagai pengembangan pascarilis dan bukan gate rilis awal; Cline harus menghapus hanya MFA enforcement yang memblokir Admin, menjaga seluruh auth/RBAC/RLS/session/audit controls, menambah regression tests tanpa MFA claim, dan tidak membuat klaim MFA aktif.** |
+| **v2.25** | **19 Nov 2026** | **Owner explicitly authorized persistent synthetic QA fixtures on the single Neon Production branch. Added two isolated test Projects, 23 DB-only test identities, 18 project roles per Project, 24 memberships and 548 permission mappings; ran 36 permission and 45 direct-RLS visibility assertions. Seeded contract, logistics, warehouse, quality, shipment, CoB, finance, GL, FX, documents, workflow, vessel and reporting fixtures. Backtest exposed inventory reservation trigger/schema drift, missing permission catalog codes, cash-advance requestor RLS mismatch and missing financial creation audit events. No DDL/migration or payment execution.** |
+| **v2.21** | **19 Nov 2026** | **F1 latest-head Preview for commit 4b8f1ff is READY and root smoke HTTP 200, but /api/v1/health returns HTTP 500 FUNCTION_INVOCATION_FAILED; F1 closeout is now runtime-blocked, not awaiting creation of that Preview. F0 remains owner-recorded as Vercel-quota pending.** |
+
+| **v2.20** | **19 Nov 2026** | **F0 and F1 closeout tracking updated: both finalization gates remain pending latest-head Vercel Preview due deployment quota; F1 Migration 041 applied and verified on Neon Production; F2 operational execution/export intelligence roadmap added as PROPOSED, not authorized for implementation.** |
+
 | **v1.8 / Rev 4** | **14 Nov 2026** | **Keputusan owner PERMANEN: satu Neon project (`purple-base-63944903`), satu branch `production` (`br-damp-shape-b3xlh4nr`), satu `neondb`/`DATABASE_URL`; LARANGAN MUTLAK branch tambahan dalam kondisi apa pun (tanpa pengecualian otomatis). Legacy `lucky-glitter-99553107` sumber migrasi sementara (jangan dipakai app/test, jangan dihapus sebelum migrasi tervalidasi+approval). Testing tanpa branch (tx/rollback, fixture QA namespace+cleanup). Runner `scripts/PKE_RUN_SINGLE_BRANCH.ps1` dan harness single-branch fail-closed ditambahkan; kebijakan 3C validation-branch/NEON_TEST di-SUPERSEDE. Migrasi/acceptance gates ke proyek baru belum selesai.** |
 
 
@@ -6702,6 +6707,8 @@ Validasi di atas dieksekusi dalam sesi ini dengan command, timestamp dan exit co
 Cline appends one concise dated entry per session to the table below. Keep newest entry first. Update or supersede facts when new evidence is obtained; do not delete historical entries.
 
 | Date | Work package | Changes performed | Verification/evidence | Production mutation | Status / blockers | Next action |
+| 2026-11-19 | F1 latest-head Preview runtime recheck | Git-triggered Vercel deployment for the latest plan/PR HEAD completed despite an earlier direct deployment request returning quota HTTP 402. Performed root and API health smoke plus runtime error/log lookup. | HEAD `4b8f1ff17f3ee355d1f176b32cb04bea2ce29157`; Preview `dpl_2Tfe3bUDxigBK7enn7r2HWkV5tnk` READY; root HTTP 200; Vercel build tests 90 passed / 4 skipped; GitHub Unit Tests `44440638715` SUCCESS; Dependency Audit `44440638726` SUCCESS. `/api/v1/health` returned HTTP 500 `FUNCTION_INVOCATION_FAILED`. Runtime logs and aggregated runtime errors returned no records for the selected one-hour window; root success does not prove API runtime health. | NONE — no DB/schema/data/deployment-target changes; Preview only. | F1 latest-head Preview existence/build gate PASS, root smoke PASS; API health smoke FAIL (500). F0 remains owner-recorded as Vercel-quota pending. | Inspect Vercel function invocation/build output and API serverless entry/config for the 500; implement a source fix only when root cause is evidenced; then verify CI and exact-head Preview root + `/api/v1/health` + permitted protected endpoint smoke. F0 separately waits for quota recovery. |
+| 2026-11-19 | F0/F1 closeout tracking + F2 design proposal | Recorded owner note that F0 and F1 each await finalization because Vercel deployment quota blocks latest-head Preview. For F1, applied approved Migration 041 to Neon Production, verified row 41/hash/functions/SECURITY DEFINER/search_path/EXECUTE grants/recipient policy, fixed Preview packaging test, and recorded F2 as a proposed next operational phase. | F1 Migration 041 row 41 SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`; `app_runtime_secure` EXECUTE true and PUBLIC EXECUTE false; Unit Tests `44438699683` SUCCESS; Dependency Audit `44438698081` SUCCESS; Preview `dpl_3uRNAwZUhGoXyjbJhyHfw8ejfxAT` READY for code commit `9967194c7869da2e86f8030de4a56e051ac07a76`, root HTTP 200. Latest F1 plan commit `66a225a2a4846d860ffa43b898fd7ac6ab76330c` has Vercel combined status failure due `api-deployments-free-per-day`; direct deploy attempt returned HTTP 402, retryAfter 86400 seconds. F0 closeout remains owner-recorded as Vercel-quota pending; its granular historical evidence remains in §§55 and must be rechecked against the current F0 HEAD when quota returns. | F1 Migration 041 DDL applied only after owner approval of exact SHA-256. No synthetic Production data; no F1 report notification was sent to real users. No Production deployment/promotion. | F0 and F1 are not declared FINAL. F1 latest-head Preview smoke is BLOCKED_EXTERNAL by Vercel quota. F0 latest-head Preview/finalization also remains quota-pending per owner. | After quota recovery, verify each branch's current HEAD, create Preview for exact HEAD, wait READY, smoke root and protected/API health paths with authorized access, record exact evidence; only then close each phase. F2 remains DESIGN/PROPOSED pending F0/F1 closeout and owner authorization. |
 |---|---|---|---|---|---|---|
 | 2026-11-18 | F0 continuation — canonical ledger commit verified | Confirmed CI and Preview completion for the latest canonical-plan commit e6675514bd14166a368f9f97332154cbf691fc6b. | GitHub Actions run 44304605969 SUCCESS. Vercel Preview deployment dpl_53bdk3taSpwNGZzfVy56PcC9CuZe READY; build completed in 48 seconds, 82 tests passed, backend TypeScript and frontend Vite build passed. Preview root and health checks already passed on the preceding app-code commit e9013fd. | NONE — no Production change. | F0 remains OPEN. All automation/code checks in this continuation are green, but external/owner gates remain: Admin Auth lifecycle session tests, second Neon Auth Admin identity reconciliation, cross-project RLS with real project rows, protected API app-layer smoke, automatic backup schedule, Vercel secret visibility, Production redeploy approval, and temporary validation branch cleanup at expiry. | Owner review of second Auth Admin; authenticated Admin session; Neon backup feature enablement; Vercel visibility control; explicit Production redeploy authorization. |
 | 2026-11-18 | F0 continuation — RLS partial behavior, Admin lifecycle CI, Preview recovery, Auth role drift | Corrected lifecycle contract tests to avoid .vercelignore-excluded migration SQL; CI and Preview now pass. Read-only Production Auth role counts and read-only validation RLS context checks completed. | CI run 44304069020 for commit e9013fd32376d84e8998f9623ba3b458ab04134c SUCCESS: 82 tests, Production migration ledger verifier, migration dry-run, backend typecheck. Preview dpl_3fXy3wqPyRRzod4QbnYJbvhAzjyo READY; root HTTP 200 and /api/v1/health HTTP 200, DB connected, environment=production. Protected routes still blocked before app by Deployment Protection share-link auth. Production read-only counts: 2 non-banned Neon Auth Admin users, only 1 linked to a PKE Admin record. RLS test on validation branch: actual Admin sees 1 user, synthetic non-admin sees 0, missing context sees 0; projects/project_members empty. | NONE — no Production SQL/data/Auth/config/deployment changes; no secret values read. | F0.05 PARTIAL PASS only; real two-project isolation not proven. Admin Auth orphan/drift needs owner review; no account modified. Automatic backup schedule provider-disabled. Vercel env edit cannot set visibility=secret because action schema omits visibility. Validation branch contains a temporary role membership grant whose grantor is provider-owned cloud_admin; revoke attempted but connector cannot revoke that grantor's privilege. Branch expires 2026-11-19T06:35Z; no Production effect. Picomatch GHSA remains unpatched and disputed; no forced downgrade. | Keep validation branch isolated until expiry or obtain approval to delete it; reconcile the second Auth Admin with PKE ownership; obtain authorized Admin session for lifecycle tests; ask Neon/Vercel support for backup/secret-visibility controls; obtain explicit Production redeploy approval. |
@@ -6740,6 +6747,16 @@ eondb) credentials/access not available in env (no target DATABASE_URL configure
 
 
 ## 32.7 Cline work order aktif — Revision 5.8 (FINAL APPLICATION INTEGRATION & OWNER UAT)
+## 32.7 Active Work Order — 19 November 2026 (F0/F1 closeout, then F2)
+
+**Authoritative current order:** this dated work order supersedes older active-order statements below where their status conflicts. Preserve the detailed historical evidence in §§47–55; do not delete it or silently relabel historical checklists.
+
+1. **F0 closeout:** owner records F0 as one of two phases awaiting finalization because Vercel deployment quota prevents the required latest-head Preview. When quota recovers, inspect the exact current F0 branch HEAD and revalidate all required CI, deployment, HTTP smoke, Auth/RLS/storage/recovery gates against that HEAD. Do not infer latest-head parity from an older READY Preview. Keep F0 open until the exact release gate is evidenced.
+2. **F1 closeout:** Migration 041 is owner-approved and applied to Neon Production (ledger row 41, exact SHA-256 recorded in §56). Schema/function privilege checks passed. Latest plan/PR head at this checkpoint `4b8f1ff17f3ee355d1f176b32cb04bea2ce29157` has Preview `dpl_2Tfe3bUDxigBK7enn7r2HWkV5tnk` READY; root HTTP 200; Vercel build test output 90 passed / 4 skipped; GitHub Unit Tests and Dependency Audit SUCCESS. However `/api/v1/health` returns HTTP 500 `FUNCTION_INVOCATION_FAILED`; no matching runtime log/error records were returned. F1 is therefore runtime-blocked, not closed. Diagnose and fix the evidenced serverless failure, then rerun exact-head CI/Preview and API smoke. Earlier manual deploy HTTP 402 remains recorded, but Git-triggered Preview succeeded.
+3. **F2:** design only at this point. The proposed scope, sequencing, non-goals and acceptance gates are in §56. Do not start F2 implementation, create schema/migrations, seed data, create Neon branches, or activate paid providers until F0/F1 closeout and explicit owner authorization.
+4. **Permanent safety constraints remain binding:** one Neon project/Production branch/database only; no local/Docker/alternate DB and no additional Neon branches; no synthetic business data in Production; no DDL/DML without exact owner approval; payment execution remains out of F1 scope; no merge or Production promotion as a substitute for missing Preview evidence.
+5. **Documentation discipline:** after each future work session update this Master Plan's §32.5 ledger, §32.7 work order and affected domain checklist. Preserve historical entries and label evidence FACT/VERIFIED, OWNER-REPORTED, PROPOSED or BLOCKED accurately.
+
 
 **Status (15 November 2026, updated after 16:56Z session):** ACTIVE. Target remains direct owner acceptance testing on the real deployed application, not a demo. Section 34 is the authoritative detailed work order.
 
@@ -8183,3 +8200,2226 @@ Current public advisory evidence as of 18 November 2026 identifies GHSA-fc5q-39x
 - The new RLS behavior smoke is intentionally PARTIAL because the validation branch has no projects or project_members rows. The temporary validation-only role membership cannot be revoked through the available connector because the grantor is provider-owned cloud_admin; branch br-soft-fog-b3zi4c2x remains temporary and is scheduled to expire at 2026-11-19T06:35Z. No further tests should grant roles on that branch. If immediate cleanup before expiry is required, ask the owner to approve deletion of that validation branch.
 - The second non-banned Neon Auth Admin identity is not linked to a PKE Admin record. No changes were made pending owner identification/decision.
 - **F0 remains IN PROGRESS / NOT CLOSED.** Green CI/Preview does not substitute for authenticated Admin Auth lifecycle tests, project-row isolation tests, protected API application-level smoke, automatic backup scheduling, secret visibility correction, or approved Production redeployment.
+
+
+
+# 56. F0/F1 finalization register and F2 implementation design (19 November 2026)
+
+## 56.1 Current phase register — authoritative owner note plus verified F1 evidence
+
+| Phase | Current state | Verified / recorded position | Remaining closeout |
+|---|---|---|---|
+| F0 — platform foundation and account/security workflows | **FINALIZATION PENDING — VERCEL QUOTA** | Owner records F0 as one of two phases whose finalization is delayed by Vercel deployment quota. Historical F0 implementation, migration, RLS, storage, Auth, CI and Preview evidence remains in §§47–55. The latest exact F0 branch HEAD and current Preview parity must be re-fetched after quota recovery; do not assume an older READY Preview is latest. | Deploy Preview for exact current F0 HEAD, confirm READY, run approved root/API/health/protected-workflow smoke, reconcile all F0 acceptance gates and record exact commit/deployment/HTTP evidence. |
+| F1 — Project-scoped PM contracts, shipment CoB and Finance reporting | **PRODUCTION DEPLOYED + HEALTH PASS; PERSISTENT FIXTURE BACKTEST IN PROGRESS; FUNCTIONAL BLOCKERS OPEN** | Migration 041 remains applied with approved SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`. Production deployment remains `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh` from code commit `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c`; health endpoints previously returned HTTP 200. This pass added persistent synthetic QA fixtures on Neon Production and completed 36/36 permission-helper assertions plus 45/45 direct RLS visibility assertions; warehouse receipt→movement and balanced GL posting passed; CoB duplicate guard, payment balance guard and report-without-file guard passed. | Still blocked: inventory reservation trigger/schema mismatch (`release_reason` absent); four API permission codes plus one RLS permission code absent from catalog; cash advance requestor create/read RLS conflict; financial insert audit events missing for CoB/AP/AR; no Neon Auth-linked fixture users for authenticated HTTP/browser UAT; no real document object or completed report artifact; shipment allocation depends on reservation fix. PR #2 remains OPEN/DRAFT and no merge occurred. Preview DB remains policy-blocked; no Production secrets copied to Preview. |
+| F2 — Operational execution and export intelligence | **DESIGN / PROPOSED — NOT AUTHORIZED FOR IMPLEMENTATION** | Draft design is in §56.3–56.8 and maps to existing P06/P08/P09/P10/P11/P15/P16/P17/P18 work packages. | Owner review and explicit F2 start authorization after F0/F1 closeout. |
+
+### F0/F1 release rule
+- F0 and F1 remain separate phase acceptance decisions. A READY Preview on an earlier commit is not latest-head evidence.
+- On Vercel quota recovery, first fetch the current Git branch HEAD and CI status for each phase; then create Preview against that exact SHA, wait for READY, and smoke the exact deployment URL. Record commit SHA, deployment ID, CI run IDs, HTTP results and any protected-route access limitation.
+- Do not merge PR #2, promote a Production deployment, or mark either phase COMPLETE solely to bypass the quota. No Vercel billing/plan/team security setting may be changed automatically.
+- F0's detailed historical checklist is not erased. Any item previously BLOCKED/PARTIAL must be marked PASS only with new evidence or an explicit owner waiver; do not treat the Vercel quota note as silently waiving unrelated acceptance requirements.
+
+## 56.2 F2 objective and product outcome
+
+**F2 proposed name:** Operational Execution & Export Intelligence.
+
+**Objective:** connect the already established project, contract/program, shipment-CoB and Finance reporting foundation to the physical PKE export chain — verified supply, quality, inventory, inland movement, warehouse, port, vessel, export documents and buyer visibility — with traceable quantities, documents, milestones and role-scoped decisions.
+
+F2 is an operational workflow phase, not a broad platform rewrite. Retain the modular-monolith architecture, existing Neon Production system of record, existing role/project authorization model, and PKE-first scope. Implement vertical slices from verified master data to shipment completion. Keep external data/AI advisory; business state transitions remain deterministic and human-authorized.
+
+## 56.3 F2 scope — proposed workstreams
+
+| F2 slice | Existing plan mapping | Functional outcome | Core acceptance |
+|---|---|---|---|
+| F2.1 Supply master and verification | P15; P01/P03/P05 | Canonical supplier/organization, PKS vs KCP vs warehouse distinction, facility contacts/capacity/certification, product variants/specification versions and provenance | One organization may own multiple facilities; PKS is not assumed to produce PKE; capacity is not stock; unverified data is visibly marked; scoped Admin/PM/supplier access tests pass. |
+| F2.2 Buyer demand, sourcing and quality | P15; P06; P05 | Buyer requirement profiles, explainable supplier/product matching, sample/lab/COA chain, procurement and contract-program linkage | Hard quality/contract constraints cannot be overridden by ranking; units/basis/method mismatch is rejected; each COA binds to lot/sample and immutable document checksum; reviewer approval is auditable. |
+| F2.3 Inventory and inland logistics | P06; P10; P11 | Lot genealogy, stock availability/reservation/hold, dispatch, truck trip/checkpoint, weighbridge, receipt, QC hold/release, warehouse put-away and outbound | No double-counting; stock transitions are atomic and idempotent; each movement records actor/time/source/quantity; GPS/photo evidence includes provenance and permission checks; offline sync conflicts are explicit and recoverable. |
+| F2.4 Port and multimodal readiness | P16; P06 | Port/terminal/berth/channel/warehouse/service master, route and modality constraints, port appointment and loading readiness | Depth includes datum/source/observed date; port service/capacity is versioned; route result is advisory with provenance; system never claims navigation clearance or guaranteed vessel access. |
+| F2.5 Vessel, voyage and shipment execution | P17; P06; F1 shipment/CoB foundation | Vessel registry and identifiers, voyage/port calls, nomination, loading tickets, quantity reconciliation, shipment event timeline, buyer/agent workspace | Vessel identifiers and provider freshness are visible; stale AIS is not presented as live; shipment/CoB linkage is Project-scoped; partial loading and quantity variance require explicit workflow/audit; buyer sees only its authorized shipment projection. |
+| F2.6 Export documents and regulatory readiness | P08; P05; P18 | Shipment document checklist, versioned requirements, source registry, effective-date rules, evidence review, exception handling and export readiness | Every active rule cites an authoritative source, jurisdiction, scope, validity interval and reviewer; missing/uncertain requirements are PENDING/MANUAL REVIEW, never auto-pass; final documents are versioned and immutable by checksum. |
+| F2.7 Control tower, reporting and AI assistance | P09; P11; P18; P10 | Cross-domain operational timeline, exception queue, KPI definitions, alerts, grounded search, document extraction and draft summaries | KPI values reconcile to source records; AI output carries citations/provenance/confidence; retrieval is filtered by project/partner permission; AI is read-only by default and cannot approve, post, release stock, submit customs filings or trigger payments. |
+
+## 56.4 Proposed end-to-end operational journey
+
+1. **Supply onboarding:** Admin/authorized PM verifies supplier organization, each physical facility, ownership/operator, capacity, certification, contact and product capability.
+2. **Demand definition:** PM records buyer requirement and commercial constraints under the Project/Contract Program. Product specification version and units/basis are frozen for the applicable call-off.
+3. **Sourcing and quality:** eligible supplier/facility candidates are filtered by hard constraints; sample, laboratory result and COA are reviewed and attached to the relevant lot.
+4. **Procurement and stock creation:** approved procurement/receipt creates traceable inventory lots; availability is derived from on-hand less reservations/holds, not manually typed totals.
+5. **Dispatch and inland transfer:** authorized dispatch creates truck trip and checkpoint chain; weighbridge and receiving events reconcile source/destination quantities; exceptions enter a controlled review queue.
+6. **Warehouse and shipment allocation:** warehouse receipt, QC release, packing and outbound movement update stock atomically; allocation links eligible lots to a Project shipment without double reservation.
+7. **Port and vessel readiness:** terminal/service constraints and vessel particulars are checked against verified data; nomination, port calls, loading events and actual loaded quantities are recorded.
+8. **Compliance and documents:** jurisdiction/date-specific checklist is evaluated; documents are generated/attached as drafts, reviewed by authorized human, then versioned/finalized.
+9. **Buyer visibility and closeout:** buyer/agent sees permitted milestone and quantity projections; operational variance, document readiness and Finance reporting are reconciled. Payment execution remains outside this F2 design unless separately approved.
+
+## 56.5 Core domain model and invariants
+
+- Preserve Project as the authorization boundary. Every operational record must have a direct or unambiguous inherited Project scope and be protected by API authorization plus RLS; partner access adds partner-specific scope, never broadens Project access.
+- Preserve F1 contract/program/cycle ownership. PM manages the commercial configuration only within the PM's active Project membership and permission. Each shipment has at most one Project-linked CoB obligation.
+- Maintain lot genealogy: supplier/facility → production/receipt lot → sample/COA → stock movement → warehouse location → shipment allocation → loading ticket → shipment document. Never overwrite provenance or silently merge unlike lots.
+- Separate physical quantities and units: production capacity, actual production, on-hand, reserved, held, in-transit, received, packed and loaded are distinct measures with explicit units and event timestamps.
+- All state transitions are server-side, permission checked, transactional, idempotent, auditable and monotonic where business rules require. Corrections use reversal/adjustment events rather than destructive history edits.
+- External data is source/version/time stamped with freshness and confidence. Manual, partner-submitted, provider-retrieved, AI-extracted and independently verified data must be distinguishable.
+- Document object storage remains private; every file has Project/partner access checks, checksum, version, MIME/size validation, retention metadata and audit trail.
+- Finance integration is read/reporting and operational cost traceability only. Do not infer a payment execution capability from CoB, obligation or report records.
+
+## 56.6 Recommended delivery order and gates
+
+| Order | Delivery slice | Dependencies | Exit gate |
+|---|---|---|---|
+| 0 | F0/F1 closeout | Vercel quota recovery | Exact current-head CI + Preview READY + approved smoke evidence for both phases; explicit phase closeout. |
+| 1 | F2 baseline reconciliation | F0/F1 closed; owner authorizes F2 | Read-only schema/source/API/UI inventory; exact current Git HEAD; existing-table mapping; no duplicate tables; no Neon branch creation. |
+| 2 | F2.1 supply master | P01/P03/P05 foundation | Master data and provenance tests; role/project/partner isolation; UI and API vertical slice. |
+| 3 | F2.2 buyer demand and quality | F2.1 | Spec/version/unit and COA chain tests; explainable matching with hard filters. |
+| 4 | F2.3 inventory and inland logistics | F2.1–F2.2; existing P06 shipment foundations | Transactional lot/reservation/movement tests, quantity reconciliation, idempotency and exception workflow. |
+| 5 | F2.4 port and multimodal | Facility/product + logistics | Port data provenance/freshness and vessel-screen boundaries; no navigation clearance claim. |
+| 6 | F2.5 vessel and shipment execution | F2.3–F2.4 | Shipment milestone, loading, quantity variance, buyer/agent isolation and stale-provider behavior tests. |
+| 7 | F2.6 compliance/document readiness | F2.1–F2.5; counsel review for legal rules | Source-backed country pack, effective-date evaluation, human review, document version/checksum tests. |
+| 8 | F2.7 control tower and AI assistance | Operational event model stable | KPI reconciliation, permission-filtered retrieval, citations, read-only tool policy and human approval tests. |
+| 9 | F2 integration release | All prior slices | Full CI, frontend build, API contract, single-branch Production-safe checks, approved Preview exact-head smoke, operator and owner UAT. |
+
+## 56.7 F2 explicit non-goals and external dependencies
+
+**Non-goals for initial F2:** multi-exporter marketplace, replacing customs/port/bank/shipping-line systems, autonomous legal opinion, autonomous customs filing, automatic bank transfer/payment execution, AI-driven inventory release or payment, guaranteed AIS coverage, navigation clearance, and unverified HS classification.
+
+**External dependencies:** approved supplier/partner data; laboratory and sampling procedure; official regulatory source access and legal/customs reviewer; selected AIS/map/geospatial provider contracts and keys; email/notification provider; AI provider credentials, data processing/retention review and budget; owner-approved Production migration(s). Build provider-neutral adapters and manual milestone paths while activation is blocked. No paid provider activation or contractual commitment is implied by this proposal.
+
+## 56.8 F2 architecture, security and test policy
+
+- Modular monolith with domain boundaries; no microservices split without measured need.
+- Existing-schema-first. Before every migration: inspect exact Production columns/constraints/indexes/RLS/policies/grants/functions/triggers; prepare exact SQL, SHA-256, impact/lock review, rollback/recovery plan and post-apply checks; obtain owner approval for that exact artifact.
+- Single Neon project/branch/database rule remains absolute. No new Neon branch, local database, Docker database or alternate connection string.
+- No mock business records in Production. Use pure unit/contract tests, mock provider adapters, transaction rollback tests that do not persist business fixtures, and read-only Production verification. Any exception needs a separate written owner decision.
+- Test each vertical slice at three levels: domain invariants; API authorization/RLS and cross-Project/partner negative cases; frontend role-aware workflow and empty/error/loading states.
+- Require idempotency/retry/outbox behavior for provider callbacks, uploads, webhook ingestion and field-device sync.
+- AI never receives data outside the caller's authorized scope; AI-generated extraction/matching is staged, reviewable and never directly changes authoritative records.
+- Release only after CI and exact-head Preview are green, security and dependency audits are acceptable, live smoke is permitted and evidenced, and the owner accepts the slice.
+
+## 56.9 Decisions requested before F2 implementation
+
+The following are deliberately **not assumed approved** by this design:
+
+1. Confirm F2 priority order: supply master/quality first, then inventory/logistics, then port/vessel/compliance, then control tower/AI — recommended.
+2. Confirm first operational pilot workflow and which Project/partner roles will participate; no names or business records are assumed.
+3. Approve provider selection/budget only when the relevant adapter and data contract are ready.
+4. Approve any exact Production migration separately after schema reconciliation and SHA-256 review.
+5. Authorize F2 start only after F0 and F1 latest-head finalization gates are completed.
+
+**F2 status: DESIGN / PROPOSED. No implementation authorization, schema mutation, data seeding, provider activation, Git merge or Production deployment is granted by this section.**
+
+
+
+## 56.10 F1 latest-head Preview and API runtime smoke update — 19 November 2026
+
+- Documentation commit `4b8f1ff17f3ee355d1f176b32cb04bea2ce29157` automatically triggered Vercel Preview deployment `dpl_2Tfe3bUDxigBK7enn7r2HWkV5tnk` on branch `f1/project-scoped-cob-20261119`; deployment state is **READY**.
+- GitHub Unit Tests run `44440638715`: SUCCESS. Dependency Audit Evidence run `44440638726`: SUCCESS.
+- Vercel build output reports **90 tests passed, 4 skipped**; backend build step and frontend `tsc -b && vite build` completed; Vercel reports Build Completed.
+- Preview root GET returned **HTTP 200** and valid PKE SPA HTML.
+- Preview `/api/v1/health` returned **HTTP 500 — `FUNCTION_INVOCATION_FAILED`**. This is a genuine API runtime smoke failure and prevents F1 finalization.
+- Vercel runtime log query scoped to this deployment and the one-hour window returned no error records. Aggregated runtime error query for `/api/v1/health` also returned no records. Trace lookup for the response request ID returned 404/not found. These missing observability records do not negate the observed HTTP 500 and do not establish a root cause.
+- An earlier explicit/manual deployment request for the then-current head returned HTTP 402 `api-deployments-free-per-day`; nevertheless the Git-connected deployment for the subsequent plan commit was created automatically and reached READY. Therefore the current F1 blocker is the API runtime 500, not inability to create a Preview for that HEAD.
+- F1 status: Migration 041 Production application and schema/privilege verification PASS; latest-head Preview READY and root smoke PASS; API health smoke FAIL. Do not close F1 until the serverless invocation failure is diagnosed, corrected, and `/api/v1/health` plus required authorized endpoint smoke pass on the then-current HEAD.
+- F0 status remains as owner-recorded: finalization is pending Vercel quota recovery and exact current F0 HEAD Preview/smoke revalidation. Do not infer F0 closure from the F1 Preview.
+
+
+---
+
+## 56.11 F2.1–F2.3 owner decisions — 19 November 2026
+
+The owner confirmed the following design decisions for the first three F2 workstreams:
+
+1. **Supplier identity = company.** A supplier is represented by one legal/business organization that may own or operate multiple PKS, KCP, integrated mill/KCP, collection points and warehouses.
+2. **Quality approval = per lot.** Quality disposition is decided against a specific inventory/production lot and the applicable buyer requirement/specification version; supplier qualification is a separate dimension.
+3. **Inventory authority = immutable movement ledger.** Every stock change is recorded as a movement; the lot balance and reservation/hold counters are controlled projections, not independent sources of truth.
+
+These decisions authorize architecture design and read-only schema/source reconciliation only. They do not authorize F2 implementation, Production DDL, data seeding, provider activation, Git merge or deployment.
+
+## 56.12 F2.1–F2.3 Production schema and API audit — read-only, 19 November 2026
+
+### 56.12.1 Audit boundary and evidence
+
+- Target inspected read-only: Neon project `purple-base-63944903`, Production branch `br-damp-shape-b3xlh4nr`, database `neondb`.
+- Git source inspected on `f1/project-scoped-cob-20261119`; PR #2 remains OPEN / DRAFT and is not merged.
+- Production migration ledger verified through row 41. Migration 041 `041_finance_notification_rls_recipient_guard.sql` is `applied` with SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- Read-only table inventory returned 153 public tables/views. The operational tables sampled for F2.1–F2.3 contain zero business rows; `product_catalog` has one reference row and `export_document_types` has eight reference rows. No test/business fixture was inserted.
+- Source evidence: `src/index.ts` blob `8b1381e352bb24f684752b193b57f03ce1086376`; `src/schema.ts` blob `556dd9df4d5e160598332b51532f18f8523f7c00`; `src/route-registry.test.ts` blob `0a056aced534ee33e0590ff568fed44af08009c9`.
+- No SQL statement that mutates schema or business data was executed. No Neon branch was created.
+
+### 56.12.2 Existing F2.1 supplier/company and facility foundation
+
+Existing tables and relationships:
+
+- `partner_organizations`: canonical legal entity with legal/trading name, organization type, country, registration identifiers, encrypted tax identifier, contact details, verification status and provenance.
+- `vendors`: supplier/vendor role adapter linked to `partner_organizations` through nullable `organization_id`.
+- `project_supplier_participation`: Project-scoped supplier participation currently links `project_id` to `vendor_id` and participation type.
+- `pks_sites`: facility master with `organization_id`, facility type, operating status, verification status, address and coordinates.
+- `facility_capacity_records`, `facility_certifications`, `facility_products`, `facility_contacts`, and `facility_operating_periods`: capacity, certification, product capability, contacts and operating evidence.
+- `production_batches`: production batch linked to facility, Project (nullable), product and variant.
+
+Architecture decision: retain `partner_organizations` as the canonical company identity; do not create another supplier/company master. Treat `vendors` as the compatibility/participation adapter until a full reference audit proves it can be safely consolidated. Treat `pks_sites.organization_id` as the facility-to-company ownership/operator relation. Preserve Project participation separately from global legal identity.
+
+Gaps/risks found:
+
+- `vendors.organization_id` is nullable and not unique; the database does not currently guarantee one vendor adapter per company.
+- `project_supplier_participation` references `vendors`, not `partner_organizations` directly. All company-to-Project authorization therefore depends on the vendor mapping being complete and unambiguous.
+- `partner_organizations` has SELECT policy for scoped partner permission plus platform-admin ALL, but no ordinary runtime INSERT/UPDATE policy. Company onboarding/maintenance is therefore not a complete partner self-service workflow.
+- `pks_sites` and `vendors` have broad member-read policies (`pke_has_any_project_access()`) rather than facility/partner-specific read scope. Confirm whether a shared directory is intended; otherwise narrow visibility before external partner onboarding.
+- No supplier, partner-organization, facility, facility-capacity, facility-certification or facility-product CRUD API route was found in `src/index.ts`.
+
+### 56.12.3 Existing F2.2 buyer, matching and quality foundation
+
+Existing tables:
+
+- Buyer side: `buyers`, `buyer_facilities`, `buyer_product_requirements`, `buyer_requirement_attributes`, and `buyer_demand_forecasts`.
+- Product/specification side: `product_catalog`, `product_variants`, `product_attributes`, `product_specifications`, and `project_product_specifications`.
+- Matching side: `matching_runs` and `matching_candidates`, including algorithm version, input snapshot, hard-filter failures, fit/quality/availability/logistics/reliability scores, explanations, freshness and source evidence.
+- Quality side: `product_quality_samples` and `product_quality_results`, including sample method, sample type, lab reference, typed result values, unit, measurement basis, method code, detection limit, uncertainty and result review status.
+
+Positive findings:
+
+- Matching and quality tables have RLS enabled and FORCE ROW LEVEL SECURITY; their policies are permission/project aware.
+- Buyer requirement attributes already support typed numeric/text/value constraints, operators, unit and measurement basis.
+- Product specifications and buyer requirements are versioned and have effective-date fields.
+- Quality results require exactly one typed result value and support review/retest states.
+
+Gaps/risks found:
+
+- `product_quality_samples.project_id` and `lot_id` are nullable. This does not enforce the owner decision that every lot quality decision must be anchored to a specific lot and Project. The sample-to-lot Project relationship is not protected by a composite foreign key.
+- Quality result rows are not, by the inspected table/trigger inventory, aggregated into a single controlled lot-level quality disposition. Do not equate a reviewed individual result with a lot approval.
+- No dedicated Certificate of Analysis (COA) aggregate/entity linked to lot + sample + buyer requirement version was found. `project_export_documents` is the Project export-document workflow and is linked to regulatory/project document requirements, not directly to a quality lot/sample. It may store a COA file only after an explicit traceability design; it is not itself a complete COA model.
+- `matching_runs` and `matching_candidates` exist, but no buyer-requirement, sample, laboratory, quality-approval, matching-run or COA API route was found in `src/index.ts`.
+- `buyers` API POST/PATCH routes exist, but the current RLS policies show ordinary SELECT plus platform-admin ALL; runtime buyer writes by non-platform-admin users are not authorized by the inspected policies. Confirm intended ownership before exposing buyer CRUD.
+
+### 56.12.4 Existing F2.3 inventory and inland-logistics foundation
+
+Existing tables:
+
+- Inventory: `inventory_lots`, `inventory_movements`, `inventory_reservations`, `inventory_holds`, `inventory_reconciliations`.
+- Logistics: `transport_legs`, `truck_trips`, `tracking_events`, `tracking_evidence`.
+- Warehouse: `warehouses`, `warehouse_zones`, `warehouse_bins`, `warehouse_reservations`, `warehouse_receipts`.
+- Shipment bridge: `shipments`, `shipment_allocations`, loading tables and shipment events.
+
+Positive database controls already present:
+
+- New `inventory_lots` must start with zero on-hand, held and reserved quantities; opening stock must be posted through a receipt/adjustment movement.
+- `inventory_movements` has a required idempotency key, project/lot/unit/actor guard, movement application trigger and immutable-history trigger. Posted/reversed/adjusted movements cannot be edited or deleted; corrections use compensating movements.
+- Movement application locks the lot row and updates lot quantity/location transactionally. It rejects negative stock and consumption of held/reserved stock.
+- Reservation and hold guard/counter triggers lock the lot, validate available quantity and maintain `reserved_quantity` / `held_quantity` projections. Reservation/hold histories are retained and terminal transitions are controlled.
+- Shipment allocation guards require a matching shipment, lot, Project, unit and reservation; constrain allocation totals and loaded quantities; and create outbound inventory issue movements when loading is recorded.
+- Warehouse receipt guard makes measured quantity and capture identity immutable, requires an independent reviewer, and requires lot, weighbridge ticket and GPS evidence before verification. A verified/partial receipt posts an inventory movement in the same database transaction.
+- Project-scoped RLS policies and database guards provide important cross-Project and state-transition protections. RLS permitting a statement is not by itself sufficient to bypass the domain triggers.
+
+Critical API/schema drift found in `src/index.ts`:
+
+1. `POST /api/v1/inventory-lots` accepts a non-zero opening quantity, but the Production trigger rejects non-zero initial lot balances. The route must create a zero-balance lot and use a controlled receipt/adjustment workflow for opening stock.
+2. `POST /api/v1/inventory-movements` omits required `idempotency_key`; the table and trigger reject a movement without it. The route also exposes a generic movement status/type payload that must be constrained to valid domain transitions.
+3. `POST /api/v1/inventory-reservations` references `unit`, `reference_id`, and `reference_type`, which are not Production columns; Production uses `unit_code`, `buyer_id`, and `shipment_id`. The route also omits required `created_by`. The database guard independently checks availability using on-hand minus held and reserved counters.
+4. `POST /api/v1/inventory-holds` references `held_quantity`, `unit`, and `idempotency_key`, which are not Production columns; Production uses `quantity`, `unit_code`, `hold_type`, and `placed_by`. The route omits required hold identity/actor fields.
+5. `POST /api/v1/shipment-allocations` references `reference_id` / `reference_type`, omits required `shipment_id`, `reservation_id`, and attempts status `active`. Production requires an initial `draft` state; active allocation transitions require a matching reservation. The route contract is not compatible with the live schema/triggers.
+6. `PATCH /api/v1/warehouse-receipts/:id` attempts to modify measured `received_quantity` / `unit`, which the Production receipt guard makes immutable. It does not supply database-managed reviewer identity/time or the GPS/weighbridge evidence needed for verification. The current route therefore cannot complete the verified/partial receipt workflow.
+7. The receipt POST route can create a pending receipt but does not accept the complete GPS evidence tuple needed for verification.
+8. No supplier/facility/product/quality/matching routes were found. Existing operational API routes are not a complete F2.1–F2.3 vertical slice.
+
+These are code/schema contract defects, not evidence that the Production tables themselves need to be recreated. Fix the API contract and transactional service layer before proposing new tables.
+
+### 56.12.5 Required reconciliation before implementation
+
+- Produce a field-by-field API DTO ↔ live Production schema ↔ trigger/policy contract for every F2.1–F2.3 write operation.
+- Resolve canonical company-to-vendor mapping and enforce a unique/explicit mapping rule only after checking all existing foreign-key references and role semantics.
+- Decide whether supplier/facility master data is a shared directory or restricted to participating Projects/partner organizations; align RLS accordingly.
+- Define lot quality disposition as a controlled, version-aware decision over sample results and the applicable buyer requirement/specification; design COA traceability to lot, sample, laboratory result set and requirement snapshot.
+- Preserve ledger authority: opening lot at zero; receipts/movements post through database-controlled functions/triggers; reservations and holds use current counter projections; allocations must reference a reservation and shipment; all operations idempotent and transactional.
+- Validate warehouse receipt review with independent checker/reviewer, timestamp, GPS, weighbridge evidence and receipt status transition.
+- Audit vehicle identity semantics: `truck_trips.vehicle_id` currently references `service_vendors`; confirm whether this is intentionally a fleet/vendor record or whether a separate vehicle identity already exists elsewhere before changing the relationship.
+- Run RLS negative tests for cross-Project and partner-to-partner reads/writes, including company, facility, buyer requirement, sample/result, matching, lot, reservation, receipt and shipment allocation.
+- Audit API error handling, route authorization, transaction wrapper, row locking, idempotency and retry semantics; remove stale route SQL that references absent columns/statuses.
+- No schema migration should be drafted until these checks establish a precise, unavoidable gap. Any later Production migration requires its exact SQL and SHA-256 to be separately approved by the owner.
+
+## 56.13 F2.1–F2.3 target architecture and delivery gates
+
+### 56.13.1 Domain architecture
+
+Retain the existing modular-monolith architecture. Use explicit domain/service boundaries over the current Production schema:
+
+- **Partner & Facility domain (F2.1):** `partner_organizations` is the company identity; `vendors` is the supplier participation adapter; `project_supplier_participation` grants Project-scoped commercial/operational participation; `pks_sites` is the facility master owned/operated by a company; capacity, certification, operating period and product capability are separate evidence records.
+- **Buyer Demand & Matching domain (F2.2):** buyer organization/facilities and buyer requirements are versioned inputs; hard filters determine eligibility; matching scores are advisory and explainable; matching candidate acceptance does not itself reserve or release stock.
+- **Quality domain (F2.2):** a sample belongs to one lot and Project; laboratory results are immutable/versioned evidence; an authorized reviewer decides the lot disposition against a specific requirement/specification version; COA is a traceable output, not an automatic synonym for raw laboratory results.
+- **Inventory Ledger domain (F2.3):** `inventory_movements` is the immutable stock journal; `inventory_lots.quantity/location` are trigger-maintained projections; reservation/hold counters are projections maintained from their own state records; `available = on_hand - reserved - held` after unit/location/status normalization.
+- **Inland Logistics domain (F2.3):** transport leg → truck trip → tracking/checkpoint evidence → pending warehouse receipt → independent receipt review → posted receipt movement. Shipment allocation is a downstream consumer of an active reservation and shipment, not an alternative stock ledger.
+
+### 56.13.2 End-to-end traceability
+
+`partner_organization → vendor adapter → Project supplier participation → facility → facility product/capacity/certification → production batch → inventory lot → quality sample/results/lot disposition/COA → stock movements/location → reservation/hold → shipment allocation → loading movement → truck trip/warehouse receipt/evidence`.
+
+The buyer-side trace is `buyer organization/facility → buyer requirement version + attribute constraints → matching run/input snapshot → candidate + hard-filter evidence → human review`. A match is advisory; allocation remains a separate permission-checked transaction.
+
+### 56.13.3 Required implementation sequence (after F0/F1 closeout)
+
+1. **F2.1-A — Canonical identity and visibility:** reconcile organization/vendor/facility ownership, participation and partner isolation; no new master table by default.
+2. **F2.1-B — Supplier/facility vertical slice:** read/create/update/submit/verify workflow, capacity/specification/certification provenance, role-aware UI and API.
+3. **F2.2-A — Buyer requirement and matching:** buyer requirement versioning, typed attributes, hard-filter rules, deterministic algorithm version/input snapshot and explainable candidate evidence.
+4. **F2.2-B — Lot quality and COA:** sample custody, lab result validation, reviewer decision, retest/rejection, requirement-version comparison and COA traceability.
+5. **F2.3-A — Inventory API reconciliation:** repair DTO/schema mismatches against the current trigger contracts; opening lot, movement, reservation and hold workflows.
+6. **F2.3-B — Warehouse and inland logistics:** complete GPS/weighbridge/reviewer receipt workflow, trip/checkpoint evidence and exception handling.
+7. **F2.3-C — Allocation and end-to-end backtest:** reservation-to-shipment allocation-to-loading movement; concurrent reservation, retry/idempotency, partial receipt, reversal, unit mismatch and cross-Project negative tests.
+
+### 56.13.4 Acceptance gates
+
+- Existing Production schema reused unless a documented gap proves a new object necessary.
+- API SQL references only columns/status values that exist in the current Production schema; contract tests compare against the live schema manifest.
+- No double counting: movement journal and trigger-maintained lot balance reconcile; reservation/hold counters reconcile to their active state rows.
+- No over-reservation under concurrency; row locks and database guards remain authoritative.
+- Posted movement, measured receipt, sample/result evidence and approved specification snapshots are not destructively overwritten.
+- Supplier company, facility, buyer, Project and partner access are tested across positive and negative authorization cases.
+- Matching is explainable and advisory; quality approval is human-authorized per lot; no AI auto-approval.
+- All mutations are transactional, idempotent, auditable and use explicit state transitions.
+- CI + exact-head Preview + authorized smoke evidence required before release; no Production deployment without owner approval.
+- F0 and F1 closeout remain prerequisites. F1 latest Preview/API runtime smoke blocker recorded in Section 56.10 remains open; F2 design does not waive it.
+
+**F2.1–F2.3 status: DESIGN + READ-ONLY AUDIT COMPLETE FOR THIS PASS; IMPLEMENTATION NOT STARTED / NOT AUTHORIZED. No Production schema/data mutation, Git merge, Vercel deployment or provider activation was performed.**
+
+
+---
+
+## 56.14 F1 Preview runtime 500 — root cause and safe remediation, 19 November 2026
+
+### Root cause proven from Vercel runtime evidence
+
+- Reproduced on latest Preview deployment `dpl_AS5ac7jsUz1ui9pRYFVsDc6MpLvu`, commit `35cdceeea50ff5bdf49e9d2bbc36bd09bedd9669`, route `GET /api/v1/health`.
+- Vercel returned HTTP 500 / `FUNCTION_INVOCATION_FAILED`; the exact runtime log states: `Missing required environment variables: DATABASE_URL, NEON_AUTH_BASE_URL, NEON_AUTH_JWKS_URL`, followed by Node.js process exit status 1.
+- Vercel project environment inspection confirmed no Preview environment variables scoped to `f1/project-scoped-cob-20261119`. Existing Production variables are Production-only. The only branch-scoped Preview variables found were for the expiring F0 validation branch and are not valid for F1.
+- `scripts/test-db/preflight.mjs` intentionally rejects Production database access from Vercel Preview and allows only the named F0 validation branch for the F0 Git branch until its expiry. This fail-closed policy must not be bypassed by copying Production credentials into F1 Preview.
+- Existing Neon validation branches inspected are older than migrations 039–041; none is a valid F1 Preview target. No new Neon branch was created and no alternate DB or Production data was used.
+
+### Code remediation
+
+- Serverless startup configuration errors no longer call `process.exit(1)`; the function process remains alive and reports a safe readiness failure.
+- Local/non-serverless startup remains fail-closed and still exits on invalid/missing required configuration.
+- Added `GET /api/v1/health/live` as a process liveness endpoint independent of database readiness.
+- `GET /api/v1/health` remains a database readiness check and returns HTTP 503 with a non-secret diagnostic code and missing variable names when runtime configuration/database is unavailable.
+- Vercel API handler catches readiness failures and returns controlled HTTP 503 JSON instead of an unhandled function crash.
+- No credentials, connection strings, JWTs, or raw exception messages are included in readiness responses.
+- Unit tests cover missing-env reporting, serverless detection, liveness, readiness failure handling, and the ready path.
+
+### Acceptance boundary
+
+- The specific serverless process-crash condition is remediated in code; expected behavior with the current unconfigured F1 Preview is liveness HTTP 200 and readiness HTTP 503, not HTTP 500.
+- F1 database readiness is still BLOCKED until an owner-approved, policy-compliant Preview database target is configured. Do not use Production credentials in Preview, do not reuse the expired F0 exception, and do not create a Neon branch without explicit owner authorization.
+- F1 cannot be marked COMPLETE until a valid Preview database configuration is present and `GET /api/v1/health` returns HTTP 200, followed by the required authenticated/authorized F1 smoke tests.
+- No Neon schema/data mutation, Vercel environment-variable mutation, Git merge, or Production deployment was performed by this remediation.
+
+
+---
+
+## 56.15 F1 runtime smoke and Production deployment — 19 November 2026
+
+### Latest deployment and runtime evidence (verified)
+
+- F1 branch HEAD: `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c`.
+- Vercel Production deployment: `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh`, READY, target `production`, URL `https://pke-export-platform.vercel.app`.
+- The Production deployment was created from the F1 branch, not from a merge to `main`. PR #2 remains OPEN/DRAFT; no Git merge occurred.
+- Production smoke: `GET /` HTTP 200; `GET /api/v1/health/live` HTTP 200; `GET /api/v1/health` HTTP 200 with `database=connected` and `environment=production`.
+- Vercel runtime log for the health request confirms: `Database connected with verified app_runtime_secure role.`
+- Build output: 97 tests passed, 4 skipped (101 total); backend TypeScript and frontend `tsc -b && vite build` completed. Earlier GitHub Unit Tests run `44473403788` and Dependency Audit run `44473403866` both SUCCESS for code commit `0fc41a33c48c2b9ed9d51cae79b524ada9eb47f7`.
+- Neon Production migration ledger read-only check confirms migrations 039, 040 and 041 are applied. Migration 041 SHA-256 remains `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- The earlier Preview-only runtime 500 has been fixed in code. The F1 Preview liveness endpoint returned 200 and readiness returned the expected 503 `RUNTIME_ENV_MISSING` because Preview has no permitted F1 database configuration. This is distinct from the now-verified Production readiness 200.
+- No Production schema/data changes, synthetic business rows, new Neon branches, secret copying to Preview, or Git merge were performed in this deployment pass.
+
+### Remaining F1 functional acceptance blockers
+
+1. **Authenticated business-route smoke — OPEN.** Health only proves process/database connectivity. It does not prove real sign-in/session claims or that each F1 route enforces the correct user/project role. Run authorized Admin and PM sessions against the Production deployment using existing authorized accounts; verify expected 2xx/4xx/403 behavior for project, contract-program, cycle-policy, shipment-CoB and Finance reporting endpoints. Never expose tokens or passwords in logs.
+2. **Cross-Project and role isolation — OPEN.** Re-run positive and negative authorization tests for PM active in Project A versus Project B, inactive membership, wrong role, missing project context, and unauthorized shipment/CoB/Finance records. Verify API middleware sets transaction-local RLS context on the same DB transaction and that `app_runtime_secure` cannot read/write outside the authorized Project. Unit/mock tests are not sufficient evidence for live RLS semantics.
+3. **F1 business workflow E2E — OPEN.** Verify contract/program lifecycle, PM scope, cycle policy/CoB obligation creation and linkage to shipment, including duplicate/retry behavior, one-CoB-per-shipment invariant, state transitions, and audit trail. Use existing authorized business records only; Production has no permission for dummy business records. If there are no real records to exercise, record the relevant write-path E2E as BLOCKED_NO_BUSINESS_FIXTURE rather than fabricating success.
+4. **Finance reporting integrity — OPEN.** Verify read/report queries against actual authorized records, RAB/GL/report calculations and source-to-report reconciliation. Confirm draft/posted journal rules, balanced debit/credit, period/account validation, and no fake `completed` report state. Finance scope is reporting/traceability only; bank transfer, payment execution, payment verification and settlement are not F1 acceptance features.
+5. **Notification recipient security and delivery — PARTIAL.** Migration 041 and its function privileges/recipient guard are verified. Still test allowed recipient versus wrong-project/wrong-user rejection, idempotent delivery/outbox behavior and provider delivery status using a safe controlled method. Do not send unsolicited notifications to real users.
+6. **Frontend role workflow and UAT — OPEN.** Production root returning 200 proves SPA delivery only. Exercise Admin and PM screens for contract/program/cycle, shipment CoB and Finance reports: loading/empty/error/unauthorized states, field validation, action enablement, stale data/retry, and API response mapping. Record owner/operator acceptance.
+7. **Exact source-control release alignment — OPEN.** The running Production deployment is built from F1 branch `b700d2c...`; it is not merged to `main`. Reconcile branch ancestry/diff and required F0 baseline before any merge. PR #2 remains DRAFT/OPEN; do not merge or rewrite history until the final source diff and target base are validated.
+8. **Preview parity — POLICY-BLOCKED, NOT A PRODUCTION OUTAGE.** F1 Preview intentionally has no DB configuration because the permanent single-Neon-branch rule prohibits extra DB branches and the Preview preflight rejects Production credentials. Do not copy Production credentials into Preview or weaken the guard. Since the exact F1 commit is deployed and health-tested in Production, use this Production evidence for runtime readiness; keep Preview parity marked blocked unless owner explicitly changes policy.
+
+### Required closeout sequence
+
+- A. Run read-only inventory of the actual F1 Production routes, role permissions, RLS policies, transaction context wrapper, and frontend API call map; identify every route in scope.
+- B. Execute safe authenticated GET/read-only smoke with existing authorized accounts and verify positive/negative role and Project cases.
+- C. Run all non-persisting contract/unit tests, concurrency/idempotency simulations and report calculation reconciliation. Do not claim they replace DB integration.
+- D. Exercise DB-write workflows only with genuine authorized business records and normal approved operations. No synthetic Production data, bulk cleanup, destructive tests or extra Neon branches.
+- E. Complete frontend role walkthrough and owner UAT; record screenshots/HTTP evidence without secrets or personal data.
+- F. Reconcile F1 branch with intended base, resolve required review/checks, then request explicit merge approval. Keep PR #2 DRAFT until that gate.
+- G. Update this ledger with exact commit, deployment, route-level outcomes and remaining exceptions; only then decide F1 COMPLETE versus PARTIAL/BLOCKED.
+
+**F1 status: PRODUCTION RUNTIME READY; FUNCTIONAL ACCEPTANCE NOT YET COMPLETE.**
+
+---
+
+## 56.16 Persistent Production QA fixtures and initial role/RLS/business backtest — 19 November 2026
+
+### Authority, target and safety boundary
+
+- Owner explicitly authorized creation of synthetic mock data directly on the single Neon Production branch for repeatable role-by-role and feature-by-feature backtesting. This authorization is specific to fixture DML; it is not authorization for new DDL/migrations, payment execution, schema changes, Vercel environment changes, Git merge, or Production code promotion.
+- Target used: Neon project `purple-base-63944903`, Production branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`. No additional Neon branch, alternate database, local database or Docker database was created or used.
+- All fixture data is persistent by owner request and is not scheduled for cleanup after F0/F1 closeout. Every fixture Project and most business rows are marked with `[TEST FIXTURE]`, `PKE_FIXTURE_ONLY`, or an explicit fixture note. The synthetic regulatory source and its document requirements are explicitly labelled NOT LEGAL / NOT A REAL LEGAL REQUIREMENT.
+- No migration or schema DDL was applied in this pass. No real bank transfer, payment instruction, payment verification, settlement, external notification, real document upload or real supplier/buyer transaction was performed.
+- The running Vercel Production deployment remains `dpl_7bvJYq9TmWotpciZkrKNtUQndZMh` from code commit `b700d2cc9ccdfef01e9e98fda1b99219ecc5fe1c`. This pass did not deploy code or change Vercel configuration. The documentation update itself is a Git commit only.
+- This section supersedes the earlier “no synthetic Production data” statement in §56.15 for the current state only. That statement accurately described the earlier deployment pass; the present fixture DML is separately owner-authorized and recorded here.
+
+### Fixture identity and role model
+
+Two Project-scoped QA Projects were created:
+
+| Fixture Project | ID | Purpose |
+|---|---|---|
+| PKE Alpha Export Project | `a1000000-0000-4000-8000-000000000001` | Full operational and finance test scenario |
+| PKE Beta Export Project | `b2000000-0000-4000-8000-000000000002` | Cross-Project isolation and membership-state negative tests |
+
+Fixture identity inventory:
+
+- 23 synthetic rows in `public.users`, with emails under `@fixture.invalid`; these are DB/RLS test principals only.
+- 18 project role definitions created separately in each Project (36 `project_roles` rows): `project_admin`, `pm`, `finance`, `accounting`, `checker`, `warehouse`, `document_officer`, `buyer`, `supplier`, `transporter`, `viewer`, `procurement`, `field_manager`, `packing_supervisor`, `loading_manager`, `cashier`, `funder`, and `external_provider`.
+- 24 project memberships: Alpha has 18; Beta has 6. Beta includes one explicitly inactive PM and one PM whose membership is active-flagged but expired by timestamp.
+- 548 project-role permission mapping rows were seeded across the two Projects.
+- Multi-Project test identity `10000000-0000-4000-8000-000000000012` is PM in Alpha and Finance in Beta. Inactive PM is `10000000-0000-4000-8000-000000000013`; expired PM is `10000000-0000-4000-8000-000000000014`; Beta viewer is `10000000-0000-4000-8000-000000000015`; scoped Project Admin Alpha is `10000000-0000-4000-8000-000000000016`.
+- All fixture user rows have no Neon Auth identity mapping and no password hash. They cannot sign in. They support database-level permission/RLS tests only; authenticated API and browser UAT still require owner-approved test email identities and a normal Neon Auth invitation/sign-in flow.
+- Payment execution permissions were deliberately not granted to any fixture role. The only `payment.*` permission assigned to a project role is `payment.view` for scoped Project Admin; no fixture role has payment instruction issue, payment approval, payment reconciliation or payment evidence verification permission.
+
+### Business fixture coverage
+
+The Alpha Project now has persistent synthetic rows covering the main operational and reporting domains:
+
+1. **Project / contract / partner foundation:** Project Alpha and Beta; two fixture Contract Programs; one Alpha Contract; one fixture Buyer; five fixture partner organizations; three fixture Vendors; supplier and trucking participation; one PKS site; one export port; project operating profiles; project product specification snapshot; monthly Cycle Policy.
+2. **Production / facility / quality:** one product variant; one draft product specification; one facility capacity record and facility product capability; one production batch; one quality sample; three typed quality results; sample reviewed and production batch/lot quality disposition marked passed for the fixture scenario.
+3. **Warehouse / inventory:** one fixture warehouse, three zones, one bin and one equipment record; one 400 MT inventory lot; one pending-to-verified warehouse receipt; verification by an independent Warehouse Manager; the receipt trigger posted one 400 MT `receipt` inventory movement and updated the lot to 400 MT available. The movement was generated by the receipt trigger and has idempotency key `warehouse-receipt:2e000000-0000-4000-8000-000000000001`.
+4. **Inland logistics / shipping / vessel / loading:** one transport leg; one truck trip; two GPS tracking events (departure and arrival); one shipment; one voyage; one vessel; one vessel nomination in submitted state; one vessel position; one planned port call; one planned loading operation; one loading segment; one pending loading ticket.
+5. **CoB / Finance / accounting:** one RAB; one cost obligation; one shipment-linked CoB/payment obligation; two cash schedules; one project financier; one cash advance request (approved but still pending disbursement and unsettled); one AP invoice; one AR invoice; one FX rate; one FX exposure; four chart-of-account rows; one open fiscal period; one posted journal entry with debit 4,800 and credit 4,800; one queued Finance report run and one weekly report schedule.
+6. **Documents / workflow / project governance:** one synthetic regulatory source explicitly marked not legal; three fixture document types; three synthetic country document requirements; three Alpha Project document requirements in pending state; one active project workflow with seven stages; one pending project change request; one project version; one module-configuration version. No `project_export_documents` file row was fabricated because no real object-storage file was uploaded.
+7. **Deliberately absent downstream fixture rows:** no inventory reservation and no shipment allocation were created because the live reservation trigger fails (see blocker 1 below). The report run remains queued with no file reference; no fake completed report was inserted. The CoB remains `payment_status=draft`, `amount_paid=0`; no payment instruction was created. The cash advance remains disbursement-pending; no cash was disbursed.
+
+### Initial backtest strategy and measured results
+
+The initial strategy ran from identity/RBAC and RLS, then moved through real trigger-controlled business transitions and Finance controls:
+
+| Test layer | Result | Evidence / interpretation |
+|---|---:|---|
+| Permission helper matrix | **36/36 PASS** | Positive and negative checks across all 18 role types, cross-Project, inactive, expired and multi-Project identities. “PASS” means actual permission-helper result matched the explicitly expected allow/deny result. |
+| Direct table RLS visibility matrix | **45/45 expected outcomes** | Executed as `app_runtime_secure` using transaction-local `app.current_user_id`. Included Alpha/Beta separation for shipment and CoB, inactive/expired membership, partner roles, documents, workflow, quality, vessel/loading and Finance tables. The cash-advance requestor visibility result is an observed design defect, not an accepted business outcome (see blocker 3). |
+| Public table RLS inventory | **152/152 tables RLS enabled** | 0 tables with RLS disabled; 71 tables also FORCE ROW LEVEL SECURITY; 81 are not FORCE. `app_runtime_secure` is not superuser, has `rolbypassrls=false`, and is not a member of `neondb_owner`; therefore the runtime role does not bypass RLS on the non-FORCE tables. |
+| Project/membership isolation | **PASS for tested cases** | Alpha PM sees Alpha only; Beta PM sees Beta only; Beta PM cannot see Alpha shipment/CoB; inactive and expired Beta PM see no Project; the multi-Project user sees only the two Projects where they have the respective active roles; scoped Project Admin sees only Alpha. |
+| Truck trip / tracking / warehouse receipt | **PASS for seeded transitions** | Checker captured two tracking events; independent Project Admin reviewed them; Warehouse Manager verified the pending receipt. Receipt trigger posted 400 MT movement and maintained the lot quantity. Audit events record receipt verification actor, role, permission and Project. |
+| Quality / production | **PASS for seeded fixture transition** | One sample and three typed results were reviewed by Warehouse Manager; fixture production batch and inventory lot were marked passed. This does not yet prove lot-level quality API behavior or COA generation. |
+| CoB uniqueness | **PASS at database constraint level** | Finance-role duplicate insert for the same shipment using `app_runtime_secure` and `ON CONFLICT DO NOTHING` returned no inserted row. One CoB exists for the fixture shipment. |
+| CoB direct payment balance mutation | **PASS — blocked as required** | Attempt to change `amount_paid` directly was rejected by the payment-obligation guard. CoB remains draft for payment and amount paid remains zero. |
+| Report completion without file | **PASS — blocked as required** | Attempt to set the queued report to completed with no file reference raised the expected check violation. The report remains queued and has no file reference. |
+| GL posting | **PASS for seeded balanced entry** | Accounting role posted a journal entry with debit 4,800 and credit 4,800 in an open period. Audit event records the Accounting actor and `accounting.post` permission. |
+| Cash advance requestor flow | **FAIL / BLOCKED** | Field Manager insert was denied by RLS and the same requestor could not read their own row. The current RLS requires Finance permission while the trigger requires requestor identity to match the session; see blocker 3. |
+
+### Confirmed blockers and required remediation
+
+1. **P0 — Inventory reservation trigger/schema mismatch.** The attempted fixture insert into `inventory_reservations` failed because `pke_inventory_state_audit()` reads `NEW.release_reason`, but `inventory_reservations` has no `release_reason` column. The reservation guard `pke_inventory_reservation_guard()` also references `NEW.release_reason` on release/expiry transitions. The failed transaction rolled back completely. This blocks reservation creation/release and consequently shipment allocation, loading allocation and downstream stock reservation backtests. Required fix: prepare an exact migration to either add a justified release-reason field or safely read an optional JSON field in both trigger functions; include create, release, expiry, audit and counter-reconciliation tests. No DDL was applied in this pass.
+2. **P0 — Route/RLS permission catalog drift.** The inspected F1 API permission calls reference four active permission codes that do not exist in `public.permissions`: `documents.review`, `reports.manage`, `notifications.create`, and `project.configuration.view`. An inspected RLS policy also references absent `project.change.delete`. As a result, ordinary Project roles cannot be granted these capabilities in the current catalog; affected review, report-management, notification, configuration-read and delete paths remain unavailable. Required fix: reconcile the API permission names, RLS names, permission catalog, project role templates and negative tests in one reviewed patch. Do not invent grants or broaden roles to bypass missing catalog entries.
+3. **P1 — Cash advance requestor RLS/trigger conflict.** `cash_advances` INSERT policy requires `finance.create`; the database guard requires `requestor_id` to equal the current session identity. A Field Manager has no `finance.create`, while Finance cannot create on behalf of a different requestor under the guard. The SELECT policy requires `finance.view`, so the Field Manager cannot read their own request after Finance approval either. Required fix: define separate requestor-create/read-own and Finance-review/approve policies, preserve Project scope and audit the approver; do not grant broad `finance.view` to field roles as a workaround.
+4. **P1 — Financial create audit events missing.** The live audit triggers for `payment_obligations`, `ap_invoices` and `ar_invoices` record selected state changes on UPDATE, but no creation audit event was found for the fixture inserts. The CoB approval update did create a `payment_obligation.state_changed` event; AP and AR creation had no corresponding audit row. Required fix: add insert/create audit events with actor, Project, entity, timestamp and initial status snapshot; retain existing update audit behavior.
+5. **P1 — Missing authenticated role accounts for HTTP/UI UAT.** The 23 fixture identities are not Neon Auth accounts (`neon_auth_user_id` and password hash are null; addresses use the reserved `.invalid` domain). Database permission/RLS testing is valid, but no authenticated Production HTTP route or browser workflow has been claimed as passed. Owner must provide/confirm dedicated test inbox addresses for the required role accounts; never send passwords or session tokens in chat.
+6. **P1 — Document upload/review and report artifact completion remain open.** Document requirements are seeded but there is no real private object-storage file, so no uploaded/verified export document is represented. The report run intentionally remains queued with no file reference. A completed report or verified document must not be fabricated without an actual storage object and successful integrity checks.
+7. **P1 — Shipment allocation is downstream-blocked.** No allocation row exists because the active allocation requires a valid reservation. Retest allocation totals, idempotency, retry/concurrency, loaded quantity and inventory issue movement only after blocker 1 is fixed and approved.
+
+### Audit evidence from the seeded transitions
+
+- Present: `warehouse_receipt.verified` by Warehouse Manager with `inventory.update`; `journal.posted` by Accounting with `accounting.post`; `cash_advance.state_changed` by Finance with `finance.update`; `payment_obligation.state_changed` by scoped Project Admin with `finance.update`.
+- Missing: no creation audit event for the CoB/payment obligation, AP invoice or AR invoice. Do not treat the later CoB approval event as proof that its creation was audited.
+- No external notification was sent. No payment instruction or settlement operation was performed.
+
+### Required next execution order
+
+A. Prepare and review the exact inventory reservation migration SQL; compute SHA-256; request owner approval of that exact SQL before applying it to Neon Production.  
+B. Reconcile the five missing permission codes across API routes, RLS policies, permission catalog and each Project role; run allow/deny tests and request owner approval for any Production RBAC data/schema change.  
+C. Repair cash advance requestor-create/read-own and Finance-approve separation without widening field-role access to all Finance records.  
+D. Add financial insert/create audit events and verify no duplicate audit event on retry.  
+E. Once the above are approved and applied, repeat reservation → shipment allocation → loading → inventory issue, including concurrency, idempotency, partial load, reversal and cross-Project negative tests.  
+F. Complete real authenticated API and frontend role UAT after owner confirms dedicated test email identities; no password/token exchange in chat.  
+G. Complete document upload only with a real private object-storage fixture file, and complete a report only after an actual report artifact exists and its hash/metadata is persisted.  
+H. Re-run the full 36 permission assertions, 45+ RLS matrix, full feature E2E, audit reconciliation and independent final audit. Update this plan after each pass.
+
+**F1 status after this pass: PRODUCTION RUNTIME READY; PERSISTENT FIXTURE BACKTEST STARTED; FUNCTIONAL ACCEPTANCE NOT COMPLETE. P0 reservation schema/trigger and permission-catalog blockers remain open; cash-advance and financial audit blockers remain open. The fixture dataset is intentionally persistent for subsequent F0/F1/F2 backtests.**
+
+## 56.17 — Approved Role, Permission, RLS, API, Workflow & UX Architecture Design (2026-11-19)
+
+**Status: DESIGN BASELINE RECORDED — IMPLEMENTATION NOT STARTED / NO PRODUCTION MUTATION AUTHORIZED**
+
+Owner-approved decisions: PM manages Project-scoped PKS data with global legal identity approval; PM has read-only visibility across all Project lines/evidence/history/exceptions; technical approvals remain with QA/Warehouse/Finance/Master of Loading/independent parties; Master of Loading is a distinct role with safe legacy migration; Internal Auditor is independent/read-only with finding and corrective-action capability; users may hold multiple roles with separate audit identity.
+
+Read-only audit target: Neon project purple-base-63944903 / branch br-damp-shape-b3xlh4nr / database neondb. Repository branch: f1/project-scoped-cob-20261119.
+
+Verified repository files: src/index.ts blob 04dd002b118d749c718d0ad67ab9bb3207c9957a (136 Express route declarations inventoried); src/schema.ts blob 556dd9df4d5e160598332b51532f18f8523f7c00; src/auth.ts blob f161d476ac4e59c48c5a3e865f83a20aa29ddefe; frontend/src/App.tsx blob 0761f78cbe17f28fa3b5c7654b48662acbe06f07; migration 041 file blob b6e40ff778390c13ea9a1203c1e67d161a179e72.
+
+Verified Production baseline: 162 tables/views in retrieved inventory; 152 public tables with RLS enabled and 510 public policies; migration_history latest applied is 041 with SHA-256 96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770.
+
+Key findings: (1) global role_catalog has seven roles while frontend has 18 role keys; Project creation copies role_catalog and silently skips default permission codes absent from permissions. (2) project_members_project_user_unique(project_id,user_id) blocks multiple roles within one Project although pke_has_project_permission and /api/v1/me are already structured to union active memberships. (3) PM's audit.view and selected domain read grants do not provide full Project-wide read. (4) pks_sites RLS is SELECT-only; partner_organizations has relationship-scoped SELECT, so PM Project PKS write and independent legal-master approval boundary are not implemented. (5) loading base tables exist but readiness/plan signoff/shift/exception/reconciliation workflow is incomplete. (6) Internal Auditor template/finding/action tables were not identified. (7) API/RLS permission catalog drift includes documents.review, reports.manage, notifications.create, notifications.view, project.configuration.view, project.roles.view, approvals.create and project.change.delete; legacy and newer permission naming families coexist.
+
+Detailed design: docs/design/ROLE_PERMISSION_RLS_API_UX_DESIGN_20261119.md
+
+Proposed staged implementation: Stage 0 canonical permission/route/RLS inventory and CI; Stage 1 normalized multi-role assignments with backfill/compatibility; Stage 2 PM read-all + Project PKS overlay + independent master-data approval; Stage 3 Master of Loading and loading control workflow with legacy alias; Stage 4 Internal Auditor findings/corrective actions; Stage 5 API/permission-driven UX and authenticated UAT.
+
+No DDL, role/permission DML, Production migration, Vercel change, deployment, PR merge or runtime configuration change was made. No new SQL artifact or SHA-256 has been approved or applied. This is a design record only.
+
+Additional finding F-09 (verified after §56.17 was drafted): request-scoped middleware sets `app.current_role` from `principal.role`, which is the global `users.role`; DB audit triggers and Project member role-change/revoke API therefore record global account role rather than the exact Project role assignment used for authorization. The design document now requires trusted transaction-local Project role-assignment context and audit fields recording the selected assignment/permission source. No runtime code or database schema was changed.
+
+Additional finding F-10: Project invitation currently accepts one projectRoleId; member PATCH replaces the one project_role_id; revoke deactivates the entire membership. This confirms the API lifecycle must be split into Project membership and independent role assignments. Adding/removing one role must not revoke all Project access. The detailed finding is in §14 of the design document. No API or DB change was made.
+
+
+Owner clarification added to §15 of the role/access design: central App Admin's primary governance task is appointing/reassigning the PM for each Project. One PM may manage multiple Projects; every Project has its own explicit, auditable PM appointment. The appointed PM—not App Admin—determines which centrally approved operational role templates/workstreams are needed for that Project based on contract and scope, activates the selected templates, and may assign people within delegated authority. Template activation is distinct from user assignment. PM cannot invent permissions or exceed centrally governed security/SoD ceilings. Revised data model, admin console, PM setup wizard and acceptance tests are documented. No Production DDL/DML or application code was changed.
+
+
+
+## 56.18 — P0 execution kickoff: role catalogue gate, governance changes and blocker remediation (19 November 2026)
+
+**Status: IN PROGRESS — READ-ONLY PRODUCTION AUDIT COMPLETE; MIGRATION 042 ARTIFACT PREPARED; NO PRODUCTION DDL/DML APPLIED.**
+
+### 56.18.1 Owner instruction and sequencing
+The owner instructed that the approved role/governance changes be inserted into P0 after the full role set is established, and that P0 work commence. The following order is mandatory:
+
+1. **P0-A — Establish the complete centrally governed role catalogue first.** Reconcile all role templates, stable role codes, labels, domains, assignment scopes, default permission ceilings, legacy aliases and external-role restrictions. The catalogue must include the approved target roles in §56.17 and distinguish platform governance, Project governance, technical approvers, operational roles, finance/accounting, external counterparties and independent audit.
+2. **P0-B — Canonicalize the permission dictionary against every API call, RLS policy, trigger, workflow and frontend action.** No role template may be finalized while a permission literal is unknown, duplicated under legacy/new naming, or silently omitted. Unknown permission references must fail CI/build validation; no broad grants or fallback bypass.
+3. **P0-C — Apply the approved Project governance design to P0 only after P0-A/P0-B are reconciled.** This includes App Admin appointment/reassignment of PM per Project; one PM may serve multiple Projects; PM chooses Project-specific role templates/workstreams from the central catalogue; template activation does not grant user access; user assignments are separate and independently auditable; PM assignment administration is delegated and ceiling-limited; one active PM per Project except explicit transition exception; complete handover/history.
+4. **P0-D — Implement multi-role membership and exact role-source audit identity.** Separate Project membership lifecycle from individual role-assignment lifecycle; independent role expiry/revocation; exact assignment/permission source in request-scoped trusted context; no cross-Project inheritance.
+5. **P0-E — Close the two existing P0 business blockers and then rerun the expanded role/RLS/business backtest.** Reservation creation/release/expiry/allocation must pass; API/RLS/permission catalogue parity must pass. Existing P1 blockers remain separate and cannot be reported as closed by P0 work.
+
+The owner-approved PM, PM read-all, PKS Project overlay, Master of Loading, Internal Auditor, multiple roles and technical segregation-of-duties decisions in §56.17 remain requirements, not optional enhancements. The role catalogue is the prerequisite; it does not dilute those decisions.
+
+### 56.18.2 Live Production role and permission baseline — verified read-only
+Target: Neon project purple-base-63944903, branch br-damp-shape-b3xlh4nr, database neondb.
+
+- public.role_catalog currently has only seven active global rows: admin, buyer, checker, finance, supplier, warehouse and pm. The table uses name as the role identifier; it does not have a code column.
+- public.project_roles has role_code, name, description and is_active; public.project_role_permissions maps Project role IDs to permission IDs.
+- The persistent fixture Projects contain 18 Project role definitions each (36 total), but this is fixture data and does not establish a complete global role catalogue or prove that new Projects receive all approved templates.
+- public.permissions currently contains 171 rows. The following exact codes were confirmed absent: documents.review, reports.manage, notifications.create, notifications.view, project.configuration.view, project.roles.view, approvals.create and project.change.delete. Do not add these blindly; first reconcile each API/RLS reference to a canonical permission and determine its correct grant boundary.
+- The reservation table has 17 columns and does not contain release_reason. Both live trigger functions pke_inventory_reservation_guard() and pke_inventory_state_audit() reference NEW.release_reason. The guard requires this value on manual release/expiry; the audit function records it. This is a confirmed schema/function mismatch.
+- public.migration_history confirms migration 041 is the latest applied migration, SHA-256 96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770. Repository migration 041 matches the applied migration hash. Migration numbering may therefore proceed with 042 after full migration-manifest reconciliation.
+
+### 56.18.3 P0 inventory reservation fix — artifact prepared, NOT applied
+Prepared repository artifact:
+- File: migrations/042_inventory_reservation_release_reason.sql
+- SHA-256: 4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996
+- Git commit: 59b3e2e10fc1c8d46e2196ba10f67345f79d1040
+- Intended change: add nullable release_reason text to public.inventory_reservations (idempotently) and document its purpose. Existing trigger logic already enforces a non-empty reason on a manual release/expiry transition and treats release metadata as immutable. Existing rows are not fabricated or backfilled.
+- Status: **ARTIFACT PREPARED / NOT APPLIED / OWNER APPROVAL REQUIRED**. No Production DDL was executed.
+
+Before any application, verify the complete migration runner behavior, exact file bytes/hash, table lock impact, existing reservation states, dependent triggers/functions and rollback implications. After approval and application, verify the column exists, the migration ledger records the exact hash, and the following tests pass: reservation create; manual release with reason; release without reason denied; expiry only after timestamp; expiry without reason denied; immutable release metadata; reservation counters reconcile with active/partially fulfilled rows; audit event includes release reason; shipment allocation can consume only a valid reservation. Do not create new Production fixture business rows beyond the owner's existing fixture authorization and scope.
+
+### 56.18.4 P0 permission and role reconciliation — NOT YET IMPLEMENTED
+Required deliverables, in order:
+- Canonical role inventory with stable role code, display name, domain, internal/external classification, Project/platform scope, template version, mandatory/optional status and SoD constraints.
+- Explicit mapping from legacy global roles and current Project fixture roles to canonical templates. Preserve legacy aliases during compatibility transition; never silently reinterpret admin as Project Admin or vice versa.
+- Permission inventory generated from all API permission checks, RLS policy expressions, trigger guards, workflow actions and frontend action gates. Every reference must map to one active canonical permission.
+- Explicit permission-to-role matrix for each role template, including deny-by-default, technical approval separation, read-all as SELECT-only, finance reporting-only boundary and no payment execution permissions.
+- PM's Project role-template activation and user assignment administration must be distinct capabilities. Template activation alone never grants membership or permissions.
+- Migration/data changes must preserve current project-role assignments, permission grants, audit history and fixture identities. No Production role/permission DML until exact artifact, SHA-256, preflight and owner approval.
+
+### 56.18.5 P0 acceptance gate
+P0 cannot be marked complete until all are evidenced:
+1. Every approved role exists as a centrally governed template or is explicitly documented as a restricted external/appointment type.
+2. All active API/RLS/frontend permission references resolve to canonical permissions; no unknown literals or silently skipped grants.
+3. Every role template passes positive and negative permission tests, including technical approval separation and finance/payment boundaries.
+4. App Admin can appoint/reassign PM per Project with history; one PM can manage multiple Projects without cross-Project access.
+5. PM can activate only approved templates and assign people only within delegated permission ceilings; activation does not grant access.
+6. Multi-role assignments can be independently added, expired and revoked without deactivating the entire Project membership; action audit records the exact role assignment used.
+7. PM read-all is SELECT-only; PKS legal identity remains protected; Master of Loading and Internal Auditor boundaries pass.
+8. Reservation lifecycle, shipment allocation and counter/audit reconciliation pass after the approved schema fix.
+9. Existing 36 permission-helper assertions and 45 RLS expectations are rerun and expanded to every canonical role, role combination, API route and Project boundary. Authenticated API/UI UAT remains separately gated by valid test identities.
+10. No Production DDL/DML is performed without specific owner approval; no merge, deploy, Vercel environment change or Neon branch creation is implied by this kickoff.
+
+### 56.18.6 Execution log
+- 2026-11-19: Re-read the current branch source plan, approved role design, live Production role/permission catalog, reservation schema, trigger definitions and migration ledger.
+- 2026-11-19: Confirmed seven active global role catalogue rows, 171 permission rows, eight missing permission references listed above, and the reservation release_reason schema/function mismatch.
+- 2026-11-19: Created migration 042 artifact and calculated SHA-256. No migration application, Production DDL/DML, Vercel deployment, PR merge or branch change was performed.
+- Current P0 status: **IN PROGRESS / BLOCKED ON ROLE CATALOGUE + CANONICAL PERMISSION BASELINE; MIGRATION 042 AWAITS OWNER APPROVAL.**
+
+
+
+
+## 56.19 — STRICK RULE: Production target, backup-first and no-new-branch policy (19 November 2026)
+
+**OWNER'S BINDING INSTRUCTION — MUST BE FOLLOWED FOR ALL FUTURE PKE WORK.**
+
+### 56.19.1 Definition of Production
+- The word **Production** for database operations means exactly the existing Neon branch named `production` in Neon project `purple-base-63944903`, branch ID `br-damp-shape-b3xlh4nr`, database `neondb`.
+- This is the sole authoritative live database target. Do not use another Neon branch, temporary branch, clone, preview or a guessed target.
+- GitHub does not currently have a branch named `production`. **Never rename, alias, reinterpret or silently treat GitHub `main` as Production.**
+- Neon Production and GitHub branch names are separate concepts. A GitHub commit does not apply a database migration; a Neon migration does not change GitHub code.
+
+### 56.19.2 Absolute no-new-branch rule
+- **Do not create any new GitHub branch or any new Neon branch**, including temporary migration/test branches, unless the owner explicitly changes this rule in a later instruction.
+- Do not use Neon migration preparation tools that create temporary branches.
+- Do not create alternate databases, Neon projects, clones or shadow production environments.
+- Existing branches are not to be deleted, renamed, repurposed or promoted without explicit owner authorization.
+- Continue GitHub source/document versioning only on an already-existing, explicitly designated working branch. The current documentation update is being recorded on the already-existing `f1/project-scoped-cob-20261119` branch; this does not make it Production and does not authorize a merge or deployment.
+
+### 56.19.3 Mandatory backup-before-change sequence
+Before any change to Neon Production:
+1. Verify current Production branch identity, readiness, database name, migration ledger, schema inventory and existing backup/snapshot inventory.
+2. Create a fresh recoverable full database backup/snapshot of the exact Production branch, or a verified equivalent export containing schema, data, sequences, functions, triggers, RLS policies, grants and migration history.
+3. Verify backup identity, source branch, timestamp/LSN, completeness and recoverability. A backup request or a pre-existing stale snapshot is not a completed backup.
+4. Archive the exact migration SQL files, ordered manifest, SHA-256 hashes and relevant implementation/test artifacts in the existing GitHub working branch. Never overwrite or rewrite historical migration files.
+5. Only after both database backup and GitHub migration archive are verified, proceed with the approved change directly on the existing Neon `production` branch.
+6. After application, verify migration ledger/hash, schema invariants, data integrity, RLS/security tests, API compatibility and backtests. Update this plan with exact evidence.
+
+No migration is allowed to run through a tool that silently creates a new Neon branch. No migration may be applied to a different branch and then promoted or swapped into Production.
+
+### 56.19.4 Current backup gate — BLOCKED
+Read-only verification on 2026-11-19:
+- Neon project: `purple-base-63944903`.
+- Neon Production branch: `br-damp-shape-b3xlh4nr`, name `production`, default=true, current_state=ready.
+- The project currently exposes one snapshot: `PKE-target-pre-migration-20261115`, created `2026-11-15T02:13:43Z`, source branch `br-damp-shape-b3xlh4nr`, full_size 32,161,792 bytes.
+- A fresh snapshot request named `PKE-PRODUCTION-PRE-P0-20261119` was attempted and rejected by Neon with `snapshots limit exceeded` (HTTP 422).
+- The 15 November snapshot is not a current pre-change backup for the 19 November work. It is preserved; do not delete or replace it without explicit owner authorization.
+- No verified full database export/dump artifact has been created in this session. The currently available SQL query tool is not a full backup mechanism.
+- Therefore **Production DDL/DML remains blocked** until a fresh, verified backup can be created without violating the no-new-branch rule. Do not claim backup complete.
+
+### 56.19.5 GitHub migration archive
+- GitHub source repository: `koenbroto25/PKE-Export-Platform`.
+- No GitHub branch named `production` currently exists. The `main` branch is not Production.
+- Existing branch `f1/project-scoped-cob-20261119` is the current documentation/migration-artifact working branch. No new branch was created for this update.
+- Migration files must be archived in immutable numbered order, with SHA-256 manifest and migration-history cross-check. Do not claim a GitHub archive backup is complete until the full migration directory and the applied migration ledger have been reconciled and a verified archive/manifest commit is recorded.
+
+### 56.19.6 Direct Production execution rule
+Once backup gates pass and owner approval for the exact SQL/hash is present:
+- Apply the approved SQL directly to Neon branch `br-damp-shape-b3xlh4nr` (`production`) only.
+- Do not use temporary branches, Neon migration prepare/complete workflows, branch restore/swap, or a different target.
+- Keep GitHub source artifacts and migration files on the existing authorized GitHub working branch; do not create a new branch and do not pretend GitHub `main` is Production.
+- No automatic deployment, PR merge, Vercel setting change or external payment/notification action is implied.
+
+### 56.19.7 Execution log
+- 2026-11-19: Owner clarified Production means the Neon branch named `production`; GitHub `main` must not be treated as Production.
+- 2026-11-19: Verified Neon Production branch identity and existing branch inventory; no branch created.
+- 2026-11-19: Listed snapshots and attempted a fresh snapshot; Neon rejected it because the snapshot limit is exceeded. Existing 15 November snapshot preserved.
+- 2026-11-19: No full DB export/dump verified. No Production DDL/DML executed.
+- Binding status: **NO NEW BRANCHES; NEON PRODUCTION ONLY; BACKUP-FIRST; CURRENTLY BLOCKED ON FRESH BACKUP CAPACITY.**
+
+
+### 56.19.8 GitHub migration archive manifest — partial inventory recorded
+- 2026-11-19: Created `docs/backup/GITHUB_MIGRATION_ARCHIVE_MANIFEST_20261119.md` on the already-existing `f1/project-scoped-cob-20261119` branch.
+- Manifest commit: `396b705f8d3e083e71f46a8a4e39acebd7891ebc`.
+- Inventory: 37 numbered SQL migration files found in the repository `migrations/` directory; gaps 029, 030, 031, 032 and 035 remain to be reconciled against nested/legacy migration locations and the live migration ledger.
+- The manifest records Git blob SHA identifiers, not file-content SHA-256 values. It is an inventory, not a claim of complete backup or full database export.
+- Existing migration files were not altered. No new branch was created.
+
+## 56.20 — Unified phase, priority and work-package governance (19 November 2026)
+
+**Status: CANONICAL PLANNING MODEL — adopted for all subsequent PKE planning, execution, testing and reporting.** This resolves the historical coexistence of F0/F1/F2, P0/P1 and P01–P18. It does not change scope, waive acceptance gates, or authorize a migration, merge, deployment or Production mutation.
+
+### 56.20.1 One hierarchy, three different dimensions
+
+PKE uses one integrated planning system with three orthogonal identifiers. They must never be used as synonyms:
+
+1. **Release phase (F#) — WHEN / product maturity gate.** Defines a coherent release outcome and its exit criteria.
+2. **Execution priority (PRI-0, PRI-1, …; historical shorthand P0, P1) — HOW URGENT.** Ranks work by blocker severity and dependency. Priority can change as evidence changes; it does not create a new product phase.
+3. **Work package (WP-01 … WP-18; historical identifiers P01 … P18) — WHAT DOMAIN.** Defines a durable technical/business responsibility area. Work packages can contribute to more than one release phase.
+
+Every actionable item must be tagged with all applicable dimensions, for example: F1 / PRI-0 / WP-03 + WP-06 / RBAC-RESERVATION-01. An item may have multiple work packages but exactly one primary release phase and one current execution priority. Cross-phase dependencies must be explicit.
+
+### 56.20.2 Canonical release phases
+
+| Canonical ID | Phase name | Outcome and boundary | Current status |
+|---|---|---|---|
+| F0 | Platform Foundation, Identity & Security | Secure platform runtime, Admin-managed user lifecycle, authentication, Project membership foundation, authorization/RLS, private storage, backup/recovery, protected API and deployment baseline. | FINALIZATION PENDING; preserve detailed gates in §§47–55. Latest-head Preview and remaining acceptance evidence must be revalidated; Vercel quota is a deployment constraint, not a waiver of security gates. |
+| F1 | Project Governance, Contract/CoB & Finance Reporting | Project-scoped PM/contract/cycle/CoB, Finance reporting, role/permission governance, Project role assignments and connected approval/audit controls. | PRODUCTION DEPLOYED; functional acceptance/backtest NOT COMPLETE. Live blockers and exact evidence remain in §§56.1, 56.17–56.19. |
+| F2 | Operational Execution & Export Intelligence | Verified supply and quality, inventory/inland logistics, warehouse, port/multimodal, vessel/shipment execution, export document readiness, control tower and governed AI assistance. | DESIGN / PROPOSED; implementation is not authorized until F0 and F1 closeout and explicit F2 start approval. |
+
+Release phases are sequential acceptance gates, not Git branches, Neon branches, sprints or database environments. A phase may reuse and extend work packages from an earlier phase. A deployment READY state or a migration applied does not by itself close a phase.
+
+### 56.20.3 Canonical priority levels
+
+| Canonical ID | Historical shorthand | Meaning | Required handling |
+|---|---|---|---|
+| PRI-0 | P0 | Critical blocker: data integrity, security/authorization, broken core transaction, schema-trigger incompatibility, or dependency preventing a committed phase outcome. | Resolve before phase closeout; fail closed; prove positive and negative tests; no scope bypass. |
+| PRI-1 | P1 | Important functional/acceptance gap that does not currently invalidate the critical safety/integrity baseline but blocks full phase acceptance or a dependent workflow. | Resolve after or alongside PRI-0 where dependencies permit; never report complete while open. |
+| PRI-2 | P2 (if used) | Planned improvement or non-blocking enhancement within approved scope. | Schedule by dependency/value; cannot displace unresolved PRI-0/PRI-1 gates without owner decision. |
+
+Priority is not a phase. P0 does not mean F0; P1 does not mean F1. New ledger entries should write PRI-0/PRI-1; historical P0/P1 labels remain searchable aliases and must not be mass-renamed in historical evidence.
+
+### 56.20.4 Canonical work-package register
+
+The existing P01–P18 catalogue in §4 remains the domain decomposition and is normalized as follows. Historical IDs are retained for backward traceability:
+
+| Canonical ID | Historical ID | Work package |
+|---|---|---|
+| WP-01 | P01 | Business Foundation & Admin Project Configurator |
+| WP-02 | P02 | Backend, Database & Neon Platform |
+| WP-03 | P03 | Identity, Authorization, Role & RLS |
+| WP-04 | P04 | API Architecture & External Integrations |
+| WP-05 | P05 | Object Storage & Document Services |
+| WP-06 | P06 | Operational Workflow, Inventory & Truck Checkpoint |
+| WP-07 | P07 | Finance, RAB, Manual Payment & Accounting |
+| WP-08 | P08 | Export Compliance & Regulatory Document Engine |
+| WP-09 | P09 | Gemini AI, RAG & Intelligence Orchestrator |
+| WP-10 | P10 | Frontend, UX, Routing & Stakeholder Portals |
+| WP-11 | P11 | Reporting, Notifications & BI |
+| WP-12 | P12 | QA, UAT, DevOps & Production Readiness |
+| WP-13 | P13 | Change Control & Traceability |
+| WP-14 | P14 | Open-source Finance & BI Adoption (advisory) |
+| WP-15 | P15 | Supplier, Facility & Product Master Intelligence |
+| WP-16 | P16 | Port, Port Warehouse & Multimodal Logistics Intelligence |
+| WP-17 | P17 | Maritime, Vessel Intelligence & Export Control Tower |
+| WP-18 | P18 | Regulatory Knowledge Graph, RAG & AI Intelligence |
+
+WP-14 remains advisory and does not introduce a second accounting ledger. WP-07 Finance v1.2 remains protected from redesign. Work-package IDs are stable domain identifiers, not delivery order or priority.
+
+### 56.20.5 Crosswalk: active work mapped into the unified system
+
+| Work item | Release phase | Priority | Work packages | Acceptance / disposition |
+|---|---|---|---|---|
+| F0 finalization and latest-head security/runtime evidence | F0 | PRI-0 until all critical gates pass | WP-02, WP-03, WP-04, WP-05, WP-10, WP-12, WP-13 | Keep the existing F0 gate register; Vercel quota is a constraint, not closure. |
+| F1 role catalogue and canonical permission dictionary | F1 | PRI-0 | WP-01, WP-03, WP-10, WP-12, WP-13 | Reconcile central role templates, API/RLS/trigger/frontend permission references, permission ceilings and SoD before role implementation. |
+| F1 Project PM appointment, role-template composition and multi-role assignment | F1 | PRI-0 | WP-01, WP-03, WP-10, WP-13 | App Admin appoints/reassigns PM; PM chooses centrally governed Project role templates; activation is separate from user assignment; assignments expire/revoke independently. |
+| F1 inventory reservation trigger/schema mismatch and shipment allocation dependency | F1 | PRI-0 | WP-02, WP-03, WP-06, WP-12, WP-13 | Migration 042 is prepared but NOT applied; exact backup, archive, approval and post-apply tests remain mandatory. |
+| F1 cash-advance requestor/Finance RLS conflict | F1 | PRI-1 | WP-03, WP-07, WP-12 | Separate requestor own-create/read from Finance review/approval; no broad finance grant workaround. |
+| F1 financial create audit events for CoB/AP/AR | F1 | PRI-1 | WP-03, WP-07, WP-12, WP-13 | Create events must include actor, Project, entity, timestamp and initial state; preserve update audit. |
+| F1 authenticated role-account HTTP/UI UAT | F1 | PRI-1 | WP-03, WP-10, WP-12 | Database helper tests do not substitute for authenticated API/browser evidence; use only owner-authorized test identities. |
+| F1 real private document object and completed report artifact | F1 | PRI-1 | WP-05, WP-08, WP-11, WP-12 | Do not fabricate file/report completion; prove real private storage integrity and report artifact lifecycle. |
+| F1 shipment allocation backtest | F1 | PRI-1 (downstream dependency on reservation PRI-0) | WP-06, WP-07, WP-12 | Execute only after valid reservation path is corrected and approved. |
+| F2 operational workstreams | F2 | Not prioritized for implementation yet | WP-06, WP-08, WP-09, WP-10, WP-11, WP-15, WP-16, WP-17, WP-18 | Design only; wait for F0/F1 exit and explicit F2 authorization. |
+
+This crosswalk normalizes existing evidence. It does not silently change previously recorded PASS/PARTIAL/BLOCKED results. The latest verified evidence in the phase register and execution ledger remains authoritative.
+
+### 56.20.6 Rules for future work and reporting
+
+1. Every new task, defect, migration, test suite, UI slice and release note must carry F# + PRI-# + WP-## tags in the relevant checklist/ledger entry.
+2. Phase status is determined only by that phase's exit criteria. Priority completion alone cannot close a phase; completion of a work package alone cannot close a phase.
+3. A task may support more than one phase only when its shared outcome and acceptance evidence are explicitly split. Do not reuse an F0 PASS as automatic F1 or F2 PASS.
+4. Dependencies are represented as links between work items, not by changing their phase labels. A downstream item blocked by a PRI-0 dependency stays open even if its own code exists.
+5. Maintain one master plan and one execution ledger. Do not create parallel phase plans, P0/P1 plans, status spreadsheets or competing source-of-truth documents.
+6. Preserve historical IDs, headings, migration names, commit references and evidence. Use the canonical crosswalk for new work; do not bulk rename history.
+7. GitHub/Neon branch governance is independent of phase and priority. The no-new-branch and Neon Production-only rules in §56.19 continue to apply unchanged.
+8. Backup-first, exact SQL/SHA-256 approval, no unapproved Production DDL/DML, no unapproved merge/deploy and no fabricated business data remain binding regardless of phase or priority.
+9. At each session end, update the relevant phase row, work-package mapping, priority, acceptance evidence and next dependency in this Master Plan's Living Execution Ledger.
+
+### 56.20.7 Immediate operating baseline
+
+- **Current active release gate:** F1 functional closeout, while F0 retains its own independent finalization register.
+- **Current critical execution wave:** F1 PRI-0 (historically P0): role/permission baseline, PM governance/multi-role model, reservation blocker and expanded backtest.
+- **Next execution wave:** F1 PRI-1 (historically P1): cash-advance RLS, financial creation audit, authenticated UAT, real document/report artifact and downstream allocation verification.
+- **Future release:** F2 remains proposed/design-only until F0 and F1 are independently closed and the owner explicitly authorizes its start.
+- **Domain decomposition:** WP-01–WP-18 (historically P01–P18) remains the stable work-package catalogue.
+
+**Canonical planning rule:** F# answers “which release outcome”; PRI-# answers “how urgent”; WP-## answers “which domain”. These dimensions are mandatory together and must never be conflated.
+
+
+## 56.21 — F1 / PRI-0 comprehensive audit, remediation and backtest checkpoint (19 November 2026)
+
+**Status: PARTIALLY REMEDIATED — NOT CLOSED.** This checkpoint records code and test changes on the existing GitHub branch `f1/project-scoped-cob-20261119`. It does not authorize or record any Neon Production DDL/DML, merge, or deployment. The no-new-branch rule in §56.19 remains absolute.
+
+### 56.21.1 Work completed on the existing F1 branch
+
+| F1 / PRI-0 work item | Work packages | Change and evidence | Status |
+|---|---|---|---|
+| Canonical Project role templates | WP-01, WP-03, WP-10, WP-13 | Added `src/role-catalogue.ts` with 34 centrally governed templates, scope/domain/classification, assignment mode, restrictions and legacy aliases. Platform Admin is explicitly distinct from Project Admin; payment execution permissions are excluded from all default templates. | CODE IMPLEMENTED; runtime/DB UAT pending |
+| PM-first Project setup | WP-01, WP-03, WP-13 | New Project creation provisions only a PM role slot; it no longer auto-activates every legacy role or silently gives the creator Project Admin. Platform Admin explicitly appoints PM. | CODE IMPLEMENTED; regression/backward-compatibility UAT pending |
+| PM appointment and handover | WP-01, WP-03, WP-13 | Added `POST /api/v1/admin/projects/:projectId/pm-appointment`; enforces one active PM, explicit `replaceUserId` for handover, active PKE + linked Neon Auth identity, audit reason and audit events. A PM may be appointed to multiple Projects. | CODE IMPLEMENTED; database/API backtest pending |
+| Template activation separate from assignment | WP-01, WP-03, WP-10 | Added `GET /api/v1/role-templates` and `POST /api/v1/projects/:id/role-templates/:roleCode/activate`. Only canonical templates are accepted; missing/inactive permissions return 503; activation returns `assignedUsers: 0`. | CODE IMPLEMENTED; permission ceiling and browser UAT pending |
+| Project role overwrite prevention | WP-03, WP-13 | Admin assignment and member PATCH now fail closed with `MULTI_ROLE_SCHEMA_PENDING` rather than silently replacing an active role. PM appointment uses its dedicated workflow. | GUARD IMPLEMENTED; multi-role schema remains open |
+| Audit actor attribution | WP-03, WP-13 | Successful `requireProjectPermission` now resolves the active Project role that actually grants the permission and sets transaction-local `app.current_role`, Project role ID, Project ID and permission context. Platform Admin is labelled `platform_admin`, not Project Admin. | CODE IMPLEMENTED; trigger/API verification pending |
+| Reservation API/schema alignment | WP-02, WP-04, WP-06, WP-12 | Reservation API now uses Production columns `unit_code`, `buyer_id`, `shipment_id`, `created_by`; adds Project permission scope, lot/unit/shipment validation, idempotency replay handling and reasoned release/expiry routes. | CODE IMPLEMENTED; BLOCKED by unapplied Migration 042 |
+| Shipment allocation alignment | WP-02, WP-04, WP-06, WP-12 | Allocation API now requires shipment + reservation + lot, inserts `draft`, follows DB states `allocated / partially_loaded / loaded / cancelled / reversed`, and leaves reservation fulfillment counters to DB triggers. Capacity validation covers both reservation and shipment. | CODE IMPLEMENTED; DB/API backtest pending |
+| Inventory mock state-machine backtest | WP-06, WP-12, WP-13 | Added pure rule module `src/f1-pri0-inventory-rules.ts` and included it in `src/f1-pri0-contract.test.ts`: positive/negative Project scope, unit, active reservation, reservation capacity, shipment capacity, legal state transitions, loaded quantity and reversal reason. | SOURCE TESTS ADDED; latest CI rerun pending |
+| API permission dictionary reconciliation | WP-03, WP-12, WP-13 | Read-only comparison found all permission literals currently used by API source resolve to active Production permissions after replacing stale `documents.review`, `notifications.create`, `project.configuration.view` and `reports.manage` checks with their current policy-aligned permissions. All 34 role-template permission codes also exist and are active in Production. | API/TEMPLATE CATALOGUE PASS; RLS exception below remains |
+| RLS permission catalogue | WP-02, WP-03, WP-12 | Read-only Production policy audit found `pke_project_change_requests_delete` still references absent permission `project.change.delete`. This remains deny-by-default and must be reconciled by an approved migration (seed the permission with no default grant, or remove the unused DELETE policy). | OPEN PRI-0 CATALOGUE GAP |
+
+### 56.21.2 Exact code and test commits
+
+All commits below are on the existing branch `f1/project-scoped-cob-20261119`; no GitHub or Neon branch was created:
+
+- `86752df340469d2337fb8f4e3afdee87b87e6374` — reservation and shipment allocation API contract correction.
+- `35fbcfdd0d8fcbf882830c0b82973b9ddca6c5d6` — initial canonical 34-role catalogue.
+- `50fae172baf248f45a7c4a278f0ec68de3030a8d` — PM-first Project setup and role template activation.
+- `1a7cefc1b73d5303fab7ccd22a4b5a0bf3493a49` — audited PM appointment and handover.
+- `9666c9d607f162a34a61d5f3bf43c64a3e2c09ed` — canonical template-only activation and role overwrite guard.
+- `e9b9128d90ed56a18a6708c44826d927b180d0f7` — prevent member PATCH role replacement.
+- `9f8a4779a53fcb270553debab03df25ec1571c83` — align API permission checks with active Production policy catalog.
+- `45cb33bc16b0ac702f214b46ab68355963704983` — strict TypeScript route-parameter normalization.
+- `1505805714188691471853faec567434ebb4c043` — reservation/shipment capacity and allocation state-machine integration.
+- `cc84f7771c7728d4077928a468b911ed3ce5200b` — expanded mock inventory state-machine tests.
+
+Supporting catalogue/test commits include `d3eb4560e6cf2f812f30d3a8fea3cdff09ef862b`, `1317753cae01ff6806cbe06c0bf31fa05e323721`, `bf9bf5be79ffa2be312cba5d6927f4cc879fc760`, `961b428c78d516208c0730a4f61328f1b0bcebec` and `39667cba8a38061eacb5e97fa65a09228ecd106d`.
+
+### 56.21.3 CI, backtest and Vercel evidence
+
+- First CI run on commit `e9b9128d90ed56a18a6708c44826d927b180d0f7`: 108 tests passed and one legacy source assertion failed because it still expected PM permissions in the removed inline map. The assertion was revised to read the canonical PM template.
+- CI on commit `9f8a4779a53fcb270553debab03df25ec1571c83`: offline security/unit tests PASS; Production migration-ledger verifier PASS; migration runner dry-run PASS; backend TypeScript check initially failed with two Express `string | string[]` route-parameter errors.
+- TypeScript route parameter normalization was committed in `45cb33bc16b0ac702f214b46ab68355963704983`. Inventory rule/test additions are in `1505805714188691471853faec567434ebb4c043` and `cc84f7771c7728d4077928a468b911ed3ce5200b`; final TypeScript narrowing fix is `76092d6e80796643b7b44045f155df1fddedfeb3`.
+- **Latest verified GitHub Actions on commit `76092d6e80796643b7b44045f155df1fddedfeb3`: PASS.** Unit Tests run `44513249672`: 9/9 test files, 117/117 tests PASS; Production migration-ledger verifier PASS; migration runner dry-run PASS (no DB connection/writes); backend API TypeScript check PASS. Dependency Audit run `44513249713`: root and frontend production dependency audits PASS. These are repository CI results, not database/API/browser acceptance.
+- Vercel status on the PR head is FAILURE solely because the account has exceeded the free daily deployment limit (`api-deployments-free-per-day`, build-rate-limit). Per the current owner instruction this one external deployment blocker is skipped for this work wave. No deployment, promotion, environment change or merge was attempted.
+- The mock inventory tests are pure deterministic state-machine tests; they are not a substitute for authenticated HTTP/UI tests or PostgreSQL trigger/RLS DML backtests.
+
+### 56.21.4 Production facts and non-negotiable blockers
+
+1. Neon Production remains project `purple-base-63944903`, branch `production` / ID `br-damp-shape-b3xlh4nr`, database `neondb`. Latest verified migration is 041, SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+2. Migration 042 `migrations/042_inventory_reservation_release_reason.sql` is prepared only; SHA-256 `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`. It is NOT applied. Production trigger functions reference `NEW.release_reason`, but the column is absent. Reservation create/release/expiry therefore cannot be certified until the schema is repaired.
+3. The last known Neon snapshot remains `PKE-target-pre-migration-20261115`, created 15 November 2026, source Production branch ID `br-damp-shape-b3xlh4nr`, full size 32,161,792 bytes. A fresh snapshot request remains rejected by Neon with `snapshots limit exceeded`; the prior snapshot was not deleted.
+4. **Fresh full PostgreSQL export created 19 November 2026:** custom-format archive from the exact Production connection, `pg_dump --format=custom --no-owner --no-acl --verbose`. Plain archive SHA-256 `825f5951b923c750d3b168db5b29397087bde00020eea2d30bc616503bc3defd`, size 1,487,330 bytes, TOC 2,345 entries. The encrypted transport copy used AES-256-CBC/PBKDF2 600,000 iterations; encrypted SHA-256 `56f77d350af89e91bd04882b2eb84a824c0a270c33acc4ef3c169509e520bd6d`, size 1,487,360 bytes. A portable local restore of the application schema completed successfully and verified 152 public tables, 126 functions, 80 triggers, 510 RLS policies, 152 RLS-enabled public tables and 41 migration-history rows. The portability test excluded Neon-managed `neon_auth` and provider extension `pg_session_jwt`, and removed Neon-specific `pg_attver` attributes only from the local validation copy. Therefore the app-schema restore is verified, but a full provider-managed Neon Auth/extension restore is not.
+5. A read-only recovery companion `backups/production-20261119/production-privileges-recovery.sql` was committed to this GitHub branch in commit `a4286ec15bfcae71cac0662e34ca8925d4f51367`; it contains 2,459 statements for observed explicit grants, default privileges, role memberships and object/schema/function ownership. The raw database archive itself has NOT yet been durably committed to GitHub; it remained in a temporary Vercel sandbox because the file-transfer API truncated large binary reads. Do not claim the backup artifact is fully archived in GitHub until the encrypted dump is stored and verified there. The decryption key is not stored in the repository.
+6. No Production DDL/DML has been performed during this checkpoint. Do not apply Migration 042 or a new RBAC/multi-role migration until the full encrypted archive is durably archived and retrievable, the complete ordered migration archive/manifest is reconciled (including known legacy/nested files 029–032 and 035), and exact SQL plus SHA-256 receives explicit owner approval.
+5. Additional read-only Production membership audit: 7 active legacy `role_catalog` entries, 36 active `project_roles`, 22 active Project memberships, 3 active PM assignments across 2 Projects, 0 reservation rows and 0 shipment-allocation rows. One existing fixture Project has **2 active PM assignments**, violating the one-active-PM rule. The new appointment API fails closed when it detects multiple active PMs; database-level uniqueness and reconciliation of this existing synthetic fixture require the approved RBAC migration/cleanup path. Do not mutate these rows before backup and exact approval.
+6. Production `project_members` still stores only one `project_role_id` per user/Project. This checkpoint intentionally blocks role replacement; it does not implement independent multi-role assignment, per-role expiry/revocation, or separate assignment history. A normalized child assignment table and PM appointment persistence/history remain a schema migration blocker.
+7. PM currently receives a defined set of domain read permissions, not a proven universal Project-wide SELECT-only grant. The dedicated PM read-all permission/RLS policy coverage must be designed and backtested before claiming the owner-approved read-all rule complete.
+8. `project.change.delete` is referenced by one Production RLS policy but absent from `public.permissions`. It is deny-by-default; reconcile it with an approved migration and verify no unintended delete grant.
+9. No authenticated multi-role HTTP/UI UAT, PostgreSQL reservation/trigger backtest, shipment allocation DB lifecycle backtest, or browser role-portal acceptance was performed. No mock business data was inserted into Production.
+
+### 56.21.5 Current disposition and exit criteria
+
+**F1 / PRI-0 / WP-01 + WP-03 + WP-06 + WP-12 + WP-13 remains OPEN.** Code-side controls and deterministic mock state-machine tests are materially improved, but this is not a phase completion record.
+
+The following must all pass before F1 / PRI-0 can be marked complete:
+
+- Latest-head GitHub Unit Tests, dependency audit, migration verifier/dry-run and backend TypeScript check all PASS.
+- Fresh full Production backup/export is created and its completeness, source identity and recoverability are verified without deleting prior snapshots or creating a branch.
+- Migration archive is complete, ordered and SHA-256 verified; Migration 042 and the RBAC/multi-role schema candidate are reviewed as exact SQL artifacts.
+- Explicit owner approval is obtained for each exact Production SQL + SHA-256 before direct application to Neon Production.
+- Production schema/trigger/RLS audit passes after migration; reservation create/release/expiry and shipment allocation/load/reversal are tested with authorized synthetic fixtures and complete cleanup.
+- Multi-role assignment, per-role expiry/revoke, one-active-PM handover/history, PM SELECT-only read-all scope, Project role ceilings, Internal Auditor read-only SoD, Master of Loading boundaries and PKS legal identity protections pass positive and negative API/database tests.
+- Vercel latest-head Preview is the only external quota exception currently waived for this work wave; do not infer deployment acceptance or promote Production from this waiver.
+
+**No new branch. No unapproved Production write. No merge or deployment. No fabricated business data.**
+
+
+---
+
+## 56.22 Execution checkpoint — parallel F0/F1 acceleration (19 November 2026)
+
+**Execution mode:** parallel workstreams; no new GitHub branch and no new Neon branch. Existing working branch remains `f1/project-scoped-cob-20261119`. Production target remains Neon project `purple-base-63944903`, branch `production` / `br-damp-shape-b3xlh4nr`, database `neondb`.
+
+### 56.22.1 Owner decision boundary — Project Manager
+
+The owner/Admin explicitly confirmed that appointment and deactivation of a Project Manager are administrative decisions made outside the application. The application must only record and enforce the Admin's decision; it must never choose which existing PM remains active or resolve business negotiations. One person may remain PM across multiple Projects. If a Project has conflicting active PM assignments, Admin resolves it by explicitly deactivating the assignment(s) selected by Admin. The system then enforces one active PM per Project for subsequent assignments. PM deactivation must revoke only the PM role assignment and preserve the user's Project membership and any other role assignments.
+
+### 56.22.2 Verified Production baseline (read-only)
+
+- Production migration ledger latest applied: 041, SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- Migration 042 is present in the working branch but not applied to Production; `inventory_reservations.release_reason` is absent.
+- `project_members` currently stores a single legacy `project_role_id`; the database permission helper also resolves permissions from that single field.
+- `project.change.delete` is absent from `public.permissions`, while the existing `pke_project_change_requests_delete` RLS policy references it. No role grant is to be created automatically.
+- Five PM-related membership rows were inspected, including two active PMs in the Alpha QA fixture Project. The Beta fixture contains an active PM plus an expired PM membership. These are persistent QA fixtures, not business records. No PM was deactivated or otherwise modified during this checkpoint.
+- Only one Neon snapshot is currently listed: `PKE-target-pre-migration-20261115`, dated 15 November 2026. It is not a fresh backup for this execution. No durable full export/restore package has yet been verified in GitHub. Production migration remains blocked by backup gate and explicit SQL/hash approval.
+
+### 56.22.3 Changes prepared on existing F1 working branch
+
+1. `migrations/043_project_role_assignments_and_history.sql` — creates independent Project role assignments and append-only assignment event history; preserves legacy membership rows and backfills their role assignments; updates `pke_has_project_permission(uuid,text)` to resolve permissions from active, unexpired assignments; adds RLS and least-privilege grants; enforces one active PM for subsequent assignments while leaving existing duplicate PM decisions to Admin. Existing role assignment identity is immutable; revocation requires Admin actor and reason. SHA-256: `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`.
+2. `migrations/044_project_change_delete_permission.sql` — restores the missing active permission row but deliberately grants it to no global or Project role. SHA-256: `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d`.
+3. Existing `migrations/042_inventory_reservation_release_reason.sql` re-fetched and SHA-256 re-verified: `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`.
+4. `src/index.ts`: permission attribution now resolves the specific active Project role assignment; added independent role-assignment creation/revocation API; member listing now exposes multiple role assignments; PM appointment writes a distinct PM assignment instead of overwriting the member's legacy role; added explicit Admin PM deactivation endpoint that revokes only PM assignment and preserves membership/other roles.
+5. `src/schema.ts`: added Drizzle models for `project_role_assignments` and `project_role_assignment_events`.
+
+### 56.22.4 Current validation and limitations
+
+- GitHub changes are committed to the existing F1 working branch; no new branch was created.
+- These changes are prepared code/migrations, not Production deployment. No Production DDL/DML, PM fixture mutation, merge, Vercel environment change, or deployment was performed.
+- TypeScript/build/test and database migration dry-run validation have not yet been run for these latest commits. The migration SQL must be validated against the exact Production schema and reviewed for RLS/trigger interactions before owner approval.
+- F1 remains NOT READY until the backup archive/recovery gate, migration archive reconciliation (including legacy 029–032 and 035), integration/backtest, and final security/UAT evidence are complete.
+- Vercel quota remains an explicitly skippable deployment constraint; it does not block code, migration preparation, or offline/backtest work.
+
+### 56.22.5 Next parallel execution order
+
+A. Validate migrations 042–044 as a single ordered package on the existing approved workflow without creating a new Neon branch; do not apply to Production before the backup and owner approval gates.
+B. Finish API/UI lifecycle integration for multi-role assignment, expiry, revoke, PM Admin deactivation, and audit attribution; remove remaining runtime dependencies on `project_members.project_role_id` where the new assignment model is authoritative.
+C. Add regression tests for multi-role permissions, cross-Project isolation, independent expiry/revocation, Admin PM deactivation, PM conflict handling, and legacy backfill.
+D. Reconcile the complete migration archive and produce a recoverable, durably stored Production backup package with checksum and restore evidence.
+E. Run integrated F0/F1 backtest with temporary QA fixtures only where explicitly authorized; clean up only fixtures created by that test run, never pre-existing owner fixtures.
+F. Refresh this single Master Plan with evidence and blockers before any Production execution request.
+
+
+---
+
+## 56.23 Parallel execution update — multi-role end-to-end and migration release gate (19 November 2026)
+
+### 56.23.1 Multi-role runtime integration
+
+The independent role-assignment model is now integrated across the following working-branch layers:
+
+- Database migration 043 creates `project_role_assignments` and append-only `project_role_assignment_events`, backfills legacy role fields without changing existing Admin decisions, updates Project and global permission helper functions, and updates Finance notification and invitation acceptance database functions.
+- API permission middleware resolves the authorized role assignment rather than relying on the legacy single-role field.
+- API member context, Project detail, and `/api/v1/me` expose multiple role assignments.
+- API supports independent role assignment creation and revocation with reason/audit history. Expired assignments are marked inactive before reassignment to preserve the active-role uniqueness index.
+- Admin role assignment no longer overwrites `project_members.project_role_id`; membership remains the Project access container.
+- PM appointment creates a separate PM assignment. The dedicated Admin PM deactivation route revokes only the PM assignment and preserves membership and other role assignments.
+- Frontend Admin screen now shows multiple role assignments, separate membership status, per-role deactivation, and a dedicated Admin PM appointment form. PM is excluded from generic role assignment.
+- The generic and Admin UI/API paths do not select or resolve existing duplicate PMs. Only Admin can decide which PM assignment to deactivate.
+
+### 56.23.2 Migration release runner and ledger reconciliation
+
+- Production migration history was re-read from Neon Production and verified as exactly 41 contiguous rows, through Migration 041.
+- `migration_history_manifest_001_038.json` is now reconciled to 41 applied entries and 3 hash-pinned pending migrations. Historical SQL 029–035 remains explicitly marked as authentic source not recovered.
+- Migration runner now has an exact 036–044 sequence gate for the 042–044 package. Each pending migration requires its own confirmation flag, exact approved SHA-256 environment value, and approval reference. The runner verifies the exact 001–041 Production ledger before execution.
+- Migrations 042–044 are applied by the runner as one atomic transaction, including all three ledger rows; any failure rolls back the entire package.
+- The release-policy verifier checks the 41-row applied ledger and exact pending hashes for 042–044.
+- No owner approval environment variables were set, and no Production migration was applied.
+
+### 56.23.3 Exact pending migration package
+
+| Migration | SHA-256 | Purpose |
+|---|---|---|
+| 042 | `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996` | Add reservation release reason required by Production triggers |
+| 043 | `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086` | Multi-role assignments, history, permission and Finance/invitation integration |
+| 044 | `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d` | Restore `project.change.delete` without granting it to any role |
+
+### 56.23.4 CI evidence
+
+Latest inspected CI run for PR #2 head `613ab606d1c9709ad8b85fc8c5f25d04ccf71aeb`:
+- Offline security/unit tests: PASS.
+- Production migration ledger and release policy: PASS.
+- Migration runner dry-run (no database connection): PASS.
+- Backend API TypeScript check: PASS.
+- Frontend dependency installation: PASS.
+- Frontend TypeScript check: PASS.
+- Frontend production build: PASS.
+- Dependency audit workflow: pending final completion check at time of this update.
+
+The preceding completed run at commit `289332e323f3151fdc795d702ba46897194c2a83` passed unit tests, release policy, migration dry-run, backend typecheck, and dependency audit. The later frontend build checks were added to CI to ensure the multi-role UI is included in acceptance.
+
+### 56.23.5 Remaining blockers — do not waive
+
+1. Fresh, complete, recoverable Production backup durably archived to GitHub remains NOT READY. The existing 15 November snapshot is not a fresh backup; snapshot capacity is full. No existing snapshot may be deleted to force capacity.
+2. SQL 042–044 still requires final exact SQL review and explicit owner approval for each exact SHA-256 before Production execution.
+3. Migration SQL has not been exercised against a disposable database because creating a new Neon branch is prohibited. Static/release-policy validation is not equivalent to live SQL execution.
+4. PM duplicate QA fixture rows remain untouched. Admin must make the appointment/deactivation decisions in the application after the migration is approved and applied.
+5. Integrated authenticated API/database UAT and Project-level cross-role isolation tests remain pending.
+6. Authentic SQL source for applied migrations 029–035 remains unrecovered; do not fabricate or execute reconstructed SQL.
+7. Vercel latest-head Preview remains constrained by the previously recorded free deployment quota. No merge, Production deploy, or promotion is authorized.
+
+**Status:** Multi-role API, Admin PM decision workflow, migration archive metadata, and frontend UI are prepared on the existing F1 working branch. F1 remains NOT READY for Production until backup, exact SQL approval, database integration tests, and final UAT are satisfied.
+
+
+---
+
+## 56.24 Final verification checkpoint — Production unchanged, CI green (19 November 2026)
+
+### 56.24.1 Production re-check (read-only after code preparation)
+
+- Neon Production migration ledger remains at row 41 / Migration 041, SHA-256 `96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770`.
+- `public.project_role_assignments` does not yet exist in Production.
+- `inventory_reservations.release_reason` remains absent.
+- `project.change.delete` remains absent.
+- Therefore migrations 042–044 are confirmed NOT applied. No Production DDL/DML occurred during this execution.
+- Existing QA fixtures remain unchanged: Alpha QA Project has two active PM memberships; Beta QA Project has one active PM membership. No PM was selected or deactivated by the application or assistant.
+- Snapshot inventory remains one existing snapshot, `PKE-target-pre-migration-20261115`, created 15 November 2026, size 32,161,792 bytes. No fresh snapshot was created and no snapshot was deleted.
+- No new GitHub or Neon branch was created. Work remains on the existing GitHub branch `f1/project-scoped-cob-20261119`.
+
+### 56.24.2 Latest completed CI
+
+For code commit `613ab606d1c9709ad8b85fc8c5f25d04ccf71aeb`:
+- Unit/security suite: 9 test files, 123 tests — PASS.
+- Migration release-policy verification: PASS.
+- Migration runner dry-run: PASS; no DB connection and no DB writes.
+- Backend TypeScript check: PASS.
+- Frontend TypeScript check: PASS.
+- Frontend production build: PASS.
+- Dependency Audit Evidence workflow: PASS.
+
+The subsequent commit `a47e3ea8bc07320af7e4c404ff81b56f2124e685` updates the Master Plan only; it does not change code. PR #2 remains OPEN / DRAFT and has not been merged.
+
+### 56.24.3 Execution decision
+
+**Continue parallel code and QA work; do not apply Production migrations yet.** The next critical task is a fresh, full, recoverable Production backup durably archived in GitHub. After that, complete SQL review and owner approval for the exact 042–044 hashes, then execute the single atomic migration package through the updated fail-closed runner. F1 is still NOT READY for Production acceptance.
+
+
+---
+
+## 56.25 Focused F1 change and backtest cycle — 19 November 2026
+
+**Execution scope:** skip Vercel snapshot/quota work. Continue on the existing GitHub F1 working branch only. No new GitHub or Neon branch, no Production DDL/DML, no merge or deploy.
+
+### 56.25.1 Security corrections discovered during backtest preparation
+
+1. Removed the user-settable `app.migration_context='043'` trigger bypass. Legacy backfill now runs before runtime assignment triggers are installed; legacy event rows are inserted explicitly as `legacy_backfill`. This preserves pre-existing PM fixture conflicts without leaving a runtime bypass.
+2. Database trigger now requires a Platform Admin for PM assignment and revocation; PM uniqueness is serialized with a transaction advisory lock. Generic Project role endpoints reject PM creation/revocation. PM invitations are rejected by both API and invitation-acceptance database function. Only the dedicated Admin PM appointment/handover/deactivation workflow can change PM.
+3. Membership PATCH no longer changes `project_members.project_role_id`; membership lifecycle and role-assignment lifecycle are separate.
+4. Role expiry must be a valid future timestamp at API and database boundaries. Admin UI exposes optional per-role expiry.
+5. `/api/v1/me` now resolves only effective, non-expired assignments and does not fall back to a stale legacy/catalogue role when all Project assignments are inactive.
+6. Extracted testable rules into `src/f1-role-assignment-rules.ts`: effective assignment, future expiry validation, and explicit PM appointment decision. API now uses these rules.
+
+### 56.25.2 Backtest coverage added
+
+- Multiple distinct role assignments may be effective for the same Project membership.
+- Expiring or revoking one role does not deactivate other roles or the membership.
+- Inactive/expired membership or inactive Project invalidates every assignment.
+- Cross-Project and cross-user assignment context is denied.
+- Invalid, past, and current-time expiry values are rejected; future and open-ended assignments are accepted.
+- Duplicate PM assignments are never automatically resolved; handover requires the exact current PM identity; same-PM appointment is idempotent.
+- Migration source tests assert no user-settable bypass, legacy backfill before runtime trigger installation, composite Project FK, active-role uniqueness, append-only history, Admin-only PM boundary, and database invitation restrictions.
+- API/UI contract tests assert generic role routes cannot assign/revoke PM, membership PATCH cannot mutate roles, and the Admin UI exposes expiry separately.
+
+### 56.25.3 Migration 043 exact source checksum
+
+The latest source checksum for `migrations/043_project_role_assignments_and_history.sql` is:
+
+`15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`
+
+The migration runner, release-policy verifier, and pending migration manifest have been updated to this exact value. Migrations 042 and 044 hashes remain unchanged. No owner approval flags or Production execution were used.
+
+### 56.25.4 Backtest and release status
+
+- The previous CI run exposed a duplicate test variable and then an obsolete PM handover assertion; both test defects were corrected.
+- The latest behavioral backtest suite and latest full CI for the current HEAD are pending completion at this checkpoint; no PASS is claimed until the current-head run finishes.
+- No Production schema or QA fixture has been changed. The 2-active-PM Alpha fixture remains deliberately unresolved for Admin decision.
+- Full durable Production backup, SQL owner approval, and live database integration remain required before Production migrations 042–044.
+- Vercel snapshots, preview quota, merge and deployment are explicitly outside this focused execution cycle.
+
+**Current status:** changes and expanded behavioral backtests are in progress on the existing F1 branch. F1 remains NOT READY pending current-head CI, database integration/backtest, durable backup, and exact owner approval.
+
+
+---
+
+## 56.26 Follow-on backtest hardening — membership lifecycle and assignment revocation (19 November 2026)
+
+### 56.26.1 Additional edge cases fixed
+
+- Admin role assignment and PM appointment no longer silently reactivate an inactive/expired Project membership. The Admin must explicitly reactivate membership first; only then may a new role be assigned or PM appointed. This avoids accidentally restoring old role assignments when a membership is re-enabled as a side effect of adding one new role.
+- Migration 043's assignment guard now distinguishes INSERT/reactivation from revocation/expiry. New and reactivated assignments require an active membership and active role template; revocation and expiry remain possible even after the membership or role template is inactive. Immutable assignment identity and revoked-row immutability remain enforced.
+- Membership PATCH SQL bind positions were corrected and covered by contract tests. Membership state and actor parameters are checked independently; expiry changes now also require an audit reason.
+- Migration 043 checksum was recalculated and pinned in the runner, release verifier, and pending manifest after the guard change: `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`.
+
+### 56.26.2 Validation checkpoint
+
+- A preceding CI run completed 135/136 tests successfully and exposed one stale SQL parameter expectation; the code and regression test have since been corrected.
+- Current-head CI must be rerun after these final membership-lifecycle changes. Do not claim full CI PASS until the current head has completed all unit/security, release-policy, dry-run, backend/frontend typecheck and build, and dependency-audit jobs.
+- No Production DDL/DML, no QA fixture mutation, no Vercel snapshot work, no branch creation, no PR merge or deployment was performed.
+
+
+---
+
+## 56.27 Current-head backtest result — PASS for code/static acceptance (19 November 2026)
+
+### 56.27.1 Current CI evidence
+
+The latest completed current-head CI is for `1f54c88ce00e897f581dd1314c819a6b62705f5c`; the only later commit is this Master Plan update. Results:
+
+- Unit/security suite: **9 test files, 136 tests — PASS**.
+- Migration release-policy verification: PASS; exact Production ledger through 041 and pinned 042–044 confirmed.
+- Migration runner dry-run: PASS; no DB connection attempted and no DB changes.
+- Backend API TypeScript check: PASS.
+- Frontend TypeScript check: PASS.
+- Frontend production build: PASS.
+- Dependency Audit Evidence: PASS (root and frontend).
+
+### 56.27.2 Backtest coverage now passing
+
+The 136-test suite includes behavioral role assignment rules (multiple roles, independent expiry/revocation, membership/Project suspension, cross-Project/user isolation, PM duplicate/handover decisions) and source-contract checks for SQL migration order, no user-settable bypass, append-only event history, Admin-only PM lifecycle, invitation restrictions, expiry validation, membership/role separation, and frontend controls.
+
+### 56.27.3 Scope boundary — database integration still pending
+
+This is a code/domain and migration-source backtest, not a live PostgreSQL execution of migration 043 or authenticated API/database UAT. Production does not yet contain the new table/column/permission. No temporary Neon branch, local/Docker database, Production DDL/DML, or test fixture mutation was used. The repository's mandated integration runner is single-Production-branch only; live integration after schema change remains sequenced behind the durable backup and explicit migration approval gates.
+
+### 56.27.4 Exact migration package state
+
+- 042: `4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996`
+- 043: `15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086`
+- 044: `618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d`
+
+All three hashes are pinned in the migration runner, release-policy verifier, and pending manifest. They remain pending; no owner approval flags were set and no migration was applied.
+
+### 56.27.5 Remaining execution sequence
+
+1. Produce a fresh full Production backup and verify restore/recoverability; archive the exact encrypted backup and recovery artifacts durably in GitHub. Vercel snapshots and deployment quota are not part of this workstream.
+2. Complete final SQL review and obtain explicit owner approval for the exact three hashes.
+3. Apply 042–044 as one atomic package to Neon Production using the fail-closed runner.
+4. Immediately run authenticated DB integration/backtest and F0/F1 UAT on the migrated Production schema, with only temporary namespaced QA data inside verified transactions and cleanup evidence. Never alter pre-existing owner fixtures or choose PM assignments on the owner's behalf.
+
+**Status:** Code/static backtest PASS. Live database integration and Production release remain blocked by backup and exact owner-approval gates.
+
+
+---
+
+## 56.28 — Owner-directed F1 closeout waiver, Production migration 042–044 and PRI-1 transition (20 November 2026)
+
+### 56.28.1 Owner decisions and scope
+- Owner confirms successful application login and explicitly waives the separate Neon Auth authenticated-HTTP UAT for this checkpoint. This is an owner waiver, not a claim that a bearer-token HTTP test was executed.
+- Owner instructs to skip Vercel deployment. No Preview/Production deployment, promotion, environment-variable edit or Vercel configuration mutation was performed.
+- The owner-directed waiver applies only to the separate Neon Auth HTTP test and Vercel deployment for this checkpoint. It does not waive data-integrity, permission, accounting audit, storage integrity, or non-authenticated domain workflow requirements.
+- PM appointment, handover, replacement and duplicate-PM resolution remain Admin decisions outside application automation. No PM was appointed, revoked, selected or changed in this execution.
+
+### 56.28.2 Production migrations 042–044 — FACT: VERIFIED
+Target: Neon project purple-base-63944903, branch br-damp-shape-b3xlh4nr (production), database neondb.
+- Before application, a Production clone was created as pre-apply restore point br-restless-sky-b38dsjol. Read-only verification on that clone showed migration ledger 41/41 and absence of all three pending schema objects.
+- Neon manual snapshot creation was unavailable because the project snapshot limit was reached. The retained pre-apply clone is the recovery point for this migration batch; it is not a substitute for a provider-native snapshot/PITR guarantee.
+- Re-fetched the exact migration source files from the existing F1 GitHub working branch and applied the 042–044 package directly to Production in one PostgreSQL transaction. The SQL parser preserved comments, quoted strings and dollar-quoted PL/pgSQL bodies. No semicolon-naive statement splitting was used.
+- 53 migration SQL statements plus three migration_history inserts (56 total) executed and committed in the same transaction.
+- Production ledger now contains 44 rows, ending at 044. The three exact approved SHA-256 values are:
+  - 042: 4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996
+  - 043: 15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086
+  - 044: 618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d
+- Post-apply verification: inventory_reservations.release_reason exists; project_role_assignments and project_role_assignment_events exist; 24 legacy role assignments and 24 backfill events exist; project.change.delete exists but is not granted to any Project role.
+- Runtime privilege verification as app_runtime_secure: SELECT/INSERT/UPDATE allowed on assignment table; DELETE denied; UPDATE/DELETE denied on append-only event table. Assignment RLS policies target app_runtime_secure. Permission resolver functions remain SECURITY DEFINER.
+- Existing PM records were not changed. Any duplicate active PM appointments remain for Admin resolution.
+
+### 56.28.3 CI and validation cleanup
+- GitHub Actions Unit Tests run 44599494672: SUCCESS. Steps include offline security/unit tests, Production migration ledger/release gates, migration runner dry-run without a database connection, backend API typecheck, frontend typecheck and frontend build.
+- Dependency Audit Evidence run 44599494504: SUCCESS.
+- These workflow results establish repository CI and release-policy checks; they are not authenticated HTTP UAT or live browser workflow evidence.
+- Owner waived the separate Neon Auth HTTP test. Deleted validation branch f1-validation-20261119 (br-noisy-fog-b379k1uu) and verified it no longer appears, including deleted-branch lookup.
+- Retained pre-apply recovery branch pre-f1-042-044-production-backup-20261120 (br-restless-sky-b38dsjol). Do not delete or repurpose it until the next release checkpoint has a verified recovery replacement.
+- No synthetic fixture DML was performed in this execution. No Production Auth user, credential, session, PM assignment, financial record, storage object or business transaction was changed.
+
+### 56.28.4 F1 PRI-1 — next execution wave, read-only baseline
+A targeted read-only Production inspection begins the next F1 / PRI-1 wave (WP-03, WP-07, WP-11, WP-12, WP-13):
+- cash_advances INSERT RLS currently requires finance.create, while pke_cash_advance_guard() requires the authenticated requestor_id to equal pke_current_user_id(), and new requests must start draft/pending with zero disbursement/settlement balances. The current SELECT policy requires finance.view and does not include a requestor-own read predicate. A dedicated requestor-own read/create path is therefore not yet evidenced.
+- The cash_advances database guard already enforces that approval/rejection requires finance.update and a different actor from the requestor. Direct disbursement/balance mutation remains blocked unless performed by the controlled payment-reconciliation path.
+- Current financial audit triggers for cash_advances, payment_obligations, ap_invoices and ar_invoices are AFTER UPDATE triggers. The shared pke_financial_audit_event() function records state_changed events but does not currently establish creation events for those four entities.
+- AP/AR INSERT RLS policies require finance.create. AP/AR financial guards keep new invoices unpaid/unverified and make verified/approved commercial identity immutable. Payment balances remain reconciliation-trigger controlled.
+- Source inspection of src/index.ts found no direct cash_advances, ap_invoices or ar_invoices SQL/API implementation. Treat these as incomplete workflow surfaces; do not invent a success path or map invoice creation to payment execution.
+- No SQL, policy, trigger, grant, role, business row or API source was changed during this read-only baseline.
+
+### 56.28.5 Current disposition and next tasks
+- F1 / PRI-0 database migration and code/CI acceptance: PASS.
+- Separate Neon Auth authenticated HTTP UAT: OWNER-WAIVED for this checkpoint; not run and not reported as PASS.
+- Vercel deployment/latest-head Preview: OWNER-WAIVED for this checkpoint; not run.
+- F1 / PRI-1 remains OPEN. Execute in this order:
+  1. Implement requestor-own cash advance create/read plus separate Finance approval, preserving the current guard and reconciliation-only disbursement boundary. Define exact permission semantics and update API + frontend + tests.
+  2. Add immutable financial creation audit events for cash advances, payment obligations, AP invoices and AR invoices; use stable created actions, actor/Project/permission context, snapshots, and idempotency/no-duplicate assertions. Review whether trigger function changes can be additive and backward compatible.
+  3. Reconcile shipment allocation-to-loading-to-inventory issue against Production triggers now that migration 042 is applied; run only safe read-only and non-persisting contract tests unless a real approved operation exists. Do not insert synthetic Production business records.
+  4. Keep document upload/report completion disabled or queued until a real private object-storage artifact exists and checksum/metadata are verified. Do not fabricate a completed report or document.
+  5. Run the 36 permission assertions, expanded RLS matrix, frontend contract tests and complete CI; keep live authenticated HTTP UAT marked OWNER-WAIVED, not PASS.
+- Any required new Production migration (045+) must be prepared as an exact artifact with SHA-256, read-only preflight, lock/impact review, rollback/recovery and then separately approved by the owner before application. Migration 042–044 approval does not authorize 045+.
+- F2 remains design-only. Under canonical Section 56.20, F2 implementation does not start until F0/F1 exit gates are independently closed or explicitly waived by the owner. Current F1 PRI-1 items remain open, so the next active work is F1 / PRI-1, not F2.
+
+**Disposition:** F1 / PRI-0 database schema and code/CI gate accepted for continuation under the owner's explicit Neon Auth HTTP and Vercel waivers. F1 overall remains IN PROGRESS pending PRI-1 functional work. F0 retains its separate acceptance register; no claim of Application Complete or Business Production Ready is made.
+
+
+---
+
+## 56.29 — Migration release reconciliation verified; F1 PRI-1 execution baseline (20 November 2026)
+
+### 56.29.1 Manifest and runner reconciliation
+- Production migration_history was re-read on the exact Neon Production target and rows 042–044 were confirmed with the exact filenames, SHA-256 values and status applied.
+- Created canonical active ledger file migration_history_manifest_001_044.json: 44 ordered entries, 44/44 verified, zero pending migrations. Rows 001–016 retain their verified baselined status; rows 017–044 are applied. Historical authentic SQL 029–035 remains unrecovered and is not represented as source-verified.
+- Updated scripts/migrate.mjs to use migration_history_manifest_001_044.json and added a fail-closed already-applied path for the exact 042–044 package. When the 44-row manifest and live ledger match, the runner verifies all rows and exact 042–044 source hashes, then exits without re-executing SQL.
+- Updated scripts/verify-migration-release-policy.mjs to validate all 44 entries, zero pending migrations, exact 042–044 hashes and the safe no-replay runner path.
+- Added src/migration-ledger-44.contract.test.ts and included it in npm test. The test verifies the legacy baselined/applied status split, contiguous IDs, exact migration hashes, no pending entries and runner/verifier manifest alignment.
+- The initial contract test incorrectly assumed every legacy row was baselined, then incorrectly assumed rows 001–028 were baselined. Both assertions were corrected against the actual verified manifest: rows 001–016 baselined, 017–044 applied. No Production state was affected by those test-only failures.
+
+### 56.29.2 Latest CI — PASS
+Current F1 branch HEAD: 7d5c4986a0e3c9cdf82045bf15b4673d0d2f525a.
+- GitHub Unit Tests run 44602083712: SUCCESS.
+  - 11 test files, 146/146 tests passed.
+  - Production migration ledger/release-policy verifier passed.
+  - Migration runner dry-run passed without a database connection.
+  - Backend API TypeScript check passed.
+  - Frontend TypeScript check passed.
+  - Frontend production build passed.
+- Dependency Audit Evidence run 44602083458: SUCCESS for root and frontend production dependency audits.
+- These CI results prove repository/static/build consistency. They do not constitute authenticated HTTP UAT or live cash-advance/AP/AR workflow tests.
+
+### 56.29.3 Vercel owner instruction honored
+- GitHub pushes automatically queued Vercel Preview builds despite the explicit instruction to skip deployment. No Vercel deployment was intentionally requested.
+- Queued Preview deployments for commits 7264891e2a61fe91a9792e60113e834bee7140cd and 7d5c4986a0e3c9cdf82045bf15b4673d0d2f525a were explicitly canceled before completion. Other automatic Preview attempts in this docs/release-verifier series ended in ERROR. No Preview reached READY and no Production deployment/promotion occurred.
+- No Vercel environment variable or project configuration was changed. For subsequent GitHub commits, inspect/cancel any automatically queued Preview before it completes; do not intentionally deploy.
+
+### 56.29.4 F1 / PRI-1 — read-only baseline confirmed
+- cash_advances currently has INSERT policy requiring finance.create and SELECT policy requiring finance.view. The database guard requires requestor_id to equal the transaction-local PKE user, initial approval/disbursement state to be draft/pending, and zero initial disbursement/settlement balances. Approval/rejection requires finance.update, a non-requestor actor, and the guard preserves the reconciliation-only disbursement path.
+- There is no requestor-own SELECT policy and no direct cash_advances API implementation in src/index.ts or corresponding Drizzle model in src/schema.ts. The frontend currently labels Cash Advance/Schedule and AP/AR Invoice as available in a finance feature inventory despite the missing backend route/model; correct this UI status when the vertical slice is implemented, not by pretending the workflow is operational.
+- The existing shared financial audit function handles state changes. Production triggers for cash_advances, payment_obligations, ap_invoices and ar_invoices are AFTER UPDATE only; there are no matching AFTER INSERT creation-audit triggers. Creation events are therefore a concrete audit gap.
+- AP/AR INSERT policies require finance.create. Financial guards require new invoices to start unpaid and unverified/open; paid/outstanding balances remain reconciliation-controlled. No payment execution capability is added by this work.
+- No source, SQL, policy, trigger, role, permission grant or business data was changed during this read-only F1 PRI-1 baseline.
+
+### 56.29.5 Next execution sequence
+F1 / PRI-1 / WP-03 + WP-07 + WP-11 + WP-12 + WP-13 is now the active work wave:
+1. Define and implement least-privilege Cash Advance requestor-create/read-own versus independent Finance approve/reject. Keep the non-requestor approval rule and reconciliation-only disbursement. Do not grant all Project members access by default; map eligible requestor roles through the canonical role catalogue and permission dictionary.
+2. Add immutable creation audit events for cash advances, payment obligations, AP invoices and AR invoices. Define created action names, exact actor/Project/permission attribution, safe before/after snapshots and retry/idempotency behavior. Verify existing data before adding any uniqueness constraint.
+3. Implement API/service/UI vertical slices for the missing cash advance and invoice operations; do not display feature status as available until backend routes, RLS and tests are complete.
+4. Reconcile reservation → allocation → loading → inventory issue with the live 042–044 schema and triggers. Use existing owner-authorized fixture rows only; do not fabricate additional Production business records or modify pre-existing PM fixture decisions.
+5. Keep document/report completion pending until a real private object exists and checksum/metadata integrity is verified.
+6. Run the complete 36 permission assertions, expanded RLS matrix, API contract suite, CI and the non-authenticated domain smoke available under the owner's Neon Auth UAT waiver. Mark the Auth HTTP test OWNER-WAIVED, never PASS.
+7. Prepare any new SQL as an exact migration artifact and SHA-256 for separate owner approval. Migrations 042–044 approval does not authorize migration 045+.
+
+F2 remains DESIGN / PROPOSED; F1 PRI-1 work is the next active implementation, not F2.
+
+
+## 56.30 — Canonical plan commit CI confirmation and deployment suppression (20 November 2026)
+
+- Canonical Master Plan commit: 0adf86479a456c8a0f71029feac77c664847d38f. This commit only appends the F1 migration-ledger reconciliation and PRI-1 execution baseline; no application code or SQL changed.
+- GitHub Unit Tests run 44602340627: SUCCESS. It reran the full 11-file / 146-test suite, migration release-policy verification, migration runner dry-run, backend TypeScript check, frontend TypeScript check and frontend build.
+- Dependency Audit Evidence run 44602340814: SUCCESS for root and frontend.
+- GitHub/Vercel integration automatically queued Preview deployment dpl_HM2r5w7tGvxiZgV95BcFDhKNuJ3W for this docs-only commit. It was canceled before completion at the owner's direction. No Preview became READY and no Production deployment/promotion occurred.
+- Current branch HEAD at this checkpoint: 0adf86479a456c8a0f71029feac77c664847d38f. PR #2 remains OPEN / DRAFT and is not merged.
+- F1 / PRI-0 migration release consistency: PASS. F1 / PRI-1 work remains OPEN as specified in §56.29. F2 remains design-only.
+
+
+## 56.31 — F1 / PRI-1 Cash Advance service/API foundation — 2026-11-20
+
+- Implemented dedicated Cash Advance service and authenticated API for Project-scoped request listing, requestor creation, and independent Finance decision.
+- Requestor identity is derived only from the verified session. Request creation requires explicit `finance.cash_advance.request`; it is not included in default role templates. Finance decisions require an active explicit Project role `finance` with `finance.update`, and the actor must differ from the requestor.
+- Existing database guards remain authoritative. No direct disbursement, refund, or settlement API is exposed; those balances remain reconciliation-only.
+- Proposed RLS/audit migration 045 is prepared as an exact source artifact. It removes the platform-wide cash_advance RLS bypass, limits INSERT/SELECT/UPDATE to requestor-own and independent Finance access, and adds immutable INSERT audit events for cash_advances, payment_obligations, ap_invoices, and ar_invoices.
+- **Production boundary:** migration 045 is NOT applied; no Production DDL/DML, role grant, PM appointment, or synthetic business data was performed. Migration SHA must be separately approved by owner. The permanent single-Neon-branch rule was followed; no temporary branch was created.
+- CI and frontend wiring remain pending; no E2E/RLS runtime PASS is claimed.
+
+
+## 56.32 — F1 / PRI-1 Cash Advance UI integration — 2026-11-20
+
+- Added dedicated `/cash-advances` navigation and page for internal Project users. The page reads the selected Project, shows requestor-own rows or Finance-visible rows as determined by API/RLS, and only displays request/decision actions returned as permitted by the API.
+- Request form uses active currencies and does not accept a requestor identity. Finance can approve/reject only when the API confirms an explicit Finance Project role and independent actor. No UI action can disburse, refund, settle, or edit ledger balances.
+- The UI source now calls the new service API; integration is source-complete pending frontend typecheck/build and CI. Migration 045 remains unapplied pending exact owner approval.
+
+- Migration 045 audit capture uses a separate INSERT-only SECURITY DEFINER trigger function; the existing financial UPDATE audit function is deliberately left unchanged so payment-instruction/evidence/reconciliation audit cases are preserved.
+
+
+## 56.33 — Cash Advance vertical-slice source/CI checkpoint — 2026-11-20
+
+- Source commit `83c47e2e2eee33b4b1f8b0c5fe4955003eb1e62e` contains Cash Advance service, authenticated Project-scoped API, requestor/Finance UI, maker-checker rules/tests, and proposed migration 045.
+- GitHub Unit Tests run `44616953963`: SUCCESS. Steps passed: offline security/unit tests, verified Production migration ledger, migration runner dry-run, backend API TypeScript, frontend TypeScript, and frontend production build.
+- Dependency Audit Evidence run `44616953990`: SUCCESS for root and frontend.
+- Automatic Vercel Preview for this commit ended in ERROR (`ENOENT` in build step). It did not reach READY. No intentional Vercel deployment, Production deployment, or promotion was performed; Vercel remains skipped per owner instruction.
+- Proposed Migration 045 exact SQL SHA-256: `da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261`. It is NOT applied. Production read-only verification still shows migration ledger 44/44, permission `finance.cash_advance.request` absent, existing cash_advance platform-admin policy present, and no financial INSERT audit triggers. This is expected until owner separately approves the exact migration.
+- No requestor permission was granted to any Project role. Admin must decide the eligible Project role(s) and explicitly grant `finance.cash_advance.request`; no default template was broadened.
+- **Status:** service/API/UI source and CI = PASS; proposed RLS/audit migration = PREPARED / OWNER APPROVAL REQUIRED; live Production vertical slice = NOT ACTIVE. No synthetic business data or Production writes were performed. No new GitHub or Neon branch was created.
+
+
+## 56.34 — Production Migration 045 applied — 2026-11-20
+
+- Owner explicitly approved exact SQL SHA-256 `da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261`.
+- Applied the exact SQL to Neon project `purple-base-63944903`, branch `production` (`br-damp-shape-b3xlh4nr`), database `neondb`, in one atomic transaction. The migration ledger row was inserted in that same transaction.
+- Post-apply read-back: migration ledger 45 contiguous rows; row 45 filename/hash/status match the approved artifact; `finance.cash_advance.request` active; platform-admin bypass policy removed from cash_advances; requestor-own / Finance-view SELECT policy, explicit request INSERT policy, independent actor UPDATE policy, and Finance delete permission policy present; four INSERT audit triggers created on cash_advances, payment_obligations, ap_invoices, ar_invoices. Existing financial UPDATE audit function and UPDATE triggers were preserved.
+- No Project role received `finance.cash_advance.request` automatically. Admin must explicitly assign it to an intended Project role. No synthetic business rows or PM appointment decisions were made.
+- Snapshot creation was attempted before apply but Neon rejected it because the project snapshot limit was exceeded. No additional Neon branch was created. The migration was executed transactionally; on failure the DDL and ledger insert would roll back together.
+- Source release gate now advances to verified history 001-045; the previous 001-044 manifest is retained as historical evidence only. Runner/verifier/tests updated to recognize already-applied Migration 045 without replay.
+- Production RLS catalog policy verification passed. Runtime DML matrix was not executed because no synthetic Production rows or user role grants were authorized; feature activation still depends on Admin granting the new request permission to the intended Project role and subsequent authenticated workflow verification.
+
+
+## 56.35 — Post-045 security residual and activation gate — 2026-11-20
+
+- Post-migration role-permission catalog check found `finance.update` assigned to both `finance` and `project_admin` Project role definitions (two each). The Cash Advance API explicitly rejects Project Admin decision requests, but the Migration 045 database UPDATE policy and existing `pke_cash_advance_guard()` enforce `finance.update` plus actor/requestor separation and do not independently require `role_code='finance'`.
+- Consequently, the database-only approval path is not yet Finance-role-exclusive if a Project Admin holds `finance.update`. Do not claim complete DB-level maker-checker isolation until a separate Migration 046 hardens the database policy/guard and is owner-approved/applied. No role grants or permission revocations were made during this verification.
+- Migration 045 is applied and verified, but the application is not deployed (Vercel intentionally skipped), and no Project role has been granted `finance.cash_advance.request`. Keep Cash Advance request/decision UI unavailable operationally until the deployment decision, explicit Admin role grant, and authenticated workflow verification are completed.
+- Latest CI at commit `351ea50dafa1eaa83ddfb51790bf330e1c93aeab`: 13 test files / 162 tests PASS; migration release verifier and runner dry-run PASS; backend/frontend TypeScript and frontend build PASS; Dependency Audit PASS.
+
+
+## 56.36 — Migration 046 prepared: Finance-only Cash Advance decision enforcement — 2026-11-20
+
+- Read-only inspection of Neon Production confirmed `pke_has_project_permission(project_id,'finance.update')` accepts both active Finance and Project Admin role assignments, while the current Cash Advance UPDATE policy and `pke_cash_advance_guard()` do not independently require `project_roles.role_code='finance'`. The API rejects Project Admin, but the database boundary did not.
+- Prepared `migrations/046_cash_advance_finance_role_guard.sql` on the existing GitHub branch `f1/project-scoped-cob-20261119`. SHA-256: `4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31`.
+- The proposed migration adds a SECURITY DEFINER helper that resolves only the authenticated user's active, non-revoked, non-expired Finance Project assignment, with active membership, role, Project and user checks. It has a fixed search_path, PUBLIC execute is revoked, and execute is granted only to `app_runtime_secure`.
+- The Cash Advance UPDATE RLS policy now requires both active Finance role and `finance.update`, as well as a different requestor/decision actor and the existing non-platform-admin boundary. The trigger independently enforces the same Finance-role-plus-permission condition for approve/reject, retains maker-checker, preserves the reconciliation-only disbursement guard, and prevents changing Project/requestor identity in the same decision.
+- Existing permission grants, role assignments, PM appointments, cash advance rows, and all Production data remain unchanged. No Neon SQL was executed and no Neon/GitHub branch was created.
+- The verified Production history manifest remains exactly 001–045 applied with zero pending entries; Migration 046 is prepared source, not an applied/pending Production ledger row. The release verifier pins the prepared SQL hash while ensuring the applied history remains unchanged. The migration runner has no 046 approval guard and therefore remains fail-closed for any attempt to apply it.
+- **Status: PREPARED / NOT APPLIED / OWNER APPROVAL REQUIRED.** This SHA authorizes no Production change. Before approval, perform a final static review and run the offline CI/release verifier. After approval, apply only this exact SQL and SHA in one atomic transaction with its ledger row.
+
+
+## 56.37 — Production Migration 046 applied: Finance-only Cash Advance decisions — 2026-11-20
+
+- Owner explicitly approved exact SQL SHA-256 `4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31`.
+- Applied to Neon Production project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, database `neondb`. The SQL and migration-history row 46 were committed atomically in one transaction after verifying the exact prior 45-row ledger and Migration 045 hash.
+- Post-apply read-back confirms contiguous migration ledger 001–046, row 46 exact filename/hash/status, helper `pke_has_active_project_role(uuid,text)` exists, and `pke_cash_advance_guard()` is replaced with Finance-role-only maker-checker enforcement.
+- Cash Advance UPDATE RLS now requires active Finance Project role, `finance.update`, a different requestor/decision actor, and non-platform-admin context. The SECURITY DEFINER role helper has fixed search_path; PUBLIC execute is revoked and `app_runtime_secure` execute is granted. Read-back confirms PUBLIC cannot execute and app_runtime_secure can execute.
+- Existing DELETE/INSERT/SELECT Cash Advance policies remain unchanged. Existing INSERT and UPDATE financial audit triggers remain present. Existing cash advance row count remains 1; no business data, permission grants, role assignments, or PM decisions were changed.
+- Neon snapshot creation was attempted immediately before apply but rejected because the project snapshot limit was exceeded. No branch was created. The migration and ledger insertion were still atomic; no partial migration state is possible from a failed transaction.
+- Updated the canonical Production history manifest to 001–046 and retained the 001–045 manifest as historical evidence. Updated runner and release verifier to recognize exact applied 046 as verification-only and prevent SQL replay.
+- **Status:** Migration 046 APPLIED / LEDGER VERIFIED. Runtime role-matrix DML testing remains outstanding; no synthetic Production business records were created. Vercel remains intentionally skipped.
+
+
+## 56.38 — Finance RBAC least-privilege policy — Migration 047 APPLIED — 2026-11-20
+
+- Owner decision: Project Admin is strictly read-only for Finance (`finance.view` only). Finance Project role owns Finance transaction create, update, and delete (`finance.create`, `finance.update`, `finance.delete`). Cash Advance approve/reject remains additionally restricted by Migration 046 to an active Finance role and maker-checker separation.
+- Pre-apply Production audit found 2 Project Admin role grants with each of `finance.create`, `finance.update`, and `finance.delete` across the two existing fixture Projects. Finance role had `finance.view`, `finance.create`, and `finance.update`, but no `finance.delete`. No Finance mutation grants were found in global `role_permissions`.
+- Migration 047 `migrations/047_project_admin_finance_read_only.sql`, exact SHA-256 `1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682`, was verified against the exact GitHub source using Neon `pgcrypto.digest` and applied atomically to Neon Production after explicit owner approval. SQL changes and ledger row 47 committed in one transaction.
+- Post-apply ledger read-back: exactly 47 contiguous rows; row 47 filename, SHA-256, and status `applied` match. No pending migrations remain.
+- Post-apply permission audit: Project Admin has 2 `finance.view` grants and zero Finance mutation grants; Finance has 2 grants each for view/create/update/delete. All non-Finance roles have zero create/update/delete Finance grants. Existing Accounting, Cashier, Funder, and PM view-only Finance grants remain unchanged.
+- Database enforcement verified: trigger `pke_project_role_finance_permission_guard` is enabled; trigger function is SECURITY DEFINER; PUBLIC cannot execute it; `app_runtime_secure` can execute it.
+- Updated canonical role templates, role-permission API validation, migration manifest, migration runner, release verifier, ledger contract test, and this plan. CI validation is to be rerun on the documentation/ledger synchronization commit; no Vercel deployment is authorized.
+- No synthetic business data was created. No PM decision or project workflow was changed. Snapshot quota restriction remains noted from the pre-apply safety review; this migration was applied in one atomic transaction without a new snapshot.
+- Remaining validation: perform safe authorization checks for actual Project Admin SELECT-only and Finance mutation permissions without inserting synthetic business records; no direct live DML tests were run as part of this migration.
+
+
+## 56.39 — Migration 047 Production reconciliation and latest CI — 2026-11-20
+
+- Neon Production read-back on `production` / `br-damp-shape-b3xlh4nr`, database `neondb`, confirms `migration_history` rows 001–047 are contiguous, all applied, and zero pending. Row 47 is `047_project_admin_finance_read_only.sql` with exact SHA-256 `1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682`.
+- The GitHub source bytes for Migration 047 were independently SHA-256 checked against the approved value. The SQL artifact is intentionally preserved byte-for-byte because it is the exact applied artifact. Its original leading comment still says “PREPARED ONLY”; that comment is stale historical text, not the execution state. Do not edit the SQL file, because changing even a comment would invalidate the approved source hash. This discrepancy is explicitly documented rather than silently rewriting applied migration history.
+- Direct Production permission read-back confirms Project Admin has only `finance.view` (2 grants) and zero `finance.create/update/delete`; Finance has 2 grants each for `finance.view/create/update/delete`; Accounting, Cashier, Funder and PM retain only `finance.view`. The Finance-role permission guard trigger is present and enabled. This confirms catalog/grant state, not a live user CRUD transaction test.
+- Latest source/CI commit before this plan reconciliation: `cb863ccbfcdd46e55a188a0b9545caaac7c6096a` (“Finalize release verifier for applied Migration 047”). GitHub Unit Tests run `44706857443` SUCCESS; Dependency Audit Evidence run `44706856938` SUCCESS. The Unit Tests job passed offline security/unit tests, Production migration ledger/release gates, migration runner dry-run, backend TypeScript, frontend TypeScript and frontend build. Owner-provided count for this run: 14 test files / 166 tests PASS.
+- Release verifier now requires zero pending migrations after Migration 047. The active manifest is `migration_history_manifest_001_047.json`; the stale contradictory Migration 047 wording in `source_recovery_note` is corrected in this checkpoint. Historical authentic SQL source for 029–035 remains unrecovered and those reconstructions remain non-executable.
+- No synthetic Production business data, role grants, PM decisions, or workflow changes were made. No Production deployment was attempted. Vercel Preview remains skipped/canceled under owner instruction; its failure status is not treated as a code-test failure.
+- **Remaining acceptance boundary:** Production permission catalogs and guard are verified, but controlled direct-user Project Admin read-only and Finance CRUD runtime checks have not been executed. Do not claim live CRUD UAT PASS or overall F1 closure from catalog checks alone. Keep PR #2 OPEN / DRAFT and do not merge or deploy Production without the owner's explicit next decision.
+
+
+## 56.40 — Parallel revision wave 1–2 (2026-11-20)
+
+**Execution mode:** parallel source revision before consolidated blocker resolution. No Vercel deployment, no Production migration, and no synthetic Production business data.
+
+### Repository and deployment boundary
+- Repository: `koenbroto25/PKE-Export-Platform`.
+- Existing branch retained: `f1/project-scoped-cob-20261119`; no branch was created.
+- Latest code revision commit: `3c2cbabda8e1fcd02a47251091268ef83b12c0ca`.
+- PR #2 remains OPEN / DRAFT and unmerged.
+- Added a branch-specific `git.deploymentEnabled` false setting in `vercel.json` for this exact feature branch. Vercel deployment lookup for code commits `6a8226bc60b90b86d5f795a9897d4dcfd428409c` and `3c2cbabda8e1fcd02a47251091268ef83b12c0ca` returned zero deployment records. Other branches are not disabled by this setting.
+- No Vercel environment variables, project settings, production alias, or deployment were changed.
+
+### Parallel source revisions completed
+- **Security / RBAC:** Contract Program detail and Contract detail reads now require the active Project-scoped `contract.view` permission and constrain the final SELECT by both record ID and Project ID.
+- **Contract ownership:** Removed the duplicate legacy Admin-only `PATCH /contracts/:id` handler. The remaining route is the Project-scoped PM contract update path requiring `manage_contract_programs`, consistent with the owner-approved PM ownership rule.
+- **Inventory controls:** Inventory Hold creation now requires `inventory.hold`. Inventory Lot creation requires `inventory.create`; Inventory Movement creation requires `inventory.update`.
+- **Logistics / warehouse controls:** Truck Trip create/update requires `record_truck_trips`; Warehouse Receipt create requires `warehouse.receipt.create`; Warehouse Receipt update requires `warehouse.update`.
+- **Finance controls:** FX Exposure creation and RAB creation require Project-scoped `finance.create`. RAB reads now require a Project ID and Project-scoped `finance.view`, preserving Project Admin read-only Finance access.
+- **Reporting scope:** Platform-wide portfolio, project export, operational/financial KPI, historical and scheduler-run endpoints now require Platform Admin. Project-scoped reports continue to use their Project permission path.
+- **Global document reference data:** Export Document Type and Country Export Document Requirement creation now require Platform Admin.
+- Added `src/f1-parallel-revision.contract.test.ts` and registered it in the root test command. The test contract covers Project-scoped Contract reads, unique PM Contract PATCH route, Inventory Hold permission, operational write permissions, Finance/RAB permissions and Platform Admin-only global operations.
+
+### CI evidence and limitations
+- Revision commit `6a8226bc60b90b86d5f795a9897d4dcfd428409c`: GitHub Unit Tests and Dependency Audit both completed SUCCESS. This commit contained the first five parallel-revision contract assertions.
+- Latest code revision commit `3c2cbabda8e1fcd02a47251091268ef83b12c0ca`: Unit Tests run `44710655266` SUCCESS and Dependency Audit run `44710655323` SUCCESS. Unit job completed root dependency install, offline security/unit tests, Production migration release verifier, migration runner dry-run, backend TypeScript, frontend dependency install, frontend TypeScript and frontend build. Dependency Audit completed root/frontend production dependency audits, full root/frontend dependency-tree audits and evidence upload. This is CI evidence for the code commit; the subsequent plan-only commit is not a new code validation target.
+- No Production DDL/DML, migration replay, role grant, PM decision, workflow business-state change or synthetic Production record was performed.
+- These are source-level and automated contract revisions, not direct-user database CRUD/UAT evidence. RLS remains the final database enforcement boundary; controlled live-user DML validation remains separate.
+
+### Remaining parallel revision domains before consolidated blocker resolution
+- Buyer master-data CRUD authority and project relationship need a confirmed permission owner; do not invent a global-vs-Project policy.
+- Global FX-rate and Chart-of-Accounts maintenance need explicit authority mapping distinct from Project-scoped Finance transaction permissions.
+- Journal entry / journal line posting and Accounting-vs-Finance permission mapping need reconciliation against the accounting workflow specification.
+- AP/AR API coverage and maker-checker/audit contracts require a complete source-to-schema review.
+- Remaining read/list endpoints need a full Project-scoped API/RLS parity pass; absence of an explicit route helper is not by itself proof of exposure because database RLS may still apply.
+- Document artifact integrity still requires provider-backed object metadata, checksum verification and report artifact reconciliation; static storage adapter checks are not provider E2E evidence.
+- Frontend permission-driven actions and API contracts still require a cross-module reconciliation.
+- No blocker is marked closed solely by this revision log. The next stage is consolidated audit after the parallel revision pass is complete, followed by grouped blocker remediation and final regression.
+
+
+
+## 56.41 — Parallel revision wave CI completion — 2026-11-20
+
+- GitHub Actions re-read after completion confirms Unit Tests run `44710655266` and Dependency Audit run `44710655323` both SUCCESS for code commit `3c2cbabda8e1fcd02a47251091268ef83b12c0ca`.
+- Unit job steps all SUCCESS: root install, offline security/unit tests, Production migration release verifier, migration runner dry-run, backend TypeScript, frontend install, frontend TypeScript and frontend build.
+- Dependency Audit job steps all SUCCESS: locked dependency install, root/frontend production audits, root/frontend dependency-tree audits and evidence upload.
+- No test count is asserted here because the returned job-step summary does not include a test count. Use the run logs/artifacts if an exact count is required.
+- Latest code commit has no corresponding Vercel deployment record. The branch-specific Vercel deployment skip remains in effect. No Production deployment or migration was performed.
+- Current status: **parallel revision wave 1–2 source/CI PASS**. This is not consolidated audit PASS, not direct-user CRUD UAT, not provider-backed document integrity PASS, and not overall PKE/F1 completion. The next stage remains consolidated cross-module audit, followed by grouped blocker resolution and final regression.
+
+
+## 56.42 — Consolidated Finance, RLS, document integrity and maritime data architecture — 2026-11-20
+
+**Source branch:** `f1/project-scoped-cob-20261119` (existing branch retained; no new branch).  
+**Code commit validated by CI:** `0268a3dbb055ac38ecf12fa85c13e5b665342986`.  
+**PR #2:** OPEN / DRAFT; no merge.  
+**Production boundary:** No Neon Production DDL/DML, no migration replay, no Vercel deployment, and no synthetic Production business records.
+
+### A. Buyer master-data authority
+- Buyer master records are global legal/commercial reference data. Create/update/delete endpoints require Platform Admin.
+- Project Finance can read only buyers linked to the selected Project through its Contract Program, using Project-scoped `finance.view`; Contract users retain the existing contract-scoped read path.
+- AR invoice creation validates that the Buyer belongs to the Project's Contract Program. It no longer relies on an arbitrary Auth user identity for the Buyer foreign key.
+- Migration 048 adds `ar_invoices.buyer_master_id` and relaxes the legacy `buyer_id` NOT NULL constraint without deleting legacy values.
+
+### B. FX Rates and Chart of Accounts
+- FX Rates and Chart of Accounts are global reference catalogs. Mutations are Platform Admin only; they are not Project Finance transaction CRUD.
+- Project FX Exposure reads/writes use `finance.view/create/update/delete` consistently in the API and the prepared RLS replacement policies.
+- Finance users can read the global FX/COA reference data needed by their Project; they cannot change the shared master catalogs.
+
+### C. Journal Entries and Accounting
+- Journal list and draft creation require Project-scoped `accounting.view` / `accounting.create`.
+- Journal lines can be inserted as a batch, validate one-sided debit/credit values and active COA accounts, and remain attached to a draft entry.
+- Posting requires `accounting.update`, separately assigned per Project. It is intentionally NOT granted automatically to every Accounting role and is not granted to Finance or Project Admin by this revision.
+- Migration 048 adds the missing journal-line INSERT RLS policy tied to the parent Journal Entry and `accounting.create`.
+- Posting remains unavailable to an Accounting user until the owner/admin explicitly assigns the posting permission through the existing Project role-permission process.
+
+### D. Accounts Payable / Accounts Receivable
+- Added Project-scoped AP/AR list/create and status endpoints, Finance permission checks, supplier/Buyer-to-Project validation, and AP/AR panels in the Finance UI.
+- AP invoice verification is fail-closed. The client cannot set a `threeWayMatch` boolean to self-certify a match. Verification returns `THREE_WAY_MATCH_WORKFLOW_REQUIRED` until the system has a real Purchase Order + Goods Receipt + Supplier Invoice matching workflow.
+- AP payment execution, bank reconciliation, AR receipt allocation and settlement posting are not claimed complete by these endpoints. They remain separate accounting/payment workflow work.
+- AR uses `buyer_master_id`; no Auth user is required to represent a legal buyer.
+
+### E. Endpoint/RLS parity audit
+- Added Project-scoped reads for Truck Trips, Warehouse Receipts, Inventory Lots, Inventory Movements, Inventory Holds, Tracking Events and FX Exposures.
+- Corrected API/RLS permission vocabulary mismatches:
+  - Truck Trip create/update: `record_truck_trips`.
+  - Warehouse Receipt create/update/read: `warehouse.receipt.create`, `warehouse.update`, `warehouse.view`.
+  - FX Exposure: `finance.*` rather than the old `fx.*` vocabulary.
+  - Inventory Hold insert: `inventory.hold`.
+  - Tracking Event insert: `record_truck_trips`, or `warehouse.receipt.create` for receipt events.
+- The API referenced an `inventory_holds` table that had no canonical migration. Migration 048 now defines the Project-scoped table, constraints, idempotency key and RLS policies.
+- Added static contract tests for these route/RLS parity requirements. This is not a substitute for controlled runtime role-matrix tests using actual Project Admin, Finance, Accounting, warehouse and logistics identities.
+
+### F. Document and Object Storage integrity
+- Frontend upload flow now computes SHA-256, uses a unique Project-namespaced object key, checks the provider PUT response, and registers the object using the same key.
+- API registration verifies provider HEAD size and streams the actual object bytes through SHA-256 before inserting the document record. A client-provided checksum alone is not accepted as proof.
+- Fixed frontend API path construction for storage presign and document status update calls.
+- Provider verification has automated mock coverage. A live Neon Object Storage end-to-end checksum round-trip is still required before this is called provider-E2E PASS. Failed registration may leave an unreferenced uploaded object; lifecycle cleanup/retention policy is still required.
+
+### G. Frontend/backend permission consistency
+- Added `GET /projects/:projectId/my-permissions`, backed by the prepared SECURITY DEFINER function `pke_current_user_project_permissions`, which returns only the caller's effective permission codes for the requested Project.
+- Finance RAB/FX Exposure actions, AP/AR creation and Journal draft/post actions now use Project permission data for visibility. Backend authorization and RLS remain authoritative; hidden buttons are not treated as security controls.
+- Project role navigation now recognizes active Project role assignments as well as the global account role.
+- Logistics and inventory list requests now carry the selected Project ID; tracking feeds are no longer requested globally.
+
+### H. Migration 048 status — PREPARED ONLY
+- File: `migrations/048_buyer_accounting_ap_ar_document_hardening.sql`.
+- Exact SHA-256: `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`.
+- The SQL is not in the Production applied-migration manifest and has NOT been applied to Neon Production. It is not authorized for execution by this revision.
+- It contains additive AP/AR columns, the missing Inventory Hold table, Buyer/Vendor read/write RLS, global FX/COA master RLS, FX Exposure permission alignment, Truck Trip/Warehouse Receipt/Tracking Event RLS alignment, Journal Line INSERT RLS, and the per-Project permission read function.
+- Before any apply: inspect the exact SQL against the current Production schema and policy names, perform a read-only preflight/backup feasibility check, run on an isolated test database, then request separate owner approval of this exact SHA-256. Do not silently alter the file after approval.
+
+### I. CI evidence
+- Unit Tests run `44715075371`: SUCCESS. All job steps succeeded, including offline security/unit tests, Production migration release verifier, migration runner dry-run (no database connection), backend TypeScript, frontend TypeScript and frontend build.
+- Dependency Audit run `44715075190`: SUCCESS. Root/frontend production dependency audits and full dependency-tree audits completed; evidence uploaded.
+- CI validates the code commit `0268a3dbb055ac38ecf12fa85c13e5b665342986`. It does not validate a Neon Production migration or a live Object Storage round-trip.
+- No Vercel deployment record was requested or created for this branch. PR remains OPEN / DRAFT.
+
+### J. Open-source / external data evaluation — no installation authorized or performed
+1. **AIS-catcher (GPL-3.0)** — candidate for a shore-side AIS receiver using SDR hardware. It outputs AIS/NMEA and supports forwarding to network/database consumers. Its own README labels it a research/hobby project and explicitly says not to rely on it for navigation or safety-of-life. It is suitable only as an experimental local receiver/secondary operational signal, subject to Indonesian radio-reception rules and GPL compliance; it is not a reliable global ship-position feed.
+2. **Global AIS feed** — if the business needs vessel positions across international voyages and multiple oceans, a licensed AIS data provider/feed is the dependable integration path. Evaluate coverage, update latency, historical retention, API SLA, commercial display/redistribution rights, vessel identity quality and cost before choosing a provider. Open-source software alone cannot create global reception coverage.
+3. **MapLibre GL JS** — recommended open-source browser map renderer for vessel, port, PKS, warehouse, truck and shipment views. A separate tile/style provider or self-hosted tile infrastructure is still required; MapLibre is the renderer, not the map-data source.
+4. **PostGIS** — recommended spatial capability for geofences, port/terminal polygons, route geometry, distance and proximity queries, and vessel-position history. Test extension availability and query performance on an isolated Neon test database first; do not issue `CREATE EXTENSION postgis` on Production without explicit approval.
+5. **Finance/ERP** — no second ERP or accounting engine is installed. Keep one authoritative ledger. Complete PKE AP/AR, PO/GRN matching, journal posting, payment obligations, cash/bank reconciliation and audit trails before considering a separate ERP integration; avoid duplicate GL and inconsistent balances.
+
+### Remaining acceptance gates
+- AP three-way matching requires a real Purchase Order and Goods Receipt workflow before invoice verification can be enabled.
+- Accounting posting permission assignment and controlled maker-checker tests remain pending.
+- Execute controlled Project Admin Finance SELECT-only and Finance create/update/delete tests against an isolated runtime role matrix; do not use Production business records as fixtures.
+- Run provider-backed Neon Object Storage checksum E2E, object retention/deletion and orphan cleanup tests.
+- Run full API/RLS runtime matrix across multiple Projects, including cross-Project ID substitution and revoked/expired assignments.
+- Validate PostGIS extension availability and choose an AIS source/coverage model before installing map/geospatial/AIS dependencies.
+- Do not mark overall PKE/F1 complete from this source/CI pass alone.
+
+
+## 56.43 — Owner decision: Indonesia-only vessel position and export readiness notifications — 2026-11-20
+
+**Decision owner:** Business owner / PKE Admin.  
+**Status:** ACCEPTED REQUIREMENT — scope baseline for the Vessel Readiness workstream.  
+**Source branch:** `f1/project-scoped-cob-20261119`.  
+**No installation or Production changes authorized by this decision.**
+
+### A. Business objective
+PKE's vessel-position capability exists to help the Master of Loading and relevant export operations personnel prepare product loading and export documentation on time, reduce avoidable vessel waiting, and prevent or minimize demurrage / anchorage overtime / other avoidable vessel-time charges. The system is an **Export & Vessel Readiness Control** capability, not a global vessel-tracking product.
+
+### B. Geographic boundary
+- Required: vessel position while within Indonesian waters, with operational emphasis on approach corridors, anchorages, port limits, terminals and relevant loading locations.
+- Not required: continuous global/international vessel tracking, global historical tracks, or building an international AIS reception network.
+- For international voyage visibility, show known vessel identity and available voyage details (e.g. vessel name, IMO/MMSI, flag, carrier/agent, last supplied ETA/ETD, destination and data timestamp where available) and provide a clearly labelled external third-party tracking link when a suitable provider URL is known.
+- The third-party tracking link is a convenience for Buyer/other authorized stakeholders. PKE does not warrant the external provider's coverage, freshness or accuracy and must not represent third-party data as PKE-verified.
+
+### C. AIS source strategy
+- Evaluate an Indonesian coastal AIS data source with documented geographic coverage, update latency, uptime, historical retention, API/stream format, commercial usage and redistribution rights, pricing, data provenance, and operational support.
+- Compare a licensed AIS data feed with selected shore-based AIS receiver stations / receiver partners. AIS-catcher may be used only for a limited technical pilot where legally permitted and where reception coverage can be proven; it is not a prerequisite and cannot be assumed to provide national coverage.
+- Do not purchase SDR hardware, subscribe to a paid feed, deploy receiver infrastructure, install AIS-catcher, or integrate an external AIS provider without an explicit owner-approved proposal and cost/licensing review.
+- AIS is an operational situational-awareness signal only. It is not a navigational or safety-of-life source and must not be the sole trigger for safety-critical decisions.
+- Record source, observed_at, received_at, position quality/validity where supplied, and stale-data status. Never present an old position as current.
+
+### D. Vessel Readiness data model / integration requirements
+Link a vessel call / port call to the relevant Project, shipment/contract, loading terminal and loading window. Normalize vessel identity using IMO where available; MMSI alone is not a durable vessel identity. Store the AIS observation separately from planned and manually confirmed ETA so that source data does not silently overwrite an approved operational ETA.
+Required operational fields include:
+- Vessel identity and identifiers (name, IMO, MMSI where available), carrier/agent and contact reference.
+- Port/terminal, anchorage/berth, loading window, nominated quantity and loading rate assumptions where known.
+- AIS position and observation timestamps; source and stale/coverage status.
+- ETA/ETD with source, last update, confidence/status and person who confirmed a manual override.
+- Readiness checklist and evidence links for product availability/quality, stock allocation, loading equipment/terminal readiness, surveyor/inspection arrangements, shipping/export documentation, customs/port/terminal clearances, and counterparties' confirmations as applicable.
+- Responsibility, due date/time, completion status, evidence, exception reason and audit history for each checklist item.
+
+### E. Master of Loading alerts and escalation
+- Notify the Master of Loading and explicitly assigned Project stakeholders when a vessel enters configurable Indonesian approach/anchorage/port geofences, ETA changes materially, the loading window approaches, or a required readiness item is overdue / incomplete.
+- Build a configurable milestone timeline: nominated vessel; pre-arrival; ETA confirmed; product and stock ready; quality/inspection ready; terminal/berth/loading resources ready; export documents ready; final loading authorization; loading commenced; loading completed; departure/document close-out.
+- Alert timing thresholds and escalation recipients must be configurable by Admin/authorized operations owners, not hard-coded assumptions.
+- Every notification must identify Project, vessel call, trigger, urgency, due time, outstanding task, responsible person, source timestamp and a direct link to the relevant PKE work item.
+- Support acknowledgement, assignment, resolution, escalation and immutable audit history. Avoid repeated alert spam using deduplication, cooldown and state-change rules; retain a record of suppressed/merged alerts.
+- Separate information alerts from formal loading authorization. AIS proximity or ETA alone must never mark a Project as loading-ready or authorize loading.
+- Provide a readiness summary and blockers view for the Master of Loading with a clear READY / AT RISK / NOT READY state calculated from explicit checklist rules and evidence, not from vessel position alone.
+
+### F. Buyer and external stakeholder UX
+- Buyer and authorized external stakeholders see vessel identity and approved voyage information only within their existing Project/contract permissions.
+- For international tracking, provide a third-party link when available. Do not expose internal operational notes, private contacts, document evidence or other Projects' information.
+- External link must be labelled as an external service and opened safely. If no verified tracking URL exists, show vessel identity and state that international position is followed through the carrier/ship agent or the selected external service; do not fabricate a URL.
+
+### G. Reliability, privacy and security
+- All vessel calls, observations, readiness tasks, documents and notifications must be Project-scoped and protected by backend authorization plus RLS.
+- Validate AIS message provenance, MMSI/IMO association, coordinate ranges, timestamps, duplicate/out-of-order messages and stale feeds.
+- Preserve raw source observation separately from normalized operational state; record correction/override actor and reason.
+- Define monitoring for feed outage, coverage gaps, stale observations, clock drift and geofence false positives.
+- Do not infer a vessel's position outside source coverage. A missing AIS observation means unknown/stale, not that the vessel has stopped.
+- Respect applicable Indonesian radio, data, privacy, contractual and commercial redistribution requirements.
+
+### H. Explicit exclusions
+- No global AIS feed or global vessel-position ingestion requirement.
+- No PKE-owned international tracking infrastructure.
+- No navigational route optimization or safety-of-life function.
+- No automatic loading authorization, port clearance or document certification based solely on AIS.
+- No open-source package, hardware, provider subscription, paid API or new infrastructure is approved for installation/purchase by this requirement.
+
+### I. Acceptance gates before implementation is called complete
+1. Owner-approved Indonesian coverage map and source selection for the actual loading ports/terminals.
+2. Written confirmation of data rights, API/stream SLA, update frequency, cost and support.
+3. AIS feed freshness and outage behavior demonstrated using a non-Production test feed or fixtures.
+4. Port/anchorage geofence and ETA change logic tested for false positives and stale/out-of-order observations.
+5. Master of Loading readiness checklist and escalation thresholds approved by operations owner.
+6. End-to-end notification acknowledgement, reassignment, escalation and audit tested.
+7. Buyer/external stakeholder visibility tested for cross-Project isolation and external-link handling.
+8. Evidence-based READY / AT RISK / NOT READY calculation tested; AIS alone cannot produce READY.
+9. No Production feed credentials, hardware, subscription or migration changes until separately approved.
+
+### J. Consequence for the open-source roadmap
+- MapLibre GL JS remains an optional UI renderer for Indonesian vessel positions, port geofences and operational map layers.
+- PostGIS remains a candidate only if geofence/port spatial query requirements justify it and Neon compatibility is proven in an isolated environment.
+- AIS-catcher is optional for a small, lawful receiver pilot only; it is not the national coverage strategy.
+- A commercial/partner Indonesian AIS feed may be more reliable and cheaper operationally than deploying/maintaining a nationwide receiver network. Compare total cost and coverage before deciding.
+- International third-party tracking links do not require ingestion or storage of global AIS tracks in PKE.
+
+
+## 56.44 — Owner discussion: role-centered UX, PM control tower and selective open-source strategy — 2026-11-20
+
+**Status:** ACCEPTED DIRECTION FOR DISCOVERY AND DESIGN; not an authorization to install software, replace existing PKE modules, purchase services, or change Neon Production.  
+**Decision owner:** PKE business owner / Admin App.  
+**Active branch:** `f1/project-scoped-cob-20261119`; do not create a new GitHub branch.
+
+### A. Agreed product architecture
+
+PKE remains the single authoritative Project-scoped operating system for export execution. Do not replace it with a generic ERP or generic project-management platform. Reuse mature open-source components selectively where they reduce implementation effort without creating a second source of truth, a second permission system, or fragmented task ownership.
+
+The core capabilities that must remain native to PKE are:
+- Project, contract, shipment, vessel-call, inventory, loading, export-document and finance data relationships.
+- Project membership and role assignments, effective permissions, approval boundaries and RLS.
+- PM control tower, role-specific work queues, task ownership, deadlines, notifications, acknowledgements, escalation and immutable audit.
+- Export-specific readiness rules, laytime/loading calculations, demurrage risk signals, LC requirement checklists, document consistency checks and payment milestones.
+- One authoritative accounting/finance ledger and one Project-scoped audit trail.
+
+### B. Project Manager and role assignment authority
+
+- PM is the operational controller for the Project and determines which operational roles are needed, which people are assigned, and how responsibilities are divided.
+- One user account may hold multiple active roles in the same Project (e.g. Accounting and Finance) where the PM assigns them. The same user may have a different role combination in another Project.
+- Role assignment is Project-scoped. A role in one Project does not imply that role in another Project.
+- The permission resolver must compute effective permissions from active, non-expired Project role assignments and the applicable permission catalog. Multiple roles may contribute permissions, but assignment must not silently grant permissions outside the assigned role definitions.
+- PM can manage Project participation and assign roles from the Admin-App-approved role catalog. PM cannot edit the global permission catalog, bypass backend authorization/RLS, grant Platform Admin privileges, or silently override protected Finance/Accounting maker-checker controls.
+- Admin App owns global configuration, user administration, role catalog and permission-template governance, and may appoint themself as PM for a Project. Admin App administrative authority and Project PM operational authority remain distinct, auditable capabilities.
+- Changes to PM appointment, role membership, effective role combination and task ownership require actor, timestamp, before/after values and reason where applicable. Preserve existing PM appointment safeguards and explicit owner authority.
+
+### C. Role-by-role work and dashboard discovery baseline
+
+This is the initial functional map to validate against the actual repository role catalog, APIs, schema and existing screens. It is not a claim that every role/module is already implemented.
+
+| Role / work area | Main responsibilities and work queue | Required dashboard UX / PM reporting |
+|---|---|---|
+| Project Manager | Coordinate the full Project; assign people/roles; issue instructions; resolve blockers; monitor deadlines and readiness gates | Project Control Tower: overall status, milestones, critical alerts, overdue tasks, blockers, responsible person, target-vs-actual, document/LC readiness, vessel/laytime risk, decisions and instruction follow-up |
+| Project Admin / Project Operations Admin | Project setup and authorized operational administration; membership visibility and project configuration within granted permissions | Project profile, assigned team/roles, configuration completeness, access overview and audit; must not inherit Finance write permissions |
+| Contract / Commercial | Contract terms, buyer/seller details, shipment quantity, delivery/loading terms, laycan, Incoterms where applicable, LC terms and amendments | Contract obligations, key dates, quantity/price references, buyer confirmations, LC expiry/presentation dates and deviations requiring PM action |
+| Procurement / Supplier Coordination | Purchase requests/orders, supplier coordination, delivery commitments, outstanding supply and supplier invoice references | Open commitments, promised vs actual delivery, shortages affecting product readiness, overdue supplier actions and PO/GRN evidence |
+| Warehouse / Inventory | Receipts, stock location, available/held/reserved quantity, movements, lot traceability, dispatch to port warehouse and stock reconciliation | Available vs required MT, stock by lot/location, quality/hold status, reservations, shortages, transfer ETA and evidence; alert PM before vessel arrival if stock is at risk |
+| Quality / Survey / Inspection | Sampling, test results, quality release, quantity/weight survey, inspection appointments and certificates | Required vs completed tests, specification compliance, rejected/held lots, survey schedule, certificate status and exceptions |
+| Master of Loading / Loading Operations | Loading plan by vessel/hold/shift, loading rate assumptions, equipment and manpower readiness, shift execution, tonnage progress and completion estimate | Loading workbench: planned/actual MT by shift and hold, remaining MT, effective rate, equipment/crew readiness, stoppages, forecast completion vs laytime and recovery actions |
+| Logistics / Trucking / Port Movement | Truck allocation, dispatch, checkpoints, weighbridge/receipt evidence, port delivery and movement exceptions | Truck queue, in-transit/delivered quantity, cycle time, missing checkpoints, delayed deliveries, warehouse intake and port cut-off risks |
+| Vessel / Port / Agent Coordination | Vessel nomination, ETA/ETD confirmation, port-call milestones, anchorage/berth updates, agent and terminal coordination | Vessel timeline, source/timestamp of ETA, Indonesian AIS freshness where integrated, port/berth status, loading window, agent confirmations and stale-feed warnings |
+| Export Documentation / Shipping | Document preparation, shipping instructions, draft/final transport documents, customs/port clearances, document collection and presentation package | LC document matrix, issuer/owner, original/copy count, draft/review/final status, cross-document consistency, missing documents, expiry and presentation countdown |
+| Finance | AP/AR, payment obligations, cash planning, FX exposure, payment receipt and LC proceeds follow-up within Finance permissions | Due/overdue payables and receivables, cash needs, payment status, LC presentation status, bank discrepancy/waiver status, expected vs actual proceeds and finance exceptions |
+| Accounting | Journal preparation, chart-of-accounts mapping, posting/review, ledger integrity and reconciliation within Accounting permissions | Draft journals, unbalanced items, pending review/posting, reconciliation exceptions, period close and audit evidence; posting remains separately permissioned |
+| Cashier / Treasury | Authorized receipts/disbursements, bank/cash evidence, payment execution status and reconciliation handoff | Payment instructions awaiting execution, due disbursements, receipt confirmations, bank evidence and unreconciled cash movements |
+| Funder | View only the Project/funding information explicitly authorized; monitor funded exposure, drawdown/repayment milestones where relevant | Funding exposure, utilization, repayment dates and permitted Project financial reports; no implied transaction-write authority |
+| Buyer / External stakeholder | View only approved commercial/shipment/vessel/document status and externally shareable evidence | Restricted shipment status, vessel identity/approved voyage details, agreed milestones and permitted documents; no internal notes, private contacts, finance internals or cross-Project visibility |
+| Platform Admin / Admin App | Global user and role-template administration, system configuration, security oversight, appointment of PM where authorized and audit review | Admin console: user lifecycle, role/permission catalog, Project access governance, security events, migration/system health and audit; not a substitute for operational PM control |
+
+### D. Standard UX contract for every internal role dashboard
+
+Each role dashboard should be task-first, not merely a collection of charts:
+1. **My Work:** tasks assigned to the user, with Project, priority, due time, status and direct action.
+2. **Needs Attention:** overdue, blocked, rejected, incomplete or at-risk items with reason and next action.
+3. **Upcoming:** milestones and deadlines over configurable horizons.
+4. **Operational Workbench:** the role's primary create/review/confirm workflow with the minimum fields needed to complete it.
+5. **Evidence & Documents:** linked records, source, version, review state and audit history.
+6. **Progress & Exceptions:** role-specific KPIs and target-vs-actual measures, with drill-through to source records.
+7. **Notifications:** acknowledge, assign/reassign, resolve, comment/instruct where authorized, and escalation history.
+
+PM receives a consolidated view of all role queues and all critical Project events. Each role receives only relevant task notifications and data permitted by its effective Project permissions. Notifications are actionable and deep-link to the exact work item; they are deduplicated, time-stamped, acknowledgeable and auditable. PM reporting must distinguish informational updates from blockers requiring a decision.
+
+### E. Selective open-source assessment
+
+**Preferred: adopt small, well-scoped libraries/components first.**
+- Recharts (MIT): candidate for native PKE charts and operational trend/target-vs-actual visualizations.
+- TanStack Table (MIT): candidate for large filterable work queues, inventory/document lists and role workbenches.
+- MapLibre GL JS: retain as an optional map renderer for Indonesian vessel/port/truck views; it does not provide the underlying map tiles or AIS feed.
+- PostGIS: optional geospatial database capability only if geofence/spatial query needs justify it; require isolated Neon compatibility and performance validation before any Production extension change.
+
+**Benchmark or optional separate tool; do not adopt as a second source of truth by default.**
+- ERPNext: use as a functional benchmark for inventory, purchasing, accounting and ERP process completeness. Do not deploy it as a parallel ledger/inventory authority without a separate integration and data-ownership design. ERPNext is GPLv3; review license obligations and integration boundaries before reuse or modification.
+- OpenProject: benchmark task, milestone, work-package and project-planning UX. Do not make it a second PM command center unless a later business case demonstrates a clear separation and reliable synchronization.
+- Apache Superset: possible later read-only BI/analytics service. Before adoption, prove Project-level row isolation, embedded authentication, permission synchronization, export/download controls and auditability. It must not bypass PKE APIs/RLS or expose broad database credentials.
+- Metabase: possible later internal BI evaluation, but its Open Source Edition is AGPL; embedding and commercial use conditions require license review.
+- Documenso: optional evaluation for suitable internal signature/approval workflows only. Community Edition is AGPL-3.0 and does not replace official carrier, surveyor, customs, port or bank-issued export documents.
+
+No package, application, workflow engine, analytics server, container, cloud service, paid API, hardware or subscription is approved or installed by this discussion. Confirm current version, maintenance activity, security posture, license, dependencies, deployment model, Neon/Vercel compatibility, data residency, backup/restore, monitoring, operational ownership and total cost before any adoption.
+
+### F. Build-versus-adopt decision rule
+
+Build natively in PKE when a capability:
+- Encodes PKE-specific export, Project, finance, LC, laytime, inventory or authorization rules;
+- Changes authoritative business records or money-related state;
+- Needs strict Project RLS, maker-checker or immutable audit;
+- Must drive PM instructions, readiness gates or operational alerts.
+
+Adopt/reuse open source when a capability is generic and separable (charts, tables, date/time controls, map rendering, PDF viewing, possibly BI), can be isolated behind a stable integration boundary, and does not create duplicate business state or permissions.
+
+Do not adopt a large external application merely because it has many features. Total lifecycle cost includes hosting, security updates, backups, integration, training, support, licensing, data synchronization and exit/migration risk.
+
+### G. Discovery and acceptance plan before implementation
+
+1. Inventory the actual role catalog, role-to-permission definitions, APIs, pages, database tables and existing workflows from the current branch. Mark each item as implemented, partial, missing, duplicated or insecure.
+2. Produce a role-by-role matrix: responsibilities, inputs, outputs, approvals, dependencies, tasks, deadlines, KPIs, alerts, documents, permissions and PM report fields.
+3. Map end-to-end Project workflows from contract/LC through procurement, stock, port warehouse, vessel readiness, loading, shipping documents and payment.
+4. Create dashboard wireframe/specification per role plus PM Control Tower; define responsive desktop/mobile priority and task-first UX.
+5. Create a notification/event catalog with trigger, severity, recipient rule, deduplication, acknowledgement, escalation and audit requirements.
+6. Run a library/tool evaluation scorecard: functional fit, license, security, maintenance, integration effort, Neon/Vercel compatibility, data isolation, operating cost and exit strategy.
+7. Implement the highest-value native workflow gaps first; add only approved low-risk libraries after dependency/license/security review.
+8. Test multi-role single-account behavior, different role combinations across Projects, PM reassignment, revoked/expired roles, cross-Project isolation, PM consolidated reporting and per-role notification filtering.
+9. Test role dashboards with synthetic isolated fixtures only; never seed synthetic business records into Neon Production.
+10. Update this Master Plan and P03 plan with every material decision and implementation evidence.
+
+### H. Initial implementation priority
+
+1. PM Control Tower, Project task assignment, role-based work queues and actionable notifications.
+2. Role catalog/multi-role assignment UX and effective-permission visibility, retaining Admin App governance and backend/RLS enforcement.
+3. Vessel & Loading Readiness Planner, including stock-before-arrival, equipment/manpower readiness, loading target-vs-actual and laytime risk.
+4. Export Document & LC Compliance workflow with document ownership, discrepancy tracking and presentation deadline.
+5. Role-specific operational dashboards and KPI drill-through.
+6. Optional analytics/map/signature integrations only after the above native workflow and security boundaries are stable.
+
+### I. Explicit non-decisions / safeguards
+
+- This discussion approves the architecture direction and discovery work, not a vendor, package, deployment, purchase, license commitment or Production schema change.
+- No ERP replacement, second accounting ledger, second PM task system, global AIS feed or duplicate role/permission authority.
+- No automatic bank-compliance guarantee or promise that LC proceeds will clear before vessel departure; PKE can validate configured document requirements and deadlines but the issuing/advising/nominated bank makes its own examination/payment decision.
+- Admin App may appoint themself PM; actual appointment remains an explicit, auditable Admin action, not an automatic side effect.
+- PM operational control does not remove Finance/Accounting permission boundaries or protected transaction controls.
+
+
+## 56.45 — Repository discovery audit: role UX, PM control tower and workflow readiness — 2026-11-20
+
+**Status:** READ-ONLY SOURCE DISCOVERY; no application code, dependency, database, Production data or deployment changed by this audit.  
+**Audited ref:** `f1/project-scoped-cob-20261119`.  
+**Audited HEAD before this documentation update:** `3a6391df5a4186d391dce1863ee66fafa5dd89da`.
+
+### A. Verified current architecture
+
+1. Multi-role persistence is already implemented in Migration 043:
+   - `project_role_assignments` stores role assignments independently under a Project membership.
+   - `project_role_assignment_events` records append-only assignment history.
+   - `pke_has_project_permission(project_id, permission_code)` resolves permissions across active assignments.
+   - API `GET /projects/:projectId/my-permissions` exists.
+   - API assignment/revocation endpoints exist at `POST /projects/:id/members/:memberId/role-assignments` and `POST /projects/:id/role-assignments/:assignmentId/revoke`.
+   - PM appointment remains a separate Platform Admin-controlled decision with one-active-PM safeguards. This is consistent with Admin App appointing the PM, while PM manages operational team assignments within allowed governance.
+2. Frontend multi-role UX is only partially connected:
+   - `RoleGuard` in `frontend/src/App.tsx` derives allowed page keys from active Project role assignments, but maps each role through a hard-coded `roleAccess` object.
+   - Sidebar navigation still derives its menu from only `roleAccess[activeUser.role]`; it does not union the active Project role assignments. A user with several Project roles may be allowed by a route guard but still not see the corresponding menu entries.
+   - `FinancePage` already reads `/projects/:projectId/my-permissions` for Finance create visibility. This is a useful pattern to generalize.
+   - The current static map contains legacy names and does not fully match `src/role-catalogue.ts` (e.g. canonical `master_of_loading` vs legacy `loading_manager`; `platform_admin` vs legacy `admin`; canonical operational roles not all represented in the UI map).
+3. Canonical role templates exist in `src/role-catalogue.ts`, including governance, procurement, quality, warehouse/logistics, shipping/loading, finance and external counterparties. It is a source-controlled template surface, while the legacy database role catalog is still being reconciled. Presence in the TypeScript catalogue is not proof that all permission codes exist or are granted in Production.
+4. Role management UI exists in `AccessPage`, including role assignment and a separate PM appointment flow. It requires an end-to-end UX review to ensure one user can be assigned multiple roles in the same Project, display each grant and expiry independently, and show effective permissions without collapsing the grants into one role label.
+5. The main operational UI is concentrated in the large `frontend/src/App.tsx` file. Several separately named files under `src/components` (AdminDashboard, FieldDashboard, FinanceWorkspace, NotificationCenter, ProjectSelector and WarehouseReceiptForm) are currently placeholder components; do not count them as implemented production dashboards merely because the files exist.
+6. Existing data/workflow foundations include Project/contract programs, AP/AR, cash advances, journals/FX, inventory lots/reservations/holds/movements, warehouse receipts, truck trips/checkpoints, shipment allocations, document requirements/documents, reports and in-app notifications. Existing loading tables also exist in the schema history, but the inspected UI/API route inventory does not establish a complete vessel-call, loading-plan, shift/hold execution and laytime control workbench.
+7. Notification APIs include list, create and mark-read endpoints; the current NotificationsPage displays an inbox and unread count and allows marking an item read. It also reports external email/SMS/WhatsApp providers as not configured. The inspected UI does not yet demonstrate full actionable notification lifecycle: acknowledge, assign/reassign, resolve, escalate, deduplicate/cooldown and PM-wide exception rollup.
+8. The current DashboardPage is a portfolio/operations summary (active projects, target volume, RAB, truck trips, recent checkpoints, service status and cost/compliance summary fields). It is not yet the accepted PM Control Tower with role work queues, readiness gates, loading forecast, LC discrepancy/presentation deadline, decision queue and instruction follow-up.
+9. The current OperationsPage has useful truck, tracking, warehouse receipt, lot, movement, reservation, hold and shipment-allocation work. This is a meaningful base for Logistics/Warehouse/Inventory dashboards, but not yet the complete role-specific workflow contract.
+10. The current FinancePage is a working Finance surface for RAB, FX rates/exposure and AP/AR subledger. A number of dedicated dashboard component files remain placeholders; Finance/Accounting/Cashier separation must continue to follow effective permissions and the previously accepted Finance boundaries.
+
+### B. Role-by-role status — source-level preliminary matrix
+
+| Role / work area | Existing source evidence | Main gap to validate/implement |
+|---|---|---|
+| Platform Admin / Admin App | Admin user lifecycle and AccessPage provisioning/role management | Global governance console, permission-template drift, audit/system health and explicit PM appointment UX |
+| Project Admin | Project role template and project access/config endpoints; Finance view-only boundary | Clear Project administration dashboard without Finance write controls |
+| PM | PM role template, Project reports, role assignments, report notifications recipient guard | Consolidated cross-workstream Control Tower, decision queue, instructions, blockers, due-time and role performance |
+| Contract / Commercial | Contract Programs, buyer master, Project operating profile and CoB cycle APIs | Contract clause/laytime/LC term capture and obligation calendar, amendment/version handling |
+| Procurement / Supplier | Supplier/Buyer master and role templates | Request-to-PO-to-delivery commitment lifecycle, supplier delivery risk and three-way matching prerequisites |
+| Production / PKS | PKS/site/facility master and Project operating profile foundations | Capacity/availability, source commitments and traceability to Project stock readiness |
+| Quality / Laboratory / QA | Quality role templates and document/quality-related schema foundations | Sample-to-result-to-release workflow, independent QA hold/release, evidence and certificate lifecycle |
+| Warehouse / Inventory | Warehouse receipts, lots, movements, reservations and holds | Role work queue, stock reconciliation, port-warehouse readiness, shortage forecast and controlled adjustments |
+| Logistics / Transport / Checker / Driver | Truck trips, transport legs, tracking events and checkpoints | Dispatch board, vehicle/driver availability, queue/cycle-time, exception resolution and task assignment UX |
+| Master of Loading / Loading Supervisor / Operator | Loading schema foundations, shipment allocations and loading ticket permission templates | Loading plan/version/signoff, vessel holds, equipment/manpower, shift handover, target-vs-actual, downtime, laytime forecast and close-out |
+| Vessel / Agent / Terminal / Surveyor / Ship Master | Role templates and shipment/voyage references; Indonesia-only AIS decision documented | Vessel call, source-stamped ETA/AIS, port geofence, terminal readiness, independent survey and object-scoped external access |
+| Export Documentation / Shipping | Project document requirements, document metadata/storage, document upload and role templates | LC-specific checklist extraction, issuer/original-copy rules, cross-document validation, discrepancy workflow and presentation deadline |
+| Finance | Finance workspace, AP/AR, FX, RAB, cash advances and notification reporting foundations | Role task queue, LC proceeds lifecycle, AP verification after PO/GRN workflow, exception and bank presentation tracking |
+| Accounting | Journal/COA and Accounting permissions/templates | Dedicated journal review/posting/reconciliation workbench, maker-checker and period close |
+| Cashier / Treasury | Cash advance/payment-related schema and role template | Custody-safe disbursement/receipt workflow and bank evidence/reconciliation separation |
+| Funder | Funder role and report surface | Explicit assigned-project funding dashboard with safe read-only projections |
+| Buyer / Supplier / Transporter external users | External role templates and dedicated portal pages/routes | Strict object-level sharing, approved evidence only, expiry and least-privilege external UX |
+
+**Important:** this is a source-level inventory, not a runtime acceptance matrix. It does not prove all listed endpoints are correctly authorized in live HTTP or that all schema paths are production-ready. The role-to-permission matrix must be reconciled against actual active database permission codes and RLS policies before implementation.
+
+### C. Confirmed UX/security gaps to prioritize
+
+- **P0 — Effective-permission navigation:** create one canonical effective Project access payload and use it for sidebar, route guards, page actions and role chips. Remove static role-name navigation as an authorization source; retain backend authorization/RLS as the security boundary.
+- **P0 — Multi-role assignment clarity:** show every active/expired/revoked role assignment separately, with grantor, reason, start/end time, and permission contribution. PM can assign allowed operational roles; Platform Admin alone appoints/replaces PM under the current approved governance.
+- **P0 — PM Control Tower:** aggregate Project-scoped tasks, deadlines, readiness blockers, role reports, loading/laytime risk, LC/document status, decisions and instruction acknowledgements.
+- **P0 — Actionable notification lifecycle:** define notification event types, recipients (PM plus responsible role), severity, deduplication, acknowledgement, assignment, resolution, escalation and immutable event history. Keep external delivery providers as a separate later integration.
+- **P1 — Role workbenches:** move from broad module pages to role-specific task queues and focused workbenches while reusing the current operational APIs.
+- **P1 — Loading readiness and performance:** add stock-before-arrival, equipment/manpower plan, loading plan version, hold/shift execution, actual MT, stop reasons, forecast finish and laytime thresholds.
+- **P1 — Export/LC document control:** structure each LC's exact requirements and owners; track draft/final/original/copy, consistency, discrepancy, presentation deadline and bank status.
+- **P1 — Report semantics:** every PM report number must drill through to source records and disclose freshness, missing data and whether a figure is actual, estimated or manually confirmed.
+
+### D. Open-source decision after repository inspection
+
+- Do not install ERPNext or OpenProject now. Their generic capabilities do not solve the current primary gap: PKE's own multi-role UX, PM command center and export-specific event/task orchestration. A parallel ERP or PM platform would add another data/permission authority and synchronization burden.
+- Keep Recharts and TanStack Table as candidate UI libraries only. The frontend currently has no direct dependencies on either; first verify whether existing native components already meet needs. Add only after a small bundle/security/maintenance review and approved implementation change.
+- Keep MapLibre as an optional renderer for Indonesian vessel/port/truck map views; it does not supply AIS data or base map tiles.
+- Keep PostGIS optional; do not add it until actual geofence/spatial query requirements and isolated Neon extension compatibility/performance are proven.
+- Superset/Metabase remain later read-only analytics candidates only after row-level Project isolation, identity propagation, export control and audit are proven. No direct broad database credential may be embedded in the browser.
+- Documenso remains optional only for appropriate internal signature/approval flows; it is not an official shipping-document issuer or a substitute for bank/carrier/surveyor documents.
+- No dependency or application was installed, no license accepted, no external provider contracted and no cloud resources purchased.
+
+### E. Next execution sequence
+
+1. Complete a route/API/schema/permission inventory and reconcile it with the live role catalog without changing Production.
+2. Build the authoritative role-to-permission-to-navigation/action matrix, including multi-role combinations and PM vs Admin App authority.
+3. Specify PM Control Tower and each role workbench from actual workflows, not role names alone.
+4. Specify notification event/recipient/escalation model and immutable audit requirements.
+5. Specify loading/laytime and LC/document workflow dependencies and readiness gates.
+6. Run static and isolated role-matrix tests; use synthetic fixtures only in isolated test environments.
+7. Implement P0 effective-permission UX and PM task/notification foundation before P1 domain work.
+8. Evaluate/add open-source libraries only where a measured gap remains; no parallel ERP/PM system.
+
+### F. Verification boundary
+
+- Evidence reviewed: GitHub source tree, `src/role-catalogue.ts`, Migration 043, API route declarations in `src/index.ts`, `frontend/src/App.tsx`, `frontend/package.json`, existing role/RLS design note and component files.
+- This was a read-only source inspection. No live database queries, authenticated HTTP UAT, UI browser test, dependency audit, or runtime role-matrix execution was performed during this discovery step.
+- Do not infer Production runtime behavior solely from source declarations. No Production schema/data, Vercel deployment, GitHub branch topology or installed dependencies were changed by this audit.
+
+---
+
+## §56.46 — P0 effective-permission UX implementation (2026-11-20)
+
+### Implemented source changes
+- Added `frontend/src/role-permissions.ts` as the page-access adapter. It maps workspace pages to read-capability permission codes; it does not grant permissions or replace backend/RLS checks.
+- `frontend/src/App.tsx` now loads `/projects/:projectId/my-permissions` for the explicitly selected Project and uses that server-resolved permission set for sidebar navigation and route guards.
+- Permission state is Project-keyed. On Project switch, the previous permission array is not reused; while loading or on fetch error, access fails closed.
+- A user with multiple active Project role assignments receives the union already resolved by the database function, but only within the selected Project. The frontend does not merge assignments across Projects.
+- Project Admin Finance visibility requires `finance.view`; no Finance mutation or Cash Advance request capability is inferred. Finance action controls and server/RLS checks remain independent.
+- Platform Admin remains a distinct platform-level bypass. Project members may open the RLS-filtered Project list before selecting a Project; ordinary Project workspaces require a selected Project. Notifications remain scoped to the authenticated user's own inbox.
+- Stakeholder navigation group is now rendered. Role display summarizes the selected Project's active assignments.
+- Non-Admin Dashboard no longer calls the Admin-only `/reports/portfolio` endpoint; budget is displayed as unavailable rather than presenting fabricated zero/portfolio values.
+
+### Test and release gates
+- Added `src/f1-role-ux-rules.test.ts` for permission union, Finance read-only visibility, Project isolation, fail-closed states, Platform Admin separation and inactive membership.
+- Root `npm test` includes the new contract/unit test.
+- GitHub Actions result is pending for this commit. This source change is not yet a runtime HTTP or browser UAT pass.
+- No Neon Production mutation, migration, mock data, package installation, Vercel deployment or branch creation was performed.
+- Next P0: complete PM Control Tower data contract and read-only dashboard, then actionable notification/task lifecycle; do not start P1 workbench expansion until P0 acceptance.
+
+- Permission-map refinement: `finance.view` alone does not expose Payment Instructions or Funder workspace. Payment Instructions requires the explicit `payment.view` capability; Funder requires `funder.view`. This avoids treating Finance read-only visibility as payment/funder workflow authority.
+- Added regression coverage for this separation. The latest CI run after this refinement is pending.
+- Follow-up scope hardening: dashboard logistics/tracking requests are issued only when the selected Project grants `logistics.view` (or the user is Platform Admin); project summary rows/volume are filtered to the selected Project. Any non-empty server-resolved Project permission set can open the generic landing dashboard, including domain-specific roles such as PKS Site Manager.
+- CI correction history: initial source tests passed but an older source-contract assertion still expected `projectRoleKeys`; that assertion was updated to the server-resolved permission adapter. Frontend TypeScript then exposed optional-identity typing issues, which were corrected. Latest full CI after these refinements is pending.
+---
+
+## 2026-11-20 — PM Control Tower role/workflow matrix and API gap reconciliation
+
+- Added `docs/design/PM_CONTROL_TOWER_ROLE_WORKFLOW_MATRIX_20261120.md` with an individual work contract for all 34 canonical roles, current API/schema evidence, end-to-end Project workflow hand-offs, PM Control Tower information architecture, proposed task/notification model and acceptance criteria.
+- The matrix explicitly separates implemented, partial, missing and proposed capabilities. It does not claim role templates are live Production grants or that source declarations are runtime UAT.
+- Confirmed important permission/API mismatches: CoB cycle creation is `finance.create`-gated while PM lacks that permission; shipment allocation GET/POST use `shipping.view`/`shipping.update`; Checker has `verify_checkpoints` but tracking-event POST currently requires `record_truck_trips` for non-receipt events; Procurement buyer/vendor reads require `finance.view`; Accountant template lacks `accounting.update` for journal posting.
+- Recorded static/placeholder role portals, composite OperationsPage permission leakage, missing transport-leg endpoint dependency, out-of-scope payment instructions, absent Funder-specific permission/workbench and mixed Admin/Project Compliance data surfaces.
+- Frontend navigation/route alignment was tightened for Accounting Journal, Payment Instructions, Shipment Allocations and external role portals. No new backend permission grant or database change was made.
+- CI was fully green on source commit `4d7e3811ddba54f196ad3d0190aec783c0007b41`: 194/194 tests, backend/frontend TypeScript, frontend build, migration ledger verifier, migration dry-run and dependency audit all passed. Later permission-map refinements and the new matrix document are subsequent commits; their CI is pending and must be checked before declaring the current HEAD green.
+- Next implementation sequence: (1) complete permission-aware panel/action gating in OperationsPage and CompliancePage; (2) resolve CoB/Checker/Procurement permission mismatches with explicit owner decisions; (3) implement Project task/instruction engine and PM read model; (4) wire real role workbenches only where data/API exists.
+- No Neon Production mutation, migration, mock data, package installation or Vercel deployment was performed. PR #2 remains OPEN/DRAFT.
+- **CI confirmation (source commit `66d6568d6edf4b546dd9bd1cabc9359c167e382e`): PASS.** Unit Tests 196/196 across 17 test files; backend TypeScript PASS; frontend TypeScript PASS; frontend production build PASS; Production migration ledger verifier PASS; migration runner dry-run PASS; Dependency Audit Evidence PASS.
+- This CI result validates source/build/static gates only. It does not replace authenticated browser UAT, live multi-user permission isolation tests, or runtime verification against Neon Production. No Production DB or deployment action was taken.
+- External portal visibility was further narrowed: Buyer requires `buyer.shipment.view`; Supplier requires both `supplier.view` and `shipment.view`; Transporter/Driver require both `record_truck_trips` and `verify_checkpoints`. PM `logistics.view` alone no longer exposes the Transporter portal. Checker remains a separate unresolved API mismatch: it has `verify_checkpoints` and `operations.view`, but tracking-event POST currently requires `record_truck_trips` for non-receipt events.
+- **Latest source CI (commit `8ed5ce3a860bf5f6c91b69271e48699685174f51`): PASS.** 196/196 tests across 17 files, backend/frontend TypeScript, frontend build, migration ledger verifier, migration dry-run and Dependency Audit Evidence all passed. Browser UAT and live multi-role runtime tests remain pending.
+---
+
+## §56.47 — P0 Action-level UX, Task Engine & PM Control Tower (2026-11-20)
+
+### Implementation record
+- Permission-aware Operations and Compliance panels/actions; selected-Project-locked operational forms; trip creation withheld until transport-leg API exists; Checker checkpoint API/RLS aligned to `verify_checkpoints`.
+- Project provisioning restricted to Platform Admin and separated from Contract Program setup. Contract Program mutation, Finance mutation, Accounting posting, Shipment Allocation mutation and Cash Advance decisions are gated by their own capabilities.
+- Project detail/edit/configuration, Project members/roles and platform identity governance use separate route guards. PM appointment and global account administration remain Platform Admin-only.
+- Added Project task/instruction schema, APIs, RLS and My Work UI. PM-only task governance permissions; active-role and optional explicit-assignee isolation; immutable task event history; notifications on assignment, block/submit and PM resolution/closure.
+- PM Control Tower adds task/overdue/blocker/review roll-up and source-backed readiness checks. Unsupported Production/QA, vessel/loading/laytime and LC presentation workflows are visibly unavailable rather than populated with estimates or mock values.
+
+### Exact prepared migrations
+- Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`.
+- Migration 049 SHA-256 `4d4cd7a877665986f10c3068ba8dd86332eff8c22b00214d45a45806fac276a8`.
+- Both are `manifest=absent` and unapproved; apply sequentially only after explicit approval of each exact hash. Production currently remains at applied Migration 047. No Production database operation or Vercel deployment was performed.
+
+### Acceptance / remaining gates
+- Current implementation CI is pending. Earlier P0 baseline CI passed 196/196 tests, backend/frontend TypeScript, frontend build, migration ledger verifier, dry-run and dependency audit; later source changes require a fresh green run.
+- After approval/application, run isolated runtime UAT for multi-role, multi-Project, explicit assignee, expired/revoked role, task lifecycle, notification routing, Checker permission, Project Admin Finance read-only and task event immutability.
+- Project timezone/SLA calendar and scheduled automatic overdue escalation are not yet implemented; current overdue state is calculated on read and escalation is manual.
+- Do not mark P0 Production-complete until CI, sequential migration application and runtime UAT all pass.
+### CI confirmation — source commit `fc25624ec288189bc1f33ece374422667c28d982`
+
+- Unit Tests: **213/213 PASS** across 18 test files.
+- Backend API TypeScript: PASS.
+- Frontend TypeScript: PASS.
+- Frontend production build: PASS.
+- Production migration ledger/release verifier: PASS; baseline 001–028 and verified Production history 001–047 are contiguous. The verifier retains the notice that authentic SQL for historical migrations 029–035 remains unrecovered.
+- Migration runner dry-run: PASS; no database connection attempted and no database changes made. Migrations 048 and 049 are reported `manifest=absent` and remain unapproved for apply.
+- Dependency Audit Evidence: PASS (root and frontend production dependency audits).
+- PR #2 remains OPEN / DRAFT. CI validates source/static/build gates, not authenticated browser UAT or runtime RLS integration.
+### §56.48 — P0 follow-up audit (2026-11-20)
+- Fixed Migration 049 task-notification RLS so PM `project.tasks.resolve` can notify the task owner after resolution/closure.
+- Secured `/transport-legs`: Project ID required, `logistics.view` required, no global/unscoped list. Operations loads transport legs only for the active Project; trip creation is available to `record_truck_trips` users and disabled if no actual leg exists.
+- Latest PR #2 CI head `b5a890f5cc31ff7c2ce8c18080ad1df242da1a4f`: 214/214 tests, backend/frontend TypeScript, frontend build, ledger verification, dry-run and dependency audit all PASS.
+- Migration 048 SHA-256 `48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3`; Migration 049 SHA-256 `c2e5f39ededab7af1d931808218fe958654f7f16b49d795dd51db60846545f5d`. Both unapproved and not applied. Production remains at 047.
+- No Production database connection or Vercel deployment was made. P0 remains pending exact migration approvals, sequential apply after backup, and runtime role/Project isolation UAT.
+
+---
+
+## §56.49 — P1 UAT closeout and next execution plan (2026-11-21)
+
+### A. Canonical document and source reconciliation
+- This Master Plan remains the sole active project reference. The filename is retained for compatibility, but the document header identifies it as **Master Implementation Plan Rev2.36**; do not describe it as Rev1.7.
+- The branch linked in the prior planning request, `phase0/reconcile-source-20261117`, is historical and contains an older Rev2.19 plan state. The newer working ref is `f1/project-scoped-cob-20261119`; all future plan updates must be made on that existing branch, with no branch creation.
+- The historical phase0 copy is not edited because doing so would create divergent sources of truth. The active Master Plan at the working ref is updated here.
+
+### B. Verified current database state
+- Neon Production project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, remains at migration ledger **053**. Read-only inspection confirms migrations 039–053 are applied; no P1 migrations 058–071 are present in Production. Production was not modified in this session.
+- Neon UAT branch `br-young-boat-b3re832d` has migration rows **058–071 applied**. Rows 070 and 071 were independently read and match:
+  - 070 `070_p1_kpi_formula_role_scope.sql`: `37d5aacd556271021298c57a0940e03efbd276bed2b7ac26a72530efb5bf786d`.
+  - 071 `071_p3_financial_audit_and_ap_match_integrity.sql`: `5a03b09bbd50f8c2d74cdfde1375b71adf67a31f675c4fbb9b6652101f412451`.
+- A current Production backup branch `pke-production-pre-053-backup-20261121` exists and is READY. This proves branch-level backup existence, not a completed point-in-time restore drill or an automated recurring backup schedule.
+- Production ledger remains the separate controlled release baseline; P1 UAT migrations must not be added to the Production manifest or applied to Production implicitly.
+
+### C. P1 migration and backtest evidence
+- Migration 071 was applied only on UAT after owner authorization to revise its SQL to meet the application requirements. The final checksum above matches UAT migration history.
+- Reported and previously recorded Migration 071 backtests include: invalid/mismatched PO-GRN-AP tuples denied; direct AP match/verification writes denied; valid Procurement match synchronizes AP references; Finance verification after valid match succeeds; verified evidence and source records are immutable; AP/AR before/after audit snapshots and material-field changes are captured; runtime-role helper execution is denied; synthetic fixtures were rolled back and residual test rows checked.
+- GitHub source/CI evidence recorded for the Migration 071 code/test change: source validation head `6e4e86a857865682a41bf057384885545a995264`; Unit/security + backend/frontend TypeScript + frontend build run `44869704432` SUCCESS; dependency audit run `44869704472` SUCCESS. The database backtest is UAT evidence, not a Production/browser UAT claim.
+- The latest inspected commit `32183bc9a9c007a5f5804f6cfb0e88ee2de93efd` adds a UAT P1 migration hash verifier that pins hashes 058–062 and asserts they are excluded from the Production baseline manifest. Its retrieved GitHub status showed a Vercel success check only; do not infer the full CI suite for that HEAD from this check.
+
+### D. Status and boundaries
+- P1 UAT migration chain 058–071: **DATABASE LEDGER APPLIED**. Targeted P1 checks for Migration 071: **PASS as recorded above**. Do not inflate this into a claim that every role workbench, all P1 requirements, authenticated browser workflows, or all cross-Project isolation gates are complete.
+- P0 is **not certified closed by this addendum**. The last detailed P0 ledger in this file predates the latest P0 migration and UI changes; reconcile the P0 closure status separately against its exact current migration ledger, source HEAD, UAT results and role-workflow acceptance evidence before declaring it complete.
+- P2 has no approved sequential phase definition in the inspected Rev2.36 roadmap. In this plan, P01–P18 are product/domain work packages and Sprint 01–12 are implementation sequencing. Do not guess that “P2” means P02, P12, Sprint 02, PRI-2 or Migration 017. Record a phase-to-package crosswalk before opening a P2 workstream.
+- No Production migration, DDL/DML, role grant, Auth change, Vercel deployment/promotion or PR merge was performed by this reconciliation.
+
+### E. Recommended next execution plan (ordered; no Production mutation implied)
+1. **P0 closure reconciliation (read-only first):** reconcile Production/UAT migration ledgers and hashes, current source branch/HEAD, and evidence for Migrations 048–057; identify which of the P0 deliverables have already been applied on Production and what remains solely in UAT. Refresh the P0 acceptance checklist without rerunning the comprehensive audit.
+2. **P1 final acceptance matrix:** map each P1 requirement to its migration, API, permission/RLS rule, UI workbench, exact backtest and evidence. Explicitly close or mark blocked the owner-action lifecycle, role workbench coverage, reporting drill-through, document storage, shipment allocation prerequisites and authenticated browser checks. Confirm Migration 070 role-template restrictions via negative and positive cross-role KPI tests, then reconcile all UAT migrations 058–071 against their checked-in checksums.
+3. **P2 scope crosswalk:** derive the next phase from the user's current intended P2 meaning and align it to P01–P18/Sprint 01–12. Until that crosswalk exists, do not introduce a speculative Migration 017 or any unrelated enhancement track.
+4. **Implement approved next package on the existing working branch:** source/API/UI/test changes first; preserve P07 Finance v1.2; reuse live schema; enforce Project scope and effective permissions server-side and in RLS; no parallel ERP or PM system.
+5. **Database gate:** read-only schema reconciliation, exact SQL/checksum, privilege/RLS review, impact/lock and rollback plan, verified backup, then explicit owner approval of that exact migration/hash/target. If the project-wide single-branch policy still governs runtime, stop if the requested UAT topology conflicts with it and reconcile the latest owner instruction before proceeding.
+6. **Verification loop:** unit/contract/security tests, backend/frontend TypeScript, production frontend build, migration policy verifier and dependency audit; then authorized database backtest with role-positive/negative tests, concurrency/idempotency, audit trail and cleanup verification. Repeat revisions and retest until all in-scope gates pass.
+7. **Release separation:** no Production apply, PR merge or Vercel Production deployment from an UAT PASS alone. Require explicit approval for each exact Production action and separately record Application Complete vs Business Production Ready.
+
+### F. Immediate next actions
+- The next safe engineering action is the P0/P1 evidence reconciliation and a complete P1 requirement-to-API/UI/RLS acceptance matrix on the existing working branch.
+- Preserve Production at migration 053. UAT 058–071 is a validation stream only; do not promote or copy it to Production without a reconciled release plan and exact owner approval.
+- Keep this plan as the single source of truth. Update its ledger and relevant domain checklist after each meaningful verified execution; do not create parallel status/plan Markdown files.
+
+
+---
+
+## §56.50 — P0/P1 evidence reconciliation and P2 phase crosswalk (2026-11-21)
+
+### A. Reconciliation of §56.49 against live ledgers and latest evidence
+This section supersedes any ambiguous or stale phase-status wording in §56.49 and older checkpoints.
+
+**Neon migration boundary (direct read-only ledger evidence):**
+- Production `br-damp-shape-b3xlh4nr`: migrations **001–053** are applied; latest row 053 is `053_project_admin_accounting_reports_read_only.sql`. Migrations 054–071 are absent from Production.
+- UAT `br-young-boat-b3re832d`: migrations **001–071** are applied. The directly read 054–057 rows match the known canonical permission/governance/project-context changes; 058–071 match the P1 workflow/KPI/AP-match chain. No gaps were observed in rows 039–071.
+- Therefore P0's current database state is split: its earlier foundation migrations through 053 are in Production; the 054–057 completion set is in UAT only. P0 must not be described as Production-released. Its isolated UAT schema chain is applied through 057, while Production remains protected at 053.
+- The Production backup branch `pke-production-pre-053-backup-20261121` is READY. This is a retained Neon branch-level recovery point, not evidence of a completed restore drill.
+
+**P0 functional disposition:**
+- The historical PRI-0 blockers in earlier sections were subsequently remediated in Production through Migrations 042–047 and the later 048–053 chain: reservation release-reason schema compatibility, multi-role assignment foundation, Finance requestor/Finance separation and Finance-only maker-checker, Project Admin Finance read-only, AP/AR/document and role/project permission hardening.
+- UAT Migrations 054–057 add canonical role-permission allowlists, Platform Admin PM-governance-only RLS, Project context plus explicitly shared Funder reports, and restriction of basic Project context from exposing role catalogues/configuration versions.
+- UAT evidence recorded earlier includes role/permission allowlist checks, Project-scoped role resolution, Finance/Accounting/Funder context isolation and Funder share/revoke lifecycle rollback. The 054–057 ledger is now confirmed applied.
+- **P0 disposition:** core P0 implementation and UAT database sequence are materially complete through 057; Production promotion of 054–057 and any remaining business/browser acceptance are separate release gates. Do not reopen the resolved reservation/cash-advance/permission-dictionary findings as if they remain unaddressed; retain their original history as superseded evidence.
+
+**P1 functional disposition:**
+- UAT migrations 058–071 are all applied. The final 070 and 071 hashes were re-read from Neon and match §56.49. The UAT-only P1 release verifier pins 058–070 and the separate Migration 071 source/test record pins the final Migration 071 hash; the Production manifest remains isolated from the UAT P1 chain.
+- Migration 071 targeted AP three-way-match integrity, Finance verification, immutable verified evidence/source tuple and AP/AR audit tests are recorded PASS; synthetic writes were rolled back.
+- Additional direct UAT KPI formula-scope tests executed in this reconciliation: **9/9 PASS** across Procurement, Finance, Warehouse, PM, Supplier and cross-Project negative cases. Positive checks included Procurement PO-cycle, Finance three-way-match, Warehouse inventory-variance and PM cross-domain access. Negative checks denied Procurement/Finance production-output formulas, Warehouse audit KPI, Supplier KPI access and Procurement access to another Project.
+- Runtime role posture read-back: `app_runtime_secure` is not superuser, has no BYPASSRLS/CREATEDB/CREATEROLE and is not a member of `neondb_owner`. PUBLIC cannot execute `p1_kpi_formula_allowed`, `p1_get_kpi_metric` or the private AP match helper; `app_runtime_secure` can execute the KPI functions but cannot execute the private AP match helper.
+- **P1 disposition:** UAT migration and targeted database/security gates are PASS. Full P1 business acceptance is still **PARTIAL / BLOCKED**: P1 domain record/event/evidence tables currently contain zero real workflow records; no verified export-document object exists; no completed report artifact with a real file reference exists; shipment allocation/load/issue end-to-end has not been demonstrated from a newly created reservation fixture; authenticated role HTTP/browser acceptance is not claimed. Earlier owner waiver of the separate Neon Auth HTTP test remains a waiver, not a PASS.
+
+### B. P0/P1 closeout work remaining (bounded)
+1. Keep Production at 053 until the owner separately approves a release package for 054–071; do not infer that UAT application grants Production approval.
+2. Preserve the UAT P1 chain as the isolated test/review baseline. Do not add UAT migration hashes to the Production manifest.
+3. Close P1 business acceptance with the remaining source-backed scenarios: real-but-isolated PO→GRN→AP and reservation→allocation→loading→inventory issue transitions; document upload/review using a real private object and checksum; report generation with a real artifact; role workbench/API drill-through and cross-Project negative cases. Use only an explicitly authorized isolated test context and verify cleanup.
+4. Record any unavailable provider, credential or owner-only action as `BLOCKED_EXTERNAL` / `OWNER_WAIVED`; never replace it with fabricated successful data.
+5. Keep P07 Finance v1.2 unchanged. Any P2 integration with Finance is read/integration-only unless a separately approved P07 change is required.
+
+### C. P2 phase definition and crosswalk — ESTABLISHED
+**P2 is a delivery phase label, not P02.** P02 continues to mean the foundational Backend, Database & Neon Platform package. P2 is now mapped to the Master Plan's next domain expansion: **P15 → P16 → P17 → P18**, with P06/P08/P09/P10/P11/P12/P13 as dependent or cross-cutting packages. This resolves the historical ambiguity without renaming the existing package IDs.
+
+| P2 workstream | Master Plan package | Sprint crosswalk | Required outcome / exit gate |
+|---|---|---|---|
+| P2-A Supply & facility intelligence | **P15** Supplier, Facility & Product Master Intelligence | Sprint 04–05 | Canonical organization/PKS/KCP/facility/product/specification/capacity/quality/stock provenance; distinguish capacity from stock and PKS from KCP; scoped Admin/PM/supplier access and matching tests |
+| P2-B Port & multimodal network | **P16 + P06** Port, Port Warehouse & Multimodal Logistics; operational inventory/transport | Sprint 06–07 | Port/terminal/berth/channel/depth/services and port warehouse; connect facility→truck→warehouse→port; inventory custody, reservation/allocation, quantity reconciliation and idempotent movements |
+| P2-C Vessel & Export Control Tower | **P17 + P10 + P11** Maritime/Vessel Intelligence, role workspaces and reporting | Sprint 08, then Sprint 11 integration | Indonesia-only AIS source strategy; vessel/port compatibility; readiness checklist, source-stamped ETA/position, loading plan/shift/hold/laytime and buyer-scoped shipment visibility; role work queues and PM exception roll-up |
+| P2-D Regulatory knowledge & AI readiness | **P18 + P08 + P09** Regulatory Knowledge Graph, compliance engine and Gemini/RAG | Sprint 09–10 | Official source registry and effective-dated rules; document readiness and provenance; grounded RAG with citations, scoped read-only tools and human approval for any proposed write |
+| P2-E Cross-cutting release and traceability | **P12 + P13** QA/UAT/DevOps and Change Control | Sprint 01–12 continuous; final gate Sprint 12 | Requirement-to-code-to-test traceability; multi-role and multi-Project tests; migration/backup/recovery/release evidence; no Production promotion from UAT PASS alone |
+
+**Foundational dependencies retained, not re-opened as new P2 work packages:**
+- P01/P02/P03/P04/P05 provide the business, database, identity/RLS, API and private-document foundation.
+- P06 is extended in P2-B; P07 v1.2 is preserved; P08 is completed in P2-D; P09 activates only after P18 knowledge/source controls; P10/P11 integrate incrementally with P2-C/P2-D; P12 gates release; P13 remains always-on; P14 remains advisory and does not introduce a second ERP/ledger/PM authority.
+- Sprint 01–03 are foundational platform/document prerequisites; Sprint 04–10 are the P15–P18 domain build sequence; Sprint 11 integrates complete role UX; Sprint 12 performs P07-preserving regression and release readiness.
+
+### D. P2 execution order and decision rules
+1. Start with **P2-A / P15**. Establish supplier, organization, PKS/KCP, facility, product and quality master records with provenance and scoped permissions before building dependent port/vessel automation.
+2. Continue **P2-B / P16 + P06**. Make port warehouse and multimodal movement depend on verified P15 facility/product identity and P06 inventory custody/reservation/allocation controls.
+3. Build **P2-C / P17** only after stock/port foundations exist. Vessel position is Indonesia-only per §56.43; AIS is situational awareness, not navigation or loading authorization. No feed, hardware, subscription or package purchase is approved by this crosswalk.
+4. Build **P2-D / P18 + P08 + P09** after source provenance and document object controls are proven. AI remains scoped/read-only by default; no fabricated regulatory authority or automatic legal pass.
+5. Integrate P10/P11 continuously, but do not create a second PM task system, duplicate permission authority or second finance ledger. P07 v1.2 remains authoritative.
+6. Every workstream requires source/DB/API/UI/permission/RLS/test/evidence traceability. Use synthetic records only in authorized isolated test scope and clean them up. No Production DDL/DML, role grants, external subscriptions, Vercel deployment or PR merge is implied by this crosswalk.
+
+### E. Immediate execution baseline after this session
+- P0: UAT schema through 057; Production through 053. P0 implementation/UAT progress is recognized, but Production release of 054–057 is not implied.
+- P1: UAT schema through 071; targeted KPI and AP-match security tests PASS; full operational/browser/document/report acceptance remains partial as listed above.
+- P2: crosswalk is established as P15→P16→P17→P18 (Sprint 04–10), with P06/P08/P09/P10/P11/P12/P13 dependencies and P07 v1.2 preserved.
+- Next implementation unit when execution resumes: P2-A / P15, subject to the P0/P1 release and test boundaries above. No clarification question is required to understand the phase mapping established here.
+
+
+
+## 56.51 — P2-A / P15 kickoff: UAT seed data and editable Project PKS overlay (21 November 2026)
+
+**Owner instruction:** the owner authorized creation of temporary starter data and requested that Admin and/or the appointed PM be able to revise the working data inside the application. This section records the first implementation slice. It does not authorize Production changes, PR merge, or deployment.
+
+### 56.51.1 Research and data-provenance rules
+
+- BPS's *Direktori Perusahaan Perkebunan Kelapa Sawit Indonesia 2025* (released 30 September 2026) is a public reference for company legal names, legal status, addresses and contact channels. It is a candidate-discovery source, not proof of current supplier capacity, stock, commercial availability or Project participation: https://www.bps.go.id/id/publication/2026/09/30/e895d1a25bd8b51c4136ae1a/direktori-perusahaan-perkebunan-kelapa-sawit-indonesia-2025.html
+- BSN lists SNI 2901:2021, *Minyak kelapa sawit mentah (Crude palm oil)*, as active. Product classification/specification work must preserve the applicable standard/version and measurement basis; do not treat this standard as a PKC specification: https://pesta.bsn.go.id/produk/detail/13323-sni29012021
+- Public directory entries remain unverified candidates until independent source/evidence review. Do not infer capacity, stock, certification, ownership, product capability or availability from a company/facility name.
+- The current UAT starter row is synthetic only. It is explicitly linked to existing `[TEST FIXTURE]` Project, KCP and supplier records; it is not a real supplier offer or available stock. The facility type is `kernel_crushing_plant`, not `palm_oil_mill`. This distinction is intentional.
+
+### 56.51.2 UAT database implementation
+
+Target: Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d`, database `neondb`. Production branch `br-damp-shape-b3xlh4nr` was not accessed for writes.
+
+- Migration 072 `072_p2a_project_pks_participation.sql` applied and recorded as ID 72, SHA-256 `76e094238f430835fe068fd733e8eb111363d5d686507f89646e9f42c9579107`.
+- Migration 073 `073_p2a_platform_admin_supplier_read.sql` applied and recorded as ID 73, SHA-256 `6f7e84ad7823de9f29a9545dd877ed43fb0e04b1faa7004d3afe5b736f7cb010`.
+- Migration 072 creates `project_pks_site_participation`, a Project-scoped operational overlay separate from global legal identity and facility identity. It stores operational contacts, contracted/allocated monthly capacity, delivery windows, Project terms, notes, effective dates, source/provenance and explicit seed markers. There is no DELETE policy or DELETE grant for the runtime role.
+- PM permissions added to the canonical allowlist and current Project PM role grants: `pks.site.view`, `pks.participation.manage`, and `supplier.view`. The PM can edit the Project overlay only; it cannot overwrite global legal name, registration, tax identity or verified facility identity.
+- Platform Admin access is checked through `pke_is_platform_admin()` and is read/write only on the Project overlay. Additional Admin SELECT policies expose facility and supplier adapter names; they do not grant global master mutation.
+- UAT backup snapshots are retained in schema `p2a_backup_072_20261121`: permission rows, PM allowlist, PM Project-role grants, PKS-site policies and vendor policies, all captured before the corresponding migration changes.
+- Seed batch `P2A-SEED-20261121-01` contains one row, participation ID `1fb75cf0-a27a-48e4-bfd8-881edae5227d`, attached to the existing Alpha synthetic Project, Alpha KCP fixture and Alpha supplier fixture. Fields are marked `source_type='synthetic_seed'`, `is_seed_data=true`, with a batch ID so later cleanup can be targeted without deleting real records.
+
+### 56.51.3 Permission and RLS backtest
+
+Executed directly on UAT as `app_runtime_secure` with explicit request-user context:
+
+- PM fixture: `pks.participation.manage=true`; could SELECT the Project overlay, UPDATE the row, and restore the original notes. PASS.
+- Platform Admin fixture: `pke_is_platform_admin()=true`; could SELECT the overlay, facility and linked supplier; UPDATE the overlay and restore the original notes. PASS.
+- Finance fixture: `pks.participation.manage=false`; overlay SELECT returned zero rows and UPDATE returned zero rows. PASS.
+- Runtime role has no DELETE grant on the overlay table; there is no DELETE policy. PASS.
+- PM and Admin can resolve the joined facility/supplier display fields; Finance sees no overlay row. PASS.
+- PM and Platform Admin UPDATE attempts against global `pks_sites` and `partner_organizations` returned zero rows under RLS. The Project overlay is editable, while global legal/facility identity remains protected pending the independent master-data change/approval workflow. PASS.
+- The update/restore backtests produce audit entries by design; the current seed row content was restored and verified after each test.
+- These are database/RLS tests, not authenticated HTTP/browser tests.
+
+### 56.51.4 Source/API/UI implementation
+
+Committed on existing branch `f1/project-scoped-cob-20261119`; no new GitHub branch was created.
+
+- `src/index.ts`: added authenticated GET/POST/PATCH endpoints under `/api/v1/projects/:projectId/pks-sites`. Writes require `pks.participation.manage` or global Platform Admin; PATCH exposes only Project overlay fields. The global master identity is deliberately excluded.
+- `src/role-catalogue.ts`: added the PKS view/manage permissions to the canonical PM template.
+- `frontend/src/role-permissions.ts`: added permission-gated `pks-sites` workspace visibility.
+- `frontend/src/App.tsx`: added the `PKS & Supplier` Project workspace with an edit form for operational contacts, contracted/allocated capacity, delivery windows, Project terms, notes and status. Seed/mock state and facility verification status are visible; global facility identity is not editable there.
+- `src/route-registry.test.ts` and `package.json`: added P2-A endpoint registration regression coverage to the test suite.
+- Relevant source commits: API `c184fe84fd64b9d809d2566d9b8c4a9665906c52`, API permission response fix `be87801b1157ea029d0e72627a5f523c4fc2b491`, PM permission UI `b89a02d7f6c198710998f135615105c0657e934c`, PM role template `e1a23fd713206f6f70d0c57e303f7c7be795efe0`, UI `c3a0f040dae92f3d4d12142eca4af3c9ad3af659`, route tests/package inclusion `47f4af829cca2105aa379e9a12a52d10d033e2b7` and `cee73e8e33ea847f3706960710a6206b4a753a6b`.
+
+### 56.51.5 CI and current acceptance
+
+- Unit Tests workflow run `44873948018` for latest source/test commit: **SUCCESS**. Offline tests, backend typecheck, frontend typecheck and frontend build all completed successfully.
+- Dependency Audit workflow run `44873947993`: **SUCCESS**.
+- Earlier UI commit CI run `44873834587` also completed SUCCESS, including backend/frontend typecheck and frontend build.
+- P2-A initial database overlay and permission slice: **UAT PASS**.
+- Source/API/UI implementation: **CI PASS**.
+- Authenticated HTTP/browser acceptance against the running application: **NOT YET VERIFIED**. The new source is committed to the working branch but has not been deployed. Do not describe the UI as live or claim that a real PM session has edited it through the browser.
+- Global legal identity change-request/independent approval workflow, public candidate ingestion, distinct PKS mill seed records, capacity/certification/contact evidence tables, product taxonomy/specification approval and full source verification remain open P15 work.
+- No Production DDL/DML, Production permission changes, PR merge, Vercel deployment/promotion, external subscription or purchase occurred.
+
+### 56.51.6 Next P2-A work
+
+1. Complete authenticated HTTP/browser acceptance in an explicitly approved non-Production deployment/test target; verify Admin and PM edit, read-only roles denied, cross-Project isolation, audit before/after and seed marker visibility.
+2. Add a separate, explicitly synthetic palm-oil-mill fixture so the UI demonstrates PKS vs KCP as distinct facility types; do not repurpose the existing KCP record.
+3. Add the independent global master-data change request/approval workflow before permitting edits to legal identity or verified facility identity.
+4. Enrich product/specification master using applicable authoritative standards and source-backed parameter definitions. Do not apply SNI CPO values to PKC.
+5. Keep seed batch removable by `seed_batch_id`; after owner/PM review, either retain it as a documented demo fixture or remove only that batch and verify cleanup.
+
+
+## 56.52 — P2-A / P15 expansion: public candidate register, separate mill fixture and editable PKE requirement (21 November 2026)
+
+**Owner deployment instruction:** defer all explicit deployment, promotion and deployment-related troubleshooting until the final combined P2-A/P15 session. Continue source, database, permission and backtest work on the existing branch and UAT only. Do not merge or deploy as part of this section.
+
+### 56.52.1 Public-source research and limits
+
+- GIMNI's public member page identifies its 2025 member companies and states that its membership covers refining/fractionation, kernel crushing plants (KCP) and copra crushing plants (CCP). Its displayed company category and plant-location fields are useful for candidate discovery, but do not prove that each listed company operates a specific KCP rather than a CCP, that the named location is a verified site, or that any capacity/stock is available: https://gimni.org/en/members
+- Three GIMNI entries were loaded into the Project-scoped candidate register as organizations only, all `verification_status='unverified'`:
+  - PT Agro Jaya Perdana — category shown by GIMNI: Crushing; location shown: Yos Sudarso – Medan; member number 001.01.II.G-AJP/2022.
+  - PT Cargil Indonesia — exact displayed spelling retained from the source; category: Crushing; location: Minahasa – Sulut; member number 039.01.XXIII.G-CI/2022. Legal spelling must be checked before canonical onboarding.
+  - PT Citra Borneo Utama — category: Refinery & Crushing; location: Kota Waringin – Kalteng; member numbers 034.01.XX.G-CBU/2022 and 034.02.XX.G-CBU/2022.
+- These three entries are not inserted into canonical `partner_organizations`, `vendors`, or `pks_sites`. They remain editable candidate leads with original source snapshot/reference preserved. No capacity, stock, facility subtype, certification, or current operating status has been inferred.
+- BPS's *Direktori Perusahaan Perkebunan Kelapa Sawit Indonesia 2025* was identified as a future legal-identity cross-check source. Its described fields include legal company name/status, address, telephone, headquarters and email; individual BPS records were not extracted or asserted for these GIMNI leads: https://www.bps.go.id/id/publication/2026/09/30/e895d1a25bd8b51c4136ae1a/direktori-perusahaan-perkebunan-kelapa-sawit-indonesia-2025.html
+
+### 56.52.2 Distinct synthetic palm-oil-mill fixture
+
+- Migration 074 added a second synthetic facility `[TEST FIXTURE] Alpha Palm Oil Mill` with `facility_type='palm_oil_mill'`, separate from the existing `[TEST FIXTURE] Alpha Kernel Crushing Plant` with `facility_type='kernel_crushing_plant'`.
+- The new facility is `planned` and `unverified`, with no asserted street address, coordinates, permit, production, capacity, stock, certification or availability. Its operator organization/vendor and Project link are also explicitly synthetic.
+- Seed batch `P2A-SEED-20261121-02` is separately removable. Both facility overlay rows remain editable by Admin/PM at Project level through `project_facility_label`, `project_location_notes`, operational contacts, capacity fields, delivery window, Project terms and notes. Global legal/facility identity remains protected by existing RLS.
+- UAT query confirms exactly two seed facility overlays and preserves the two distinct facility types.
+
+### 56.52.3 Candidate register and Admin verification control
+
+- Migration 074 created `p2a_master_data_candidates`, Project-scoped with FORCE RLS, no runtime DELETE grant/policy, provenance snapshot, source name/URL/reference, seed markers and before/after audit.
+- PM can create and revise working candidate name/category/location/notes. PM cannot modify source provenance, source snapshot, verification status, reviewer or review timestamp. Platform Admin alone can make verification decisions.
+- Migration 075 makes Admin verification-status changes automatically stamp `reviewed_by` and `reviewed_at`; all changes are audited.
+- Seed/public candidate inventory: 4 rows total — 3 GIMNI public candidates and 1 synthetic palm-oil-mill facility candidate. All 3 public candidates remain unverified.
+- Permission backtest: PM read 4 rows in the Alpha Project and 0 in the second Project; PM note update and restore passed; PM provenance and verification changes were denied; Finance saw 0 rows; Admin verification transition stamped its own reviewer ID and timestamp. A temporary PM create/update test row was deleted by the database owner after the runtime DELETE denial was confirmed.
+
+### 56.52.4 Product master and source-backed PKE classification draft
+
+- Existing `PKC` catalog item and its `[TEST FIXTURE]` draft specification were left unchanged. No fixture numeric limit was promoted to a standard or buyer specification.
+- Migration 076 added a distinct `PKE` product catalog entry: `Palm Kernel Expeller (PKE) / Palm Kernel Meal (PKM)`. It remains `classification_status='unverified'`; the existing `PKC` code was not silently merged or renamed.
+- Permenperin No. 32 Tahun 2024, Lampiran Kelompok Komoditas Turunan II, defines PKE/PKM as bungkil from palm-kernel processing that has not undergone chemical processing; lists tariff positions `ex 2306.60.10` and `ex 2306.60.90`; describes solid/powder form containing oil/fat; and qualitative identification. The PKE/PKM row does not prescribe numerical commercial limits: https://peraturan.bpk.go.id/Download/355456/permenperin-no-32-tahun-2024.pdf
+- BSN's catalogue lists SNI 7856:2017 *Bungkil inti kelapa sawit* with status `Berlaku`. The catalogue page does not expose the full standard text; the full standard and test-method details were not reviewed here: https://pesta.bsn.go.id/produk/detail/11135-sni78562017
+- Migration 076 created `project_product_requirements`, a Project-scoped RLS/audited overlay. It holds a draft PKE/PKM regulatory identity baseline under seed batch `P2A-SEED-20261121-03`. Numerical limits are explicitly `NULL`; the notes state that buyer contract and batch COA must define commercial thresholds. This is not a buyer specification, COA, certification or approved commercial limit.
+- PM can create/update Project product requirement drafts, but cannot change source provenance or approval status. Platform Admin alone can approve/reject and the trigger stamps `approved_by` and `approved_at`.
+- The old PKC fixture specification remains draft and unchanged.
+
+### 56.52.5 Migrations, backups and UAT verification
+
+Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
+
+| Migration | SHA-256 | Status |
+|---|---|---|
+| 072 `072_p2a_project_pks_participation.sql` | `76e094238f430835fe068fd733e8eb111363d5d686507f89646e9f42c9579107` | Applied |
+| 073 `073_p2a_platform_admin_supplier_read.sql` | `6f7e84ad7823de9f29a9545dd877ed43fb0e04b1faa7004d3afe5b736f7cb010` | Applied |
+| 074 `074_p2a_candidate_register_and_mill_fixture.sql` | `c59e8a1f9e31215f49a5f83b42cb814f6f99d787f3d4f5a59ec2e238f227ce27` | Applied |
+| 075 `075_p2a_candidate_review_stamps.sql` | `d8567f9e7fc09e200bed8133a36031f6f597f26a6262b044fd1173bc2b56ec23` | Applied |
+| 076 `076_p2a_project_product_requirements.sql` | `7ee71fbb5db52fd1a561fee1ab3ebfb855c4c90db6e43d0d3bc90b63bc8abfa0` | Applied |
+
+- UAT migration ledger is contiguous through 076. Production branch `br-damp-shape-b3xlh4nr` was read-only checked and remains at migration 053; no Production writes were made.
+- Before 074, targeted backup snapshots were created under `p2a_backup_072_20261121` for candidate organization/vendor/site/supplier/overlay rows. The target IDs were absent before insertion (zero-row snapshots). Before 076, product catalog and specification snapshots preserved the pre-existing PKC fixture (one row each); pre-076 PM product permission snapshots were also retained.
+- PM facility overlay alias/location edit and restore: PASS. PM candidate create/update: PASS; runtime DELETE denied; exact temporary backtest row cleaned by owner and zero remaining. PM candidate provenance/verification write: DENIED as intended. Admin candidate verification stamp: PASS. Finance candidate visibility: zero rows.
+- PM product requirement read/update: PASS; PM approval update: DENIED as intended. Admin approval status transition recorded reviewer identity/time: PASS. Finance product requirement visibility: zero rows. Temporary PM create/update product requirement row was removed by owner after runtime DELETE denial; zero remaining.
+- UAT now contains 2 synthetic facility overlays, 4 candidate rows (3 public unverified + 1 synthetic), 1 draft PKE/PKM Project requirement, and 27 P2-A audit events at the time of the final count query.
+
+### 56.52.6 Source/API/UI and CI state
+
+- `src/index.ts`: authenticated GET/POST/PATCH APIs for Project facility catalog/participation, candidate register and Project product requirements. Permission gates are Project-scoped; candidate verification and product requirement approval are Platform Admin-only.
+- `frontend/src/App.tsx`: PKS & Supplier workspace now includes editable Project facility overlays, editable public candidate register, and editable Project product requirement drafts. It displays source/seed status and separates draft edits from Admin verification/approval.
+- `src/role-catalogue.ts`: PM role template includes Project product requirement view/manage permissions.
+- `src/route-registry.test.ts`, migration contract tests 074/075/076 and `package.json`: added regression coverage for new routes, migration hashes, RLS/approval contracts and PKE classification safeguards.
+- Latest Unit Tests workflow `44883881193`: SUCCESS. Latest Dependency Audit workflow `44883881205`: SUCCESS. The Unit Tests job completed offline tests, backend typecheck, frontend typecheck and frontend build successfully.
+- Authenticated HTTP/browser acceptance has not been run because deployment is deferred per owner instruction. Do not claim the UI is live or that a real PM session has edited it in-browser.
+- No explicit Vercel deployment/promotion action, PR merge or Production migration was performed in this section. GitHub branch updates may trigger repository-configured automatic Vercel activity; its actual state was not inspected or modified because deployment work is deferred.
+
+### 56.52.7 Remaining P2-A gates before P2-B
+
+1. Final combined deployment/preview and authenticated browser acceptance session, after all P2-A/P15 source and UAT work is consolidated.
+2. Admin/PM browser verification of candidate create/edit, Project facility overlay edit, product draft create/edit, Admin-only verify/approve, audit trail and cross-Project isolation.
+3. Obtain/confirm the full SNI 7856:2017 text and buyer-specific COA/contract limits before setting numeric PKE commercial specifications.
+4. Independently verify GIMNI candidates against BPS legal-entity records and direct source evidence before canonical organization/facility onboarding.
+5. Implement the separate global master-data change-request/approval workflow before allowing legal identity, registration or verified facility identity changes.
+6. Add distinct facility-product capability evidence and capacity/quality provenance; do not infer PKE production capability from the facility name/type.
+7. Keep all three seed batches removable by exact `seed_batch_id`; owner/PM must decide whether to retain them as documented UAT demo fixtures or clean them after review.
+
+
+## 56.53 — P15 final Project-scope hardening (21 November 2026)
+
+### Scope and security correction
+- Review of UAT migrations 077/078 and the existing P15 API/UI found that the change-request register was Project-scoped, but its canonical organization/facility target lookup and change-request trigger did not independently assert that an update target belonged to the request's selected Project.
+- Migration 079 adds a database-level BEFORE INSERT OR UPDATE guard. PM requests to update an organization must reference an organization linked to that Project through supplier participation, PKS participation, buyer contract program, or the Project operating profile. Facility updates and facility-product/capacity/certification proposals must reference a facility participating in the same Project. Platform Admin remains the global master-data steward.
+- The P15 GET API now filters organization, facility, facility capability, capacity and certification records to the selected Project for non-Admin users. This supplements RLS and prevents cross-Project target discovery through the P15 workspace.
+- The P15 request table now displays distinct labels for organization, facility, facility-product capability, capacity and certification requests.
+
+### Validation and release boundaries
+- Apply migration 079 only to Neon UAT after taking a targeted backup of the current 077/078 trigger/function definitions.
+- Backtest PM Alpha against its own Project-linked records and against Beta/unlinked records; PM must be denied on cross-Project targets. Verify PM draft edit/submit only, Admin-only approve/reject, no self-approval, reviewer stamps, optimistic concurrency, and audit snapshots.
+- Verify Admin can review global master data, Finance/read-only roles cannot create or decide requests, and evidence documents must remain approved/checksum-verified and Project-matched.
+- Re-run contract tests, backend/frontend typecheck and frontend build. CI must be green before P15 is marked source-ready.
+- The pre-existing UAT row [TEST FIXTURE] P15 Approval Backtest 20261121 remains a known synthetic backtest artifact pending an explicitly authorized cleanup decision; it is not Production business data. No Production DDL/DML, Vercel deployment/promotion, PR merge or branch creation is included.
+
+
+### 56.53.1 Runtime backtest and UI truthfulness follow-up
+- Migration 079 SHA-256: 6d3de061226109428fa0963f7fa697cbd7c1aca929558e0529628debdcc7d968. Applied to Neon UAT only; migration ledger records 077–079 as applied and contiguous.
+- Targeted pre-079 backup captured the existing change-request trigger, trigger function and RLS policies in p2a_backup_072_20261121.p15_scope_pre_079 (1 snapshot row).
+- Runtime tests as app_runtime_secure: PM Alpha same-Project facility update request allowed; PM Beta request against Alpha facility denied with SQLSTATE 42501; PM Beta request against Alpha supplier organization denied with SQLSTATE 42501. PM Alpha sees 2 facilities and 3 linked supplier organizations in Alpha; PM Beta sees 0 facilities and 0 supplier organizations in Beta. Finance has no change-request view/manage permission and RLS returns zero request rows.
+- Workflow backtest: PM draft creation and submission passed; requester self-approval was denied; Platform Admin rejection stamped reviewed_by and reviewed_at and did not apply canonical data. A same-Project positive request and a rejected test request were created for these checks, then both exact temporary request rows were deleted by the database owner; their audit events were retained.
+- A UAT fixture capability record is still only submitted and the existing 500 MT/day fixture capacity record has source_type unknown, no approved evidence, no checksum and no reviewer. Neither is verified; PKE and PKC catalog classifications remain unverified. UI labels were corrected so these rows are shown as a register/history with explicit verification status rather than falsely described as verified.
+- Existing UAT-only canonical organization [TEST FIXTURE] P15 Approval Backtest 20261121 remains from the prior backtest (unverified). It is preserved pending explicit cleanup authorization; no Production data is involved.
+
+
+## 56.53.2 P15 quality provenance workspace
+- Added Project-scoped GET API for quality samples/results, controlled product attributes and approved same-Project lab evidence documents. Read/create/review flags are derived from the active Project permissions; users without quality permissions receive no sample data.
+- Added a quality provenance workspace to the PKS & Supplier module: sample creation, sampling method/location/seal/condition, source reference, lab evidence selection, chain-of-custody display, measurement results with unit/basis/method, and QA review/accept/reject/retest actions. Tested samples require approved checksum-verified lab evidence and laboratory identity.
+- Migration 080 adds read access to the controlled product-attribute dictionary for Project quality readers/reviewers only. Apply UAT only after recording a targeted policy backup; no Production changes.
+- Browser acceptance remains deferred to the final combined deployment/preview session per owner instruction.
+
+
+### 56.53.3 Quality read-policy alignment
+- Migration 080 adds Project-quality-role SELECT access to the shared product-attribute dictionary.
+- Migration 081 aligns sample/result SELECT RLS with the existing quality.sample.view and quality.sample.create permissions so sample creators/viewers can actually see their own Project-scoped sample/result rows. The policies remain Project-scoped through pke_has_project_permission and do not grant writes or deletes.
+- Apply migration 081 to UAT only after taking a targeted policy snapshot. Validate QA reader/creator/reviewer and Finance isolation.
+
+- Migration 080 SHA-256: a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150 — applied to UAT only.
+- Migration 081 SHA-256: 05ad71458aafcc8042da4707464686ac6f3a01474f72d16a21791e09f538100f — applied to UAT only. Both migrations are recorded in migration_history and the prior policy definitions were snapshotted in p2a_backup_072_20261121.
+
+- UAT quality fixture audit: one pre-existing sample and three accepted results are explicitly fixture data but have no approved lab-report document or evidence checksum; the new workspace flags them as provenance-incomplete and prevents result entry from treating them as complete COA evidence. No values were promoted to commercial specification or release evidence.
+
+- The quality sample API now persists the source snapshot supplied by the Project workspace in addition to the structured chain-of-custody JSON; the read API returns sample and result source snapshots so reviewers can inspect the provenance actually submitted.
+
+- Added a controlled pending/submitted-to-tested transition for lab officers/QC roles. The database function only permits a Project-scoped approved, checksum-verified lab report and stamps the evidence provenance; the UI can attach the report after sampling, rather than requiring the report to exist when the sample record is first created.
+
+- Migration 082 SHA-256: 8f768a41acfcccbe8879a296dbf1a8530f6436660712f39fe8e0aa39f2819205 — applied to UAT only. It enables the lab officer/QC role to attach an approved same-Project lab report after a sample was first registered as pending/submitted; it does not grant broad UPDATE access to quality sample rows.
+- Positive tested-sample transition cannot be demonstrated in this UAT session because there are no real approved, checksum-verified lab-report documents in the test Project. The function will be backtested for denial of nonexistent/unapproved evidence; positive use awaits an actual approved test document.
+
+
+## 56.53.4 P15 UAT engineering completion report (21 November 2026)
+
+### Delivered
+- P15 supplier/facility master-data workspace now supports Project facility participation overlays, public-source candidate register, Project product-requirement drafts, Admin verification/approval, and Project-scoped canonical master-data change requests.
+- Database Migration 079 closes the cross-Project canonical target gap at the database trigger and filters P15 organization/facility/capability/capacity/certification read lists to the selected Project for non-Admin users.
+- The request UI distinguishes organization, facility, facility-product capability, capacity and certification request types.
+- Facility capability/capacity/certification views now show provenance and verification status accurately; unverified fixtures are not presented as verified.
+- Quality provenance workspace now supports Project-scoped sample creation/read, source snapshot and chain-of-custody capture, approved lab-report selection, controlled pending/submitted-to-tested transition, result capture, and QA review/accept/reject/retest. Sample/result and product-attribute RLS now includes the intended Project quality viewer/creator/reviewer roles.
+- Migrations 079–082 applied only to Neon UAT with exact SHA-256 checksums:
+  - 079: 6d3de061226109428fa0963f7fa697cbd7c1aca929558e0529628debdcc7d968
+  - 080: a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150
+  - 081: 05ad71458aafcc8042da4707464686ac6f3a01474f72d16a21791e09f538100f
+  - 082: 8f768a41acfcccbe8879a296dbf1a8530f6436660712f39fe8e0aa39f2819205
+- UAT migration ledger is contiguous through 082 (82 rows). Neon Production remains at migration 053 (53 rows); no Production DDL/DML was executed.
+- Targeted pre-migration snapshots were retained for migrations 079–082 in p2a_backup_072_20261121.
+- Runtime backtests passed:
+  - PM Alpha can submit a same-Project facility change request.
+  - PM Beta is denied when targeting Alpha's facility or supplier organization (SQLSTATE 42501).
+  - PM Alpha sees 2 facilities and 3 linked supplier organizations; PM Beta sees 0 facilities and 0 supplier organizations in its Project workspace.
+  - Finance has no P15 change-request view/manage permissions and sees zero request rows.
+  - Requester self-approval is denied; Platform Admin rejection stamps reviewer identity/time and does not apply canonical data.
+  - QC Officer can create a pending sample; QC Officer and QA Manager can read it; Finance cannot.
+  - Lab-result insertion without approved sample-linked evidence is denied (SQLSTATE 23514).
+  - Lab-report transition rejects nonexistent/unapproved evidence (SQLSTATE 23514) and Finance invocation is denied (SQLSTATE 42501).
+  - All temporary test change-request/sample rows created in this execution were removed; their audit events were retained where applicable.
+- GitHub CI at commit 8ba49b2fbd5a32494abdb2a69c7fc3e947b1bde2: Unit Tests SUCCESS; Dependency Audit Evidence SUCCESS; backend typecheck SUCCESS; frontend typecheck SUCCESS; frontend build SUCCESS; migration-runner dry-run SUCCESS.
+
+### Remaining data and release gates (not software blockers)
+- P15 public company candidates remain unverified. Public membership categories are leads, not proof of current KCP/PKE operating capability, legal identity, capacity, certification, or supply availability.
+- PKE and PKC catalog classifications remain unverified. The Project PKE product requirement is a draft regulatory identity baseline; no numerical commercial limits were invented.
+- The two facility overlays are synthetic. The existing facility-product row is submitted with unknown source and no evidence; the 500 MT/day capacity row is a synthetic/unverified fixture with no evidence, checksum or reviewer. No facility-to-PKE capability is verified.
+- The existing UAT sample and three accepted result fixtures have no approved lab report or evidence checksum. The UI flags them as provenance-incomplete; they are not valid COA/release evidence.
+- The earlier UAT approval backtest artifact [TEST FIXTURE] P15 Approval Backtest 20261121 remains unverified and is retained pending explicit cleanup authorization. No Production data is involved.
+- Positive lab-report transition and accepted COA flow require a real approved, checksum-verified Project document; none was available in this UAT test set, so no synthetic document was fabricated.
+- Authenticated browser acceptance and deployment/preview are deferred to the final combined deployment session per owner instruction. No Vercel inspection, deployment, promotion, PR merge or new branch was performed.
+
+### Status
+P15 engineering implementation and UAT database/security backtests are complete. Production rollout, authenticated browser acceptance, and verification of real supplier/facility/product/COA evidence remain separate owner-controlled gates.
+
+
+## 56.54 — P2-B / P16 readiness audit (21 November 2026)
+
+### Repository and database baseline
+- P15 engineering/UAT closeout is recorded in §56.53.4. Its real supplier/facility/product/COA evidence and authenticated browser acceptance gates remain open; they must not be represented as passed by synthetic fixtures.
+- Current source branch remains `f1/project-scoped-cob-20261119`; no new branch, PR merge, Vercel deployment or Production write is part of this audit.
+- Neon UAT branch `br-young-boat-b3re832d` has 82 migration rows: ids 1–16 are explicitly `baselined`, ids 17–82 are `applied` (66 applied migrations; zero non-applied migrations after excluding the historical baseline status).
+- Neon Production branch `br-damp-shape-b3xlh4nr` remains at 53 migration rows: ids 1–16 `baselined`, ids 17–53 `applied` (37 applied migrations). Read-only verification only; no Production DDL/DML.
+
+### P16 schema inventory found in UAT
+- Existing tables already cover ports, terminals, berths, channels, anchorages, depth/tide observations, loading services, equipment, operating limits, PKS-port routes, warehouses, zones, bins, warehouse equipment and reservations.
+- Current UAT counts: 1 port, 1 warehouse, 3 warehouse zones, 1 warehouse bin and 1 warehouse-equipment row. Port terminals, berths, channels, anchorages, depth/tide observations, loading services, port equipment, operating limits, PKS-port routes and warehouse reservations are currently empty.
+- RLS is enabled on all inspected P16 tables. The port/terminal/berth/channel/anchorage/depth/tide/service/equipment/operating-limit and warehouse-master tables currently expose SELECT policies only. Warehouse reservations have Project-scoped SELECT/INSERT/UPDATE policies. This means database schema presence is not equivalent to a complete operational P16 workflow.
+- Active permission codes already exist for port viewing/creation/update, terminal/berth management, depth submission, service management, preliminary vessel assessment, route estimation and warehouse/zone/receipt operations. Existing role grants are limited: selected loading/terminal roles have port.view; PM and Internal Audit have warehouse.view; the warehouse role has warehouse create/update/receipt permissions. Do not infer write capability from the permission catalogue alone; role allowlists, RLS policies and API checks must agree.
+
+### Source/UI gap
+- Current source has no dedicated `/api/v1/ports`, terminal/berth/depth/service/equipment/operating-limit, vessel-port-assessment or route-estimate handlers.
+- Existing warehouse APIs cover project warehouse receipts and transport operations, not the P16 warehouse master, zones/bins/equipment or capability verification.
+- Frontend has no Port & Terminal network workspace. The existing Warehouse workspace is an operational stakeholder route, not a full port/warehouse master-data control surface.
+
+### P2-B implementation sequence
+1. Reconcile P16 permission allowlists and role ownership. Keep global port/terminal/berth/channel/anchorage/operating-limit master changes under Platform Admin stewardship unless a separately audited proposal workflow is added. Keep operational warehouse reservations and receipts Project-scoped.
+2. Prepare Migration 083+ for UAT only: targeted pre-change policy/trigger backup; explicit write RLS for the approved actor classes; provenance, reviewer and stale-data guards; no widening of generic project access. Hash the exact SQL and verify the UAT ledger after application.
+3. Implement authenticated API handlers for port hierarchy, depth/tide observations, loading services/equipment, warehouse master/capabilities, zones/bins, reservations and preliminary vessel compatibility. Every response must distinguish verified, submitted, unverified, stale and rejected records. Vessel screening is advisory only and never navigation clearance.
+4. Add a dedicated Port & Warehouse workspace with role-specific read/edit/review controls. Preserve the existing Warehouse receipt workflow and inventory movement source of truth.
+5. Backtest Platform Admin master-data edits, PM/terminal/warehouse scoped reads and submissions, cross-Project reservation isolation, maker-checker review, evidence provenance, stale-depth denial, and Finance isolation. Re-run unit tests, typechecks, frontend build and migration dry-run.
+6. Keep real port authority limits, hydrographic depth/datum, tide, terminal service capacity and warehouse capability unverified until authoritative source evidence and reviewer stamps exist. Do not invent operational limits or mark fixture data verified.
+7. Keep P15 business-evidence and browser-acceptance gates open until real source documents and the owner-directed final combined deployment/browser session are available. Do not claim P2-A fully business-accepted merely because P16 engineering begins.
+
+**Current decision:** P16 is the next engineering work package (P2-B), but its schema-only foundation is not yet an implemented or accepted workflow. This section is an audit baseline, not a claim that P16 has been delivered. All implementation and backtests remain on the existing source branch and Neon UAT; Neon Production, PR merge and Vercel remain out of scope.
+
+
+### 56.54.1 — P16 read-only source/UI foundation (21 November 2026)
+
+- Added authenticated `GET /api/v1/ports` and `GET /api/v1/ports/:portId` endpoints, guarded by the selected Project's `port.view` permission. The detail payload separates terminals, berths, channels, anchorages, depth/tide observations, loading services, equipment and operating limits.
+- Added authenticated `GET /api/v1/warehouses` and `GET /api/v1/warehouses/:warehouseId` endpoints, guarded by the selected Project's `warehouse.view` permission. Warehouse reservations are filtered to the selected Project; zones, bins and equipment are returned as separate structures.
+- Added `frontend/src/PortNetworkPage.tsx`, the `/port-network` route and navigation item. Port and warehouse tabs load independently according to the active Project permission; users with only one permission do not need access to the other surface.
+- The initial workspace is intentionally read-only (`canManage=false`). It does not claim that master-data edit, depth submission, route estimation or vessel screening has been implemented. The existing warehouse receipt workflow remains separate and unchanged.
+- Provenance truthfulness guard: a port row whose database status says `verified` but has no source reference, verification timestamp or official/national/port code is returned as effectively `unverified`. UAT SQL smoke test confirmed the existing `[TEST FIXTURE] Alpha Export Port` is downgraded for display; the underlying fixture row was not modified.
+- SQL smoke tests passed against UAT for port master/detail, terminals, berths, channels, anchorages, depth/tide observations, services, equipment, operating limits, warehouse master/detail and Project-filtered reservations. Existing UAT fixture counts remain unchanged.
+- CI at source commit `f9feefa8af5f1af1801bbe02f63f9e365ab955c0`: Unit Tests SUCCESS (including backend typecheck, frontend typecheck, frontend build and migration-runner dry-run); Dependency Audit Evidence SUCCESS. A further route-contract test now pins the fail-closed port provenance rule; its CI result must be checked on the latest head.
+
+### 56.54.2 — P16 remaining implementation gates
+
+1. Implement Platform Admin port/terminal/berth/channel/anchorage/service/equipment/operating-limit create/update and independent review, with audit snapshots and no self-approval where applicable.
+2. Implement depth/tide submission and reviewer lifecycle with mandatory feature, unit, datum, observed/survey date, source authority, evidence checksum, reviewer and validity/freshness controls. Stale or incomplete observations must never be returned as operationally verified.
+3. Implement Project-scoped route alternatives and preliminary vessel-port assessment only after route provenance and port-limit evidence are present. The result must remain advisory and never be navigation clearance.
+4. Add warehouse master/capability edit and verification with explicit Platform Admin vs warehouse-role responsibilities; preserve Project-scoped reservation/receipt/inventory custody rules.
+5. Prepare and back up Migration 083+ on UAT only, then align RLS write policies, permission allowlists and API gates. No write API may be exposed before the matching UAT RLS policy and role backtest pass.
+6. Add Admin/PM/terminal/warehouse/Finance negative and positive backtests, then rerun full CI. Authenticated browser acceptance remains in the final combined deployment session.
+
+**Status:** P16 read-only source/UI foundation is implemented; P16 write workflows and UAT migration are NOT COMPLETE. No Neon Production write, PR merge, Vercel deployment or new branch was performed.
+
+
+### 56.54.3 — P16 read-only slice CI closeout (21 November 2026)
+
+- Latest source/documentation head: `3cefba4144706391ec51eb83675c7e43cbe09673` on the existing branch.
+- GitHub Unit Tests workflow run `44901403163`: SUCCESS. Offline security/unit tests, migration-runner dry-run, backend typecheck, frontend typecheck and frontend build all passed.
+- GitHub Dependency Audit Evidence workflow run `44901403120`: SUCCESS.
+- P16 route contract tests include all four read endpoints and the fail-closed effective port-verification rule.
+- The read-only API SQL statements were smoke-checked against Neon UAT schema and returned successfully. No database rows or policies were changed by this P16 source slice.
+- PR #2 remains OPEN / DRAFT and points to the latest head. No merge or Vercel action occurred.
+
+
+
+### 56.54.4 — P16 governed write implementation and UAT migrations 083–086 (21 November 2026)
+
+**Scope and safeguards**
+- Continued on the existing branch `f1/project-scoped-cob-20261119`; no new GitHub branch.
+- Neon UAT only. Neon Production was not modified. PR #2 remains OPEN/DRAFT; no merge and no Vercel/deployment activity.
+- Created a pre-migration snapshot schema `p2b_backup_082_20261121` containing the P16 master, evidence, route and warehouse tables plus permission/policy snapshots.
+- Added Platform Admin-only mutation policies and trigger guards for global ports, terminals, berths, channels, anchorages, port services/equipment/limits, routes, warehouses, zones, bins and warehouse equipment.
+- Added maker-checker review: a submitter cannot verify their own master-data submission; verification requires a source reference, SHA-256 and reviewer note. Audits capture before/after snapshots.
+- PM receives Project-scoped depth/tide submission, route-estimate and vessel-port-assessment permissions. Terminal Representative receives Project-scoped depth/tide submission. These roles do not receive global master-data write rights.
+- Depth/tide submissions must be linked to a port assigned to the active Project and must reference an Approved, upload-verified Project document in `pke-private-documents` with a matching SHA-256, object key and unexpired retention status.
+- Vessel screening uses verified vessel/port/berth particulars, current operating limits, current verified depth survey and fresh observed tide (not forecast). Outputs are strictly advisory and never navigation/berthing clearance.
+- Generic master-data change detection ignores automatic `updated_at` changes so background timestamp triggers cannot reset verified records.
+
+**UAT migration ledger**
+- Migration 083 `083_p2b_port_warehouse_governance.sql` applied; SHA-256 `6587ae132c376b66a48a6fa4be0dc91717b7fdd4099894572baa067fafe18500`.
+- Migration 084 `084_p2b_pm_depth_vessel_permissions.sql` applied; SHA-256 `5b958b73c57ff21fe7e359742478d1351708ba79f36f7ecca38a0db3ba92fd97`.
+- Migration 085 `085_p2b_port_evidence_document_guard.sql` applied; SHA-256 `94dd4bb66c529066ad1e008ab25529ee2fcd0e7e6ea9b4bb6b2724de3eef6160`.
+- Migration 086 `086_p2b_master_guard_updated_at_fix.sql` applied; SHA-256 `40a28c888f618f555f27b9b54b2a6a9c5d8fd12bec887f55a6686dedd7fdec0b`.
+- UAT migration history now contains 87 contiguous rows (16 baselined, 71 applied); exact UAT-only evidence is recorded in `migration_history_manifest_uat_001_086.json`. Production manifest remains separate and unchanged.
+
+**Source implementation**
+- Added admin-only generic P16 master create/update/review API for port and warehouse hierarchy, services, equipment, operating limits and PKS-port routes.
+- Added Project-scoped depth/tide submission and Platform Admin independent review APIs.
+- Added Project-scoped route listing, vessel picker and advisory vessel-port assessment API.
+- Port & Warehouse UI now includes Platform Admin master editor/review controls, PM/Terminal Representative evidence submission, route reference view and vessel screening.
+- Added `src/p16-governance.test.ts` for route registration, permission boundaries, evidence provenance, maker-checker, advisory-only screening and UAT migration checksum manifest.
+
+**Outstanding acceptance gates (do not mark P16 complete until all pass)**
+1. Run final Unit Tests workflow and Dependency Audit Evidence workflow on the latest branch head; resolve any failure and rerun.
+2. Complete API/RLS positive and negative backtests as actual `app_runtime_secure` role: Platform Admin create/update/review; PM depth/tide submit and route/vessel view; Terminal Representative submit; non-Admin global-master mutation denied; cross-Project port/document access denied; self-review denied; mismatched or unapproved evidence denied.
+3. Exercise the Admin and PM workflows in an authenticated browser against Neon UAT; confirm forms save, detail refreshes, maker-checker state transitions and error handling.
+4. Confirm all P16 subresource fields/constraints and operating-limit approval transition; confirm route and vessel screening return insufficient-data when evidence is absent or stale.
+5. Rerun UAT migration-ledger/hash check, RLS isolation audit, route contract tests, backend/frontend typecheck and frontend build.
+6. Update this plan and `PKE_P03_PLAN.md` only after acceptance evidence is captured. Deployment/browser acceptance remains deferred to the user's requested final combined deployment session.
+
+**Status:** P16 write paths and UAT schema governance are implemented; P16 is NOT YET ALL PASS until the listed backtests, browser acceptance and latest CI runs pass.
+
+
+
+### 56.54.5 — P16 admin-write RLS alignment and final UAT verification update
+
+- Added Migration 087 `087_p2b_admin_master_rls_guard_alignment.sql` to Neon UAT only; SHA-256 `d834e4e5b843c2a9dad45c5f66b753aaf9f7d0bfe9dc93fa3006f636f38bda3e`.
+- Admin master RLS policies now require an authenticated app user context; the SECURITY DEFINER BEFORE trigger is the authoritative write guard and independently checks `pke_is_platform_admin()` for INSERT/UPDATE/DELETE. This avoids relying on a GUC-sensitive policy expression while retaining server-side role enforcement.
+- Migration 087 corrects both sides of the maker-checker change comparison to ignore automatic `updated_at` changes.
+- UAT ledger now has 87 contiguous rows (16 baselined, 71 applied); manifest `migration_history_manifest_uat_001_087.json` is the exact UAT-only ledger snapshot. No Production migration or manifest was changed.
+- Backtest read-only permission matrix: PM in Project A passes `port.depth.submit`, `route.estimate`, `vessel.port.assess`, and linked-port checks; the same PM in Project B fails cross-Project checks; Finance and Warehouse Manager do not receive P16 Project write/assessment permissions; PM is not a Platform Admin.
+- Live write/backtest remains subject to tool permission and authenticated-browser validation; do not mark P16 ALL PASS until the positive Admin write, non-Admin denial, maker-checker transition, Project evidence acceptance/denial and browser UI workflows are independently exercised. CI and all source checks must be re-run on the final branch head.
+
+
+
+### 56.54.6 — P16 Platform Admin global access and review queue (21 November 2026)
+
+**Migration 088**
+- Applied UAT-only migration `088_p2b_admin_global_read_policies.sql`; SHA-256 `7ad13edc36a9a49fe0f7eaed96a4bffdb7483fc33478a45ab058c47aaff20424`.
+- Added Platform Admin SELECT policies for 17 P16 master/review tables: global ports/terminals/berths/channels/anchorages/services/equipment/operating limits/routes, warehouses/zones/bins/equipment, depth/tide observations, vessel-port assessments and vessels.
+- Read APIs now allow Platform Admin to list/detail global master records without Project membership; Project users still require their assigned Project permission. Admin route list can show all routes when no Project filter is selected.
+- The Port & Warehouse workspace is visible to Platform Admin without Project membership. Admin can edit and independently review all master resource types, and has explicit review controls for submitted depth/tide observations.
+- Effective verification status is provenance-based across port and warehouse subresources. Verified master rows without verified timestamp, source reference, SHA-256, or official port code are downgraded to `unverified`; depth/tide rows without evidence key/hash are downgraded, and stale tide is labelled stale. Vessel screening excludes future observations and requires evidence-backed depth/tide/limits/berth/port inputs.
+- SQL smoke checks passed for all revised read queries. Platform Admin under `app_runtime_secure` successfully reads global ports, warehouses, route and review queues; PM Project A reads assigned reference data. PM cross-Project checks, Finance denial, Warehouse Manager denial and non-Admin Platform Admin check passed.
+- UAT ledger now has 88 contiguous rows (16 baseline markers, 72 applied migrations); authoritative UAT-only manifest is `migration_history_manifest_uat_001_088.json`. Neon Production ledger remains 53 rows (IDs 1–53); no Production migration or DML was performed.
+
+**CI evidence**
+- Commit `f5f735bc9927290e7eaa1054cd5efe0b59d9d322`.
+- Unit Tests workflow run `44907047850`: PASS — 44 test files, 392 tests; migration runner dry-run, backend typecheck, frontend typecheck and frontend build all PASS.
+- Dependency Audit Evidence run `44907047853`: PASS — root and frontend dependency audits and evidence upload complete.
+- PR #2 remains OPEN/DRAFT, not merged. Existing GitHub branch retained. No Vercel/deployment activity.
+
+**Acceptance still required before declaring P16 ALL PASS**
+1. Execute authenticated Admin create/update/independent-review and non-Admin denial through the running UAT API, including positive and negative maker-checker transitions.
+2. Exercise PM/Terminal Representative depth/tide submission with a real Approved, upload-verified Project evidence document, and confirm mismatch/unapproved/expired document rejection. Current UAT has no approved evidence documents; no synthetic business evidence was inserted.
+3. Complete authenticated browser acceptance of Admin/PM workflows. Deployment/browser session remains deferred under the agreed no-deploy work window.
+4. Re-run CI after any further change and retain final run IDs.
+
+**Status:** Admin global visibility and review workflows are now implemented and CI/role/read checks pass. P16 is not marked ALL PASS until live write/evidence acceptance and authenticated browser checks are completed.

@@ -25,3 +25,21 @@ export function canAccessProjectMembership(input: {
   }
   return true;
 }
+
+export function canManageProjectBusiness(input: {
+  accountActive: boolean;
+  projectActive: boolean;
+  membershipActive: boolean;
+  projectRoleCode: string | null | undefined;
+  deactivatedAt?: string | Date | null;
+  expiresAt?: string | Date | null;
+  now?: Date;
+}): boolean {
+  return input.projectRoleCode?.toLowerCase() === "pm" && canAccessProjectMembership(input);
+}
+
+export function isCobCyclePaid(amount: unknown, amountPaid: unknown): boolean {
+  const total = Number(amount);
+  const paid = Number(amountPaid);
+  return Number.isFinite(total) && Number.isFinite(paid) && total > 0 && paid === total;
+}

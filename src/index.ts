@@ -14,6 +14,17 @@ import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mj
 import { detectManualTrialMode } from "./demo/mode.js";
 import { registerDemoApiRoutes } from "./demo/routes.js";
 import { isPositiveQuantity } from "./f1-contract-rules.js";
+import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
+import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
+import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
+import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
+import { isValidCashAdvanceRequest, canDecideCashAdvance } from "./f1-cash-advance-rules.js";
+import { listCashAdvances, createCashAdvance, decideCashAdvance } from "./cash-advance-service.js";
+import {
+  isP1RecordType, initialP1Status, validateP1Create, validateP1Transition, validateThreeWayMatch,
+  canApprovePurchaseOrder, canDecideQaRelease, canCloseAuditFinding, validateP1Evidence,
+  evaluateFreshness, isDispatchOnTime, calculateLaytime, validateLcPresentation, type P1RecordType, type P1Status,
+} from "./p1-workflow-engine.js";
 
 // Extend Express Request type to include db, logger, and user
 declare global {
@@ -108,25 +119,35 @@ app.use((req, res, next) => {
 const isProduction = process.env.NODE_ENV === "production";
 let configuredDatabaseRole = "";
 let pool!: Pool;
+let runtimeStartupFailure: RuntimeStartupFailure | null = null;
+
+function recordRuntimeStartupFailure(code: string, message: string, missingEnvironmentVariables: string[] = []): void {
+  logger.error(message);
+  runtimeStartupFailure = { code, missingEnvironmentVariables: [...missingEnvironmentVariables] };
+  if (!isServerlessRuntime(process.env)) process.exit(1);
+}
 
 if (!manualTrialMode.enabled) {
-  // ============================================
-  // Environment validation (production / non-demo only)
-  // ============================================
-  const requiredEnv = ["DATABASE_URL", "NODE_ENV", "NEON_AUTH_BASE_URL", "NEON_AUTH_JWKS_URL"];
-  const missingEnv = requiredEnv.filter((key) => !process.env[key]);
-  if (missingEnv.length > 0) {
-    logger.error(`Missing required environment variables: ${missingEnv.join(", ")}`);
-    process.exit(1);
+  // Fail closed for local/server deployments. In Vercel serverless, retain the
+  // process and expose an explicit 503 readiness response instead of process.exit(1).
+  const envState = inspectRuntimeEnvironment(process.env);
+  if (!envState.ready) {
+    recordRuntimeStartupFailure(
+      "RUNTIME_ENV_MISSING",
+      `Missing required environment variables: ${envState.missingEnvironmentVariables.join(", ")}`,
+      envState.missingEnvironmentVariables,
+    );
   }
 
-  try {
-    configuredDatabaseRole = roleFromDatabaseUrl(process.env.DATABASE_URL || "");
-  } catch {
-    logger.error("DATABASE_URL is invalid. API startup cancelled.");
-    process.exit(1);
+  if (!runtimeStartupFailure) {
+    try {
+      configuredDatabaseRole = roleFromDatabaseUrl(process.env.DATABASE_URL || "");
+    } catch {
+      recordRuntimeStartupFailure("DATABASE_URL_INVALID", "DATABASE_URL is invalid. API startup cancelled.");
+    }
   }
-  if (process.env.NODE_ENV !== "test") {
+
+  if (!runtimeStartupFailure && process.env.NODE_ENV !== "test") {
     const dbPreflight = validateSingleBranchDatabaseUrl(process.env.DATABASE_URL || "", process.env);
     if (!dbPreflight.ok) {
       // Log validator codes only. Never log DATABASE_URL, credentials, or raw validator messages.
@@ -140,39 +161,45 @@ if (!manualTrialMode.enabled) {
         logger.error(`DATABASE_URL preflight failed: code=${code}`);
       }
 
-      logger.error(
-        `DATABASE_URL failed mandated single-branch preflight (${problemCodes.length} diagnostic code(s)). API startup cancelled.`
+      recordRuntimeStartupFailure(
+        "DATABASE_URL_PREFLIGHT_FAILED",
+        `DATABASE_URL failed mandated single-branch preflight (${problemCodes.length} diagnostic code(s)). API startup cancelled.`,
       );
-      process.exit(1);
     }
-    if (configuredDatabaseRole !== "app_runtime_secure") {
-      logger.error("DATABASE_URL must use app_runtime_secure. API startup cancelled.");
-      process.exit(1);
+    if (!runtimeStartupFailure && configuredDatabaseRole !== "app_runtime_secure") {
+      recordRuntimeStartupFailure("DATABASE_ROLE_INVALID", "DATABASE_URL must use app_runtime_secure. API startup cancelled.");
     }
   }
 
-  for (const [key, value] of [["NEON_AUTH_BASE_URL", process.env.NEON_AUTH_BASE_URL], ["NEON_AUTH_JWKS_URL", process.env.NEON_AUTH_JWKS_URL]] as const) {
+  if (!runtimeStartupFailure) {
+    for (const [key, value] of [["NEON_AUTH_BASE_URL", process.env.NEON_AUTH_BASE_URL], ["NEON_AUTH_JWKS_URL", process.env.NEON_AUTH_JWKS_URL]] as const) {
+      try {
+        const parsed = new URL(value || "");
+        if (parsed.protocol !== "https:") throw new Error("HTTPS required");
+      } catch {
+        recordRuntimeStartupFailure("NEON_AUTH_CONFIG_INVALID", `${key} must be a valid HTTPS URL. API startup cancelled.`);
+        break;
+      }
+    }
+  }
+
+  if (!runtimeStartupFailure) {
+    // ============================================
+    // Database connection with pooled RLS context support
+    // ============================================
     try {
-      const parsed = new URL(value || "");
-      if (parsed.protocol !== "https:") throw new Error("HTTPS required");
+      pool = new Pool({
+        connectionString: normalizePostgresSslMode(process.env.DATABASE_URL || ""),
+        max: 20,
+        idleTimeoutMillis: 30000,
+      });
     } catch {
-      logger.error(`${key} must be a valid HTTPS URL. API startup cancelled.`);
-      process.exit(1);
+      recordRuntimeStartupFailure("DATABASE_POOL_INIT_FAILED", "Failed to create database pool. API startup cancelled.");
     }
   }
 
-  // ============================================
-  // Database connection with pooled RLS context support
-  // ============================================
-  try {
-    pool = new Pool({
-      connectionString: normalizePostgresSslMode(process.env.DATABASE_URL || ""),
-      max: 20,
-      idleTimeoutMillis: 30000,
-    });
-  } catch (error) {
-    logger.error("Failed to create database pool:", error);
-    process.exit(1);
+  if (runtimeStartupFailure && isServerlessRuntime(process.env)) {
+    logger.error("PKE API serverless process remains alive but is not ready; readiness requests will return HTTP 503.");
   }
 } else {
   logger.info("Manual Trial Mode: skipping required Neon env validation, DB preflight, auth endpoint validation, and Pool creation.");
@@ -182,23 +209,33 @@ if (manualTrialMode.enabled) {
   registerDemoApiRoutes(app);
 } else {
 // ============================================
-// Health check endpoint
+// Health endpoints: liveness is independent of database readiness.
 // ============================================
-app.get("/api/v1/health", async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/health/live", (_req: express.Request, res: express.Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ status: "alive" });
+});
+
+app.get("/api/v1/health", async (_req: express.Request, res: express.Response) => {
+  if (runtimeStartupFailure || !pool) {
+    return res.status(503).json(runtimeUnavailablePayload(
+      runtimeStartupFailure ?? { code: "DATABASE_POOL_UNAVAILABLE", missingEnvironmentVariables: [] },
+    ));
+  }
+
   try {
-    const { rows } = await pool.query("SELECT 1 as healthy");
-    const health = {
+    await pool.query("SELECT 1 as healthy");
+    return res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
       database: "connected",
       environment: process.env.NODE_ENV,
-  };
-    res.json(health);
-  } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Database health check failed.",
     });
+  } catch {
+    return res.status(503).json(runtimeUnavailablePayload({
+      code: "DATABASE_UNAVAILABLE",
+      missingEnvironmentVariables: [],
+    }));
   }
 });
 
@@ -417,51 +454,43 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
     // project_members.role_id -> role_catalog.id (catalog role)
     // project_members.project_role_id -> project_roles.id (project-scoped role)
     const { rows: memberships } = await req.db.query(
-      `SELECT pm.project_id,
+      `SELECT pm.id AS membership_id, pm.project_id,
               p.name AS project_name,
               pm.role_id AS catalog_role_id,
               rc.name AS catalog_role_name,
-              pm.project_role_id,
-              pr.role_code AS project_role_code,
-              pr.name AS project_role_name,
-              pm.is_active,
-              pm.joined_at,
-              pm.expires_at,
-              pm.deactivated_at,
-              p.is_active AS project_is_active
+              pm.is_active, pm.joined_at, pm.expires_at, pm.deactivated_at,
+              p.is_active AS project_is_active,
+              coalesce(assignments.roles, '[]'::jsonb) AS project_role_assignments
          FROM project_members pm
          LEFT JOIN projects p ON p.id = pm.project_id
          LEFT JOIN role_catalog rc ON rc.id = pm.role_id
-         LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+         LEFT JOIN LATERAL (
+           SELECT jsonb_agg(jsonb_build_object(
+             'assignmentId', a.id, 'projectRoleId', a.project_role_id,
+             'roleCode', pr.role_code, 'roleName', pr.name, 'roleIsActive', pr.is_active,
+             'isActive', a.is_active, 'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+           ) ORDER BY pr.role_code) AS roles
+             FROM public.project_role_assignments a
+             JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+            WHERE a.project_member_id = pm.id
+         ) assignments ON true
         WHERE pm.user_id = $1::uuid
         ORDER BY pm.joined_at DESC`,
       [userId],
     );
 
-    const projectIds = memberships.map((m: any) => m.project_id);
-    let permissions: string[] = [];
-    if (req.user.isAdmin) {
-      const { rows } = await req.db.query("SELECT code FROM permissions WHERE is_active = true ORDER BY code");
-      permissions = rows.map((r: any) => r.code);
-    } else if (projectIds.length > 0) {
-      const { rows } = await req.db.query(
-        `SELECT DISTINCT perm.code
-           FROM project_role_permissions prp
-           JOIN permissions perm ON perm.id = prp.permission_id
-           JOIN project_members pm ON pm.project_role_id IS NOT NULL
-                                 AND pm.project_id = prp.project_id
-                                 AND pm.project_role_id = prp.project_role_id
-          WHERE pm.user_id = $1::uuid
-             AND pm.is_active = true
-             AND pm.deactivated_at IS NULL
-             AND (pm.expires_at IS NULL OR pm.expires_at > now())
-             AND EXISTS (SELECT 1 FROM projects p WHERE p.id = pm.project_id AND p.is_active = true)
-             AND perm.is_active = true
-          ORDER BY perm.code`,
-        [userId],
-      );
-      permissions = rows.map((r: any) => r.code);
-    }
+    const { rows: permissionRows } = await req.db.query(
+      `SELECT DISTINCT perm.code FROM public.project_role_assignments a
+       JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+       JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id AND pr.is_active=true
+       JOIN public.project_role_permissions prp ON prp.project_id=a.project_id AND prp.project_role_id=a.project_role_id
+       JOIN public.permissions perm ON perm.id=prp.permission_id JOIN public.projects p ON p.id=a.project_id
+       WHERE a.user_id=$1::uuid AND a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+       AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+       AND p.is_active=true AND perm.is_active=true
+       AND NOT(pr.role_code='funder' AND (perm.code LIKE 'finance.%' OR perm.code LIKE 'accounting.%' OR perm.code LIKE 'reports.%' OR perm.code LIKE 'payment.%' OR perm.code IN('report.view','view_financial','view_rab')))
+       ORDER BY perm.code`,[userId]);
+    const permissions: string[] = permissionRows.map((r: any) => r.code);
 
     const activeMemberships = memberships.filter((m: any) =>
       m.is_active === true &&
@@ -470,7 +499,7 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
       (!m.expires_at || new Date(m.expires_at).getTime() > Date.now())
     );
     const portalAccess = req.user.isAdmin
-      ? ["admin", "workspace", "field", "buyer", "partner", "reports"]
+      ? ["admin", "workspace"]
       : activeMemberships.length > 0
         ? ["workspace", "field"]
         : ["workspace"];
@@ -487,9 +516,15 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
           roleId: m.catalog_role_id,
           catalogRoleId: m.catalog_role_id,
           catalogRoleName: m.catalog_role_name,
-          projectRoleId: m.project_role_id,
-          roleCode: m.project_role_code ?? m.catalog_role_name,
-          roleName: m.project_role_name ?? m.catalog_role_name,
+          roleAssignments: m.project_role_assignments,
+          roleCode: m.project_role_assignments?.find((a: any) => isEffectiveProjectRoleAssignment(
+            { project_id: m.project_id, user_id: m.user_id, project_member_id: m.membership_id, is_active: a.isActive, revoked_at: a.revokedAt, expires_at: a.expiresAt, role_is_active: a.roleIsActive },
+            { id: m.membership_id, project_id: m.project_id, user_id: m.user_id, is_active: m.is_active, deactivated_at: m.deactivated_at, expires_at: m.expires_at, project_is_active: m.project_is_active },
+          ))?.roleCode ?? null,
+          roleName: m.project_role_assignments?.find((a: any) => isEffectiveProjectRoleAssignment(
+            { project_id: m.project_id, user_id: m.user_id, project_member_id: m.membership_id, is_active: a.isActive, revoked_at: a.revokedAt, expires_at: a.expiresAt, role_is_active: a.roleIsActive },
+            { id: m.membership_id, project_id: m.project_id, user_id: m.user_id, is_active: m.is_active, deactivated_at: m.deactivated_at, expires_at: m.expires_at, project_is_active: m.project_is_active },
+          ))?.roleName ?? null,
           isActive: m.is_active === true,
           joinedAt: m.joined_at,
         })),
@@ -502,12 +537,22 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
   }
 });
 
+app.get("/api/v1/projects/:projectId/my-permissions", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  try {
+    const { rows } = await req.db.query("SELECT public.pke_current_user_project_permissions($1::uuid) AS permissions", [projectId]);
+    return res.json({ projectId, permissions: Array.isArray(rows[0]?.permissions) ? rows[0].permissions : [] });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 // Role and permission endpoints
 
 // Contract Program management
 app.get("/api/v1/contract-programs", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
-    const { rows } = await req.db.query("SELECT * FROM contract_programs WHERE is_active = true ORDER BY created_at DESC");
+    const projectId = req.query.projectId as string | undefined;
+    if (!projectId || !(await requireProjectPermission(req, res, projectId, "contract.view"))) return projectId ? undefined : res.status(400).json({ error: "projectId query parameter required" });
+    const { rows } = await req.db.query("SELECT * FROM contract_programs WHERE project_id = $1::uuid AND is_active = true ORDER BY created_at DESC", [projectId]);
     res.json({ contractPrograms: rows });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
@@ -517,27 +562,933 @@ app.get("/api/v1/contract-programs", requireAuth, async (req: express.Request, r
 app.get("/api/v1/contract-programs/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   try {
-    const { rows } = await req.db.query("SELECT * FROM contract_programs WHERE id = $1::uuid AND is_active = true", [id]);
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Contract Program not found" });
-    }
-    res.json({ contractProgram: rows[0] });
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id FROM contract_programs WHERE id = $1::uuid AND is_active = true",
+      [id],
+    );
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Contract Program not found." });
+    const projectId = scopeRows[0].project_id;
+    if (!(await requireProjectPermission(req, res, projectId, "contract.view"))) return;
+    const { rows } = await req.db.query(
+      "SELECT * FROM contract_programs WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true",
+      [id, projectId],
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Contract Program not found." });
+    return res.json({ contractProgram: rows[0] });
   } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
 // Buyer management
 app.get("/api/v1/buyers", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) {
+    if (!req.user?.isAdmin) return res.status(400).json({ error: "projectId is required." });
+    try { const { rows } = await req.db.query("SELECT * FROM buyers WHERE is_active=true ORDER BY name"); return res.json({ buyers: rows }); }
+    catch { return res.status(500).json(internalServerErrorPayload()); }
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM buyers WHERE is_active = true ORDER BY created_at DESC");
-    res.json({ buyers: rows });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+    const { rows } = await req.db.query(
+      `SELECT DISTINCT b.* FROM buyers b
+       JOIN contract_programs cp ON cp.buyer_id=b.id
+       JOIN projects p ON p.contract_program_id=cp.id
+       WHERE p.id=$1::uuid AND b.is_active=true ORDER BY b.name`,
+      [projectId],
+    );
+    return res.json({ buyers: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.get("/api/v1/vendors", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT DISTINCT v.id,v.name,v.code,v.description
+         FROM vendors v JOIN project_supplier_participation psp ON psp.vendor_id=v.id
+        WHERE psp.project_id=$1::uuid AND psp.is_active=true AND v.is_active=true
+        ORDER BY v.name`,
+      [projectId],
+    );
+    return res.json({ vendors: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+/**
+ * P2-A / P15: Project-scoped PKS operational overlay.
+ * Global legal/facility identity remains read-only here and requires a separate
+ * independently reviewed master-data change workflow.
+ */
+app.get("/api/v1/projects/:projectId/pks-sites/catalog", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.site.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT s.id,s.name,s.code,s.facility_type,s.city,s.province,s.country_code,
+              s.operating_status,s.verification_status,s.source_type,s.source_reference,
+              v.id AS vendor_id,v.name AS supplier_name,v.code AS supplier_code
+         FROM public.pks_sites s
+         LEFT JOIN public.vendors v ON v.organization_id=s.organization_id AND v.is_active=true
+        WHERE s.is_active=true
+          AND NOT EXISTS (
+            SELECT 1 FROM public.project_pks_site_participation pp
+             WHERE pp.project_id=$1::uuid AND pp.pks_site_id=s.id
+          )
+        ORDER BY s.facility_type,s.name`,
+      [projectId],
+    );
+    return res.json({ facilities: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.get("/api/v1/projects/:projectId/product-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "product.requirement.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT r.id,r.project_id,r.product_id,r.requirement_code,r.version_no,r.specification_label,
+              r.measurement_basis,r.specification_data,r.test_methods,r.packaging_requirements,
+              r.shipment_requirements,r.source_type,r.source_reference,r.approval_status,r.notes,
+              r.is_seed_data,r.seed_batch_id,r.approved_by,r.approved_at,r.created_at,r.updated_at,
+              p.product_code,p.product_name,p.canonical_name
+         FROM public.project_product_requirements r
+         JOIN public.product_catalog p ON p.id=r.product_id
+        WHERE r.project_id=$1::uuid
+        ORDER BY r.updated_at DESC,p.product_code,r.requirement_code,r.version_no DESC`,
+      [projectId],
+    );
+    const { rows: products } = await req.db.query(
+      "SELECT id,product_code,product_name,canonical_name FROM public.product_catalog WHERE is_active=true ORDER BY product_code",
+    );
+    const { rows: manageRows } = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'product.requirement.manage') AS allowed",
+      [projectId],
+    );
+    return res.json({
+      requirements: rows,
+      products,
+      canManage: req.user?.isAdmin === true || manageRows[0]?.allowed === true,
+      canApprove: req.user?.isAdmin === true,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/product-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "product.requirement.manage"))) return;
+  const b=req.body ?? {};
+  const productId=typeof b.productId==="string"?b.productId:"";
+  const requirementCode=typeof b.requirementCode==="string"?b.requirementCode.trim():"";
+  const label=typeof b.specificationLabel==="string"?b.specificationLabel.trim():"";
+  const sourceReference=typeof b.sourceReference==="string"?b.sourceReference.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(productId) ||
+     requirementCode.length<2 || requirementCode.length>120 || label.length<2 || label.length>240 || !sourceReference){
+    return res.status(400).json({error:"Product, requirement code, specification label and source reference are required."});
+  }
+  try{
+    const {rows}=await req.db.query(
+      `INSERT INTO public.project_product_requirements(
+        project_id,product_id,requirement_code,version_no,specification_label,measurement_basis,
+        specification_data,test_methods,packaging_requirements,shipment_requirements,
+        source_type,source_reference,source_snapshot,approval_status,notes,is_seed_data,seed_batch_id,
+        created_by,updated_by
+      ) VALUES ($1::uuid,$2::uuid,$3,1,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12::jsonb,'draft',$13,false,NULL,$14::uuid,$14::uuid)
+      RETURNING *`,
+      [projectId,productId,requirementCode,label,b.measurementBasis ?? "as_received",
+       JSON.stringify(b.specificationData ?? {}),JSON.stringify(b.testMethods ?? {}),
+       b.packagingRequirements ?? null,b.shipmentRequirements ?? null,
+       b.sourceType==="public_reference"?"public_reference":"manual",sourceReference,
+       JSON.stringify(b.sourceSnapshot ?? {}),b.notes ?? null,req.user?.id ?? null],
+    );
+    return res.status(201).json({requirement:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23505") return res.status(409).json({error:"This requirement code and version already exist for the Project/product."});
+    if(error?.code==="23503" || error?.code==="23514" || error?.code==="22P02") return res.status(400).json({error:"Product requirement fields failed validation."});
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
-app.post("/api/v1/buyers", requireAuth, async (req: express.Request, res: express.Response) => {
+app.patch("/api/v1/projects/:projectId/product-requirements/:requirementId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId,requirementId }=req.params;
+  if(req.user?.isAdmin){
+    const {rows}=await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true",[projectId]);
+    if(!rows.length) return res.status(404).json({error:"Project not found."});
+  }else if(!(await requireProjectPermission(req,res,projectId,"product.requirement.manage"))) return;
+  const b=req.body??{};
+  const fields:Array<[string,string,(v:any)=>any]>=[
+    ["specificationLabel","specification_label",v=>typeof v==="string"?v.trim():v],
+    ["measurementBasis","measurement_basis",v=>v],
+    ["specificationData","specification_data",v=>JSON.stringify(v??{})],
+    ["testMethods","test_methods",v=>JSON.stringify(v??{})],
+    ["packagingRequirements","packaging_requirements",v=>v],
+    ["shipmentRequirements","shipment_requirements",v=>v],
+    ["notes","notes",v=>v],
+  ];
+  const updates:string[]=[];const values:any[]=[];let idx=1;
+  for(const [key,column,convert] of fields) if(Object.prototype.hasOwnProperty.call(b,key)){
+    const value=convert(b[key]);
+    if(column==="specification_label" && (typeof value!=="string"||value.length<2||value.length>240))
+      return res.status(400).json({error:"Specification label must contain 2–240 characters."});
+    updates.push(`${column}=${column==="specification_data"||column==="test_methods"?"$"+idx+++"::jsonb":"$"+idx++}`);
+    values.push(value);
+  }
+  if(b.approvalStatus!==undefined){
+    if(req.user?.isAdmin!==true) return res.status(403).json({error:"Only Platform Admin may approve Project product requirements."});
+    if(!["draft","submitted","approved","rejected","superseded"].includes(b.approvalStatus))
+      return res.status(400).json({error:"Invalid approval status."});
+    updates.push("approval_status=$"+idx++);values.push(b.approvalStatus);
+  }
+  if(!updates.length) return res.status(400).json({error:"No editable product requirement fields supplied."});
+  updates.push("updated_by=$"+idx+++"::uuid");values.push(req.user?.id??null);
+  updates.push("updated_at=now()");
+  values.push(requirementId,projectId);
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.project_product_requirements SET ${updates.join(",")}
+        WHERE id=${idx++}::uuid AND project_id=${idx}::uuid RETURNING *`,values);
+    if(!rows.length) return res.status(404).json({error:"Product requirement not found in this Project."});
+    return res.json({requirement:rows[0]});
+  }catch(error:any){
+    if(error?.code==="42501") return res.status(403).json({error:"Product provenance and approval decisions are protected."});
+    if(error?.code==="23514"||error?.code==="22P02") return res.status(400).json({error:"Product requirement fields failed validation."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+
+/** P15: Project-scoped request + independent Platform Admin approval for canonical identities. */
+app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.view"))) return;
+  try {
+    const [requests, organizations, facilities, manage, evidenceDocuments, products, facilityProducts, capacityRecords, certifications] = await Promise.all([
+      req.db.query(`SELECT id,project_id,entity_type,operation,target_id,proposed_data,base_snapshot,status,
+                request_reason,source_type,source_reference,source_url,source_snapshot,evidence_document_id,decision_note,
+                requested_by,reviewed_by,reviewed_at,applied_target_id,applied_at,created_at,updated_at
+           FROM public.p2a_master_data_change_requests
+          WHERE project_id=$1::uuid ORDER BY created_at DESC`, [projectId]),
+      req.db.query(`SELECT po.id,po.legal_name,po.organization_type,po.country_code,po.verification_status
+        FROM public.partner_organizations po
+       WHERE po.is_active=true
+         AND (public.pke_is_platform_admin() OR
+           EXISTS (SELECT 1 FROM public.project_supplier_participation sp JOIN public.vendors v ON v.id=sp.vendor_id
+                    WHERE sp.project_id=$1::uuid AND sp.is_active=true AND v.is_active=true AND v.organization_id=po.id)
+           OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp JOIN public.vendors v ON v.id=pp.vendor_id
+                    WHERE pp.project_id=$1::uuid AND pp.status<>'closed' AND v.is_active=true AND v.organization_id=po.id)
+           OR EXISTS (SELECT 1 FROM public.buyers b JOIN public.contract_programs cp ON cp.buyer_id=b.id
+                    WHERE cp.project_id=$1::uuid AND cp.is_active=true AND b.is_active=true AND b.organization_id=po.id)
+           OR EXISTS (SELECT 1 FROM public.pks_sites s JOIN public.project_operating_profiles op ON op.primary_pks_site_id=s.id
+                    WHERE op.project_id=$1::uuid AND s.organization_id=po.id))
+       ORDER BY po.legal_name`, [projectId]),
+      req.db.query(`SELECT s.id,s.name,s.facility_type,s.city,s.province,s.country_code,s.verification_status
+        FROM public.pks_sites s
+       WHERE s.is_active=true
+         AND (public.pke_is_platform_admin() OR EXISTS (
+           SELECT 1 FROM public.project_pks_site_participation pp
+            WHERE pp.project_id=$1::uuid AND pp.pks_site_id=s.id AND pp.status<>'closed'))
+       ORDER BY s.name`, [projectId]),
+      req.db.query("SELECT public.pke_has_project_permission($1::uuid,'pks.master_data.change_request.manage') AS allowed", [projectId]),
+      req.db.query(
+        `SELECT id,original_filename,document_type_code,sha256_checksum,uploaded_at
+           FROM public.project_export_documents
+          WHERE project_id=$1::uuid AND status='approved' AND upload_verified_at IS NOT NULL
+            AND object_key IS NOT NULL AND sha256_checksum IS NOT NULL
+            AND storage_bucket='pke-private-documents' AND legal_hold=false
+            AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)
+          ORDER BY uploaded_at DESC`,
+        [projectId],
+      ),
+      req.db.query("SELECT id,product_code,product_name,classification_status,classification_project_id,classification_evidence_document_id,classification_evidence_sha256,classification_source_reference,classification_verified_by,classification_verified_at FROM public.product_catalog WHERE is_active=true ORDER BY product_name"),
+      req.db.query(`SELECT fp.id,fp.facility_id,fs.name AS facility_name,fp.product_id,pc.product_code,pc.product_name,fp.process_type,fp.capability_status,fp.source_reference,fp.evidence_document_id,fp.evidence_sha256,fp.verified_by,fp.verified_at FROM public.facility_products fp JOIN public.product_catalog pc ON pc.id=fp.product_id JOIN public.pks_sites fs ON fs.id=fp.facility_id WHERE (public.pke_is_platform_admin() OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp WHERE pp.project_id=$1::uuid AND pp.pks_site_id=fs.id AND pp.status<>'closed')) ORDER BY fp.created_at DESC`, [projectId]),
+      req.db.query(`SELECT cr.id,cr.facility_id,fs.name AS facility_name,cr.process_type,cr.capacity_kind,cr.capacity_value,cr.unit_code,cr.period_type,cr.effective_from,cr.effective_to,cr.source_reference,cr.evidence_document_id,cr.evidence_sha256,cr.verified_by,cr.verified_at FROM public.facility_capacity_records cr JOIN public.pks_sites fs ON fs.id=cr.facility_id WHERE (public.pke_is_platform_admin() OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp WHERE pp.project_id=$1::uuid AND pp.pks_site_id=fs.id AND pp.status<>'closed')) ORDER BY cr.effective_from DESC`, [projectId]),
+      req.db.query(`SELECT fc.id,fc.facility_id,fs.name AS facility_name,fc.certification_type,fc.certificate_number,fc.issuer,fc.scope,fc.valid_from,fc.valid_to,fc.status,fc.source_reference,fc.evidence_document_id,fc.evidence_sha256,fc.verified_by,fc.verified_at FROM public.facility_certifications fc JOIN public.pks_sites fs ON fs.id=fc.facility_id WHERE (public.pke_is_platform_admin() OR EXISTS (SELECT 1 FROM public.project_pks_site_participation pp WHERE pp.project_id=$1::uuid AND pp.pks_site_id=fs.id AND pp.status<>'closed')) ORDER BY fc.created_at DESC`, [projectId]),
+    ]);
+    return res.json({
+      requests: requests.rows, organizations: organizations.rows, facilities: facilities.rows,
+      evidenceDocuments: evidenceDocuments.rows, products: products.rows,
+      facilityProducts: facilityProducts.rows, capacityRecords: capacityRecords.rows, certifications: certifications.rows,
+      canManage: req.user?.isAdmin === true || manage.rows[0]?.allowed === true,
+      canReview: req.user?.isAdmin === true,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.manage"))) return;
+  const b = req.body ?? {};
+  const entityType = b.entityType, operation = b.operation;
+  const targetId = typeof b.targetId === "string" ? b.targetId : null;
+  const proposedData = b.proposedData;
+  const requestReason = typeof b.requestReason === "string" ? b.requestReason.trim() : "";
+  const sourceType = ["manual","public_reference","official_document","buyer_confirmed"].includes(b.sourceType) ? b.sourceType : "manual";
+  const sourceReference = typeof b.sourceReference === "string" ? b.sourceReference.trim() : "";
+  const sourceUrl = typeof b.sourceUrl === "string" && b.sourceUrl.trim() ? b.sourceUrl.trim() : null;
+  const evidenceDocumentId = typeof b.evidenceDocumentId === "string" ? b.evidenceDocumentId : null;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!["organization","facility","facility_product","capacity_record","certification"].includes(entityType) || !["create","update"].includes(operation) ||
+      (["facility_product","capacity_record","certification"].includes(entityType) && operation!=="create") ||
+      (operation === "update" && (!targetId || !uuidPattern.test(targetId))) ||
+      (operation === "create" && targetId !== null) ||
+      !proposedData || typeof proposedData !== "object" || Array.isArray(proposedData) ||
+      Object.keys(proposedData).length === 0 || requestReason.length < 10 || requestReason.length > 2000 ||
+      sourceReference.length < 2 || sourceReference.length > 500 ||
+      (sourceUrl !== null && !/^https?:\/\//i.test(sourceUrl)) ||
+      (evidenceDocumentId !== null && !uuidPattern.test(evidenceDocumentId)) ||
+      (["facility_product","capacity_record","certification"].includes(entityType) && !evidenceDocumentId)) {
+    return res.status(400).json({ error: "Entity, operation, non-empty proposal, reason and source reference must be valid." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO public.p2a_master_data_change_requests(
+         project_id,entity_type,operation,target_id,proposed_data,status,request_reason,
+         source_type,source_reference,source_url,source_snapshot,requested_by,evidence_document_id
+       ) VALUES ($1::uuid,$2,$3,$4::uuid,$5::jsonb,'draft',$6,$7,$8,$9,$10::jsonb,$11::uuid,$12::uuid)
+       RETURNING *`,
+      [projectId,entityType,operation,targetId,JSON.stringify(proposedData),requestReason,sourceType,
+       sourceReference,sourceUrl,JSON.stringify(b.sourceSnapshot ?? {}),req.user?.id ?? null,evidenceDocumentId],
+    );
+    return res.status(201).json({ request: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Master-data request permission or target visibility denied." });
+    if (error?.code === "P0002") return res.status(404).json({ error: "Canonical master record is not visible in this Project." });
+    if (error?.code === "23514" || error?.code === "22P02" || error?.code === "23503") return res.status(400).json({ error: "Master-data request failed validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, requestId } = req.params;
+  const isAdmin = req.user?.isAdmin === true;
+  if (isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.manage"))) return;
+  const b = req.body ?? {}, updates: string[] = [], values: any[] = [];
+  let idx = 1;
+  const add = (column: string, value: unknown, cast = "") => { updates.push(`${column}=$${idx++}${cast}`); values.push(value); };
+  if (isAdmin) {
+    if (b.proposedData !== undefined || b.requestReason !== undefined || b.sourceType !== undefined ||
+        b.sourceReference !== undefined || b.sourceUrl !== undefined || b.sourceSnapshot !== undefined || b.evidenceDocumentId !== undefined) {
+      return res.status(403).json({ error: "Platform Admin may decide but may not rewrite the submitted proposal." });
+    }
+    if (b.status !== undefined) {
+      if (!["approved","rejected"].includes(b.status)) return res.status(400).json({ error: "Admin decision must be approved or rejected." });
+      add("status", b.status);
+    }
+    if (b.decisionNote !== undefined) {
+      if (typeof b.decisionNote !== "string" || b.decisionNote.length > 2000) return res.status(400).json({ error: "Decision note is invalid." });
+      add("decision_note", b.decisionNote.trim() || null);
+    }
+  } else {
+    if (b.status !== undefined) {
+      if (b.status !== "submitted") return res.status(403).json({ error: "PM may only submit a draft; approval is Admin-only." });
+      add("status", "submitted");
+    }
+    const editable: Array<[string,string,(v:any)=>any,string]> = [
+      ["proposedData","proposed_data",v=>JSON.stringify(v),"::jsonb"],
+      ["requestReason","request_reason",v=>typeof v==="string"?v.trim():v,""],
+      ["sourceType","source_type",v=>v,""],
+      ["sourceReference","source_reference",v=>typeof v==="string"?v.trim():v,""],
+      ["sourceUrl","source_url",v=>v===""?null:v,""],
+      ["sourceSnapshot","source_snapshot",v=>JSON.stringify(v??{}),"::jsonb"],
+      ["evidenceDocumentId","evidence_document_id",v=>v||null,"::uuid"],
+    ];
+    for (const [key,column,convert,cast] of editable) {
+      if (!Object.prototype.hasOwnProperty.call(b,key)) continue;
+      const value = convert(b[key]);
+      if (key==="proposedData" && (!b[key] || typeof b[key]!=="object" || Array.isArray(b[key]) || Object.keys(b[key]).length===0))
+        return res.status(400).json({ error: "Proposal must be a non-empty JSON object." });
+      if (key==="requestReason" && (typeof value!=="string" || value.length<10 || value.length>2000))
+        return res.status(400).json({ error: "Request reason must contain 10–2000 characters." });
+      if (key==="sourceType" && !["manual","public_reference","official_document","buyer_confirmed"].includes(String(value)))
+        return res.status(400).json({ error: "Source type is invalid." });
+      if (key==="sourceReference" && (typeof value!=="string" || value.length<2 || value.length>500))
+        return res.status(400).json({ error: "Source reference must contain 2–500 characters." });
+      if (key==="sourceUrl" && value!==null && (typeof value!=="string" || !/^https?:\/\//i.test(value)))
+        return res.status(400).json({ error: "Source URL must use HTTP or HTTPS." });
+      if (key==="evidenceDocumentId" && value!==null && (typeof value!=="string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)))
+        return res.status(400).json({ error: "Evidence document ID is invalid." });
+      add(column,value,cast);
+    }
+  }
+  if (!updates.length) return res.status(400).json({ error: "No permitted change fields supplied." });
+  updates.push("updated_at=now()");
+  values.push(requestId,projectId);
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE public.p2a_master_data_change_requests SET ${updates.join(",")}
+        WHERE id=$${idx++}::uuid AND project_id=$${idx}::uuid RETURNING *`,
+      values,
+    );
+    if (!rows.length) return res.status(404).json({ error: "Master-data change request not found in this Project." });
+    return res.json({ request: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Request is not editable by this role or the decision is not authorized." });
+    if (error?.code === "40001") return res.status(409).json({ error: "Canonical data changed after submission. Create a fresh request against the latest record." });
+    if (error?.code === "23514" || error?.code === "22P02" || error?.code === "23503") return res.status(400).json({ error: "Master-data decision failed validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+
+/** Admin-only verification for canonical identity records. The database trigger
+ * requires an approved, checksum-verified document from the same Project. */
+app.patch("/api/v1/projects/:projectId/master-data/organizations/:organizationId/verification", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const { projectId, organizationId } = req.params;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const sourceReference = typeof req.body?.sourceReference === "string" ? req.body.sourceReference.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(evidenceDocumentId) || sourceReference.length < 2 || sourceReference.length > 500)
+    return res.status(400).json({ error: "Approved evidence document and source reference are required." });
+  try {
+    const doc = await req.db.query(
+      "SELECT id,sha256_checksum,object_key,original_filename,document_type_code FROM public.project_export_documents WHERE id=$1::uuid AND project_id=$2::uuid AND status='approved' AND upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND storage_bucket='pke-private-documents' AND legal_hold=false AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)",
+      [evidenceDocumentId,projectId],
+    );
+    if (!doc.rows.length) return res.status(422).json({ error: "Evidence document must be approved, checksum-verified and belong to this Project." });
+    const updated = await req.db.query(
+      "UPDATE public.partner_organizations SET verification_status='verified',verification_project_id=$1::uuid,verification_evidence_document_id=$2::uuid,verification_source_reference=$3,verification_source_snapshot=$4::jsonb,updated_at=now() WHERE id=$5::uuid AND verification_status<>'verified' RETURNING id,legal_name,verification_status,verified_by,verified_at,verification_evidence_document_id,verification_evidence_sha256",
+      [projectId,evidenceDocumentId,sourceReference,JSON.stringify({document_id:evidenceDocumentId,sha256:doc.rows[0].sha256_checksum,filename:doc.rows[0].original_filename,document_type:doc.rows[0].document_type_code}),organizationId],
+    );
+    if (!updated.rows.length) return res.status(409).json({ error: "Organization not found or is already verified. Material identity changes require a new review." });
+    return res.json({ organization: updated.rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Platform Admin verification is required." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Identity verification evidence failed database validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/master-data/facilities/:facilityId/verification", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const { projectId, facilityId } = req.params;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const sourceReference = typeof req.body?.sourceReference === "string" ? req.body.sourceReference.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(evidenceDocumentId) || sourceReference.length < 2 || sourceReference.length > 500)
+    return res.status(400).json({ error: "Approved evidence document and source reference are required." });
+  try {
+    const doc = await req.db.query(
+      "SELECT id,sha256_checksum,object_key,original_filename,document_type_code FROM public.project_export_documents WHERE id=$1::uuid AND project_id=$2::uuid AND status='approved' AND upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND storage_bucket='pke-private-documents' AND legal_hold=false AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)",
+      [evidenceDocumentId,projectId],
+    );
+    if (!doc.rows.length) return res.status(422).json({ error: "Evidence document must be approved, checksum-verified and belong to this Project." });
+    const updated = await req.db.query(
+      "UPDATE public.pks_sites SET verification_status='verified',verification_project_id=$1::uuid,verification_evidence_document_id=$2::uuid,verification_source_reference=$3,verification_source_snapshot=$4::jsonb,updated_at=now() WHERE id=$5::uuid AND verification_status<>'verified' RETURNING id,name,verification_status,verified_by,verified_at,verification_evidence_document_id,verification_evidence_sha256",
+      [projectId,evidenceDocumentId,sourceReference,JSON.stringify({document_id:evidenceDocumentId,sha256:doc.rows[0].sha256_checksum,filename:doc.rows[0].original_filename,document_type:doc.rows[0].document_type_code}),facilityId],
+    );
+    if (!updated.rows.length) return res.status(409).json({ error: "Facility not found or is already verified. Material identity changes require a new review." });
+    return res.json({ facility: updated.rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Platform Admin verification is required." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Facility verification evidence failed database validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+
+app.patch("/api/v1/projects/:projectId/master-data/products/:productId/classification", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const { projectId, productId } = req.params;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const sourceReference = typeof req.body?.sourceReference === "string" ? req.body.sourceReference.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(evidenceDocumentId) || sourceReference.length < 2 || sourceReference.length > 500)
+    return res.status(400).json({ error: "Approved evidence document and source reference are required." });
+  try {
+    const doc = await req.db.query(
+      "SELECT id,sha256_checksum,original_filename,document_type_code FROM public.project_export_documents WHERE id=$1::uuid AND project_id=$2::uuid AND status='approved' AND upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND storage_bucket='pke-private-documents' AND legal_hold=false AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)",
+      [evidenceDocumentId,projectId],
+    );
+    if (!doc.rows.length) return res.status(422).json({ error: "Evidence document must be approved, checksum-verified and belong to this Project." });
+    const updated = await req.db.query(
+      "UPDATE public.product_catalog SET classification_status='verified',classification_project_id=$1::uuid,classification_evidence_document_id=$2::uuid,classification_source_reference=$3,classification_source_snapshot=$4::jsonb,updated_at=now() WHERE id=$5::uuid AND classification_status<>'verified' RETURNING id,product_code,product_name,classification_status,classification_verified_by,classification_verified_at,classification_evidence_document_id,classification_evidence_sha256",
+      [projectId,evidenceDocumentId,sourceReference,JSON.stringify({document_id:evidenceDocumentId,sha256:doc.rows[0].sha256_checksum,filename:doc.rows[0].original_filename,document_type:doc.rows[0].document_type_code}),productId],
+    );
+    if (!updated.rows.length) return res.status(409).json({ error: "Product not found or already verified. Reclassification requires a controlled reset and review." });
+    return res.json({ product: updated.rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Platform Admin verification is required." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Product classification evidence failed database validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+
+/** P15 quality provenance API: sample creation, evidence-linked results and reviewer decisions. */
+app.get("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  try {
+    const access = await req.db.query(
+      "SELECT public.pke_is_platform_admin() AS is_admin, public.pke_has_project_permission($1::uuid,'quality.sample.view') AS sample_view, public.pke_has_project_permission($1::uuid,'quality.sample.create') AS sample_create, public.pke_has_project_permission($1::uuid,'quality.sample.view') AS sample_view, public.pke_has_project_permission($1::uuid,'quality.result.view') AS result_view, public.pke_has_project_permission($1::uuid,'quality.result.create') AS result_create, public.pke_has_project_permission($1::uuid,'quality.result.review') AS result_review",
+      [projectId],
+    );
+    const a = access.rows[0] ?? {};
+    const isAdmin = req.user?.isAdmin === true || a.is_admin === true;
+    const canView = isAdmin || a.sample_view === true || a.sample_create === true || a.result_view === true || a.result_create === true || a.result_review === true;
+    if (!canView) return res.json({ canView: false, canCreate: false, canCreateResults: false, canReview: false, samples: [], results: [], attributes: [], evidenceDocuments: [] });
+    const [samples, results, attributes, evidenceDocuments] = await Promise.all([
+      req.db.query(
+        `SELECT id,project_id,lot_id,sample_number,sample_type,sampling_method,sampled_at,sampled_by,
+                sample_location,seal_number,sample_condition,laboratory_name,status,lab_report_document_id,
+                lab_report_sha256,laboratory_accreditation_reference,chain_of_custody,source_type,source_reference,source_snapshot,
+                reviewed_by,reviewed_at,review_note,created_at,updated_at
+           FROM public.product_quality_samples
+          WHERE project_id=$1::uuid ORDER BY sampled_at DESC,sample_number`,
+        [projectId],
+      ),
+      req.db.query(
+        `SELECT r.id,r.sample_id,r.attribute_id,a.attribute_code,a.name AS attribute_name,a.data_type,
+                r.result_numeric,r.result_text,r.result_boolean,r.unit_code,r.measurement_basis,r.method_code,
+                r.detection_limit,r.uncertainty,r.review_status,r.reviewed_by,r.reviewed_at,r.review_note,
+                r.evidence_document_id,r.evidence_sha256,r.source_type,r.source_reference,r.source_snapshot
+           FROM public.product_quality_results r
+           JOIN public.product_quality_samples s ON s.id=r.sample_id
+           LEFT JOIN public.product_attributes a ON a.id=r.attribute_id
+          WHERE s.project_id=$1::uuid ORDER BY r.created_at,s.sample_number`,
+        [projectId],
+      ),
+      req.db.query(
+        "SELECT id,attribute_code,name,data_type,unit_code,dimension,comparison_basis FROM public.product_attributes WHERE is_active=true ORDER BY attribute_code",
+      ),
+      req.db.query(
+        `SELECT id,original_filename,document_type_code,sha256_checksum,uploaded_at
+           FROM public.project_export_documents
+          WHERE project_id=$1::uuid AND status='approved' AND upload_verified_at IS NOT NULL
+            AND object_key IS NOT NULL AND sha256_checksum IS NOT NULL
+            AND storage_bucket='pke-private-documents' AND legal_hold=false
+            AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)
+          ORDER BY uploaded_at DESC`,
+        [projectId],
+      ),
+    ]);
+    return res.json({
+      canView: true, canCreate: isAdmin || a.sample_create === true,
+      canCreateResults: isAdmin || a.result_create === true,
+      canReview: isAdmin || a.result_review === true,
+      samples: samples.rows, results: results.rows, attributes: attributes.rows,
+      evidenceDocuments: evidenceDocuments.rows,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.sample.create"))) return;
+  const b = req.body ?? {};
+  const sampleNumber = typeof b.sampleNumber === "string" ? b.sampleNumber.trim() : "";
+  const sampleType = b.sampleType;
+  const samplingMethod = typeof b.samplingMethod === "string" ? b.samplingMethod.trim() : "";
+  const sampledAt = typeof b.sampledAt === "string" ? b.sampledAt : "";
+  const status = ["pending","submitted","tested"].includes(b.status) ? b.status : "pending";
+  const lotId = typeof b.lotId === "string" && b.lotId ? b.lotId : null;
+  const labReportDocumentId = typeof b.labReportDocumentId === "string" && b.labReportDocumentId ? b.labReportDocumentId : null;
+  const sourceType = ["manual","public_reference","official_document","buyer_confirmed"].includes(b.sourceType) ? b.sourceType : "manual";
+  const sourceReference = typeof b.sourceReference === "string" ? b.sourceReference.trim() : null;
+  const laboratoryName = typeof b.laboratoryName === "string" ? b.laboratoryName.trim() : null;
+  const laboratoryAccreditationReference = typeof b.laboratoryAccreditationReference === "string" ? b.laboratoryAccreditationReference.trim() : null;
+  const chainOfCustody = b.chainOfCustody && typeof b.chainOfCustody === "object" && !Array.isArray(b.chainOfCustody) ? b.chainOfCustody : {};
+  const sourceSnapshot = b.sourceSnapshot && typeof b.sourceSnapshot === "object" && !Array.isArray(b.sourceSnapshot) ? b.sourceSnapshot : {source_type:sourceType,source_reference:sourceReference,sample_number:sampleNumber};
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (sampleNumber.length < 2 || sampleNumber.length > 100 ||
+      !["composite","retained","pre_shipment","discharge","claim","other"].includes(sampleType) ||
+      samplingMethod.length < 2 || samplingMethod.length > 500 || !sampledAt || Number.isNaN(Date.parse(sampledAt)) ||
+      (lotId !== null && !uuidPattern.test(lotId)) ||
+      (labReportDocumentId !== null && !uuidPattern.test(labReportDocumentId)) ||
+      (sourceReference !== null && sourceReference.length > 500) ||
+      (laboratoryAccreditationReference !== null && laboratoryAccreditationReference.length > 500) ||
+      (status === "tested" && (!labReportDocumentId || !laboratoryName))) {
+    return res.status(400).json({ error: "Sample type, number, method, time and evidence fields must be valid. Tested samples require an approved lab report and laboratory." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "INSERT INTO public.product_quality_samples(project_id,lot_id,sample_number,sample_type,sampling_method,sampled_at,sampled_by,sample_location,seal_number,sample_condition,laboratory_name,status,lab_report_document_id,source_type,source_reference,source_snapshot,laboratory_accreditation_reference,chain_of_custody) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6::timestamptz,$7::uuid,$8,$9,$10,$11,$12,$13::uuid,$14,$15,$16::jsonb,$17,$18::jsonb) RETURNING *",
+      [projectId,lotId,sampleNumber,sampleType,samplingMethod,sampledAt,req.user?.id ?? null,
+       b.sampleLocation ?? null,b.sealNumber ?? null,b.sampleCondition ?? null,laboratoryName,status,
+       labReportDocumentId,sourceType,sourceReference,JSON.stringify(sourceSnapshot),laboratoryAccreditationReference,JSON.stringify(chainOfCustody)],
+    );
+    return res.status(201).json({ sample: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality sample permission denied." });
+    if (error?.code === "23514" || error?.code === "23503" || error?.code === "22P02") return res.status(422).json({ error: "Sample evidence, Project, lot or document failed validation." });
+    if (error?.code === "23505") return res.status(409).json({ error: "Sample number already exists." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/projects/:projectId/quality-samples/:sampleId/results", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, sampleId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.create"))) return;
+  const b = req.body ?? {};
+  const attributeId = typeof b.attributeId === "string" ? b.attributeId : "";
+  const numeric = typeof b.resultNumeric === "number" && Number.isFinite(b.resultNumeric) ? b.resultNumeric : null;
+  const textResult = typeof b.resultText === "string" ? b.resultText : null;
+  const booleanResult = typeof b.resultBoolean === "boolean" ? b.resultBoolean : null;
+  const basis = typeof b.measurementBasis === "string" ? b.measurementBasis.trim() : "";
+  const method = typeof b.methodCode === "string" ? b.methodCode.trim() : "";
+  const unit = typeof b.unitCode === "string" ? b.unitCode.trim() : null;
+  const detectionLimit = typeof b.detectionLimit === "number" && Number.isFinite(b.detectionLimit) ? b.detectionLimit : null;
+  const uncertainty = typeof b.uncertainty === "number" && Number.isFinite(b.uncertainty) ? b.uncertainty : null;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(attributeId) || [numeric,textResult,booleanResult].filter(v => v !== null).length !== 1 ||
+      basis.length < 2 || basis.length > 100 || method.length < 2 || method.length > 100 ||
+      (numeric !== null && (!unit || unit.length > 40)) ||
+      (detectionLimit !== null && detectionLimit < 0) || (uncertainty !== null && uncertainty < 0)) {
+    return res.status(400).json({ error: "Exactly one result value, attribute, unit (for numeric), measurement basis and method are required." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "INSERT INTO public.product_quality_results(sample_id,attribute_id,result_numeric,result_text,result_boolean,unit_code,measurement_basis,method_code,detection_limit,uncertainty,review_status) SELECT s.id,$3::uuid,$4::numeric,$5,$6::boolean,$7,$8,$9,$10::numeric,$11::numeric,'unreviewed' FROM public.product_quality_samples s WHERE s.id=$1::uuid AND s.project_id=$2::uuid RETURNING *",
+      [sampleId,projectId,attributeId,numeric,textResult,booleanResult,unit,basis,method,detectionLimit,uncertainty],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Quality sample not found in this Project." });
+    return res.status(201).json({ result: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality result creation permission denied." });
+    if (error?.code === "23514" || error?.code === "23503" || error?.code === "22P02") return res.status(422).json({ error: "Quality result requires a tested sample with approved lab evidence and complete measurement provenance." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/quality-samples/:sampleId/mark-tested", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, sampleId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.create"))) return;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const laboratoryName = typeof req.body?.laboratoryName === "string" ? req.body.laboratoryName.trim() : "";
+  const accreditationReference = typeof req.body?.laboratoryAccreditationReference === "string" ? req.body.laboratoryAccreditationReference.trim() : null;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(evidenceDocumentId) || laboratoryName.length < 2 || laboratoryName.length > 240 ||
+      (accreditationReference !== null && accreditationReference.length > 500)) {
+    return res.status(400).json({ error: "Approved lab report and valid laboratory identity are required." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      "SELECT * FROM public.pke_attach_quality_lab_report($1::uuid,$2::uuid,$3::uuid,$4,$5)",
+      [projectId,sampleId,evidenceDocumentId,laboratoryName,accreditationReference],
+    );
+    return res.json({ sample: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality lab-evidence permission denied." });
+    if (error?.code === "P0002") return res.status(404).json({ error: "Quality sample not found in this Project." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Sample cannot be marked tested without approved same-Project evidence." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/quality-samples/:sampleId/review", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, sampleId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.review"))) return;
+  const status = req.body?.status;
+  const reviewNote = typeof req.body?.reviewNote === "string" ? req.body.reviewNote.trim() : null;
+  if (!["reviewed","rejected"].includes(status) || (reviewNote !== null && reviewNote.length > 2000))
+    return res.status(400).json({ error: "Sample review status or note is invalid." });
+  try {
+    const { rows } = await req.db.query(
+      "UPDATE public.product_quality_samples SET status=$1,review_note=$2,updated_at=now() WHERE id=$3::uuid AND project_id=$4::uuid RETURNING id,status,reviewed_by,reviewed_at,review_note,lab_report_document_id,lab_report_sha256",
+      [status,reviewNote,sampleId,projectId],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Quality sample not found in this Project." });
+    return res.json({ sample: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality sample review permission denied." });
+    if (error?.code === "23514") return res.status(422).json({ error: "Sample review requires approved lab evidence and valid reviewer context." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/quality-results/:resultId/review", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, resultId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "quality.result.review"))) return;
+  const reviewStatus = req.body?.reviewStatus;
+  const reviewNote = typeof req.body?.reviewNote === "string" ? req.body.reviewNote.trim() : null;
+  if (!["accepted","rejected","retest_required"].includes(reviewStatus) || (reviewNote !== null && reviewNote.length > 2000))
+    return res.status(400).json({ error: "Quality result review status or note is invalid." });
+  try {
+    const { rows } = await req.db.query(
+      "UPDATE public.product_quality_results r SET review_status=$1,review_note=$2,updated_at=now() FROM public.product_quality_samples s WHERE r.id=$3::uuid AND r.sample_id=s.id AND s.project_id=$4::uuid RETURNING r.id,r.sample_id,r.review_status,r.reviewed_by,r.reviewed_at,r.review_note,r.evidence_document_id,r.evidence_sha256",
+      [reviewStatus,reviewNote,resultId,projectId],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Quality result not found in this Project." });
+    return res.json({ result: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Quality result review permission denied." });
+    if (error?.code === "23514") return res.status(422).json({ error: "Quality result lacks complete sample-linked evidence or measurement provenance." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.site.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id,project_id,candidate_type,candidate_name,candidate_category,location_text,
+              source_type,source_name,source_url,source_reference,source_snapshot,
+              confidence_score,verification_status,notes,is_seed_data,seed_batch_id,
+              created_at,updated_at,reviewed_at
+         FROM public.p2a_master_data_candidates
+        WHERE project_id=$1::uuid
+        ORDER BY is_seed_data DESC,verification_status,candidate_type,candidate_name`,
+      [projectId],
+    );
+    const { rows: manageRows } = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'pks.participation.manage') AS allowed",
+      [projectId],
+    );
+    return res.json({
+      candidates: rows,
+      canManage: req.user?.isAdmin === true || manageRows[0]?.allowed === true,
+      canVerify: req.user?.isAdmin === true,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b = req.body ?? {};
+  const candidateType = b.candidateType;
+  const candidateName = typeof b.candidateName === "string" ? b.candidateName.trim() : "";
+  const sourceName = typeof b.sourceName === "string" ? b.sourceName.trim() : "";
+  const sourceReference = typeof b.sourceReference === "string" ? b.sourceReference.trim() : "";
+  const sourceUrl = typeof b.sourceUrl === "string" && b.sourceUrl.trim() ? b.sourceUrl.trim() : null;
+  if (!["organization","facility"].includes(candidateType) || candidateName.length < 2 || candidateName.length > 240 ||
+      !sourceName || sourceName.length > 180 || !sourceReference || sourceReference.length > 240) {
+    return res.status(400).json({ error: "Candidate type, name, source name and source reference are required and must be valid." });
+  }
+  if (sourceUrl && !/^https?:\/\//i.test(sourceUrl)) return res.status(400).json({ error: "Source URL must use HTTP or HTTPS." });
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO public.p2a_master_data_candidates(
+         project_id,candidate_type,candidate_name,candidate_category,location_text,source_type,
+         source_name,source_url,source_reference,source_snapshot,confidence_score,
+         verification_status,notes,is_seed_data,seed_batch_id,created_by,updated_by
+       ) VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,'unverified',$12,false,NULL,$13::uuid,$13::uuid)
+       RETURNING *`,
+      [projectId,candidateType,candidateName,b.candidateCategory ?? null,b.locationText ?? null,
+       b.sourceType === "public_candidate" ? "public_candidate" : "manual",sourceName,sourceUrl,sourceReference,
+       JSON.stringify(b.sourceSnapshot ?? {}),b.confidenceScore == null ? null : Number(b.confidenceScore),
+       b.notes ?? null,req.user?.id ?? null],
+    );
+    return res.status(201).json({ candidate: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23514" || error?.code === "22P02") return res.status(400).json({ error: "Candidate fields failed validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/pks-candidates/:candidateId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId,candidateId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b=req.body ?? {};
+  const updates:string[]=[]; const values:any[]=[]; let idx=1;
+  const editable:Array<[string,string,(v:any)=>any]>=[
+    ["candidateName","candidate_name",v=>typeof v==="string"?v.trim():v],
+    ["candidateCategory","candidate_category",v=>v],
+    ["locationText","location_text",v=>v],
+    ["notes","notes",v=>v],
+    ["confidenceScore","confidence_score",v=>v===""||v==null?null:Number(v)],
+  ];
+  for(const [key,column,convert] of editable) if(Object.prototype.hasOwnProperty.call(b,key)){
+    const value=convert(b[key]);
+    if(column==="candidate_name" && (typeof value!=="string" || value.length<2 || value.length>240))
+      return res.status(400).json({error:"Candidate name must contain 2–240 characters."});
+    if(column==="confidence_score" && value!==null && (!Number.isFinite(value)||value<0||value>1))
+      return res.status(400).json({error:"Confidence score must be between 0 and 1."});
+    updates.push(`${column}=${idx++}`); values.push(value);
+  }
+  if(b.verificationStatus!==undefined){
+    if(req.user?.isAdmin!==true) return res.status(403).json({error:"Only Platform Admin may change candidate verification status."});
+    if(!["unverified","submitted","under_review","verified","rejected","expired"].includes(b.verificationStatus))
+      return res.status(400).json({error:"Invalid verification status."});
+    updates.push(`verification_status=${idx++}`); values.push(b.verificationStatus);
+    updates.push("reviewed_by=$"+idx++); values.push(req.user?.id ?? null);
+    updates.push("reviewed_at=now()");
+  }
+  if(!updates.length) return res.status(400).json({error:"No editable candidate fields supplied."});
+  updates.push("updated_by=$"+idx+++"::uuid"); values.push(req.user?.id ?? null);
+  updates.push("updated_at=now()");
+  values.push(candidateId,projectId);
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.p2a_master_data_candidates SET ${updates.join(",")}
+        WHERE id=${idx++}::uuid AND project_id=${idx}::uuid RETURNING *`,values);
+    if(!rows.length) return res.status(404).json({error:"Candidate not found in this Project."});
+    return res.json({candidate:rows[0]});
+  }catch(error:any){
+    if(error?.code==="42501") return res.status(403).json({error:"Candidate provenance and verification decisions are protected."});
+    if(error?.code==="23514" || error?.code==="22P02") return res.status(400).json({error:"Candidate fields failed validation."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/projects/:projectId/pks-sites", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows: projects } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!projects.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.site.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT pp.id,pp.project_id,pp.pks_site_id,pp.vendor_id,
+              pp.project_facility_label,pp.project_location_notes,
+              pp.operational_contact_name,pp.operational_contact_email,pp.operational_contact_phone,
+              pp.contracted_capacity_mt_month,pp.allocated_capacity_mt_month,pp.delivery_window,
+              pp.project_terms,pp.notes,pp.status,pp.effective_from,pp.effective_to,
+              pp.source_type,pp.source_reference,pp.is_seed_data,pp.seed_batch_id,
+              pp.created_at,pp.updated_at,
+              s.name AS facility_name,s.code AS facility_code,s.facility_type,
+              s.city,s.province,s.verification_status AS facility_verification_status,
+              v.name AS supplier_name,v.code AS supplier_code
+         FROM public.project_pks_site_participation pp
+         JOIN public.pks_sites s ON s.id=pp.pks_site_id
+         LEFT JOIN public.vendors v ON v.id=pp.vendor_id
+        WHERE pp.project_id=$1::uuid
+        ORDER BY pp.updated_at DESC, s.name`,
+      [projectId],
+    );
+    const { rows: manageRows } = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'pks.participation.manage') AS allowed",
+      [projectId],
+    );
+    return res.json({ participations: rows, canManage: req.user?.isAdmin === true || manageRows[0]?.allowed === true });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/pks-sites", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows: projects } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!projects.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b = req.body ?? {};
+  const pksSiteId = typeof b.pksSiteId === "string" ? b.pksSiteId : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pksSiteId)) {
+    return res.status(400).json({ error: "A valid existing pksSiteId is required." });
+  }
+  const contracted = b.contractedCapacityMtMonth == null || b.contractedCapacityMtMonth === "" ? null : Number(b.contractedCapacityMtMonth);
+  const allocated = b.allocatedCapacityMtMonth == null || b.allocatedCapacityMtMonth === "" ? null : Number(b.allocatedCapacityMtMonth);
+  if ((contracted !== null && (!Number.isFinite(contracted) || contracted < 0)) ||
+      (allocated !== null && (!Number.isFinite(allocated) || allocated < 0)) ||
+      (contracted !== null && allocated !== null && allocated > contracted)) {
+    return res.status(400).json({ error: "Capacity values must be non-negative and allocated capacity cannot exceed contracted capacity." });
+  }
+  const vendorId = typeof b.vendorId === "string" && b.vendorId ? b.vendorId : null;
+  try {
+    const { rows: siteRows } = await req.db.query("SELECT id FROM public.pks_sites WHERE id=$1::uuid AND is_active=true", [pksSiteId]);
+    if (!siteRows.length) return res.status(404).json({ error: "Active facility not found." });
+    if (vendorId) {
+      const { rows: vendorRows } = await req.db.query(
+        `SELECT v.id FROM public.vendors v
+          JOIN public.project_supplier_participation psp ON psp.vendor_id=v.id
+         WHERE v.id=$1::uuid AND psp.project_id=$2::uuid AND psp.is_active=true AND v.is_active=true`,
+        [vendorId, projectId],
+      );
+      if (!vendorRows.length) return res.status(400).json({ error: "Supplier is not active in this Project." });
+    }
+    const { rows } = await req.db.query(
+      `INSERT INTO public.project_pks_site_participation(
+         project_id,pks_site_id,vendor_id,operational_contact_name,operational_contact_email,operational_contact_phone,
+         contracted_capacity_mt_month,allocated_capacity_mt_month,delivery_window,project_terms,notes,status,
+         effective_from,effective_to,source_type,source_reference,is_seed_data,seed_batch_id,created_by,updated_by
+       ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13::date,$14::date,'manual',NULL,false,NULL,$15::uuid,$15::uuid)
+       RETURNING *`,
+      [projectId,pksSiteId,vendorId,b.operationalContactName ?? null,b.operationalContactEmail ?? null,
+       b.operationalContactPhone ?? null,contracted,allocated,JSON.stringify(b.deliveryWindow ?? {}),
+       b.projectTerms ?? null,b.notes ?? null,b.status ?? "proposed",b.effectiveFrom ?? null,b.effectiveTo ?? null,req.user?.id ?? null],
+    );
+    return res.status(201).json({ participation: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "This facility is already linked to the Project." });
+    if (error?.code === "23503") return res.status(400).json({ error: "Invalid Project, facility, supplier or actor reference." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/pks-sites/:participationId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, participationId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows: projects } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!projects.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b = req.body ?? {};
+  const fields: Array<[string,string,(v:any)=>any]> = [
+    ["projectFacilityLabel","project_facility_label",v=>v],
+    ["projectLocationNotes","project_location_notes",v=>v],
+    ["operationalContactName","operational_contact_name",v=>v],
+    ["operationalContactEmail","operational_contact_email",v=>v],
+    ["operationalContactPhone","operational_contact_phone",v=>v],
+    ["contractedCapacityMtMonth","contracted_capacity_mt_month",v=>v===""||v==null?null:Number(v)],
+    ["allocatedCapacityMtMonth","allocated_capacity_mt_month",v=>v===""||v==null?null:Number(v)],
+    ["deliveryWindow","delivery_window",v=>JSON.stringify(v??{})],
+    ["projectTerms","project_terms",v=>v],
+    ["notes","notes",v=>v],
+    ["status","status",v=>v],
+    ["effectiveFrom","effective_from",v=>v||null],
+    ["effectiveTo","effective_to",v=>v||null],
+  ];
+  const updates:string[]=[]; const values:any[]=[]; let idx=1;
+  for(const [key,column,convert] of fields) if(Object.prototype.hasOwnProperty.call(b,key)){
+    const value=convert(b[key]);
+    if(column==="project_facility_label" && value!=null && (typeof value!=="string" || value.length>200))
+      return res.status(400).json({error:"Project facility label must be at most 200 characters."});
+    if(column==="project_location_notes" && value!=null && (typeof value!=="string" || value.length>500))
+      return res.status(400).json({error:"Project location notes must be at most 500 characters."});
+    if(["contracted_capacity_mt_month","allocated_capacity_mt_month"].includes(column) && value!==null && (!Number.isFinite(value)||value<0))
+      return res.status(400).json({error:"Capacity values must be non-negative."});
+    updates.push(`${column}=${column==="delivery_window"?"$"+idx+++"::jsonb":"$"+idx++}`);
+    values.push(value);
+  }
+  if(!updates.length) return res.status(400).json({error:"No editable Project overlay fields supplied."});
+  if(b.status!==undefined && !["proposed","active","suspended","closed"].includes(b.status))
+    return res.status(400).json({error:"Invalid Project participation status."});
+  updates.push("updated_by=$"+idx+++"::uuid"); values.push(req.user?.id ?? null);
+  updates.push("updated_at=now()");
+  values.push(participationId,projectId);
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE public.project_pks_site_participation SET ${updates.join(",")}
+        WHERE id=${idx++}::uuid AND project_id=${idx}::uuid
+        RETURNING *`,
+      values,
+    );
+    if(!rows.length) return res.status(404).json({error:"Project PKS participation not found."});
+    const row=rows[0];
+    if(row.contracted_capacity_mt_month!=null && row.allocated_capacity_mt_month!=null &&
+       Number(row.allocated_capacity_mt_month)>Number(row.contracted_capacity_mt_month))
+      return res.status(400).json({error:"Allocated capacity cannot exceed contracted capacity."});
+    return res.json({participation:row});
+  } catch (error:any) {
+    if(error?.code==="23503") return res.status(400).json({error:"Invalid actor or Project reference."});
+    if(error?.code==="23514") return res.status(400).json({error:"Capacity or effective-date constraint failed."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/buyers", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { name, code, countryCode } = req.body;
   if (!name) return res.status(400).json({ error: "name required" });
   try {
@@ -551,7 +1502,7 @@ app.post("/api/v1/buyers", requireAuth, async (req: express.Request, res: expres
   }
 });
 
-app.patch("/api/v1/buyers/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+app.patch("/api/v1/buyers/:id", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { name, code, countryCode, isActive } = req.body;
   try {
     const { rows } = await req.db.query(
@@ -631,10 +1582,13 @@ app.get("/api/v1/supplier-projects", requireAuth, async (req: express.Request, r
 // Contract management
 app.get("/api/v1/contracts", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
+    const projectId = req.query.projectId as string | undefined;
     const buyerId = req.query.buyerId as string | undefined;
-    const params: any[] = [];
-    let sql = "SELECT * FROM contracts WHERE is_active = true";
-    if (buyerId) { sql += " AND buyer_id = $1::uuid"; params.push(buyerId); }
+    if (!projectId) return res.status(400).json({ error: "projectId query parameter required" });
+    if (!(await requireProjectPermission(req, res, projectId, "contract.view"))) return;
+    const params: any[] = [projectId];
+    let sql = "SELECT * FROM contracts WHERE project_id = $1::uuid AND is_active = true";
+    if (buyerId) { sql += " AND buyer_id = $2::uuid"; params.push(buyerId); }
     sql += " ORDER BY created_at DESC";
     const { rows } = await req.db.query(sql, params);
     res.json({ contracts: rows });
@@ -643,13 +1597,35 @@ app.get("/api/v1/contracts", requireAuth, async (req: express.Request, res: expr
   }
 });
 
-app.post("/api/v1/contracts", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { buyerId, code, name, startDate, endDate } = req.body;
-  if (!buyerId || !code || !name || !startDate) return res.status(400).json({ error: "buyerId, code, name, startDate required" });
+app.patch("/api/v1/contracts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id } = req.params;
+  const { rows: current } = await req.db.query("SELECT project_id FROM contracts WHERE id = $1::uuid", [id]);
+  if (!current.length || !current[0].project_id) return res.status(404).json({ error: "Contract not found in an accessible Project." });
+  if (!(await requireProjectPermission(req, res, current[0].project_id, "manage_contract_programs"))) return;
+  const { code, name, startDate, endDate, isActive } = req.body ?? {};
   try {
     const { rows } = await req.db.query(
-      "INSERT INTO contracts (buyer_id, code, name, start_date, end_date, is_active, created_at, updated_at) VALUES ($1::uuid, $2, $3, $4::timestamptz, $5::timestamptz, true, now(), now()) RETURNING *",
-      [buyerId, code, name, startDate, endDate || null],
+      `UPDATE contracts SET code = COALESCE($2, code), name = COALESCE($3, name),
+         start_date = COALESCE($4::timestamptz, start_date), end_date = COALESCE($5::timestamptz, end_date),
+         is_active = COALESCE($6::boolean, is_active), updated_at = now()
+       WHERE id = $1::uuid RETURNING *`,
+      [id, code ?? null, name ?? null, startDate ?? null, endDate ?? null, typeof isActive === "boolean" ? isActive : null],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Contract not found." });
+    return res.json({ contract: rows[0] });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/contracts", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, buyerId, code, name, startDate, endDate } = req.body;
+  if (!projectId || !buyerId || !code || !name || !startDate) return res.status(400).json({ error: "projectId, buyerId, code, name, startDate required" });
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
+  try {
+    const { rows } = await req.db.query(
+      "INSERT INTO contracts (project_id, buyer_id, code, name, start_date, end_date, is_active, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz, true, now(), now()) RETURNING *",
+      [projectId, buyerId, code, name, startDate, endDate || null],
     );
     res.status(201).json({ contract: rows[0] });
   } catch (error) {
@@ -660,30 +1636,94 @@ app.post("/api/v1/contracts", requireAuth, requireAdmin, async (req: express.Req
 // Cycle Policy management
 app.get("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
-    const { rows } = await req.db.query("SELECT * FROM cycle_policies WHERE is_active = true ORDER BY created_at DESC");
+    const projectId = req.query.projectId as string | undefined;
+    if (!projectId) return res.status(400).json({ error: "projectId query parameter required" });
+    if (!(await requireProjectPermission(req, res, projectId, "contract.view"))) return;
+    const { rows } = await req.db.query("SELECT * FROM cycle_policies WHERE project_id = $1::uuid AND is_active = true ORDER BY created_at DESC", [projectId]);
     res.json({ cyclePolicies: rows });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
   }
 });
 
-app.post("/api/v1/cycle-policies", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { contractProgramId, cadence, targetQuantity, generationMode } = req.body;
+app.post("/api/v1/cycle-policies", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, contractProgramId, cadence, targetQuantity, generationMode } = req.body;
 
-  if (!contractProgramId || typeof cadence !== "string" || !cadence.trim() || typeof generationMode !== "string" || !generationMode.trim() || (targetQuantity !== undefined && targetQuantity !== null && !isPositiveQuantity(targetQuantity))) {
+  if (!projectId || !contractProgramId || typeof cadence !== "string" || !cadence.trim() || typeof generationMode !== "string" || !generationMode.trim() || (targetQuantity !== undefined && targetQuantity !== null && !isPositiveQuantity(targetQuantity))) {
     return res.status(400).json({ error: "Required fields: contractProgramId, cadence, generationMode" });
   }
 
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
   try {
-    const { rows: programRows } = await req.db.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1", [contractProgramId]);
-    if (programRows.length === 0) return res.status(404).json({ error: "Active Contract Program not found." });
+    const { rows: programRows } = await req.db.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true LIMIT 1", [contractProgramId, projectId]);
+    if (programRows.length === 0) return res.status(404).json({ error: "Active Contract Program not found in this Project." });
     const { rows } = await req.db.query(
-      "INSERT INTO cycle_policies (contract_program_id, cadence, target_quantity, generation_mode, is_active, created_at, updated_at) VALUES ($1, $2, $3, $4, true, now(), now()) RETURNING *",
-      [contractProgramId, cadence, targetQuantity || null, generationMode]
+      "INSERT INTO cycle_policies (project_id, contract_program_id, cadence, target_quantity, generation_mode, is_active, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3, $4, $5, true, now(), now()) RETURNING *",
+      [projectId, contractProgramId, cadence, targetQuantity || null, generationMode]
     );
     res.status(201).json({ cyclePolicy: rows[0] });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/cycle-policies/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id } = req.params;
+  const { rows: current } = await req.db.query("SELECT project_id FROM cycle_policies WHERE id = $1::uuid", [id]);
+  if (!current.length || !current[0].project_id) return res.status(404).json({ error: "Cycle Policy not found in an accessible Project." });
+  if (!(await requireProjectPermission(req, res, current[0].project_id, "manage_contract_programs"))) return;
+  const { cadence, targetQuantity, generationMode, isActive } = req.body ?? {};
+  if (targetQuantity !== undefined && targetQuantity !== null && !isPositiveQuantity(targetQuantity)) {
+    return res.status(400).json({ error: "targetQuantity must be finite and positive." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE cycle_policies SET cadence = COALESCE($2, cadence),
+         target_quantity = COALESCE($3::numeric, target_quantity),
+         generation_mode = COALESCE($4, generation_mode),
+         is_active = COALESCE($5::boolean, is_active), updated_at = now()
+       WHERE id = $1::uuid RETURNING *`,
+      [id, cadence ?? null, targetQuantity ?? null, generationMode ?? null, typeof isActive === "boolean" ? isActive : null],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Cycle Policy not found." });
+    return res.json({ cyclePolicy: rows[0] });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+// Cash on Board: exactly one payment obligation per shipment and Project.
+app.post("/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, shipmentId } = req.params;
+  const { payee, amount, currencyId, basis, dueDate, paymentMethodId, sourceAgreement, evidenceRequirement } = req.body ?? {};
+  if (typeof payee !== "string" || !payee.trim() || !isPositiveQuantity(amount) || typeof currencyId !== "string" || !currencyId || typeof basis !== "string" || !basis.trim()) {
+    return res.status(400).json({ error: "Required fields: payee, positive amount, currencyId, basis" });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "finance.create"))) return;
+  try {
+    const { rows: shipmentRows } = await req.db.query(
+      "SELECT id, project_id, quantity, unit_code, shipment_code FROM shipments WHERE id = $1::uuid AND project_id = $2::uuid LIMIT 1",
+      [shipmentId, projectId],
+    );
+    if (!shipmentRows.length) return res.status(404).json({ error: "Shipment not found in this Project." });
+    const { rows } = await req.db.query(
+      `INSERT INTO payment_obligations
+        (project_id, shipment_id, payee, amount, currency_id, basis, payment_method_id,
+         payment_trigger_event, due_date, cash_classification, approval_status, source_agreement,
+         evidence_requirement, payment_status, source_event_id, source_event_type, created_by,
+         amount_paid, payment_instruction_required, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3::text, $4::numeric, $5::uuid, $6::text, $7::uuid,
+         'cash_on_board', $8::timestamptz, 'cash_operational', 'pending', $9::text,
+         $10::text, 'draft', $2::uuid, 'shipment', $11::uuid, 0, true, now(), now())
+       RETURNING *`,
+      [projectId, shipmentId, payee.trim(), amount, currencyId, basis.trim(), paymentMethodId || null,
+       dueDate || null, sourceAgreement || null, evidenceRequirement || "proof_of_full_payment", req.user.id],
+    );
+    return res.status(201).json({ cobCycle: rows[0], shipment: shipmentRows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "A Cash on Board cycle already exists for this shipment.", code: "COB_CYCLE_ALREADY_EXISTS" });
+    if (error?.code === "23503") return res.status(400).json({ error: "Invalid shipment, currency, or payment method reference." });
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -731,7 +1771,7 @@ app.get("/api/v1/projects/:id", requireAuth, async (req: express.Request, res: e
 // Project operating profile (module configuration)
 app.get("/api/v1/projects/:projectId/operating-profile", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
-  if (!(await requireProjectPermission(req, res, projectId, "project.configuration.view"))) return;
+  if (!(await requireProjectPermission(req, res, projectId, "operations.view"))) return;
   try {
     const { rows } = await req.db.query("SELECT * FROM project_operating_profiles WHERE project_id = $1::uuid", [projectId]);
     if (rows.length === 0) return res.status(404).json({ error: "Operating profile not found" });
@@ -819,7 +1859,91 @@ async function requireProjectPermission(
     res.status(403).json({ error: "Forbidden - project permission required", code: "PROJECT_PERMISSION_REQUIRED" });
     return false;
   }
+
+  // Attribute subsequent DB audit events to the exact active Project role that
+  // supplied this permission, never to the user's global account role.
+  const principalId = req.user?.id;
+  if (!principalId) {
+    res.status(401).json({ error: "Authenticated principal required", code: "AUTHENTICATION_REQUIRED" });
+    return false;
+  }
+  const { rows: assignmentRows } = await req.db.query(
+    `SELECT a.id AS project_role_assignment_id, pr.id AS project_role_id, pr.role_code
+       FROM public.project_role_assignments a
+       JOIN public.project_members pm
+         ON pm.id = a.project_member_id
+        AND pm.project_id = a.project_id
+        AND pm.user_id = a.user_id
+       JOIN public.project_roles pr
+         ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+       JOIN public.project_role_permissions prp
+         ON prp.project_id = a.project_id AND prp.project_role_id = pr.id
+       JOIN public.permissions perm
+         ON perm.id = prp.permission_id AND perm.is_active = true
+      WHERE a.project_id = $1::uuid
+        AND a.user_id = $2::uuid
+        AND a.is_active = true
+        AND a.revoked_at IS NULL
+        AND (a.expires_at IS NULL OR a.expires_at > now())
+        AND pm.is_active = true
+        AND pm.deactivated_at IS NULL
+        AND (pm.expires_at IS NULL OR pm.expires_at > now())
+        AND pr.is_active = true
+        AND perm.code = $3::text
+        AND NOT (
+          pr.role_code = 'funder'
+          AND (
+            $3::text LIKE 'finance.%' OR $3::text LIKE 'accounting.%' OR
+            $3::text LIKE 'reports.%' OR $3::text LIKE 'payment.%' OR
+            $3::text IN ('report.view','view_financial','view_rab')
+          )
+        )
+      ORDER BY pr.role_code, a.assigned_at DESC
+      LIMIT 1`,
+    [pid, principalId, permissionCode],
+  );
+
+  if (assignmentRows.length === 0) {
+    res.status(403).json({ error: "No active Project role assignment grants this permission.", code: "PROJECT_ROLE_ASSIGNMENT_REQUIRED" });
+    return false;
+  }
+
+  await req.db.query(
+    "SELECT set_config('app.current_role', $1::text, true), set_config('app.current_project_role_id', $2::text, true), set_config('app.current_project_id', $3::text, true), set_config('app.current_permission_code', $4::text, true)",
+    [assignmentRows[0].role_code, assignmentRows[0].project_role_id, pid, permissionCode],
+  );
   return true;
+}
+
+async function findExplicitProjectPermission(req: express.Request, projectId: string, permissionCodes: string[]): Promise<any | null> {
+  const principalId=req.user?.id; if(!principalId) return null;
+  const {rows}=await req.db.query(
+    `SELECT a.project_role_id,pr.role_code,perm.code AS permission_code
+       FROM public.project_role_assignments a
+       JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+       JOIN public.project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id
+       JOIN public.project_role_permissions prp ON prp.project_id=a.project_id AND prp.project_role_id=pr.id
+       JOIN public.permissions perm ON perm.id=prp.permission_id AND perm.is_active=true
+       JOIN public.users u ON u.id=a.user_id AND u.is_active=true
+      WHERE a.project_id=$1::uuid AND a.user_id=$2::uuid AND a.is_active=true AND a.revoked_at IS NULL
+        AND (a.expires_at IS NULL OR a.expires_at>now())
+        AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+        AND pr.is_active=true AND perm.code=ANY($3::text[])
+        AND NOT (
+          pr.role_code='funder'
+          AND (
+            perm.code LIKE 'finance.%' OR perm.code LIKE 'accounting.%' OR
+            perm.code LIKE 'reports.%' OR perm.code LIKE 'payment.%' OR
+            perm.code IN ('report.view','view_financial','view_rab')
+          )
+        )
+      ORDER BY array_position($3::text[],perm.code),a.assigned_at DESC LIMIT 1`,
+    [projectId,principalId,permissionCodes]);
+  return rows[0]??null;
+}
+async function applyExplicitProjectPermissionContext(req: express.Request,projectId: string,permission:any):Promise<void>{
+  await req.db.query("SELECT set_config('app.current_role',$1::text,true),set_config('app.current_project_role_id',$2::text,true),set_config('app.current_project_id',$3::text,true),set_config('app.current_permission_code',$4::text,true)",
+    [permission.role_code,permission.project_role_id,projectId,permission.permission_code]);
 }
 
 async function getProjectOr404(
@@ -837,64 +1961,87 @@ async function getProjectOr404(
 }
 
 function defaultPermissionsForRole(roleCode: string): string[] {
-  const base: string[] = ["project.view"];
-  const byRole: Record<string, string[]> = {
-    admin: [
-      "project.view", "project.members.view", "project.members.invite", "project.members.manage",
-      "project.roles.view", "project.roles.manage", "project.configuration.view",
-      "project.configuration.manage", "documents.view", "documents.create", "workflow.view",
-      "approvals.view", "notifications.view", "notifications.create", "reports.view"
-    ],
-    pm: [
-      "project.view", "project.members.view", "documents.view", "documents.create",
-      "workflow.view", "workflow.update", "approvals.view", "approvals.create",
-      "notifications.view", "notifications.create", "reports.view"
-    ],
-    checker: [
-      "project.view", "documents.view", "workflow.view", "approvals.view",
-      "notifications.view", "reports.view"
-    ],
-    warehouse: [
-      "project.view", "documents.view", "workflow.view", "notifications.view", "reports.view"
-    ],
-    finance: [
-      "project.view", "documents.view", "reports.view", "finance.view"
-    ],
-    buyer: [
-      "project.view", "documents.view", "reports.view", "shipment.view"
-    ],
-    supplier: [
-      "project.view", "documents.view", "reports.view", "shipment.view"
-    ]
-  };
-  return [...new Set([...base, ...(byRole[roleCode] || [])])];
+  // The source-controlled canonical catalogue is the only permission template.
+  // Legacy "admin" is intentionally not aliased to Project Admin.
+  return [...(getCanonicalRoleTemplate(roleCode)?.permissionCodes ?? [])];
 }
 
 // ============================================
 // Contract Program CRUD
 // ============================================
-app.post("/api/v1/contract-programs", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description } = req.body;
-  if (typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() || typeof cadence !== "string" || !cadence.trim() || !isPositiveQuantity(targetQuantity)) {
+app.post("/api/v1/contract-programs", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description } = req.body;
+  if (!projectId || typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() || typeof cadence !== "string" || !cadence.trim() || !isPositiveQuantity(targetQuantity)) {
     return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity, cadence" });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
+  if (contractId) {
+    const { rows: contractRows } = await req.db.query("SELECT id FROM contracts WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true", [contractId, projectId]);
+    if (!contractRows.length) return res.status(400).json({ error: "Contract must belong to this Project." });
   }
   try {
     const { rows } = await req.db.query(
       `INSERT INTO contract_programs
-        (name, buyer_id, contract_id, settlement_unit, target_quantity, cadence, generation_mode, description, is_active, created_at, updated_at)
-       VALUES ($1::text, $2::uuid, $3::uuid, $4::text, $5::numeric, $6::text, $7::text, $8::text, true, now(), now())
+        (project_id, name, buyer_id, contract_id, settlement_unit, target_quantity, cadence, generation_mode, description, is_active, created_at, updated_at)
+       VALUES ($1::uuid, $2::text, $3::uuid, $4::uuid, $5::text, $6::numeric, $7::text, $8::text, $9::text, true, now(), now())
        RETURNING *`,
-      [name, buyerId || null, contractId || null, settlementUnit, targetQuantity, cadence, generationMode || "scheduled_draft", description || null]
+      [projectId, name, buyerId || null, contractId || null, settlementUnit, targetQuantity, cadence, generationMode || "scheduled_draft", description || null]
     );
+    const { rows: linkedProject } = await req.db.query(
+      "UPDATE projects SET contract_program_id = $1::uuid, updated_at = now() WHERE id = $2::uuid AND contract_program_id IS NULL RETURNING id",
+      [rows[0].id, projectId],
+    );
+    if (!linkedProject.length) return res.status(409).json({ error: "Project already has a Contract Program or is unavailable." });
     res.status(201).json({ contractProgram: rows[0] });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
   }
 });
 
-app.patch("/api/v1/contract-programs/:id", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+// PM attaches the Project's first Contract Program after Admin creates the Project shell.
+app.post("/api/v1/projects/:projectId/contract-programs", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description } = req.body ?? {};
+  if (typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() ||
+      typeof cadence !== "string" || !cadence.trim() || !isPositiveQuantity(targetQuantity)) {
+    return res.status(400).json({ error: "Required fields: name, settlementUnit, positive targetQuantity, cadence" });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "manage_contract_programs"))) return;
+  try {
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, contract_program_id FROM projects WHERE id = $1::uuid AND is_active = true FOR UPDATE",
+      [projectId],
+    );
+    if (!projectRows.length) return res.status(404).json({ error: "Project not found." });
+    if (projectRows[0].contract_program_id) return res.status(409).json({ error: "This Project already has a Contract Program." });
+    if (contractId) {
+      const { rows: contractRows } = await req.db.query(
+        "SELECT id FROM contracts WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true",
+        [contractId, projectId],
+      );
+      if (!contractRows.length) return res.status(400).json({ error: "Contract must belong to this Project." });
+    }
+    const { rows } = await req.db.query(
+      `INSERT INTO contract_programs
+        (project_id, name, buyer_id, contract_id, settlement_unit, target_quantity, cadence, generation_mode, description, is_active, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5, $6::numeric, $7, $8, $9, true, now(), now())
+       RETURNING *`,
+      [projectId, name.trim(), buyerId || null, contractId || null, settlementUnit.trim(), targetQuantity, cadence.trim(), generationMode || "shipment_triggered", description || null],
+    );
+    await req.db.query("UPDATE projects SET contract_program_id = $1::uuid, updated_at = now() WHERE id = $2::uuid AND contract_program_id IS NULL", [rows[0].id, projectId]);
+    return res.status(201).json({ contractProgram: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "A Contract Program already exists for this Project." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   const { name, buyerId, contractId, settlementUnit, targetQuantity, cadence, generationMode, description, isActive } = req.body;
+  const { rows: currentProgram } = await req.db.query("SELECT project_id FROM contract_programs WHERE id = $1::uuid", [id]);
+  if (!currentProgram.length) return res.status(404).json({ error: "Contract program not found in an accessible Project." });
+  if (!(await requireProjectPermission(req, res, currentProgram[0].project_id, "manage_contract_programs"))) return;
   if (targetQuantity !== undefined && !isPositiveQuantity(targetQuantity)) return res.status(400).json({ error: "targetQuantity must be a finite positive number." });
   try {
     const { rows } = await req.db.query(
@@ -939,37 +2086,19 @@ app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Requ
   try {
     await dbClient.query("SAVEPOINT project_create");
     try {
-      let programId = typeof contractProgramId === "string" && contractProgramId ? contractProgramId : null;
-      if (programId) {
-        const { rows: activeProgramRows } = await dbClient.query("SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1", [programId]);
-        if (activeProgramRows.length === 0) throw Object.assign(new Error("Active Contract Program not found."), { status: 404 });
-      }
-      if (!programId && createContractProgram && typeof createContractProgram === "object") {
-        const cpName = createContractProgram.name || `${name} Program`;
-        const cpRows = await dbClient.query(
-          `INSERT INTO contract_programs
-            (name, buyer_id, contract_id, settlement_unit, target_quantity, cadence, generation_mode, is_active, created_at, updated_at)
-           VALUES ($1::text, $2::uuid, $3::uuid, $4::text, $5::numeric, $6::text, 'scheduled_draft', true, now(), now())
-           RETURNING id`,
-          [cpName, createContractProgram.buyerId || null, createContractProgram.contractId || null,
-           settlementUnit, targetQuantity, createContractProgram.cadence || "scheduled"]
-        );
-        programId = cpRows.rows[0].id;
-      }
-      if (!programId) {
-        throw Object.assign(new Error("Contract program is required (existing or new)."), { status: 400 });
+      if (contractProgramId || createContractProgram) {
+        throw Object.assign(new Error("Contract Programs are created by the Project Manager after Project setup."), { status: 400 });
       }
       const { rows: projectRows } = await dbClient.query(
         `INSERT INTO projects
-          (contract_program_id, name, description, status, settlement_unit, target_quantity,
+          (name, description, status, settlement_unit, target_quantity,
            export_country_code, is_active, created_at, updated_at)
-         VALUES ($1::uuid, $2::text, $3::text, $4::text, $5::text, $6::numeric, $7::text, true, now(), now())
+         VALUES ($1::text, $2::text, $3::text, $4::text, $5::numeric, $6::text, true, now(), now())
          RETURNING *`,
-        [programId, name, description || null, status || "draft", settlementUnit, targetQuantity, exportCountryCode || null]
+        [name, description || null, status || "draft", settlementUnit, targetQuantity, exportCountryCode || null]
       );
       const project = projectRows[0];
       const projectId = project.id;
-
       const defaultConfiguration = {
         schema_version: 1,
         modules: {
@@ -991,45 +2120,36 @@ app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Requ
          ON CONFLICT (project_id) DO NOTHING`,
         [projectId, JSON.stringify(defaultConfiguration), userId]
       );
-      const { rows: roleTemplates } = await dbClient.query(
-        "SELECT id, name, description FROM role_catalog WHERE is_active = true ORDER BY name"
+      // New Projects start with only the PM appointment slot. Platform Admin
+      // appoints the PM explicitly; operational templates are activated later
+      // by that PM and activation never creates user membership.
+      const pmTemplate = getCanonicalRoleTemplate("pm");
+      if (!pmTemplate) throw Object.assign(new Error("Canonical PM template is missing."), { status: 500 });
+      const { rows: pmRoleRows } = await dbClient.query(
+        `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
+         VALUES ($1::uuid, 'pm', $2::text, $3::text, true, $4::uuid, now(), now())
+         RETURNING id`,
+        [projectId, pmTemplate.label, pmTemplate.restrictions.join(" "), userId],
       );
-      const createdRoles: any[] = [];
-      for (const tmpl of roleTemplates) {
-        const { rows: roleRows } = await dbClient.query(
-          `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
-           VALUES ($1::uuid, $2::text, $3::text, $4::text, true, $5::uuid, now(), now())
-           RETURNING id`,
-          [projectId, tmpl.name, tmpl.name, tmpl.description || null, userId]
-        );
-        const projectRoleId = roleRows[0].id;
-        createdRoles.push({ projectRoleId, catalogRoleId: tmpl.id, roleCode: tmpl.name, name: tmpl.name });
-        const defaultPerms = defaultPermissionsForRole(tmpl.name);
-        for (const permCode of defaultPerms) {
-          const { rows: permRows } = await dbClient.query(
-            "SELECT id FROM permissions WHERE code = $1::text AND is_active = true LIMIT 1",
-            [permCode]
-          );
-          if (permRows.length > 0) {
-            await dbClient.query(
-              `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-               VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
-               ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
-              [projectId, projectRoleId, permRows[0].id, userId]
-            );
-          }
-        }
+      const pmRoleId = pmRoleRows[0].id;
+      const { rows: permissionRows } = await dbClient.query(
+        "SELECT id, code FROM permissions WHERE code = ANY($1::text[]) AND is_active = true",
+        [pmTemplate.permissionCodes],
+      );
+      const foundCodes = new Set(permissionRows.map((row: any) => row.code));
+      const missingCodes = pmTemplate.permissionCodes.filter((code) => !foundCodes.has(code));
+      if (missingCodes.length > 0) {
+        throw Object.assign(new Error(`Canonical PM permissions are missing: ${missingCodes.join(", ")}`), { status: 409 });
       }
-      const adminRole = createdRoles.find((r: any) => r.roleCode === "admin");
-      if (adminRole) {
-        // role_id -> role_catalog.id, project_role_id -> project_roles.id (no created_at column in project_members)
+      for (const permission of permissionRows) {
         await dbClient.query(
-          `INSERT INTO project_members (project_id, user_id, project_role_id, role_id, joined_at, is_active, updated_at)
-           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now(), true, now())
-           ON CONFLICT (project_id, user_id) DO NOTHING`,
-          [projectId, userId, adminRole.projectRoleId, adminRole.catalogRoleId || null]
+          `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
+           ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+          [projectId, pmRoleId, permission.id, userId],
         );
       }
+      const createdRoles = [{ projectRoleId: pmRoleId, roleCode: "pm", name: pmTemplate.label, awaitingAppointment: true }];
       await dbClient.query("RELEASE SAVEPOINT project_create");
       res.status(201).json({ project, roles: createdRoles });
       return;
@@ -1269,28 +2389,33 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
 app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
   if (!(await requireProjectPermission(req, res, projectId, "documents.create"))) return;
-  const { projectRequirementId, fileReference, objectKey, originalFilename, mimeType, sha256Checksum, versionNo, expiryDate, notes } = req.body ?? {};
-  if (!projectRequirementId || !fileReference || !originalFilename) {
-    return res.status(400).json({ error: "Required fields: projectRequirementId, fileReference, originalFilename" });
-  }
-  if (objectKey && String(objectKey).indexOf(`projects/${projectId}/`) !== 0) {
-    return res.status(400).json({ error: "Invalid object key namespace", code: "INVALID_OBJECT_KEY" });
-  }
+  const { projectRequirementId, fileReference, objectKey, originalFilename, mimeType, sha256Checksum, contentLength, versionNo, expiryDate, notes } = req.body ?? {};
+  if (!projectRequirementId || !fileReference || !objectKey || !originalFilename || !sha256Checksum || contentLength === undefined) return res.status(400).json({ error: "Project requirement, private object key, filename, SHA-256 and content length are required." });
+  if (String(objectKey).indexOf(`projects/${projectId}/`) !== 0 || fileReference !== objectKey) return res.status(400).json({ error: "Document reference must match a project-namespaced private object key.", code: "INVALID_OBJECT_KEY" });
   try {
+    await privateStorage.verifyObject(String(objectKey), Number(contentLength), String(sha256Checksum));
     const { rows: reqRows } = await req.db.query(
-      "SELECT id FROM project_export_document_requirements WHERE id = $1::uuid AND project_id = $2::uuid",
+      `SELECT per.id, edt.document_code
+         FROM project_export_document_requirements per
+         JOIN country_export_document_requirements cdr ON cdr.id=per.country_requirement_id
+         JOIN export_document_types edt ON edt.id=cdr.document_type_id
+        WHERE per.id=$1::uuid AND per.project_id=$2::uuid`,
       [projectRequirementId, projectId],
     );
     if (reqRows.length === 0) return res.status(404).json({ error: "Not found" });
+    const storageStatus=privateStorage.status();
+    if(!storageStatus.available) return res.status(503).json({error:"Private object storage is unavailable.",code:"STORAGE_UNAVAILABLE"});
     const { rows } = await req.db.query(
       `INSERT INTO project_export_documents
-        (project_id, project_requirement_id, file_reference, object_key, original_filename, mime_type,
-         sha256_checksum, version_no, status, uploaded_by, expiry_date, notes, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, 'uploaded', $9::uuid, $10::date, $11, now(), now())
+        (project_id,project_requirement_id,file_reference,object_key,original_filename,mime_type,
+         sha256_checksum,version_no,status,uploaded_by,expiry_date,notes,created_at,updated_at,
+         storage_bucket,file_size_bytes,upload_verified_at,uploaded_content_type,document_type_code)
+       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,'uploaded',$9::uuid,$10::date,$11,now(),now(),
+               $12,$13::bigint,now(),$6,$14)
        RETURNING *`,
-      [projectId, projectRequirementId, fileReference, objectKey || null, originalFilename, mimeType || null,
-       sha256Checksum || null, versionNo !== undefined ? versionNo : 1, req.user?.id || null,
-       expiryDate || null, notes || null],
+      [projectId,projectRequirementId,fileReference,objectKey,originalFilename,mimeType||null,
+       sha256Checksum,versionNo!==undefined?versionNo:1,req.user?.id||null,expiryDate||null,notes||null,
+       storageStatus.bucket,Number(contentLength),reqRows[0].document_code],
     );
     res.status(201).json({ document: rows[0] });
   } catch (error) {
@@ -1312,7 +2437,7 @@ app.patch("/api/v1/documents/:id", requireAuth, async (req: express.Request, res
     );
     if (existingRows.length === 0) return res.status(404).json({ error: "Not found" });
     const projectId = existingRows[0].project_id;
-    if (!(await requireProjectPermission(req, res, projectId, "documents.review"))) return;
+    if (!(await requireProjectPermission(req, res, projectId, "documents.update"))) return;
     const reviewerId = req.user?.id || null;
     const { rows } = await req.db.query(
       `UPDATE project_export_documents
@@ -1422,6 +2547,202 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
 });
 
 
+// P0 Project Work Items API. Request-scoped RLS transaction is supplied by middleware.
+app.get("/api/v1/projects/:projectId/work-items", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authenticated principal required" });
+  try {
+    const permission = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid, 'project.tasks.view') AS allowed", [projectId]
+    );
+    const canViewAll = permission.rows[0]?.allowed === true;
+    const status = typeof req.query.status === "string" ? req.query.status : null;
+    const result = await req.db.query(
+      "SELECT wi.*, (wi.due_at IS NOT NULL AND wi.due_at < now() AND wi.status NOT IN ('resolved','closed','cancelled')) AS is_overdue " +
+      "FROM public.project_work_items wi WHERE wi.project_id=$1::uuid " +
+      "AND ($2::boolean OR (public.pke_user_has_active_project_role(wi.project_id,wi.owner_role_code) AND (wi.assignee_user_id IS NULL OR wi.assignee_user_id=$3::uuid))) " +
+      "AND ($4::text IS NULL OR wi.status=$4::text) " +
+      "ORDER BY CASE wi.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, wi.due_at ASC NULLS LAST, wi.created_at DESC LIMIT 250",
+      [projectId, canViewAll, userId, status]
+    );
+    return res.json({ workItems: result.rows, scope: canViewAll ? "project" : "assigned", dataFreshness: new Date().toISOString() });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.get("/api/v1/projects/:projectId/work-items/:id/events", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const result = await req.db.query(
+      "SELECT e.* FROM public.project_work_item_events e WHERE e.project_id=$1::uuid AND e.work_item_id=$2::uuid ORDER BY e.occurred_at ASC",
+      [req.params.projectId, req.params.id]
+    );
+    return res.json({ events: result.rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/work-items", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const actorId = req.user?.id;
+  const body = req.body ?? {};
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const ownerRoleCode = typeof body.ownerRoleCode === "string" ? body.ownerRoleCode : "";
+  if (!actorId) return res.status(401).json({ error: "Authenticated principal required" });
+  if (title.length < 3 || title.length > 240 || !/^[a-z][a-z0-9_]{1,63}$/.test(ownerRoleCode))
+    return res.status(400).json({ error: "A 3-240 character title and valid ownerRoleCode are required." });
+  if (!(await requireProjectPermission(req, res, projectId, "project.tasks.create"))) return;
+  if (body.priority && !["low","normal","high","critical"].includes(body.priority)) return res.status(400).json({ error: "Invalid priority." });
+  if (body.workItemType && !["task","instruction","exception","approval_request","follow_up"].includes(body.workItemType)) return res.status(400).json({ error: "Invalid workItemType." });
+  if ((body.sourceEntityType && !body.sourceEntityId) || (!body.sourceEntityType && body.sourceEntityId)) return res.status(400).json({ error: "sourceEntityType and sourceEntityId must be supplied together." });
+  if (body.dueAt && !Number.isFinite(Date.parse(body.dueAt))) return res.status(400).json({ error: "Invalid dueAt timestamp." });
+  try {
+    const role = await req.db.query(
+      "SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",
+      [projectId, ownerRoleCode]
+    );
+    if (role.rows.length !== 1) return res.status(422).json({ error: "Owner role is not active in this Project.", code: "PROJECT_ROLE_NOT_ACTIVE" });
+    const assignments = await req.db.query(
+      "SELECT DISTINCT a.user_id FROM public.project_role_assignments a JOIN public.project_members pm ON pm.id=a.project_member_id " +
+      "WHERE a.project_id=$1::uuid AND a.project_role_id=$2::uuid AND a.is_active=true AND a.revoked_at IS NULL " +
+      "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
+      "AND (pm.expires_at IS NULL OR pm.expires_at>now())",
+      [projectId, role.rows[0].id]
+    );
+    if (!assignments.rows.length) return res.status(422).json({ error: "No active assignee is assigned to the selected Project role.", code: "ROLE_HAS_NO_ACTIVE_ASSIGNEE" });
+    if (body.assigneeUserId && !assignments.rows.some((row: any) => row.user_id === body.assigneeUserId))
+      return res.status(422).json({ error: "Assignee does not hold the selected active Project role.", code: "ASSIGNEE_ROLE_MISMATCH" });
+    const inserted = await req.db.query(
+      "INSERT INTO public.project_work_items (project_id,source_entity_type,source_entity_id,work_item_type,title,description,priority,owner_role_code,assignee_user_id,created_by,due_at,dedupe_key) " +
+      "VALUES ($1::uuid,$2,$3::uuid,$4,$5,$6,$7,$8,$9::uuid,$10::uuid,$11::timestamptz,$12) " +
+      "ON CONFLICT (project_id,dedupe_key) DO NOTHING RETURNING *",
+      [projectId,body.sourceEntityType || null,body.sourceEntityId || null,body.workItemType || "task",title,
+       typeof body.description === "string" ? body.description.trim() : null,body.priority || "normal",ownerRoleCode,
+       body.assigneeUserId || null,actorId,body.dueAt || null,body.dedupeKey || null]
+    );
+    if (!inserted.rows.length) return res.status(409).json({ error: "A work item with this Project dedupe key already exists.", code: "WORK_ITEM_DUPLICATE" });
+    const item = inserted.rows[0];
+    const createdEvent = await req.db.query(
+      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,'created',$3::uuid,'Work item created',$4::jsonb) RETURNING id",
+      [item.id,projectId,actorId,JSON.stringify({ ownerRoleCode, assigneeUserId: body.assigneeUserId || null })]
+    );
+    await req.db.query(
+      "INSERT INTO public.user_notifications (id,event_id,project_id,work_item_id,recipient_user_id,created_by,title,message,priority,category,created_at) " +
+      "SELECT gen_random_uuid(),$5::uuid,wi.project_id,wi.id,a.user_id,$2::uuid,$3,$4,wi.priority,'task_assignment',now() " +
+      "FROM public.project_work_items wi JOIN public.project_roles pr ON pr.project_id=wi.project_id AND pr.role_code=wi.owner_role_code " +
+      "JOIN public.project_role_assignments a ON a.project_id=pr.project_id AND a.project_role_id=pr.id " +
+      "JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.user_id=a.user_id " +
+      "WHERE wi.id=$1::uuid AND (wi.assignee_user_id IS NULL OR wi.assignee_user_id=a.user_id) " +
+      "AND a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) " +
+      "AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now()) ON CONFLICT DO NOTHING",
+      [item.id,actorId,"Tugas baru: " + item.title,"Anda menerima tugas " + item.title + ". Tenggat: " + (item.due_at || "belum ditentukan") + ".",createdEvent.rows[0].id]
+    );
+    return res.status(201).json({ workItem: item });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.patch("/api/v1/projects/:projectId/work-items/:id", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const actorId = req.user?.id;
+  const body = req.body ?? {};
+  const action = body.action;
+  if (!actorId) return res.status(401).json({ error: "Authenticated principal required" });
+  if (!["assign","acknowledge","start","block","submit","resolve","close","reopen","escalate","comment","cancel"].includes(action))
+    return res.status(400).json({ error: "Unsupported work item action." });
+  try {
+    const found = await req.db.query("SELECT * FROM public.project_work_items WHERE id=$1::uuid AND project_id=$2::uuid LIMIT 1",[req.params.id,projectId]);
+    if (!found.rows.length) return res.status(404).json({ error: "Work item not found." });
+    const item = found.rows[0];
+    const checks = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'project.tasks.update') AS can_update, " +
+      "public.pke_has_project_permission($1::uuid,'project.tasks.assign') AS can_assign, " +
+      "public.pke_has_project_permission($1::uuid,'project.tasks.resolve') AS can_resolve, " +
+      "public.pke_has_project_permission($1::uuid,'project.tasks.escalate') AS can_escalate, " +
+      "public.pke_user_has_active_project_role($1::uuid,$2::text) AND ($4::uuid IS NULL OR $3::uuid=$4::uuid) AS is_assigned",
+      [projectId,item.owner_role_code,actorId,item.assignee_user_id]
+    );
+    const access = checks.rows[0];
+    if (action === "assign" && !access.can_assign) return res.status(403).json({ error: "Task assignment requires project.tasks.assign." });
+    if (["resolve","close","reopen","cancel"].includes(action) && !access.can_resolve) return res.status(403).json({ error: "Task resolution requires project.tasks.resolve." });
+    if (action === "escalate" && !access.is_assigned && !access.can_escalate) return res.status(403).json({ error: "Only the assigned owner or PM may escalate this task." });
+    if (["acknowledge","start","block","submit"].includes(action) && !access.is_assigned)
+      return res.status(403).json({ error: "Operational status transitions must be performed by the assigned active role/user." });
+    if (action === "comment" && !access.is_assigned && !access.can_update)
+      return res.status(403).json({ error: "Only the assigned owner or PM may comment on this task." });
+    if (["resolved","closed","cancelled"].includes(item.status) && action !== "reopen") return res.status(409).json({ error: "Terminal task must be reopened before further action." });
+
+    let status = item.status, roleCode = item.owner_role_code, assignee = item.assignee_user_id, due = item.due_at, priority = item.priority;
+    let eventType = action === "escalate" ? "escalated" : action === "cancel" ? "cancelled" : action === "comment" ? "commented" : action === "reopen" ? "reopened" : action === "acknowledge" ? "acknowledged" : action === "start" ? "started" : action === "block" ? "blocked" : action === "submit" ? "submitted" : action === "resolve" ? "resolved" : action === "close" ? "closed" : action;
+    if (action === "assign") {
+      if (typeof body.ownerRoleCode !== "string" || typeof body.reason !== "string" || body.reason.trim().length < 5) return res.status(400).json({ error: "ownerRoleCode and reassignment reason are required." });
+      const role = await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true LIMIT 1",[projectId,body.ownerRoleCode]);
+      if (!role.rows.length) return res.status(422).json({ error: "Owner role is not active in this Project." });
+      const assigned = await req.db.query(
+        "SELECT a.user_id FROM public.project_role_assignments a JOIN public.project_members pm ON pm.id=a.project_member_id " +
+        "WHERE a.project_id=$1::uuid AND a.project_role_id=$2::uuid AND a.is_active=true AND a.revoked_at IS NULL " +
+        "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
+        "AND (pm.expires_at IS NULL OR pm.expires_at>now())",[projectId,role.rows[0].id]);
+      if (!assigned.rows.length || (body.assigneeUserId && !assigned.rows.some((r: any) => r.user_id === body.assigneeUserId)))
+        return res.status(422).json({ error: "Assignee must hold the selected active Project role." });
+      roleCode=body.ownerRoleCode; assignee=body.assigneeUserId || null; status="open";
+      if (body.dueAt !== undefined) { if (body.dueAt && !Number.isFinite(Date.parse(body.dueAt))) return res.status(400).json({ error: "Invalid dueAt." }); due=body.dueAt || null; }
+      if (body.priority !== undefined) { if (!["low","normal","high","critical"].includes(body.priority)) return res.status(400).json({ error: "Invalid priority." }); priority=body.priority; }
+      eventType = item.owner_role_code === roleCode && item.assignee_user_id === assignee ? "assigned" : "reassigned";
+    } else if (action === "acknowledge") { if (item.status !== "open") return res.status(409).json({ error: "Only open tasks can be acknowledged." }); status="acknowledged";
+    } else if (action === "start") { if (!["acknowledged","blocked"].includes(item.status)) return res.status(409).json({ error: "Task must be acknowledged or blocked." }); status="in_progress";
+    } else if (action === "block") { if (!["acknowledged","in_progress"].includes(item.status) || typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "A reason of at least 5 characters is required to block a task." }); status="blocked";
+    } else if (action === "submit") { if (!["in_progress","blocked","acknowledged"].includes(item.status)) return res.status(409).json({ error: "Task must be acknowledged or in progress before submission." }); status="submitted";
+    } else if (action === "resolve") { if (item.status !== "submitted") return res.status(409).json({ error: "Only submitted tasks can be resolved by PM." }); status="resolved";
+    } else if (action === "close") { if (item.status !== "resolved") return res.status(409).json({ error: "Only resolved tasks can be closed." }); status="closed";
+    } else if (action === "reopen") { if (!["resolved","closed"].includes(item.status) || typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "A reason is required to reopen a task." }); status="open";
+    } else if (action === "cancel") { if (typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "A cancellation reason is required." }); status="cancelled";
+    } else if (action === "escalate") { if (["resolved","closed","cancelled"].includes(item.status) || typeof body.reason !== "string" || body.reason.trim().length<5) return res.status(400).json({ error: "An escalation reason is required for an active task." });
+    } else if (action === "comment") { if (typeof body.comment !== "string" || body.comment.trim().length<2) return res.status(400).json({ error: "A comment is required." }); }
+
+    if (action === "escalate") {
+      await req.db.query("UPDATE public.project_work_items SET escalation_level=escalation_level+1,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid",[item.id,projectId]);
+    } else {
+      await req.db.query(
+        "UPDATE public.project_work_items SET status=$1,owner_role_code=$2,assignee_user_id=$3::uuid,due_at=$4::timestamptz,priority=$5," +
+        "acknowledged_at=CASE WHEN $1='open' THEN NULL WHEN $1='acknowledged' AND acknowledged_at IS NULL THEN now() ELSE acknowledged_at END," +
+        "started_at=CASE WHEN $1='open' THEN NULL WHEN $1='in_progress' AND started_at IS NULL THEN now() ELSE started_at END," +
+        "submitted_at=CASE WHEN $1='open' THEN NULL WHEN $1='submitted' THEN now() ELSE submitted_at END," +
+        "resolved_at=CASE WHEN $1='open' THEN NULL WHEN $1='resolved' THEN now() ELSE resolved_at END,resolved_by=CASE WHEN $1='open' THEN NULL WHEN $1='resolved' THEN $6::uuid ELSE resolved_by END," +
+        "closed_at=CASE WHEN $1='open' THEN NULL WHEN $1='closed' THEN now() ELSE closed_at END,closed_by=CASE WHEN $1='open' THEN NULL WHEN $1='closed' THEN $6::uuid ELSE closed_by END,updated_at=now() " +
+        "WHERE id=$7::uuid AND project_id=$8::uuid",
+        [status,roleCode,assignee,due,priority,actorId,item.id,projectId]
+      );
+    }
+    const recordedEvent = await req.db.query(
+      "INSERT INTO public.project_work_item_events (work_item_id,project_id,event_type,actor_user_id,reason,payload) VALUES ($1::uuid,$2::uuid,$3,$4::uuid,$5,$6::jsonb) RETURNING id",
+      [item.id,projectId,eventType,actorId,body.reason || null,JSON.stringify({ action, comment: body.comment || null, beforeStatus: item.status, status, beforeOwnerRoleCode: item.owner_role_code, ownerRoleCode: roleCode, beforeAssigneeUserId: item.assignee_user_id, assigneeUserId: assignee })]
+    );
+    if (["assign","escalate","submit","block","resolve","close"].includes(action)) {
+      const notifyPm = ["escalate","submit","block"].includes(action);
+      const targetRole = notifyPm ? "pm" : roleCode;
+      const targetUser = action === "assign" ? assignee : (action === "resolve" || action === "close") ? item.assignee_user_id : null;
+      const title = notifyPm
+        ? (action === "submit" ? "Tugas menunggu review PM: " : action === "block" ? "Tugas terblokir: " : "Eskalasi tugas: ") + item.title
+        : (action === "assign" ? "Penugasan: " : "Pembaruan tugas: ") + item.title;
+      const message = notifyPm
+        ? (action === "submit" ? "Tugas telah dikirim untuk review PM." : action === "block" ? "Tugas diblokir. Alasan: " + body.reason : "Tugas dieskalasikan ke PM. Alasan: " + body.reason)
+        : (action === "assign" ? "Anda menerima tugas. Alasan penugasan: " + body.reason : "Status tugas diperbarui menjadi " + status + ".");
+      await req.db.query(
+        "INSERT INTO public.user_notifications (id,event_id,project_id,work_item_id,recipient_user_id,created_by,title,message,priority,category,created_at) " +
+        "SELECT gen_random_uuid(),$9::uuid,$1::uuid,$2::uuid,a.user_id,$3::uuid,$4,$5,$6,'task_update',now() " +
+        "FROM public.project_roles pr JOIN public.project_role_assignments a ON a.project_role_id=pr.id AND a.project_id=pr.project_id " +
+        "JOIN public.project_members pm ON pm.id=a.project_member_id AND pm.user_id=a.user_id " +
+        "WHERE pr.project_id=$1::uuid AND pr.role_code=$7 AND pr.is_active=true AND a.is_active=true AND a.revoked_at IS NULL " +
+        "AND (a.expires_at IS NULL OR a.expires_at>now()) AND pm.is_active=true AND pm.deactivated_at IS NULL " +
+        "AND (pm.expires_at IS NULL OR pm.expires_at>now()) AND ($8::uuid IS NULL OR a.user_id=$8::uuid) ON CONFLICT DO NOTHING",
+        [projectId,item.id,actorId,title,message,item.priority,targetRole,targetUser,recordedEvent.rows[0].id]
+      );
+    }
+    const updated = await req.db.query(
+      "SELECT wi.*, (wi.due_at IS NOT NULL AND wi.due_at<now() AND wi.status NOT IN ('resolved','closed','cancelled')) AS is_overdue " +
+      "FROM public.project_work_items wi WHERE wi.id=$1::uuid AND wi.project_id=$2::uuid",[item.id,projectId]);
+    return res.json({ workItem: updated.rows[0] });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 // ============================================
 // Sprint 02E — Reporting, Notifications & BI
 // ============================================
@@ -1429,6 +2750,7 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
 const reportTemplatesStore: any[] = [
   { id: "tpl-daily-ops", name: "Daily Operations Report", category: "Operational", version: 1, active: true, audience: "internal", frequency: "daily" },
   { id: "tpl-weekly-rab", name: "Weekly RAB vs Actual", category: "Financial", version: 1, active: true, audience: "finance", frequency: "weekly" },
+  { id: "tpl-financial-report", name: "Project Financial Report", category: "Financial", version: 1, active: true, audience: "project_management", frequency: "on_demand" },
   { id: "tpl-buyer-progress", name: "Buyer Progress Summary", category: "Shipment", version: 1, active: true, audience: "buyer", frequency: "daily" },
 ];
 
@@ -1447,28 +2769,11 @@ app.get("/api/v1/kpis", requireAuth, async (req: express.Request, res: express.R
   res.json({ kpis, dataFreshness: new Date().toISOString() });
 });
 
-app.get("/api/v1/reports/portfolio", requireAuth, async (req: express.Request, res: express.Response) => {
-  try {
-    const { rows: projectRows } = await req.db.query("SELECT COUNT(*)::int AS count, COALESCE(SUM(target_quantity),0) AS volume FROM projects WHERE is_active = true");
-    const { rows: rabRows } = await req.db.query("SELECT COALESCE(SUM(amount),0) AS budget FROM rab WHERE is_active = true");
-    const { rows: tripRows } = await req.db.query("SELECT COUNT(*)::int AS count FROM truck_trips");
-    res.json({
-      activeProjects: projectRows[0]?.count ?? 0,
-      contractVolume: projectRows[0]?.volume ?? 0,
-      approvedBudget: rabRows[0]?.budget ?? 0,
-      shipmentCount: tripRows[0]?.count ?? 0,
-      committedCost: 0,
-      actualCost: 0,
-      forecastMargin: 0,
-      outstandingReceivables: 0,
-      outstandingPayables: 0,
-      cashRequirement: 0,
-      criticalComplianceBlockers: 0,
-      dataFreshness: new Date().toISOString(),
-    });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
-  }
+app.get("/api/v1/reports/portfolio", requireAuth, async (_req: express.Request, res: express.Response) => {
+  return res.status(403).json({
+    error: "Global portfolio reporting is outside Platform Admin governance scope. Use a Project-scoped reports.view endpoint.",
+    code: "GLOBAL_PORTFOLIO_REPORT_OUT_OF_SCOPE",
+  });
 });
 
 app.get("/api/v1/reports/project/:projectId", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -1504,13 +2809,25 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
         "SELECT * FROM report_runs WHERE project_id = $1::uuid ORDER BY generated_at DESC LIMIT 200",
         [projectId],
       ));
-    } else if (req.user?.isAdmin) {
-      ({ rows } = await req.db.query("SELECT * FROM report_runs ORDER BY generated_at DESC LIMIT 200"));
     } else {
       ({ rows } = await req.db.query(
         `SELECT rr.* FROM report_runs rr
           WHERE rr.project_id IN (
-            SELECT pm.project_id FROM project_members pm WHERE pm.user_id = $1::uuid AND pm.is_active = true
+            SELECT pm.project_id
+              FROM project_members pm
+             WHERE pm.user_id = $1::uuid AND pm.is_active = true
+               AND EXISTS (
+                 SELECT 1
+                   FROM project_role_assignments a
+                   JOIN project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+                   JOIN project_role_permissions prp ON prp.project_role_id = pr.id AND prp.project_id = pr.project_id
+                   JOIN permissions perm ON perm.id = prp.permission_id AND perm.is_active = true
+                  WHERE a.project_id = pm.project_id AND a.user_id = pm.user_id
+                    AND a.is_active = true AND a.revoked_at IS NULL
+                    AND (a.expires_at IS NULL OR a.expires_at > now())
+                    AND pr.is_active = true AND pr.role_code <> 'funder'
+                    AND perm.code = 'reports.view'
+               )
           )
           ORDER BY rr.generated_at DESC LIMIT 200`,
         [req.user?.id],
@@ -1536,10 +2853,141 @@ app.get("/api/v1/reports/runs", requireAuth, async (req: express.Request, res: e
   }
 });
 
+// Explicit Funder report sharing. Only Project staffing managers can share/revoke,
+// and the database trigger independently verifies the recipient's active Funder role.
+app.get("/api/v1/funder/shared-reports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter required." });
+  if (!(await requireProjectPermission(req, res, projectId, "funder.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT rr.id, rr.project_id, rr.template_id, rr.template_version,
+              rr.cutoff_at, rr.generated_at, rr.data_freshness, rr.file_reference,
+              rr.report_payload, s.shared_at
+         FROM public.project_funder_report_shares s
+         JOIN public.report_runs rr
+           ON rr.id = s.report_run_id AND rr.project_id = s.project_id
+        WHERE s.project_id = $1::uuid
+          AND s.funder_user_id = $2::uuid
+          AND s.revoked_at IS NULL
+          AND rr.status = 'completed'
+        ORDER BY s.shared_at DESC
+        LIMIT 100`,
+      [projectId, req.user?.id],
+    );
+    return res.json({ reports: rows.map((r: any) => ({
+      id: r.id, projectId: r.project_id, templateId: r.template_id,
+      templateVersion: r.template_version, cutoff: r.cutoff_at,
+      generatedAt: r.generated_at, dataFreshness: r.data_freshness,
+      fileReference: r.file_reference, reportPayload: r.report_payload,
+      sharedAt: r.shared_at,
+    })) });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/projects/:projectId/funder/report-shares", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (!(await requireProjectPermission(req, res, projectId, "project.members.manage"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT s.id, s.report_run_id, s.funder_user_id, u.email AS funder_email,
+              rr.template_id, rr.status AS report_status, s.shared_at
+         FROM public.project_funder_report_shares s
+         JOIN public.users u ON u.id = s.funder_user_id
+         JOIN public.report_runs rr ON rr.id = s.report_run_id AND rr.project_id = s.project_id
+        WHERE s.project_id = $1::uuid AND s.revoked_at IS NULL
+        ORDER BY s.shared_at DESC`,
+      [projectId],
+    );
+    return res.json({ shares: rows });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/projects/:projectId/funder/report-shares", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  const reportRunId = typeof req.body?.reportRunId === "string" ? req.body.reportRunId : "";
+  const funderUserId = typeof req.body?.funderUserId === "string" ? req.body.funderUserId : "";
+  if (!reportRunId || !funderUserId) {
+    return res.status(400).json({ error: "reportRunId and funderUserId are required." });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "project.members.manage"))) return;
+  try {
+    const { rows: reportRows } = await req.db.query(
+      `SELECT id FROM public.report_runs
+        WHERE id = $1::uuid AND project_id = $2::uuid
+          AND status = 'completed' AND NULLIF(btrim(file_reference), '') IS NOT NULL`,
+      [reportRunId, projectId],
+    );
+    if (reportRows.length !== 1) {
+      return res.status(409).json({ error: "Only a completed report artifact in this Project can be shared.", code: "REPORT_NOT_SHAREABLE" });
+    }
+    const { rows: funderRows } = await req.db.query(
+      `SELECT 1
+         FROM public.project_role_assignments a
+         JOIN public.project_members pm ON pm.id = a.project_member_id
+           AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+         JOIN public.project_role_permissions prp ON prp.project_id = a.project_id AND prp.project_role_id = pr.id
+         JOIN public.permissions perm ON perm.id = prp.permission_id
+           AND perm.code = 'funder.view' AND perm.is_active = true
+        WHERE a.project_id = $1::uuid AND a.user_id = $2::uuid
+          AND a.is_active = true AND a.revoked_at IS NULL
+          AND (a.expires_at IS NULL OR a.expires_at > now())
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+          AND pr.role_code = 'funder' AND pr.is_active = true
+        LIMIT 1`,
+      [projectId, funderUserId],
+    );
+    if (funderRows.length !== 1) {
+      return res.status(400).json({ error: "Recipient must have an active Funder assignment in this Project.", code: "FUNDER_ASSIGNMENT_REQUIRED" });
+    }
+    const { rows } = await req.db.query(
+      `INSERT INTO public.project_funder_report_shares
+         (project_id, report_run_id, funder_user_id, shared_by)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid)
+       RETURNING id, project_id, report_run_id, funder_user_id, shared_at`,
+      [projectId, reportRunId, funderUserId, req.user?.id],
+    );
+    return res.status(201).json({ share: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "This report is already shared with this Funder.", code: "FUNDER_REPORT_ALREADY_SHARED" });
+    if (error?.code === "22P02") return res.status(400).json({ error: "Invalid report or Funder identifier." });
+    if (error?.code === "42501" || error?.code === "23514") return res.status(403).json({ error: "Funder share validation failed.", code: "FUNDER_SHARE_NOT_ALLOWED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/funder/report-shares/:shareId/revoke", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, shareId } = req.params;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 5) return res.status(400).json({ error: "A revocation reason of at least 5 characters is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "project.members.manage"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `UPDATE public.project_funder_report_shares
+          SET revoked_at = now(), revoked_by = $3::uuid, revoke_reason = $4::text
+        WHERE id = $1::uuid AND project_id = $2::uuid AND revoked_at IS NULL
+        RETURNING id, revoked_at, revoked_by, revoke_reason`,
+      [shareId, projectId, req.user?.id, reason],
+    );
+    if (rows.length !== 1) return res.status(404).json({ error: "Active Funder report share not found." });
+    return res.json({ share: rows[0], revoked: true });
+  } catch (error: any) {
+    if (error?.code === "22P02") return res.status(400).json({ error: "Invalid share identifier." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.post("/api/v1/reports/generate", requireAuth, async (req: express.Request, res: express.Response) => {
   const { templateId, projectId, cutoff } = req.body ?? {};
   if (!templateId) return res.status(400).json({ error: "templateId required" });
-  if (projectId && !(await requireProjectPermission(req, res, String(projectId), "reports.view"))) return;
+  if (!projectId) return res.status(400).json({ error: "projectId is required for report generation.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, String(projectId), "reports.create"))) return;
   try {
     const templateVersion = reportTemplatesStore.find((t: any) => t.id === templateId)?.version || 1;
     const cutoffAt = cutoff || new Date().toISOString();
@@ -1573,7 +3021,7 @@ app.get("/api/v1/notifications", requireAuth, async (req: express.Request, res: 
   try {
     const userId = req.user?.id;
     const { rows } = await req.db.query(
-      `SELECT id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, read_at, created_at
+      `SELECT id, event_id, project_id, work_item_id, recipient_user_id, created_by, title, message, priority, category, read_at, created_at
          FROM user_notifications
         WHERE recipient_user_id = $1::uuid
         ORDER BY created_at DESC`,
@@ -1583,6 +3031,7 @@ app.get("/api/v1/notifications", requireAuth, async (req: express.Request, res: 
       id: r.id,
       eventId: r.event_id,
       projectId: r.project_id,
+      workItemId: r.work_item_id,
       recipient: r.recipient_user_id,
       createdBy: r.created_by,
       title: r.title,
@@ -1612,7 +3061,7 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
     if (projectId) {
       if (typeof projectId !== "string") return res.status(400).json({ error: "Invalid projectId" });
       scopedProjectId = projectId;
-      if (!(await requireProjectPermission(req, res, scopedProjectId, "notifications.create"))) return;
+      if (!(await requireProjectPermission(req, res, scopedProjectId, "project.members.manage"))) return;
       if (recipientId !== senderId) {
         const { rows: memberRows } = await req.db.query(
           `SELECT 1 FROM project_members WHERE project_id = $1::uuid AND user_id = $2::uuid AND is_active = true LIMIT 1`,
@@ -1662,7 +3111,7 @@ app.patch("/api/v1/notifications/:id/read", requireAuth, async (req: express.Req
   }
 });
 
-app.get("/api/v1/reports/export/projects", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/export/projects", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT id, name, status, settlement_unit, target_quantity FROM projects WHERE is_active = true");
     const header = "id,name,status,settlement_unit,target_quantity";
@@ -1678,7 +3127,7 @@ app.get("/api/v1/reports/export/projects", requireAuth, async (req: express.Requ
 // Sprint 02E Finalization — Backend KPI Authority
 // ============================================
 
-app.get("/api/v1/reports/kpis/operational", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/kpis/operational", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows: tripRows } = await req.db.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'completed')::int AS completed FROM truck_trips");
     const { rows: receiptRows } = await req.db.query("SELECT COUNT(*)::int AS count FROM warehouse_receipts");
@@ -1697,7 +3146,7 @@ app.get("/api/v1/reports/kpis/operational", requireAuth, async (req: express.Req
   }
 });
 
-app.get("/api/v1/reports/kpis/financial", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/kpis/financial", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows: rabRows } = await req.db.query("SELECT COALESCE(SUM(amount),0) AS budget FROM rab WHERE is_active = true");
     const { rows: fxRows } = await req.db.query("SELECT COUNT(*)::int AS count FROM fx_exposures");
@@ -1713,7 +3162,7 @@ app.get("/api/v1/reports/kpis/financial", requireAuth, async (req: express.Reque
   }
 });
 
-app.get("/api/v1/reports/historical", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/historical", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT COUNT(*)::int AS sample_size, MIN(created_at) AS period_start, MAX(created_at) AS period_end FROM truck_trips");
     const sampleSize = rows[0]?.sample_size ?? 0;
@@ -1748,17 +3197,18 @@ app.get("/api/v1/reports/schedules", requireAuth, async (req: express.Request, r
         "SELECT * FROM report_schedules WHERE project_id = $1::uuid ORDER BY created_at DESC",
         [projectId],
       ));
-    } else if (req.user?.isAdmin) {
-      ({ rows } = await req.db.query("SELECT * FROM report_schedules ORDER BY created_at DESC"));
     } else {
       ({ rows } = await req.db.query(
-        `SELECT rs.* FROM report_schedules rs
-          WHERE rs.project_id IN (
-            SELECT pm.project_id FROM project_members pm WHERE pm.user_id = $1::uuid AND pm.is_active = true
-          )
-          ORDER BY rs.created_at DESC`,
-        [req.user?.id],
-      ));
+        `SELECT rs.* FROM report_schedules rs WHERE rs.project_id IN (
+          SELECT a.project_id FROM project_role_assignments a
+          JOIN project_members pm ON pm.id=a.project_member_id AND pm.project_id=a.project_id AND pm.user_id=a.user_id
+          JOIN project_roles pr ON pr.id=a.project_role_id AND pr.project_id=a.project_id AND pr.is_active=true
+          JOIN project_role_permissions prp ON prp.project_role_id=pr.id AND prp.project_id=pr.project_id
+          JOIN permissions perm ON perm.id=prp.permission_id AND perm.is_active=true
+          WHERE a.user_id=$1::uuid AND a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+          AND pm.is_active=true AND pm.deactivated_at IS NULL AND (pm.expires_at IS NULL OR pm.expires_at>now())
+          AND perm.code='reports.view' AND pr.role_code<>'funder'
+        ) ORDER BY rs.created_at DESC`,[req.user?.id]));
     }
     const schedules = rows.map((r: any) => ({
       id: r.id,
@@ -1788,7 +3238,8 @@ app.post("/api/v1/reports/schedules", requireAuth, async (req: express.Request, 
   const freq = String(frequency).toLowerCase();
   const allowedFreq = new Set(["daily", "weekly", "monthly"]);
   if (!allowedFreq.has(freq)) return res.status(400).json({ error: "Unsupported frequency. Allowed: daily, weekly, monthly" });
-  if (projectId && !(await requireProjectPermission(req, res, String(projectId), "reports.manage"))) return;
+  if (!projectId) return res.status(400).json({ error: "projectId is required for report scheduling.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, String(projectId), "reports.create"))) return;
   try {
     // Best-effort next execution: compute in UTC anchored to provided execution time; timezone stored for display/consistency.
     // Full timezone-aware recurrence requires calendar-aware scheduling; current implementation advances by frequency interval.
@@ -1860,7 +3311,7 @@ app.post("/api/v1/reports/scheduler/run-due", requireAuth, requireAdmin, async (
   }
 });
 
-app.get("/api/v1/reports/scheduler/runs", requireAuth, async (req: express.Request, res: express.Response) => {
+app.get("/api/v1/reports/scheduler/runs", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT * FROM report_runs WHERE schedule_id IS NOT NULL ORDER BY generated_at DESC LIMIT 200");
     res.json({ runs: rows.map((r: any) => ({ id: r.id, scheduleId: r.schedule_id, templateId: r.template_id, templateVersion: r.template_version, cutoff: r.cutoff_at, status: r.status, generatedAt: r.generated_at, idempotencyKey: r.idempotency_key, dataFreshness: r.data_freshness })) });
@@ -1880,7 +3331,7 @@ app.get("/api/v1/notifications/providers", requireAuth, async (req: express.Requ
 });
 
 // Export audit
-app.post("/api/v1/reports/export/audit", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/reports/export/audit", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   res.status(201).json({ status: "recorded", timestamp: new Date().toISOString() });
 });
 
@@ -1998,17 +3449,39 @@ app.get("/api/v1/projects/:id/detail", requireAuth, async (req: express.Request,
   if (!(await requireProjectPermission(req, res, id, "project.view"))) return;
   const { rows: projRows } = await req.db.query("SELECT * FROM projects WHERE id = $1::uuid", [id]);
   if (projRows.length === 0) return res.status(404).json({ error: "Project not found" });
-  const { rows: members } = await req.db.query(
-    `SELECT pm.id, pm.user_id, u.email, u.name, pm.project_role_id, pr.role_code, pr.name AS role_name,
-            pm.is_active, pm.joined_at, pm.expires_at
+  const { rows: memberAccess } = await req.db.query(
+    "SELECT public.pke_has_project_permission($1::uuid, 'project.members.view') AS allowed",
+    [id],
+  );
+  const { rows: roleAccess } = await req.db.query(
+    "SELECT public.pke_has_project_permission($1::uuid, 'project.roles.manage') AS allowed",
+    [id],
+  );
+  const { rows: operationsAccess } = await req.db.query(
+    "SELECT public.pke_has_project_permission($1::uuid, 'operations.view') AS allowed",
+    [id],
+  );
+  const members = memberAccess[0]?.allowed ? (await req.db.query(
+    `SELECT pm.id, pm.user_id, u.email, u.name,
+            pm.is_active, pm.joined_at, pm.expires_at,
+            coalesce(assignments.roles, '[]'::jsonb) AS role_assignments
        FROM project_members pm
        JOIN users u ON u.id = pm.user_id
-       LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+       LEFT JOIN LATERAL (
+         SELECT jsonb_agg(jsonb_build_object(
+           'id', a.id, 'projectRoleId', a.project_role_id,
+           'roleCode', pr.role_code, 'roleName', pr.name,
+           'isActive', a.is_active, 'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+         ) ORDER BY pr.role_code) AS roles
+           FROM public.project_role_assignments a
+           JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+          WHERE a.project_member_id = pm.id
+       ) assignments ON true
       WHERE pm.project_id = $1::uuid
-      ORDER BY pr.role_code, u.email`,
+      ORDER BY u.email`,
     [id]
-  );
-  const { rows: roles } = await req.db.query(
+  )).rows : [];
+  const roles = roleAccess[0]?.allowed ? (await req.db.query(
     `SELECT pr.id, pr.role_code, pr.name, pr.description, pr.is_active,
             (SELECT jsonb_agg(perm.code) FROM project_role_permissions prp
              JOIN permissions perm ON perm.id = prp.permission_id
@@ -2017,9 +3490,13 @@ app.get("/api/v1/projects/:id/detail", requireAuth, async (req: express.Request,
       WHERE pr.project_id = $1::uuid
       ORDER BY pr.role_code`,
     [id]
-  );
-  const { rows: profile } = await req.db.query("SELECT * FROM project_operating_profiles WHERE project_id = $1::uuid", [id]);
-  const { rows: readiness } = await req.db.query("SELECT * FROM project_module_readiness WHERE project_id = $1::uuid", [id]);
+  )).rows : [];
+  const { rows: profile } = operationsAccess[0]?.allowed
+    ? await req.db.query("SELECT * FROM project_operating_profiles WHERE project_id = $1::uuid", [id])
+    : { rows: [] };
+  const { rows: readiness } = roleAccess[0]?.allowed
+    ? await req.db.query("SELECT * FROM project_module_readiness WHERE project_id = $1::uuid", [id])
+    : { rows: [] };
   res.json({
     project: projRows[0],
     members,
@@ -2054,33 +3531,39 @@ app.post("/api/v1/projects/:id/roles", requireAuth, async (req: express.Request,
   if (!roleCode || !name) {
     return res.status(400).json({ error: "Required fields: roleCode, name" });
   }
+  const canonicalTemplate = getCanonicalRoleTemplate(String(roleCode));
+  if (!canonicalTemplate || canonicalTemplate.scope !== "project" ||
+      (templateRoleCode && templateRoleCode !== roleCode)) {
+    return res.status(400).json({ error: "Only centrally governed Project role templates may be activated.", code: "NON_CANONICAL_ROLE_TEMPLATE" });
+  }
   const userId = req.user?.id;
   try {
+    const { rows: permRows } = await req.db.query(
+      "SELECT id, code FROM permissions WHERE code = ANY($1::text[]) AND is_active = true",
+      [canonicalTemplate.permissionCodes],
+    );
+    const foundCodes = new Set(permRows.map((row: any) => row.code));
+    const missingCodes = canonicalTemplate.permissionCodes.filter((code) => !foundCodes.has(code));
+    if (missingCodes.length > 0) {
+      return res.status(503).json({ error: "Canonical role permissions are not fully provisioned.", code: "ROLE_TEMPLATE_PERMISSION_CATALOG_INCOMPLETE", missingPermissionCodes: missingCodes });
+    }
     const { rows: roleRows } = await req.db.query(
       `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
        VALUES ($1::uuid, $2::text, $3::text, $4::text, true, $5::uuid, now(), now())
+       ON CONFLICT (project_id, role_code) DO UPDATE SET is_active = true, updated_at = now()
        RETURNING id`,
-      [id, roleCode, name, description || null, userId]
+      [id, canonicalTemplate.code, canonicalTemplate.label, canonicalTemplate.restrictions.join(" "), userId]
     );
     const projectRoleId = roleRows[0].id;
-    if (templateRoleCode) {
-      const perms = defaultPermissionsForRole(templateRoleCode);
-      for (const permCode of perms) {
-        const { rows: permRows } = await req.db.query(
-          "SELECT id FROM permissions WHERE code = $1::text AND is_active = true LIMIT 1",
-          [permCode]
-        );
-        if (permRows.length > 0) {
-          await req.db.query(
-            `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-             VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
-             ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
-            [id, projectRoleId, permRows[0].id, userId]
-          );
-        }
-      }
-    }
-    res.status(201).json({ role: { id: projectRoleId, roleCode, name, description } });
+    await req.db.query(
+      `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
+       SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+         FROM permissions p
+        WHERE p.code = ANY($4::text[]) AND p.is_active = true
+       ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+      [id, projectRoleId, userId, canonicalTemplate.permissionCodes],
+    );
+    res.status(200).json({ role: { id: projectRoleId, roleCode: canonicalTemplate.code, name: canonicalTemplate.label, description: canonicalTemplate.restrictions.join(" ") }, activated: true, assignedUsers: 0 });
   } catch (error) {
     res.status(500).json(internalServerErrorPayload());
   }
@@ -2140,55 +3623,11 @@ app.get("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (re
   res.json({ permissions: rows });
 });
 
-app.put("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { id, roleId } = req.params;
-  const allowed = await requireProjectPermission(req, res, id, 'project.roles.manage');
-  if (!allowed) return;
-  const { permissionCodes } = req.body;
-  if (!Array.isArray(permissionCodes)) {
-    return res.status(400).json({ error: "permissionCodes array required" });
-  }
-  const userId = req.user?.id;
-  const { rows: validPerms } = await req.db.query(
-    "SELECT code FROM permissions WHERE is_active = true AND code = ANY($1::text[])",
-    [permissionCodes]
-  );
-  const validCodes = new Set(validPerms.map((r: any) => r.code));
-  const invalid = permissionCodes.filter((c: string) => !validCodes.has(c));
-  if (invalid.length > 0) {
-    return res.status(400).json({ error: "Invalid or inactive permission codes", invalid });
-  }
-  try {
-    // Use savepoint: req.db is request-scoped middleware-managed transaction.
-    await req.db.query("SAVEPOINT set_project_role_permissions");
-    try {
-      await req.db.query(
-        "DELETE FROM project_role_permissions WHERE project_role_id = $2::uuid AND project_id = $1::uuid",
-        [id, roleId]
-      );
-      for (const permCode of permissionCodes) {
-        const { rows: permRows } = await req.db.query(
-          "SELECT id FROM permissions WHERE code = $1::text AND is_active = true LIMIT 1",
-          [permCode]
-        );
-        if (permRows.length > 0) {
-          await req.db.query(
-            `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-             VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())`,
-            [id, roleId, permRows[0].id, userId]
-          );
-        }
-      }
-      await req.db.query("RELEASE SAVEPOINT set_project_role_permissions");
-      res.json({ ok: true, roleId, permissionCodes });
-    } catch (error) {
-      await req.db.query("ROLLBACK TO SAVEPOINT set_project_role_permissions").catch(() => {});
-      await req.db.query("RELEASE SAVEPOINT set_project_role_permissions").catch(() => {});
-      throw error;
-    }
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
-  }
+app.put("/api/v1/projects/:id/roles/:roleId/permissions", requireAuth, async (_req: express.Request, res: express.Response) => {
+  return res.status(409).json({
+    error: "Project role permission templates are centrally governed and cannot be edited per Project.",
+    code: "ROLE_PERMISSION_TEMPLATES_IMMUTABLE",
+  });
 });
 
 // ============================================
@@ -2199,17 +3638,109 @@ app.get("/api/v1/projects/:id/members", requireAuth, async (req: express.Request
   const allowed = await requireProjectPermission(req, res, id, 'project.members.view');
   if (!allowed) return;
   const { rows } = await req.db.query(
-    `SELECT pm.id, pm.user_id, u.email, u.name, pm.project_role_id, pr.role_code, pr.name AS role_name,
-            pm.is_active, pm.joined_at, pm.expires_at, pm.deactivated_at
+    `SELECT pm.id, pm.user_id, u.email, u.name,
+            pm.is_active, pm.joined_at, pm.expires_at, pm.deactivated_at,
+            coalesce(assignments.roles, '[]'::jsonb) AS role_assignments
        FROM project_members pm
        JOIN users u ON u.id = pm.user_id
-       LEFT JOIN project_roles pr ON pr.id = pm.project_role_id AND pr.project_id = pm.project_id
+       LEFT JOIN LATERAL (
+         SELECT jsonb_agg(jsonb_build_object(
+           'id', a.id, 'projectRoleId', a.project_role_id,
+           'roleCode', pr.role_code, 'roleName', pr.name,
+           'isActive', a.is_active, 'assignedAt', a.assigned_at,
+           'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+         ) ORDER BY pr.role_code) AS roles
+           FROM public.project_role_assignments a
+           JOIN public.project_roles pr
+             ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+          WHERE a.project_member_id = pm.id
+       ) assignments ON true
       WHERE pm.project_id = $1::uuid
       ORDER BY u.email`,
     [id]
   );
   res.json({ members: rows });
 });
+
+// Independent role assignments: membership is the Project access container;
+// each Project role has its own expiry and revocation history.
+app.post("/api/v1/projects/:id/members/:memberId/role-assignments", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id, memberId } = req.params;
+  if (!(await requireProjectPermission(req, res, id, "project.members.manage"))) return;
+  const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
+  const expiresAt = req.body?.expiresAt ?? null;
+  if (!projectRoleId || !validateRoleAssignmentExpiry(expiresAt).ok) {
+    return res.status(400).json({ error: "Valid projectRoleId and optional expiresAt are required.", code: "INVALID_ROLE_ASSIGNMENT" });
+  }
+  try {
+    const { rows: roleRows } = await req.db.query(
+      "SELECT id, role_code FROM public.project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true",
+      [id, projectRoleId],
+    );
+    if (roleRows.length !== 1) return res.status(400).json({ error: "Project role is invalid or inactive.", code: "INVALID_PROJECT_ROLE" });
+    if (roleRows[0].role_code === "pm") return res.status(403).json({ error: "PM assignment is an Admin-only decision; use the dedicated appointment workflow.", code: "PM_ADMIN_DECISION_REQUIRED" });
+    await req.db.query(
+      `UPDATE public.project_role_assignments
+          SET is_active = false, updated_at = now()
+        WHERE project_id = $1::uuid AND project_member_id = $2::uuid
+          AND project_role_id = $3::uuid AND is_active = true
+          AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= now()`,
+      [id, memberId, projectRoleId],
+    );
+    const { rows } = await req.db.query(
+      `INSERT INTO public.project_role_assignments
+         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by, expires_at)
+       SELECT pm.project_id, pm.id, pm.user_id, pr.id, true, now(), $4::uuid, $5::timestamptz
+         FROM public.project_members pm
+         JOIN public.project_roles pr ON pr.project_id = pm.project_id AND pr.id = $3::uuid AND pr.is_active = true
+        WHERE pm.project_id = $1::uuid AND pm.id = $2::uuid
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+       RETURNING *`,
+      [id, memberId, projectRoleId, req.user?.id ?? null, expiresAt],
+    );
+    if (rows.length !== 1) return res.status(409).json({ error: "Active Project membership or role not found.", code: "ROLE_ASSIGNMENT_CONTEXT_INVALID" });
+    return res.status(201).json({ assignment: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "This role is already assigned to this member.", code: "ROLE_ASSIGNMENT_EXISTS" });
+    if (error?.code === "23514") return res.status(409).json({ error: "Role assignment violates Project membership or role constraints.", code: "ROLE_ASSIGNMENT_REJECTED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/projects/:id/role-assignments/:assignmentId/revoke", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { id, assignmentId } = req.params;
+  if (!(await requireProjectPermission(req, res, id, "project.members.manage"))) return;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 5) return res.status(400).json({ error: "A revocation reason of at least 5 characters is required.", code: "AUDIT_REASON_REQUIRED" });
+  try {
+    const { rows: targetRows } = await req.db.query(
+      `SELECT pr.role_code
+         FROM public.project_role_assignments a
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+        WHERE a.id = $2::uuid AND a.project_id = $1::uuid AND a.revoked_at IS NULL
+        FOR UPDATE OF a`,
+      [id, assignmentId],
+    );
+    if (targetRows.length !== 1) return res.status(404).json({ error: "Active role assignment not found.", code: "ROLE_ASSIGNMENT_NOT_FOUND" });
+    if (targetRows[0].role_code === "pm") return res.status(403).json({ error: "PM deactivation is an Admin-only decision; use the dedicated Admin PM workflow.", code: "PM_ADMIN_DECISION_REQUIRED" });
+    const { rows } = await req.db.query(
+      `UPDATE public.project_role_assignments
+          SET is_active = false, revoked_at = now(), revoked_by = $3::uuid,
+              revoke_reason = $4::text, updated_at = now()
+        WHERE id = $2::uuid AND project_id = $1::uuid
+          AND revoked_at IS NULL
+        RETURNING *`,
+      [id, assignmentId, req.user?.id ?? null, reason],
+    );
+    if (rows.length !== 1) return res.status(404).json({ error: "Active role assignment not found.", code: "ROLE_ASSIGNMENT_NOT_FOUND" });
+    return res.json({ ok: true, assignment: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23514") return res.status(409).json({ error: "Role assignment revocation was rejected.", code: "ROLE_ASSIGNMENT_REJECTED" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 
 app.post("/api/v1/projects/:id/members/invite", requireAuth, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
@@ -2221,11 +3752,14 @@ app.post("/api/v1/projects/:id/members/invite", requireAuth, async (req: express
   }
   const userId = req.user?.id;
   const { rows: roleRows } = await req.db.query(
-    "SELECT id FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true",
+    "SELECT id, role_code FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true",
     [id, projectRoleId]
   );
   if (roleRows.length === 0) {
     return res.status(400).json({ error: "Invalid project role" });
+  }
+  if (roleRows[0].role_code === "pm") {
+    return res.status(403).json({ error: "PM appointments cannot be issued as invitations; use the explicit Admin PM appointment workflow.", code: "PM_ADMIN_DECISION_REQUIRED" });
   }
   const crypto = await import("node:crypto");
   const tokenHash = crypto.createHash("sha256").update(`${invitationEmail}:${id}:${Date.now()}:${crypto.randomBytes(16).toString("hex")}`).digest("hex");
@@ -2262,9 +3796,9 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
   if (expiresAt !== undefined && expiresAt !== null && (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt)))) {
     return res.status(400).json({ error: "expiresAt must be a valid timestamp or null.", code: "INVALID_MEMBERSHIP_EXPIRY" });
   }
-  const sensitiveChange = isActive !== undefined || projectRoleId !== undefined;
+  const sensitiveChange = isActive !== undefined || expiresAt !== undefined;
   if (sensitiveChange && reason.length < 3) {
-    return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status or role changes.", code: "AUDIT_REASON_REQUIRED" });
+    return res.status(400).json({ error: "A reason of at least 3 characters is required for membership status changes.", code: "AUDIT_REASON_REQUIRED" });
   }
 
   try {
@@ -2280,35 +3814,31 @@ app.patch("/api/v1/projects/:id/members/:memberId", requireAuth, async (req: exp
     const before = beforeRows[0];
 
     if (projectRoleId !== undefined) {
-      const { rows: roleRows } = await req.db.query(
-        "SELECT id FROM project_roles WHERE id = $2::uuid AND project_id = $1::uuid AND is_active = true LIMIT 1",
-        [id, projectRoleId],
-      );
-      if (roleRows.length === 0) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+      return res.status(409).json({
+        error: "Project membership is independent of role assignments. Use the dedicated role-assignment endpoint; membership PATCH cannot add, replace, or remove roles.",
+        code: "USE_ROLE_ASSIGNMENT_ENDPOINT",
+      });
     }
 
     const nextActive = isActive === undefined ? before.is_active === true : isActive;
     const nextExpiresAt = expiresAt === undefined ? before.expires_at : expiresAt;
     const { rows } = await req.db.query(
       `UPDATE project_members
-          SET project_role_id = COALESCE($3::uuid, project_role_id),
-              is_active = $4::boolean,
-              expires_at = $5::timestamptz,
-              deactivated_at = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_at, now()) END,
-              deactivated_by = CASE WHEN $4::boolean THEN NULL ELSE COALESCE(deactivated_by, $6::uuid) END,
+          SET is_active = $3::boolean,
+              expires_at = $4::timestamptz,
+              deactivated_at = CASE WHEN $3::boolean THEN NULL ELSE COALESCE(deactivated_at, now()) END,
+              deactivated_by = CASE WHEN $3::boolean THEN NULL ELSE COALESCE(deactivated_by, $5::uuid) END,
               updated_at = now()
         WHERE id = $2::uuid AND project_id = $1::uuid
         RETURNING *`,
-      [id, memberId, projectRoleId ?? null, nextActive, nextExpiresAt ?? null, req.user?.id ?? null],
+      [id, memberId, nextActive, nextExpiresAt ?? null, req.user?.id ?? null],
     );
     const after = rows[0];
     const action = isActive === false
       ? "project_member.deactivated"
       : isActive === true && (before.is_active !== true || before.deactivated_at != null)
         ? "project_member.reactivated"
-        : projectRoleId !== undefined
-          ? "project_member.role_changed"
-          : "project_member.updated";
+        : "project_member.updated";
     await req.db.query(
       `INSERT INTO audit_events
         (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
@@ -2390,12 +3920,13 @@ app.get("/api/v1/projects/:id/module-readiness", requireAuth, async (req: expres
 // Operational workflow routes (P06)
 // ============================================
 app.get("/api/v1/truck-trips", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "logistics.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM truck_trips ORDER BY created_at DESC LIMIT 100");
-    res.json({ truckTrips: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load truck trips" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM truck_trips WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ truckTrips: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/truck-trips", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -2403,6 +3934,7 @@ app.post("/api/v1/truck-trips", requireAuth, async (req: express.Request, res: e
   if (!projectId || !transportLegId || !licensePlate) {
     return res.status(400).json({ error: "Required fields: projectId, transportLegId, licensePlate" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "record_truck_trips"))) return;
   try {
     // Validate that the transport leg exists and belongs to the same project
     const { rows: legRows } = await req.db.query(
@@ -2443,6 +3975,12 @@ app.patch("/api/v1/truck-trips/:id", requireAuth, async (req: express.Request, r
     return res.status(400).json({ error: "Invalid status" });
   }
   try {
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id FROM truck_trips WHERE id = $1::uuid",
+      [req.params.id],
+    );
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Truck trip not found." });
+    if (!(await requireProjectPermission(req, res, scopeRows[0].project_id, "record_truck_trips"))) return;
     const { rows } = await req.db.query(
       `UPDATE truck_trips
           SET status = COALESCE($2, status),
@@ -2463,40 +4001,242 @@ app.patch("/api/v1/truck-trips/:id", requireAuth, async (req: express.Request, r
 });
 
 // ============================================
+// P16: Port network and warehouse master read/write surfaces.
+// Global master CRUD is Platform Admin-only; Project roles submit scoped evidence.
+// ============================================
+const p16UuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+async function requireP16ReadAccess(req: express.Request, res: express.Response, projectId: string, permissionCode: string): Promise<boolean> {
+  if (projectId && !p16UuidPattern.test(projectId)) {
+    res.status(400).json({ error: "Valid projectId is required when supplied." });
+    return false;
+  }
+  const { rows } = await req.db.query("SELECT public.pke_is_platform_admin() AS is_admin");
+  if (rows[0]?.is_admin === true) {
+    if (projectId) await req.db.query("SELECT set_config('app.current_project_id',$1,true)", [projectId]);
+    return true;
+  }
+  if (!p16UuidPattern.test(projectId)) {
+    res.status(400).json({ error: "A valid projectId is required." });
+    return false;
+  }
+  return requireProjectPermission(req, res, projectId, permissionCode);
+}
+
+
+app.get("/api/v1/ports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!(await requireP16ReadAccess(req, res, projectId, "port.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT p.id,p.name,p.code,p.city,p.province,p.country_code,p.unlocode,p.national_code,
+              p.authority_name,p.operator_name,p.source_reference,CASE WHEN p.verification_status='verified' AND (NULLIF(btrim(p.source_reference),'') IS NULL OR p.verified_at IS NULL OR (NULLIF(btrim(p.unlocode),'') IS NULL AND NULLIF(btrim(p.national_code),'') IS NULL AND NULLIF(btrim(p.code),'') IS NULL) OR COALESCE(p.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE p.verification_status END AS verification_status,p.verified_at,
+              (SELECT count(*)::int FROM public.port_terminals t WHERE t.port_id=p.id) AS terminal_count,
+              (SELECT count(*)::int FROM public.port_depth_observations d WHERE d.port_id=p.id) AS depth_observation_count
+         FROM public.ports p
+        WHERE p.is_active=true
+        ORDER BY p.country_code,p.province,p.city,p.name
+        LIMIT 250`,
+    );
+    return res.json({ ports: rows, canManage: req.user?.isAdmin === true, projectId });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  const portId = String(req.params.portId || "");
+  if (!p16UuidPattern.test(portId)) return res.status(400).json({ error: "Valid portId is required." });
+  if (!(await requireP16ReadAccess(req, res, projectId, "port.view"))) return;
+  try {
+    const { rows: ports } = await req.db.query("SELECT p.*,CASE WHEN p.verification_status='verified' AND (NULLIF(btrim(p.source_reference),'') IS NULL OR p.verified_at IS NULL OR (NULLIF(btrim(p.unlocode),'') IS NULL AND NULLIF(btrim(p.national_code),'') IS NULL AND NULLIF(btrim(p.code),'') IS NULL) OR COALESCE(p.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE p.verification_status END AS effective_verification_status FROM public.ports p WHERE p.id=$1::uuid AND p.is_active=true", [portId]);
+    if (!ports.length) return res.status(404).json({ error: "Port not found." });
+    const [terminals, berths, channels, anchorages, depths, tides, services, equipment, operatingLimits] = await Promise.all([
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_terminals WHERE port_id=$1::uuid ORDER BY name", [portId]),
+      req.db.query("SELECT b.*,t.name AS terminal_name,CASE WHEN b.verification_status='verified' AND (b.verified_at IS NULL OR NULLIF(btrim(b.source_reference),'') IS NULL OR COALESCE(b.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE b.verification_status END AS effective_verification_status FROM public.port_berths b JOIN public.port_terminals t ON t.id=b.terminal_id WHERE t.port_id=$1::uuid ORDER BY t.name,b.berth_code", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_channels WHERE port_id=$1::uuid ORDER BY channel_name", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_anchorages WHERE port_id=$1::uuid ORDER BY name NULLS LAST,anchorage_code", [portId]),
+      req.db.query("SELECT *,CASE WHEN quality_status='verified' AND (evidence_object_key IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' WHEN valid_to IS NOT NULL AND valid_to<CURRENT_DATE THEN 'stale' ELSE quality_status END AS effective_verification_status FROM public.port_depth_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
+      req.db.query("SELECT *,CASE WHEN quality_status='verified' AND (evidence_object_key IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' WHEN observed_at<now()-interval '24 hours' THEN 'stale' ELSE quality_status END AS effective_verification_status FROM public.port_tide_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_loading_services WHERE port_id=$1::uuid ORDER BY service_type", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_equipment WHERE port_id=$1::uuid ORDER BY equipment_type", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND approval_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_operating_limits WHERE port_id=$1::uuid ORDER BY effective_from DESC", [portId]),
+    ]);
+    return res.json({
+      port: ports[0], terminals: terminals.rows, berths: berths.rows, channels: channels.rows,
+      anchorages: anchorages.rows, depthObservations: depths.rows, tideObservations: tides.rows,
+      loadingServices: services.rows, equipment: equipment.rows, operatingLimits: operatingLimits.rows,
+      canManage: req.user?.isAdmin === true, assessmentMode: "advisory_only",
+    });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/warehouses", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!(await requireP16ReadAccess(req, res, projectId, "warehouse.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT w.id,w.code,w.name,w.location,w.port_id,w.terminal_id,w.operator_organization_id,
+              w.latitude,w.longitude,w.storage_mode,w.storage_capacity_mt,w.floor_area_m2,w.usable_volume_m3,
+              w.verification_status,w.verified_at,w.source_reference,w.evidence_sha256,CASE WHEN w.verification_status='verified' AND (w.verified_at IS NULL OR NULLIF(btrim(w.source_reference),'') IS NULL OR COALESCE(w.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE w.verification_status END AS effective_verification_status,w.is_active,p.name AS port_name,t.name AS terminal_name,
+              (SELECT count(*)::int FROM public.warehouse_zones z WHERE z.warehouse_id=w.id) AS zone_count,
+              (SELECT count(*)::int FROM public.warehouse_equipment e WHERE e.warehouse_id=w.id) AS equipment_count
+         FROM public.warehouses w
+         LEFT JOIN public.ports p ON p.id=w.port_id
+         LEFT JOIN public.port_terminals t ON t.id=w.terminal_id
+        WHERE w.is_active=true
+        ORDER BY p.name,w.name
+        LIMIT 250`,
+    );
+    return res.json({ warehouses: rows, projectId, canManage: req.user?.isAdmin === true });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/warehouses/:warehouseId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  const warehouseId = String(req.params.warehouseId || "");
+  if (!p16UuidPattern.test(warehouseId)) return res.status(400).json({ error: "Valid warehouseId is required." });
+  if (!(await requireP16ReadAccess(req, res, projectId, "warehouse.view"))) return;
+  try {
+    const { rows: warehouses } = await req.db.query(
+      "SELECT w.*,p.name AS port_name,t.name AS terminal_name,CASE WHEN w.verification_status='verified' AND (w.verified_at IS NULL OR NULLIF(btrim(w.source_reference),'') IS NULL OR COALESCE(w.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE w.verification_status END AS effective_verification_status FROM public.warehouses w LEFT JOIN public.ports p ON p.id=w.port_id LEFT JOIN public.port_terminals t ON t.id=w.terminal_id WHERE w.id=$1::uuid AND w.is_active=true",
+      [warehouseId],
+    );
+    if (!warehouses.length) return res.status(404).json({ error: "Warehouse not found." });
+    const [zones, equipment, reservations] = await Promise.all([
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.warehouse_zones WHERE warehouse_id=$1::uuid ORDER BY zone_code", [warehouseId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.warehouse_equipment WHERE warehouse_id=$1::uuid ORDER BY equipment_type", [warehouseId]),
+      req.db.query("SELECT * FROM public.warehouse_reservations WHERE warehouse_id=$1::uuid AND project_id=$2::uuid ORDER BY window_start DESC LIMIT 100", [warehouseId, projectId]),
+    ]);
+    const zoneIds = zones.rows.map((z: { id: string }) => z.id);
+    const bins = zoneIds.length
+      ? await req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.warehouse_bins WHERE zone_id=ANY($1::uuid[]) ORDER BY bin_code", [zoneIds])
+      : { rows: [] };
+    return res.json({ warehouse: warehouses[0], zones: zones.rows, bins: bins.rows, equipment: equipment.rows, reservations: reservations.rows, projectId, canManage: req.user?.isAdmin === true });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+// P16 governed CRUD: global master data is Platform Admin-owned; Project actors submit evidence only.
+type P16Resource={table:string,required:string[],fields:string[]};
+const P16_RESOURCES:Record<string,P16Resource>={
+ ports:{table:"ports",required:["name"],fields:["name","code","location","address","city","province","country_code","latitude","longitude","unlocode","national_code","authority_name","operator_name","source_reference","evidence_sha256","is_active"]},
+ terminals:{table:"port_terminals",required:["port_id","terminal_code","name"],fields:["port_id","terminal_code","name","operator_organization_id","cargo_types","status","operating_restrictions","source_reference","evidence_sha256"]},
+ berths:{table:"port_berths",required:["terminal_id","berth_code"],fields:["terminal_id","berth_code","name","length_m","max_beam_m","declared_depth_m","depth_datum","max_operational_draft_m","max_loa_m","status","restrictions","source_reference","evidence_sha256"]},
+ channels:{table:"port_channels",required:["port_id","channel_name","depth_datum"],fields:["port_id","channel_name","length_m","width_m","declared_depth_m","depth_datum","traffic_direction","restrictions","source_reference","survey_date","status","evidence_sha256"]},
+ anchorages:{table:"port_anchorages",required:["port_id","anchorage_code"],fields:["port_id","anchorage_code","name","latitude","longitude","declared_depth_m","depth_datum","capacity_vessels","restrictions","source_reference","survey_date","status","evidence_sha256"]},
+ "loading-services":{table:"port_loading_services",required:["port_id","service_type","cargo_type","handling_mode"],fields:["port_id","terminal_id","berth_id","service_type","cargo_type","handling_mode","rate_value","rate_unit","operating_window","status","source_reference","evidence_sha256"]},
+ "port-equipment":{table:"port_equipment",required:["port_id","equipment_type"],fields:["port_id","terminal_id","berth_id","equipment_type","rated_capacity","capacity_unit","condition_status","availability","source_reference","evidence_sha256"]},
+ "operating-limits":{table:"port_operating_limits",required:["port_id","effective_from","authority_name","source_reference"],fields:["port_id","terminal_id","berth_id","cargo_type","vessel_type","max_draft_m","max_loa_m","max_beam_m","min_ukc_m","weather_limits","effective_from","effective_to","authority_name","source_reference","approval_status","evidence_sha256"]},
+ warehouses:{table:"warehouses",required:["name"],fields:["name","code","location","port_id","terminal_id","operator_organization_id","latitude","longitude","storage_mode","storage_capacity_mt","floor_area_m2","usable_volume_m3","source_reference","evidence_sha256","is_active"]},
+ "warehouse-zones":{table:"warehouse_zones",required:["warehouse_id","zone_code","zone_type"],fields:["warehouse_id","zone_code","zone_type","capacity","unit_code","status","source_reference","evidence_sha256"]},
+ "warehouse-bins":{table:"warehouse_bins",required:["zone_id","bin_code"],fields:["zone_id","bin_code","capacity","unit_code","allowed_product_ids","status","source_reference","evidence_sha256"]},
+ "warehouse-equipment":{table:"warehouse_equipment",required:["warehouse_id","equipment_type"],fields:["warehouse_id","equipment_type","asset_code","rated_capacity","capacity_unit","condition_status","source_reference","evidence_sha256"]},
+ routes:{table:"pks_port_routes",required:["pks_site_id","port_id","route_mode"],fields:["pks_site_id","port_id","route_mode","distance_km","estimated_travel_minutes","route_notes","source_reference","evidence_sha256","is_active"]}
+};
+const P16_JSON_FIELDS=new Set(["operating_restrictions","restrictions","operating_window","availability","weather_limits"]);
+function p16Values(resource:string,body:Record<string,unknown>,partial:boolean){
+ const config=P16_RESOURCES[resource];if(!config)return null;
+ const keys=Object.keys(body||{}).filter(k=>config.fields.includes(k));
+ if(!partial&&config.required.some(k=>body[k]===undefined||body[k]===null||body[k]===""))return {error:"Required fields: "+config.required.join(", ")};
+ if(!keys.length)return {error:"No allowed P16 fields supplied."};
+ return {config,keys,values:keys.map(k=>P16_JSON_FIELDS.has(k)?JSON.stringify(body[k]):body[k])};
+}
+app.post("/api/v1/p16/master/:resource",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
+ const v=p16Values(String(req.params.resource||""),req.body||{},false);if(!v)return res.status(404).json({error:"Unknown P16 resource."});if("error" in v)return res.status(400).json({error:v.error});
+ try{const cols=v.keys.map(k=>'"'+k+'"'),params=v.keys.map((k,i)=>"$"+(i+1)+(P16_JSON_FIELDS.has(k)?"::jsonb":""));const r=await req.db.query("INSERT INTO public."+v.config.table+" ("+cols.join(",")+") VALUES ("+params.join(",")+") RETURNING *",v.values);return res.status(201).json({record:r.rows[0],verificationStatus:"submitted",requiresIndependentReview:true});}
+ catch(e:any){if(e?.code==="23505")return res.status(409).json({error:"Duplicate P16 master key."});if(e?.code==="23503"||e?.code==="23514")return res.status(400).json({error:"P16 master validation failed."});return res.status(500).json(internalServerErrorPayload());}
+});
+app.patch("/api/v1/p16/master/:resource/:recordId",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
+ const id=String(req.params.recordId||"");if(!p16UuidPattern.test(id))return res.status(400).json({error:"Valid recordId is required."});const v=p16Values(String(req.params.resource||""),req.body||{},true);if(!v)return res.status(404).json({error:"Unknown P16 resource."});if("error" in v)return res.status(400).json({error:v.error});
+ try{const sets=v.keys.map((k,i)=>'"'+k+'"=$'+(i+2)+(P16_JSON_FIELDS.has(k)?"::jsonb":""));const r=await req.db.query("UPDATE public."+v.config.table+" SET "+sets.join(",")+" WHERE id=$1::uuid RETURNING *",[id,...v.values]);if(!r.rows.length)return res.status(404).json({error:"P16 record not found."});return res.json({record:r.rows[0],verificationStatus:"submitted",requiresIndependentReview:true});}
+ catch(e:any){if(e?.code==="23503"||e?.code==="23514")return res.status(400).json({error:"P16 master validation failed."});return res.status(500).json(internalServerErrorPayload());}
+});
+app.patch("/api/v1/p16/master/:resource/:recordId/review",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
+ const resource=String(req.params.resource||""),cfg=P16_RESOURCES[resource],id=String(req.params.recordId||""),status=String(req.body?.status||""),note=String(req.body?.reviewNote||"").trim();if(!cfg)return res.status(404).json({error:"Unknown P16 resource."});if(!p16UuidPattern.test(id)||!["verified","rejected"].includes(status)||note.length<5||note.length>500)return res.status(400).json({error:"Valid record, review status and review note required."});
+ try{const r=resource==="operating-limits" ? await req.db.query("UPDATE public.port_operating_limits SET verification_status=$2,approval_status=$2,review_note=$3 WHERE id=$1::uuid RETURNING *",[id,status,note]) : await req.db.query("UPDATE public."+cfg.table+" SET verification_status=$2,review_note=$3 WHERE id=$1::uuid RETURNING *",[id,status,note]);if(!r.rows.length)return res.status(404).json({error:"P16 record not found."});return res.json({record:r.rows[0],reviewed:true});}
+ catch(e:any){if(e?.code==="23514"||e?.code==="42501")return res.status(409).json({error:"Independent review requires another reviewer, source, SHA-256 and review note."});return res.status(500).json(internalServerErrorPayload());}
+});
+app.post("/api/v1/ports/:portId/depth-observations",requireAuth,async(req:express.Request,res:express.Response)=>{
+ const projectId=String(req.body?.projectId||""),portId=String(req.params.portId||""),b=req.body||{};if(!p16UuidPattern.test(projectId)||!p16UuidPattern.test(portId))return res.status(400).json({error:"Valid Project and port are required."});if(!(await requireProjectPermission(req,res,projectId,"port.depth.submit")))return;
+ if(!Number.isFinite(Number(b.depthValue))||Number(b.depthValue)<=0||!b.depthDatum||!b.observedAt||!b.surveyDate||!b.sourceAuthority||!b.evidenceObjectKey||!/^[0-9a-f]{64}$/i.test(String(b.evidenceSha256||"")))return res.status(400).json({error:"Depth requires positive metres, datum, date, authority, evidence key and SHA-256."});
+ try{const s=await req.db.query("SELECT public.pke_p16_project_port_permission($1::uuid,$2::uuid,'port.depth.submit') AS ok",[projectId,portId]);if(!s.rows[0]?.ok)return res.status(403).json({error:"Port is not linked to this Project."});const r=await req.db.query("INSERT INTO public.port_depth_observations(port_id,terminal_id,berth_id,channel_id,anchorage_id,depth_feature_type,depth_value,depth_unit,depth_datum,observed_at,survey_date,source_authority,survey_method,evidence_object_key,evidence_sha256,notes) VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7::numeric,'m',$8,$9::timestamptz,$10::date,$11,$12,$13,$14,$15) RETURNING *",[portId,b.terminalId||null,b.berthId||null,b.channelId||null,b.anchorageId||null,b.depthFeatureType||"port",Number(b.depthValue),b.depthDatum,b.observedAt,b.surveyDate,b.sourceAuthority,b.surveyMethod||null,b.evidenceObjectKey,b.evidenceSha256,b.notes||null]);return res.status(201).json({observation:r.rows[0],qualityStatus:"submitted"});}
+ catch(e:any){if(e?.code==="23503"||e?.code==="23514")return res.status(400).json({error:"Depth evidence failed validation."});if(e?.code==="42501")return res.status(403).json({error:"Depth submission denied."});return res.status(500).json(internalServerErrorPayload());}
+});
+app.post("/api/v1/ports/:portId/tide-observations",requireAuth,async(req:express.Request,res:express.Response)=>{
+ const projectId=String(req.body?.projectId||""),portId=String(req.params.portId||""),b=req.body||{};if(!p16UuidPattern.test(projectId)||!p16UuidPattern.test(portId))return res.status(400).json({error:"Valid Project and port are required."});if(!(await requireProjectPermission(req,res,projectId,"port.depth.submit")))return;
+ if(!Number.isFinite(Number(b.tideHeightM))||!b.verticalDatum||!b.observedAt||!b.sourceReference||!b.evidenceObjectKey||!/^[0-9a-f]{64}$/i.test(String(b.evidenceSha256||"")))return res.status(400).json({error:"Tide requires height, datum, observedAt, source, evidence key and SHA-256."});
+ try{const s=await req.db.query("SELECT public.pke_p16_project_port_permission($1::uuid,$2::uuid,'port.depth.submit') AS ok",[projectId,portId]);if(!s.rows[0]?.ok)return res.status(403).json({error:"Port is not linked to this Project."});const r=await req.db.query("INSERT INTO public.port_tide_observations(port_id,berth_id,observed_at,tide_height_m,vertical_datum,is_forecast,provider_code,source_reference,evidence_object_key,evidence_sha256) VALUES($1::uuid,$2::uuid,$3::timestamptz,$4::numeric,$5,$6,$7,$8,$9,$10) RETURNING *",[portId,b.berthId||null,b.observedAt,Number(b.tideHeightM),b.verticalDatum,Boolean(b.isForecast),b.providerCode||null,b.sourceReference,b.evidenceObjectKey,b.evidenceSha256]);return res.status(201).json({observation:r.rows[0],qualityStatus:"submitted"});}
+ catch(e:any){if(e?.code==="23503"||e?.code==="23514")return res.status(400).json({error:"Tide evidence failed validation."});if(e?.code==="42501")return res.status(403).json({error:"Tide submission denied."});return res.status(500).json(internalServerErrorPayload());}
+});
+app.patch("/api/v1/port-depth-observations/:id/review",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
+ const id=String(req.params.id||""),status=String(req.body?.status||""),note=String(req.body?.reviewNote||"").trim();if(!p16UuidPattern.test(id)||!["verified","rejected","stale"].includes(status)||note.length<5)return res.status(400).json({error:"Valid id, review status and note required."});try{const r=await req.db.query("UPDATE public.port_depth_observations SET quality_status=$2,review_note=$3 WHERE id=$1::uuid RETURNING *",[id,status,note]);if(!r.rows.length)return res.status(404).json({error:"Depth observation not found."});return res.json({observation:r.rows[0]});}catch(e:any){if(e?.code==="23514"||e?.code==="42501")return res.status(409).json({error:"Independent depth review denied."});return res.status(500).json(internalServerErrorPayload());}
+});
+app.patch("/api/v1/port-tide-observations/:id/review",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
+ const id=String(req.params.id||""),status=String(req.body?.status||""),note=String(req.body?.reviewNote||"").trim();if(!p16UuidPattern.test(id)||!["verified","rejected","stale"].includes(status)||note.length<5)return res.status(400).json({error:"Valid id, review status and note required."});try{const r=await req.db.query("UPDATE public.port_tide_observations SET quality_status=$2,review_note=$3 WHERE id=$1::uuid RETURNING *",[id,status,note]);if(!r.rows.length)return res.status(404).json({error:"Tide observation not found."});return res.json({observation:r.rows[0]});}catch(e:any){if(e?.code==="23514"||e?.code==="42501")return res.status(409).json({error:"Independent tide review denied."});return res.status(500).json(internalServerErrorPayload());}
+});
+app.get("/api/v1/vessels",requireAuth,async(req:express.Request,res:express.Response)=>{
+ const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";
+ if(!(await requireP16ReadAccess(req,res,projectId,"vessel.view")))return;
+ try{const r=await req.db.query("SELECT id,name,imo_number,vessel_type,loa_m,beam_m,max_draft_m,summer_draft_m,verification_status,verified_at,source_reference FROM public.vessels WHERE is_active=true ORDER BY name LIMIT 250");return res.json({vessels:r.rows,projectId});}
+ catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.get("/api/v1/port-routes",requireAuth,async(req:express.Request,res:express.Response)=>{
+ const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";if(!(await requireP16ReadAccess(req,res,projectId,"route.estimate")))return;
+ try{const r=await req.db.query("SELECT r.*,ps.name AS pks_site_name,p.name AS port_name,CASE WHEN r.verification_status='verified' AND r.verified_at IS NOT NULL AND NULLIF(btrim(r.source_reference),'') IS NOT NULL AND r.evidence_sha256 ~ '^[0-9a-f]{64}$' THEN 'verified' ELSE 'unverified' END AS effective_verification_status FROM public.pks_port_routes r JOIN public.pks_sites ps ON ps.id=r.pks_site_id JOIN public.ports p ON p.id=r.port_id WHERE r.is_active=true AND ($1::uuid IS NULL OR EXISTS(SELECT 1 FROM public.project_operating_profiles op WHERE op.project_id=$1::uuid AND op.primary_pks_site_id=r.pks_site_id) OR EXISTS(SELECT 1 FROM public.project_pks_site_participation part WHERE part.project_id=$1::uuid AND part.pks_site_id=r.pks_site_id AND part.status='active')) ORDER BY ps.name,p.name,r.route_mode",[projectId||null]);return res.json({routes:r.rows,projectId,estimateMode:"advisory_only"});}catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.post("/api/v1/vessel-port-assessments",requireAuth,async(req:express.Request,res:express.Response)=>{
+ const b=req.body||{},projectId=String(b.projectId||""),portId=String(b.portId||""),vesselId=String(b.vesselId||""),berthId=b.berthId?String(b.berthId):null;if(!p16UuidPattern.test(projectId)||!p16UuidPattern.test(portId)||!p16UuidPattern.test(vesselId)||(berthId&&!p16UuidPattern.test(berthId)))return res.status(400).json({error:"Valid Project, port, vessel and optional berth required."});if(!(await requireProjectPermission(req,res,projectId,"vessel.port.assess")))return;
+ try{
+  const s=await req.db.query("SELECT public.pke_p16_project_port_permission($1::uuid,$2::uuid,'vessel.port.assess') AS ok",[projectId,portId]);if(!s.rows[0]?.ok)return res.status(403).json({error:"Port is not linked to this Project."});
+  const vr=await req.db.query("SELECT id,name,imo_number,loa_m,beam_m,max_draft_m,summer_draft_m,verification_status,verified_at,source_reference FROM public.vessels WHERE id=$1::uuid AND is_active=true",[vesselId]);if(!vr.rows.length)return res.status(404).json({error:"Vessel not found."});const vessel=vr.rows[0];
+  const [pr,br,lr,dr,tr]=await Promise.all([req.db.query("SELECT id,name,code,unlocode,national_code,verification_status,verified_at,source_reference,evidence_sha256 FROM public.ports WHERE id=$1::uuid",[portId]),berthId?req.db.query("SELECT b.* FROM public.port_berths b JOIN public.port_terminals t ON t.id=b.terminal_id WHERE b.id=$1::uuid AND t.port_id=$2::uuid",[berthId,portId]):Promise.resolve({rows:[]}),req.db.query("SELECT * FROM public.port_operating_limits WHERE port_id=$1::uuid AND approval_status='verified' AND verification_status='verified' AND verified_at IS NOT NULL AND NULLIF(btrim(source_reference),'') IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND effective_from<=CURRENT_DATE AND (effective_to IS NULL OR effective_to>=CURRENT_DATE) AND (berth_id IS NULL OR berth_id=$2::uuid) ORDER BY berth_id NULLS LAST,effective_from DESC LIMIT 1",[portId,berthId]),req.db.query("SELECT * FROM public.port_depth_observations WHERE port_id=$1::uuid AND quality_status='verified' AND depth_unit='m' AND evidence_object_key IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND survey_date<=CURRENT_DATE AND observed_at<=now() AND (valid_to IS NULL OR valid_to>=CURRENT_DATE) AND (berth_id IS NULL OR berth_id=$2::uuid) ORDER BY berth_id NULLS LAST,observed_at DESC LIMIT 1",[portId,berthId]),req.db.query("SELECT * FROM public.port_tide_observations WHERE port_id=$1::uuid AND quality_status='verified' AND evidence_object_key IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND observed_at>=now()-interval '24 hours' AND observed_at<=now() AND (berth_id IS NULL OR berth_id=$2::uuid) ORDER BY observed_at DESC LIMIT 1",[portId,berthId])]);
+  const port=pr.rows[0]||null,berth=br.rows[0]||null,limit=lr.rows[0]||null,depth=dr.rows[0]||null,tide=tr.rows[0]||null,limitations:string[]=["Advisory screening only; not navigation clearance or substitute for port authority, pilot, master or terminal approval."];
+  let result="insufficient_data";const vesselOk=vessel.verification_status==="verified"&&vessel.verified_at&&vessel.source_reference,portOk=port?.verification_status==="verified"&&port.verified_at&&port.source_reference&&port.evidence_sha256&&/^[0-9a-f]{64}$/.test(port.evidence_sha256)&&(port.unlocode||port.national_code||port.code),berthOk=!berthId||(berth&&berth.status==="operational"&&berth.verification_status==="verified"&&berth.verified_at&&berth.source_reference&&/^[0-9a-f]{64}$/.test(berth.evidence_sha256||""));
+  if(!vesselOk)limitations.push("Vessel particulars lack verified provenance.");if(!portOk)limitations.push("Port master lacks verified provenance.");if(!berthOk)limitations.push("Berth is absent or not verified operational.");if(!limit)limitations.push("No current verified operating limit.");if(!depth)limitations.push("No current verified depth survey.");if(!tide||tide.is_forecast)limitations.push("No fresh verified observed tide record.");
+  if(vesselOk&&portOk&&berthOk&&limit&&depth&&tide&&!tide.is_forecast){const draft=Number(vessel.max_draft_m||vessel.summer_draft_m||0),loa=Number(vessel.loa_m||0),beam=Number(vessel.beam_m||0),ukc=Number(depth.depth_value)+Number(tide.tide_height_m)-draft;if(!draft||!loa||!beam||depth.depth_datum!==tide.vertical_datum){result="manual_review_required";limitations.push("Dimensions or matching vertical datum incomplete.");}else if((limit.max_draft_m!==null&&draft>Number(limit.max_draft_m))||(limit.max_loa_m!==null&&loa>Number(limit.max_loa_m))||(limit.max_beam_m!==null&&beam>Number(limit.max_beam_m))||ukc<Number(limit.min_ukc_m||0)){result="not_eligible";limitations.push("Dimensions or advisory UKC exceed the recorded envelope.");}else{result="eligible_for_review";limitations.push("Recorded values are within the envelope; independent clearance remains mandatory.");}}
+  const inputs={vessel:{id:vessel.id,imo_number:vessel.imo_number,loa_m:vessel.loa_m,beam_m:vessel.beam_m,max_draft_m:vessel.max_draft_m,summer_draft_m:vessel.summer_draft_m},port,berth,limit,depth,tide},freshness={vesselVerifiedAt:vessel.verified_at,portVerifiedAt:port?.verified_at,limitEffectiveFrom:limit?.effective_from,depthSurveyDate:depth?.survey_date,depthValidTo:depth?.valid_to,tideObservedAt:tide?.observed_at,tideReceivedAt:tide?.received_at};
+  const saved=await req.db.query("INSERT INTO public.vessel_port_assessments(project_id,vessel_id,port_id,terminal_id,berth_id,assessment_inputs,source_freshness,result,limitations,assessed_by) VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6::jsonb,$7::jsonb,$8,$9::text[],$10::uuid) RETURNING *",[projectId,vesselId,portId,berth?.terminal_id||null,berthId,JSON.stringify(inputs),JSON.stringify(freshness),result,limitations,req.user?.id||null]);return res.status(201).json({assessment:saved.rows[0],mode:"advisory_only",limitations});
+ }catch(e:any){if(e?.code==="23514"||e?.code==="42501")return res.status(403).json({error:"Vessel-port assessment permission or evidence policy failed."});return res.status(500).json(internalServerErrorPayload());}
+});
+
+// ============================================
 // Transport legs (read-only listing for trip assignment)
 // ============================================
 app.get("/api/v1/transport-legs", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId } = req.query;
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter required" });
+  if (!(await requireProjectPermission(req, res, projectId, "logistics.view"))) return;
   try {
-    if (projectId) {
-      const { rows } = await req.db.query(
-        `SELECT id, project_id, origin, destination, distance_km, status, created_at, updated_at
-         FROM transport_legs
-         WHERE project_id = $1::uuid
-         ORDER BY created_at DESC LIMIT 100`,
-        [projectId],
-      );
-      res.json({ transportLegs: rows });
-    } else {
-      const { rows } = await req.db.query(
-        `SELECT id, project_id, origin, destination, distance_km, status, created_at, updated_at
-         FROM transport_legs
-         ORDER BY created_at DESC LIMIT 100`,
-      );
-      res.json({ transportLegs: rows });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load transport legs" });
+    const { rows } = await req.db.query(
+      `SELECT id, project_id, origin, destination, distance_km, status, created_at, updated_at
+       FROM transport_legs
+       WHERE project_id = $1::uuid
+       ORDER BY created_at DESC LIMIT 100`,
+      [projectId],
+    );
+    return res.json({ transportLegs: rows });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.get("/api/v1/tracking-events", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "logistics.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM tracking_events ORDER BY created_at DESC LIMIT 100");
-    res.json({ trackingEvents: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load tracking events" });
-  }
+    const { rows } = await req.db.query(
+      "SELECT te.* FROM tracking_events te JOIN truck_trips tt ON tt.id = te.truck_trip_id WHERE tt.project_id = $1::uuid ORDER BY te.created_at DESC LIMIT 100",
+      [projectId],
+    );
+    return res.json({ trackingEvents: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/tracking-events", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -2536,15 +4276,8 @@ app.post("/api/v1/tracking-events", requireAuth, async (req: express.Request, re
       return res.status(404).json({ error: "Truck trip not found" });
     }
     const tripProjectId = tripRows[0].project_id as string;
-    if (!req.user?.isAdmin) {
-      const { rows: memberRows } = await req.db.query(
-        `SELECT 1 FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid`,
-        [tripProjectId, req.user.id],
-      );
-      if (memberRows.length === 0) {
-        return res.status(403).json({ error: "Forbidden - not a member of the trip's project" });
-      }
-    }
+    const requiredPermission = eventType === "receipt" ? "warehouse.receipt.create" : eventType === "checkpoint" ? "verify_checkpoints" : "record_truck_trips";
+    if (!(await requireProjectPermission(req, res, tripProjectId, requiredPermission))) return;
     const effectiveCapture = captureTimestamp || new Date().toISOString();
     const { rows } = await req.db.query(
       `INSERT INTO tracking_events (truck_trip_id, event_type, checker_id, latitude, longitude, gps_accuracy, source, capture_timestamp, status, notes, created_at)
@@ -2559,31 +4292,38 @@ app.post("/api/v1/tracking-events", requireAuth, async (req: express.Request, re
 
 app.get("/api/v1/tracking-events/trip/:tripId", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
+    const { rows: trips } = await req.db.query("SELECT project_id FROM truck_trips WHERE id = $1::uuid", [req.params.tripId]);
+    if (!trips.length) return res.status(404).json({ error: "Truck trip not found." });
+    if (!(await requireProjectPermission(req, res, trips[0].project_id, "logistics.view"))) return;
     const { rows } = await req.db.query("SELECT * FROM tracking_events WHERE truck_trip_id = $1::uuid ORDER BY created_at DESC", [req.params.tripId]);
-    res.json({ trackingEvents: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load tracking events" });
-  }
+    return res.json({ trackingEvents: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.get("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "warehouse.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM warehouse_receipts ORDER BY created_at DESC LIMIT 100");
-    res.json({ warehouseReceipts: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load warehouse receipts" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM warehouse_receipts WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ warehouseReceipts: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, truckTripId, lotId, receivedQuantity, unit, conditionStatus, exceptionReason, weighbridgeTicketKey, checkTimestamp, status } = req.body ?? {};
   const checkerId = req.user?.id;
-  if (!projectId || receivedQuantity === undefined || !unit) {
-    return res.status(400).json({ error: "Required fields: projectId, receivedQuantity, unit" });
+  const receivedAmount = Number(receivedQuantity);
+  const receiptStatuses = new Set(["pending", "verified", "partial"]);
+  if (!projectId || receivedQuantity === undefined || !Number.isFinite(receivedAmount) || receivedAmount <= 0 ||
+      typeof unit !== "string" || !unit.trim() ||
+      (status !== undefined && (typeof status !== "string" || !receiptStatuses.has(status)))) {
+    return res.status(400).json({ error: "Required fields: projectId, positive receivedQuantity and unit.", code: "INVALID_WAREHOUSE_RECEIPT" });
   }
   if (typeof checkerId !== "string") {
     return res.status(401).json({ error: "Authenticated principal required" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "warehouse.receipt.create"))) return;
   try {
     if (truckTripId) {
       const { rows: tripRows } = await req.db.query(`SELECT id, project_id FROM truck_trips WHERE id = $1::uuid`, [truckTripId]);
@@ -2591,15 +4331,16 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
       if (tripRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden" });
     }
     if (lotId) {
-      const { rows: lotRows } = await req.db.query(`SELECT id, project_id FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
+      const { rows: lotRows } = await req.db.query(`SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE`, [lotId]);
       if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
       if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden" });
+      if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Receipt unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
     }
     const effectiveCheck = checkTimestamp || new Date().toISOString();
     const { rows } = await req.db.query(
       `INSERT INTO warehouse_receipts (project_id, truck_trip_id, lot_id, received_quantity, unit, condition_status, exception_reason, weighbridge_ticket_key, checker_id, check_timestamp, status, created_at, updated_at)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9::uuid, $10::timestamptz, $11, now(), now()) RETURNING *`,
-      [projectId, truckTripId || null, lotId || null, receivedQuantity, unit, conditionStatus || null, exceptionReason || null, weighbridgeTicketKey || null, checkerId, effectiveCheck, status || "pending"],
+      [projectId, truckTripId || null, lotId || null, receivedAmount, unit.trim(), conditionStatus || null, exceptionReason || null, weighbridgeTicketKey || null, checkerId, effectiveCheck, status || "pending"],
     );
     res.status(201).json({ warehouseReceipt: rows[0] });
   } catch (error) {
@@ -2609,7 +4350,32 @@ app.post("/api/v1/warehouse-receipts", requireAuth, async (req: express.Request,
 
 app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   const { status, receivedQuantity, unit, conditionStatus, exceptionReason } = req.body ?? {};
+  const receiptStatuses = new Set(["pending", "verified", "partial"]);
+  if (receivedQuantity !== undefined && (!Number.isFinite(Number(receivedQuantity)) || Number(receivedQuantity) <= 0)) {
+    return res.status(400).json({ error: "receivedQuantity must be a positive finite number.", code: "INVALID_RECEIVED_QUANTITY" });
+  }
+  if (status !== undefined && (typeof status !== "string" || !receiptStatuses.has(status))) {
+    return res.status(400).json({ error: "Invalid warehouse receipt status.", code: "INVALID_RECEIPT_STATUS" });
+  }
+  if (unit !== undefined && (typeof unit !== "string" || !unit.trim())) {
+    return res.status(400).json({ error: "unit must be a non-empty string.", code: "INVALID_RECEIPT_UNIT" });
+  }
   try {
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id, lot_id FROM warehouse_receipts WHERE id = $1::uuid",
+      [req.params.id],
+    );
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Warehouse receipt not found." });
+    if (!(await requireProjectPermission(req, res, scopeRows[0].project_id, "warehouse.update"))) return;
+    if (unit !== undefined && scopeRows[0].lot_id) {
+      const { rows: lotRows } = await req.db.query(
+        "SELECT unit FROM inventory_lots WHERE id = $1::uuid AND project_id = $2::uuid",
+        [scopeRows[0].lot_id, scopeRows[0].project_id],
+      );
+      if (lotRows.length !== 1 || lotRows[0].unit !== unit.trim()) {
+        return res.status(400).json({ error: "Receipt unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
+      }
+    }
     const { rows } = await req.db.query(
       `UPDATE warehouse_receipts
           SET status = COALESCE($2, status),
@@ -2619,7 +4385,7 @@ app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Req
               exception_reason = COALESCE($6, exception_reason),
               updated_at = now()
         WHERE id = $1::uuid RETURNING *`,
-      [req.params.id, status ?? null, receivedQuantity ?? null, unit ?? null, conditionStatus ?? null, exceptionReason ?? null],
+      [req.params.id, status ?? null, receivedQuantity === undefined ? null : Number(receivedQuantity), unit === undefined ? null : unit.trim(), conditionStatus ?? null, exceptionReason ?? null],
     );
     if (rows.length === 0) return res.status(404).json({ error: "Warehouse receipt not found" });
     res.json({ warehouseReceipt: rows[0] });
@@ -2629,17 +4395,19 @@ app.patch("/api/v1/warehouse-receipts/:id", requireAuth, async (req: express.Req
 });
 
 app.get("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM inventory_lots ORDER BY created_at DESC LIMIT 100");
-    res.json({ inventoryLots: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load inventory lots" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM inventory_lots WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ inventoryLots: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, pksSiteId, quantity, unit, location, status } = req.body;
   if (!projectId || quantity === undefined) return res.status(400).json({ error: "projectId, quantity required" });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.create"))) return;
   try {
     const { rows } = await req.db.query(
       `INSERT INTO inventory_lots (project_id, pks_site_id, quantity, unit, location, status, created_at, updated_at)
@@ -2652,16 +4420,34 @@ app.post("/api/v1/inventory-lots", requireAuth, async (req: express.Request, res
   }
 });
 
+app.get("/api/v1/inventory-movements", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
+  try {
+    const { rows } = await req.db.query("SELECT * FROM inventory_movements WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ inventoryMovements: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, lotId, movementType, quantity, unit, warehouseReceiptId, sourceLocation, destinationLocation, reason, referenceId, referenceType, status } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || !movementType || quantity === undefined || !unit || !actorId) {
-    return res.status(400).json({ error: "projectId, lotId, movementType, quantity, unit required" });
+  const movementQuantity = Number(quantity);
+  const movementTypes = new Set(["receipt", "issue", "transfer", "adjustment"]);
+  const movementStatuses = new Set(["posted", "reversed", "adjusted"]);
+  if (!projectId || !lotId || typeof movementType !== "string" || !movementType.trim() || !movementTypes.has(movementType.trim()) ||
+      quantity === undefined || !Number.isFinite(movementQuantity) || movementQuantity <= 0 ||
+      typeof unit !== "string" || !unit.trim() || !actorId ||
+      (status !== undefined && (typeof status !== "string" || !movementStatuses.has(status)))) {
+    return res.status(400).json({ error: "projectId, lotId, movementType, positive quantity, unit and authenticated actor are required", code: "INVALID_INVENTORY_MOVEMENT" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.update"))) return;
   try {
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
+    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE`, [lotId]);
     if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
     if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
+    if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Movement unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
     if (warehouseReceiptId) {
       const { rows: receiptRows } = await req.db.query(`SELECT id, project_id FROM warehouse_receipts WHERE id = $1::uuid`, [warehouseReceiptId]);
       if (receiptRows.length === 0) return res.status(400).json({ error: "Invalid warehouse receipt" });
@@ -2670,7 +4456,7 @@ app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request
     const { rows } = await req.db.query(
       `INSERT INTO inventory_movements (project_id, lot_id, warehouse_receipt_id, movement_type, quantity, unit, source_location, destination_location, reason, actor_id, reference_id, reference_type, status, created_at)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10::uuid, $11::uuid, $12, $13, now()) RETURNING *`,
-      [projectId, lotId, warehouseReceiptId || null, movementType, quantity, unit, sourceLocation || null, destinationLocation || null, reason || null, actorId, referenceId || null, referenceType || null, status || "posted"],
+      [projectId, lotId, warehouseReceiptId || null, movementType.trim(), movementQuantity, unit.trim(), sourceLocation || null, destinationLocation || null, reason || null, actorId, referenceId || null, referenceType || null, status || "posted"],
     );
     res.status(201).json({ inventoryMovement: rows[0] });
   } catch (error) {
@@ -2682,80 +4468,218 @@ app.post("/api/v1/inventory-movements", requireAuth, async (req: express.Request
 // Inventory reservations (P06)
 // ============================================
 app.get("/api/v1/inventory-reservations", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter is required.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM inventory_reservations ORDER BY created_at DESC LIMIT 100");
+    const { rows } = await req.db.query(
+      "SELECT * FROM inventory_reservations WHERE project_id = $1::uuid ORDER BY created_at DESC LIMIT 100",
+      [projectId],
+    );
     res.json({ inventoryReservations: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load inventory reservations" });
+  } catch {
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.post("/api/v1/inventory-reservations", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId, lotId, reservedQuantity, unit, referenceId, referenceType, idempotencyKey } = req.body ?? {};
+  const { projectId, lotId, reservedQuantity, unitCode, buyerId, shipmentId, expiresAt, idempotencyKey } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || reservedQuantity === undefined || !unit || !idempotencyKey) {
-    return res.status(400).json({ error: "projectId, lotId, reservedQuantity, unit, idempotencyKey required" });
+  const quantity = Number(reservedQuantity);
+  if (!projectId || !lotId || !actorId || !Number.isFinite(quantity) || quantity <= 0 ||
+      typeof unitCode !== "string" || !unitCode.trim() ||
+      typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    return res.status(400).json({
+      error: "Required fields: projectId, lotId, reservedQuantity (>0), unitCode, idempotencyKey.",
+      code: "INVALID_RESERVATION_INPUT",
+    });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.reserve"))) return;
+
   try {
-    // Idempotency: reject duplicate reservation key
     const { rows: existing } = await req.db.query(
-      "SELECT id FROM inventory_reservations WHERE idempotency_key = $1::text LIMIT 1",
-      [idempotencyKey],
+      "SELECT * FROM inventory_reservations WHERE idempotency_key = $1::text LIMIT 1",
+      [idempotencyKey.trim()],
     );
     if (existing.length > 0) {
-      return res.status(409).json({ error: "Reservation with this idempotency key already exists" });
+      const prior = existing[0];
+      const sameRequest = prior.project_id === projectId && prior.lot_id === lotId &&
+        Number(prior.reserved_quantity) === quantity && prior.unit_code === unitCode.trim() &&
+        (prior.buyer_id ?? null) === (buyerId ?? null) && (prior.shipment_id ?? null) === (shipmentId ?? null);
+      if (!sameRequest) return res.status(409).json({ error: "Idempotency key was already used for a different reservation.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+      return res.status(200).json({ inventoryReservation: prior, idempotentReplay: true });
     }
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, quantity FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
-    if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
-    if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
-    const availableQty = Number(lotRows[0].quantity);
-    const reserveQty = Number(reservedQuantity);
-    if (reserveQty > availableQty) {
-      return res.status(400).json({ error: "Insufficient available stock for reservation" });
+
+    const { rows: lotRows } = await req.db.query(
+      "SELECT id, project_id, unit, quantity, held_quantity, reserved_quantity FROM inventory_lots WHERE id = $1::uuid FOR UPDATE",
+      [lotId],
+    );
+    if (lotRows.length !== 1) return res.status(404).json({ error: "Inventory lot not found.", code: "INVENTORY_LOT_NOT_FOUND" });
+    const lot = lotRows[0];
+    if (lot.project_id !== projectId) return res.status(403).json({ error: "Inventory lot belongs to another Project.", code: "PROJECT_SCOPE_MISMATCH" });
+    if (lot.unit !== unitCode.trim()) return res.status(400).json({ error: "Reservation unit must match the inventory lot unit.", code: "UNIT_MISMATCH" });
+
+    if (buyerId) {
+      const { rows: buyerRows } = await req.db.query(
+        "SELECT 1 FROM buyers WHERE id = $1::uuid LIMIT 1",
+        [buyerId],
+      );
+      if (buyerRows.length !== 1) return res.status(400).json({ error: "Invalid buyerId.", code: "INVALID_BUYER" });
     }
+    if (shipmentId) {
+      const { rows: shipmentRows } = await req.db.query(
+        "SELECT 1 FROM shipments WHERE id = $1::uuid AND project_id = $2::uuid LIMIT 1",
+        [shipmentId, projectId],
+      );
+      if (shipmentRows.length !== 1) return res.status(400).json({ error: "Shipment must belong to the selected Project.", code: "INVALID_SHIPMENT" });
+    }
+
+    // The database trigger locks the lot and rechecks available quantity atomically.
     const { rows } = await req.db.query(
-      `INSERT INTO inventory_reservations (project_id, lot_id, reserved_quantity, unit, reference_id, reference_type, idempotency_key, status, fulfilled_quantity, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6, $7::text, 'active', 0, now(), now()) RETURNING *`,
-      [projectId, lotId, reserveQty, unit, referenceId || null, referenceType || null, idempotencyKey],
+      `INSERT INTO inventory_reservations
+         (project_id, lot_id, buyer_id, shipment_id, reserved_quantity, unit_code,
+          status, expires_at, created_by, idempotency_key, fulfilled_quantity, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::numeric, $6::text,
+               'active', $7::timestamptz, $8::uuid, $9::text, 0, now(), now())
+       RETURNING *`,
+      [projectId, lotId, buyerId || null, shipmentId || null, quantity, unitCode.trim(), expiresAt || null, actorId, idempotencyKey.trim()],
     );
     res.status(201).json({ inventoryReservation: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create inventory reservation" });
+  } catch (error: any) {
+    if (error?.code === "23514") return res.status(409).json({ error: "Reservation rejected by inventory integrity guard.", code: "RESERVATION_INTEGRITY_REJECTED" });
+    if (error?.code === "42703" && /release_reason/.test(String(error?.message || ""))) {
+      return res.status(503).json({ error: "Reservation release schema migration is pending.", code: "RESERVATION_SCHEMA_MIGRATION_PENDING" });
+    }
+    res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/inventory-reservations/:id/release", requireAuth, async (req: express.Request, res: express.Response) => {
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 3) return res.status(400).json({ error: "A release reason of at least 3 characters is required.", code: "RELEASE_REASON_REQUIRED" });
+  const actorId = req.user?.id;
+  try {
+    const { rows: currentRows } = await req.db.query(
+      "SELECT id, project_id, status FROM inventory_reservations WHERE id = $1::uuid FOR UPDATE",
+      [req.params.id],
+    );
+    if (currentRows.length !== 1) return res.status(404).json({ error: "Reservation not found.", code: "RESERVATION_NOT_FOUND" });
+    const current = currentRows[0];
+    if (!(await requireProjectPermission(req, res, current.project_id, "inventory.reserve"))) return;
+    if (!["active", "partially_fulfilled"].includes(current.status)) {
+      return res.status(409).json({ error: "Only active or partially fulfilled reservations can be released.", code: "RESERVATION_NOT_RELEASABLE" });
+    }
+    const { rows } = await req.db.query(
+      `UPDATE inventory_reservations
+          SET status = 'released', released_by = $2::uuid, released_at = now(),
+              release_reason = $3::text, updated_at = now()
+        WHERE id = $1::uuid
+        RETURNING *`,
+      [req.params.id, actorId, reason],
+    );
+    res.json({ inventoryReservation: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42703" && /release_reason/.test(String(error?.message || ""))) {
+      return res.status(503).json({ error: "Reservation release is blocked until the approved schema migration is applied.", code: "RESERVATION_SCHEMA_MIGRATION_PENDING" });
+    }
+    if (error?.code === "55000" || error?.code === "42501") return res.status(409).json({ error: "Reservation release rejected by the database guard.", code: "RESERVATION_RELEASE_REJECTED" });
+    res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/inventory-reservations/:id/expire", requireAuth, async (req: express.Request, res: express.Response) => {
+  const actorId = req.user?.id;
+  try {
+    const { rows: currentRows } = await req.db.query(
+      "SELECT id, project_id, status, expires_at FROM inventory_reservations WHERE id = $1::uuid FOR UPDATE",
+      [req.params.id],
+    );
+    if (currentRows.length !== 1) return res.status(404).json({ error: "Reservation not found.", code: "RESERVATION_NOT_FOUND" });
+    const current = currentRows[0];
+    if (!(await requireProjectPermission(req, res, current.project_id, "inventory.reserve"))) return;
+    if (!["active", "partially_fulfilled"].includes(current.status) || !current.expires_at || new Date(current.expires_at).getTime() > Date.now()) {
+      return res.status(409).json({ error: "Only an active reservation whose expiry timestamp has passed can expire.", code: "RESERVATION_NOT_EXPIRED" });
+    }
+    const { rows } = await req.db.query(
+      `UPDATE inventory_reservations
+          SET status = 'expired', released_by = $2::uuid, released_at = now(),
+              release_reason = $3::text, updated_at = now()
+        WHERE id = $1::uuid
+        RETURNING *`,
+      [req.params.id, actorId, "Expired at configured reservation expiry timestamp"],
+    );
+    res.json({ inventoryReservation: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42703" && /release_reason/.test(String(error?.message || ""))) {
+      return res.status(503).json({ error: "Reservation expiry is blocked until the approved schema migration is applied.", code: "RESERVATION_SCHEMA_MIGRATION_PENDING" });
+    }
+    if (error?.code === "55000" || error?.code === "42501") return res.status(409).json({ error: "Reservation expiry rejected by the database guard.", code: "RESERVATION_EXPIRY_REJECTED" });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
 // Inventory holds
 app.get("/api/v1/inventory-holds", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM inventory_holds ORDER BY created_at DESC LIMIT 100");
-    res.json({ inventoryHolds: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load inventory holds" });
-  }
+    const { rows } = await req.db.query("SELECT * FROM inventory_holds WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
+    return res.json({ inventoryHolds: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 
 app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, lotId, heldQuantity, unit, reason, idempotencyKey } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || heldQuantity === undefined || !unit || !reason || !idempotencyKey) {
-    return res.status(400).json({ error: "projectId, lotId, heldQuantity, unit, reason, idempotencyKey required" });
+  const quantity = Number(heldQuantity);
+  if (!projectId || !lotId || !actorId || !Number.isFinite(quantity) || quantity <= 0 || typeof unit !== "string" || !unit.trim() ||
+      typeof reason !== "string" || !reason.trim() || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    return res.status(400).json({ error: "projectId, lotId, authenticated actor, positive heldQuantity, unit, reason and idempotencyKey are required" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "inventory.hold"))) return;
   try {
+    const sameHoldRequest = (prior: any) =>
+      prior.project_id === projectId &&
+      prior.lot_id === lotId &&
+      Number(prior.held_quantity ?? prior.quantity) === quantity &&
+      String(prior.unit ?? prior.unit_code) === unit.trim() &&
+      String(prior.reason ?? "") === reason.trim() &&
+      String(prior.created_by ?? prior.placed_by ?? "") === String(actorId);
     const { rows: existing } = await req.db.query(
-      "SELECT id FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
-      [idempotencyKey],
+      "SELECT * FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
+      [idempotencyKey.trim()],
     );
     if (existing.length > 0) {
-      return res.status(409).json({ error: "Hold with this idempotency key already exists" });
+      const prior = existing[0];
+      if (!sameHoldRequest(prior)) {
+        return res.status(409).json({ error: "Idempotency key was already used for a different inventory hold.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+      }
+      return res.status(200).json({ inventoryHold: prior, idempotentReplay: true });
     }
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
+    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid FOR UPDATE`, [lotId]);
     if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
     if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
+    if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Hold unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
     const { rows } = await req.db.query(
-      `INSERT INTO inventory_holds (project_id, lot_id, held_quantity, unit, reason, idempotency_key, status, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text, 'active', now(), now()) RETURNING *`,
-      [projectId, lotId, Number(heldQuantity), unit, reason, idempotencyKey],
+      `INSERT INTO inventory_holds
+         (project_id, lot_id, hold_type, quantity, unit_code, reason, status, placed_by, placed_at,
+          held_quantity, unit, idempotency_key, created_by, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, 'operational', $3, $4, $5, 'active', $7::uuid, now(),
+               $3, $4, $6::text, $7::uuid, now(), now())
+       ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
+      [projectId, lotId, quantity, unit.trim(), reason.trim(), idempotencyKey.trim(), actorId],
     );
+    if (rows.length === 0) {
+      const { rows: replayRows } = await req.db.query(
+        "SELECT * FROM inventory_holds WHERE idempotency_key = $1::text LIMIT 1",
+        [idempotencyKey.trim()],
+      );
+      if (replayRows.length === 1 && sameHoldRequest(replayRows[0])) {
+        return res.status(200).json({ inventoryHold: replayRows[0], idempotentReplay: true });
+      }
+      return res.status(409).json({ error: "Idempotency key was already used for a different inventory hold.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+    }
     res.status(201).json({ inventoryHold: rows[0] });
   } catch (error) {
     res.status(500).json({ error: "Failed to create inventory hold" });
@@ -2766,103 +4690,174 @@ app.post("/api/v1/inventory-holds", requireAuth, async (req: express.Request, re
 // Shipment allocations (P06)
 // ============================================
 app.get("/api/v1/shipment-allocations", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId query parameter is required.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, projectId, "shipping.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM shipment_allocations ORDER BY created_at DESC LIMIT 100");
+    const { rows } = await req.db.query(
+      "SELECT * FROM shipment_allocations WHERE project_id = $1::uuid ORDER BY created_at DESC LIMIT 100",
+      [projectId],
+    );
     res.json({ shipmentAllocations: rows });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load shipment allocations" });
+  } catch {
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.post("/api/v1/shipment-allocations", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId, lotId, allocatedQuantity, unit, referenceId, referenceType, idempotencyKey } = req.body ?? {};
+  const { projectId, shipmentId, lotId, reservationId, allocatedQuantity, unit, idempotencyKey } = req.body ?? {};
   const actorId = req.user?.id;
-  if (!projectId || !lotId || allocatedQuantity === undefined || !unit || !idempotencyKey || !actorId) {
-    return res.status(400).json({ error: "projectId, lotId, allocatedQuantity, unit, idempotencyKey required" });
+  const quantity = Number(allocatedQuantity);
+  if (!projectId || !shipmentId || !lotId || !reservationId || !actorId ||
+      !Number.isFinite(quantity) || quantity <= 0 ||
+      typeof unit !== "string" || !unit.trim() ||
+      typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    return res.status(400).json({
+      error: "Required fields: projectId, shipmentId, lotId, reservationId, allocatedQuantity (>0), unit, idempotencyKey.",
+      code: "INVALID_ALLOCATION_INPUT",
+    });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "shipping.update"))) return;
   try {
-    // Idempotency: reject duplicate allocation key
     const { rows: existing } = await req.db.query(
-      "SELECT id FROM shipment_allocations WHERE idempotency_key = $1::text LIMIT 1",
-      [idempotencyKey],
+      "SELECT * FROM shipment_allocations WHERE idempotency_key = $1::text LIMIT 1",
+      [idempotencyKey.trim()],
     );
     if (existing.length > 0) {
-      return res.status(409).json({ error: "Allocation with this idempotency key already exists" });
+      const prior = existing[0];
+      const sameRequest = prior.project_id === projectId && prior.shipment_id === shipmentId &&
+        prior.lot_id === lotId && prior.reservation_id === reservationId &&
+        Number(prior.allocated_quantity) === quantity && prior.unit === unit.trim();
+      if (!sameRequest) return res.status(409).json({ error: "Idempotency key was already used for a different allocation.", code: "IDEMPOTENCY_KEY_CONFLICT" });
+      return res.status(200).json({ shipmentAllocation: prior, idempotentReplay: true });
     }
-    const { rows: lotRows } = await req.db.query(`SELECT id, project_id, quantity FROM inventory_lots WHERE id = $1::uuid`, [lotId]);
-    if (lotRows.length === 0) return res.status(400).json({ error: "Invalid inventory lot" });
-    if (lotRows[0].project_id !== projectId) return res.status(403).json({ error: "Forbidden: lot does not belong to project" });
+
+    const { rows: shipmentRows } = await req.db.query(
+      "SELECT id, project_id, quantity FROM shipments WHERE id = $1::uuid AND project_id = $2::uuid FOR UPDATE",
+      [shipmentId, projectId],
+    );
+    if (shipmentRows.length !== 1) return res.status(400).json({ error: "Shipment does not belong to the selected Project.", code: "INVALID_SHIPMENT" });
+    const { rows: lotRows } = await req.db.query(
+      "SELECT id, project_id, unit FROM inventory_lots WHERE id = $1::uuid AND project_id = $2::uuid FOR UPDATE",
+      [lotId, projectId],
+    );
+    if (lotRows.length !== 1) return res.status(400).json({ error: "Inventory lot does not belong to the selected Project.", code: "INVALID_INVENTORY_LOT" });
+    if (lotRows[0].unit !== unit.trim()) return res.status(400).json({ error: "Allocation unit must match inventory lot unit.", code: "UNIT_MISMATCH" });
+
     const { rows: reservationRows } = await req.db.query(
-      `SELECT reserved_quantity, COALESCE(fulfilled_quantity, 0) AS fulfilled_quantity FROM inventory_reservations WHERE lot_id = $1::uuid AND status = 'active'`,
-      [lotId],
+      `SELECT id, project_id, lot_id, shipment_id, reserved_quantity, fulfilled_quantity, unit_code, status
+         FROM inventory_reservations
+        WHERE id = $1::uuid AND project_id = $2::uuid
+        FOR UPDATE`,
+      [reservationId, projectId],
     );
-    const reservedTotal = reservationRows.reduce((sum: number, r: any) => sum + Number(r.reserved_quantity || 0), 0);
-    const fulfilledTotal = reservationRows.reduce((sum: number, r: any) => sum + Number(r.fulfilled_quantity || 0), 0);
-    const availableForAllocation = reservedTotal - fulfilledTotal;
-    const allocQty = Number(allocatedQuantity);
-    if (allocQty > availableForAllocation) {
-      return res.status(400).json({ error: "Allocation exceeds available reserved quantity" });
+    if (reservationRows.length !== 1) return res.status(400).json({ error: "Reservation does not belong to the selected Project.", code: "INVALID_RESERVATION" });
+    const reservation = reservationRows[0];
+    if (reservation.lot_id !== lotId || (reservation.shipment_id && reservation.shipment_id !== shipmentId) ||
+        !["active", "partially_fulfilled"].includes(reservation.status) ||
+        reservation.unit_code !== unit.trim()) {
+      return res.status(409).json({ error: "Reservation must be active and match Project, shipment, lot and unit.", code: "RESERVATION_SCOPE_OR_STATE_MISMATCH" });
     }
+
+    const { rows: allocatedRows } = await req.db.query(
+      `SELECT COALESCE(sum(allocated_quantity),0) AS allocated
+         FROM shipment_allocations
+        WHERE reservation_id = $1::uuid AND status IN ('allocated','partially_loaded','loaded')`,
+      [reservationId],
+    );
+    const { rows: shipmentAllocatedRows } = await req.db.query(
+      `SELECT COALESCE(sum(allocated_quantity),0) AS allocated
+         FROM shipment_allocations
+        WHERE shipment_id = $1::uuid AND status IN ('allocated','partially_loaded','loaded')`,
+      [shipmentId],
+    );
+    const capacity = validateAllocationCapacity({
+      projectId,
+      shipmentProjectId: shipmentRows[0].project_id,
+      lotProjectId: lotRows[0].project_id,
+      reservationProjectId: reservation.project_id,
+      reservationLotId: reservation.lot_id,
+      lotId,
+      reservationShipmentId: reservation.shipment_id ?? null,
+      shipmentId,
+      reservationStatus: reservation.status,
+      reservationQuantity: Number(reservation.reserved_quantity),
+      existingReservationAllocations: Number(allocatedRows[0]?.allocated || 0),
+      shipmentQuantity: Number(shipmentRows[0].quantity),
+      existingShipmentAllocations: Number(shipmentAllocatedRows[0]?.allocated || 0),
+      allocationQuantity: quantity,
+      unitMatches: reservation.unit_code === unit.trim() && lotRows[0].unit === unit.trim(),
+    });
+    if (capacity.ok === false) {
+      return res.status(409).json({ error: "Allocation violates reservation or shipment capacity.", code: capacity.code });
+    }
+
     const { rows } = await req.db.query(
-      `INSERT INTO shipment_allocations (project_id, lot_id, allocated_quantity, unit, reference_id, reference_type, idempotency_key, status, reversal_reason, created_by, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6, $7::text, 'active', NULL, $8::uuid, now(), now()) RETURNING *`,
-      [projectId, lotId, allocQty, unit, referenceId || null, referenceType || null, idempotencyKey, actorId],
+      `INSERT INTO shipment_allocations
+         (shipment_id, lot_id, project_id, reservation_id, allocated_quantity, unit,
+          status, loaded_quantity, idempotency_key, created_by, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::numeric, $6::text,
+               'draft', 0, $7::text, $8::uuid, now(), now())
+       RETURNING *`,
+      [shipmentId, lotId, projectId, reservationId, quantity, unit.trim(), idempotencyKey.trim(), actorId],
     );
-    // Update reservation fulfilled quantity
-    if (reservationRows.length > 0) {
-      const newFulfilled = fulfilledTotal + allocQty;
-      await req.db.query(
-        `UPDATE inventory_reservations SET fulfilled_quantity = $1, updated_at = now() WHERE lot_id = $2::uuid AND status = 'active'`,
-        [newFulfilled, lotId],
-      );
-    }
     res.status(201).json({ shipmentAllocation: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create shipment allocation" });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "An allocation already exists for this shipment and lot.", code: "ALLOCATION_ALREADY_EXISTS" });
+    if (error?.code === "23514" || error?.code === "55000") return res.status(409).json({ error: "Allocation rejected by the database integrity guard.", code: "ALLOCATION_INTEGRITY_REJECTED" });
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.patch("/api/v1/shipment-allocations/:id", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { status, reversalReason } = req.body ?? {};
-  const allowedStatuses = new Set(["active", "reversed", "completed"]);
+  const { status, loadedQuantity, reversalReason } = req.body ?? {};
+  const allowedStatuses = new Set(["allocated", "partially_loaded", "loaded", "cancelled", "reversed"]);
   if (status !== undefined && (typeof status !== "string" || !allowedStatuses.has(status))) {
-    return res.status(400).json({ error: "Invalid status" });
+    return res.status(400).json({ error: "Invalid shipment allocation status.", code: "INVALID_ALLOCATION_STATUS" });
+  }
+  if (loadedQuantity !== undefined && (!Number.isFinite(Number(loadedQuantity)) || Number(loadedQuantity) < 0)) {
+    return res.status(400).json({ error: "loadedQuantity must be a non-negative number.", code: "INVALID_LOADED_QUANTITY" });
   }
   try {
-    const { rows: allocRows } = await req.db.query(
-      "SELECT id, lot_id, allocated_quantity, status, reversal_reason, created_by FROM shipment_allocations WHERE id = $1::uuid",
+    const { rows: allocationRows } = await req.db.query(
+      "SELECT id, project_id, shipment_id, reservation_id, allocated_quantity, loaded_quantity, status FROM shipment_allocations WHERE id = $1::uuid FOR UPDATE",
       [req.params.id],
     );
-    if (allocRows.length === 0) return res.status(404).json({ error: "Shipment allocation not found" });
-    const alloc = allocRows[0];
-    if (alloc.status === "reversed") {
-      return res.status(400).json({ error: "Cannot modify a reversed allocation" });
+    if (allocationRows.length !== 1) return res.status(404).json({ error: "Shipment allocation not found.", code: "ALLOCATION_NOT_FOUND" });
+    const allocation = allocationRows[0];
+    if (!(await requireProjectPermission(req, res, allocation.project_id, "shipping.update"))) return;
+
+    if (status === "reversed" && (typeof reversalReason !== "string" || reversalReason.trim().length < 3)) {
+      return res.status(400).json({ error: "A reversal reason of at least 3 characters is required.", code: "REVERSAL_REASON_REQUIRED" });
     }
-    const updates: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
-    if (reversalReason !== undefined) { updates.push(`reversal_reason = $${idx++}`); values.push(reversalReason); }
-    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
-    values.push(req.params.id);
+    const transition = validateAllocationTransition({
+      currentStatus: allocation.status,
+      nextStatus: status,
+      currentLoadedQuantity: Number(allocation.loaded_quantity),
+      nextLoadedQuantity: loadedQuantity === undefined ? undefined : Number(loadedQuantity),
+      allocatedQuantity: Number(allocation.allocated_quantity),
+      reversalReason,
+    });
+    if (transition.ok === false) {
+      return res.status(400).json({ error: "Invalid shipment allocation state transition.", code: transition.code });
+    }
+
     const { rows } = await req.db.query(
-      `UPDATE shipment_allocations SET ${updates.join(", ")}, updated_at = now() WHERE id = $${idx} RETURNING *`,
-      values,
+      `UPDATE shipment_allocations
+          SET status = COALESCE($2::text, status),
+              loaded_quantity = COALESCE($3::numeric, loaded_quantity),
+              reversal_reason = CASE WHEN $2::text = 'reversed' THEN $4::text ELSE reversal_reason END,
+              updated_at = now()
+        WHERE id = $1::uuid
+        RETURNING *`,
+      [req.params.id, status ?? null, loadedQuantity === undefined ? null : Number(loadedQuantity), reversalReason?.trim() || null],
     );
-
-    // If reversing, restore reservation fulfilled quantity
-    if (status === "reversed") {
-      await req.db.query(
-        `UPDATE inventory_reservations
-         SET fulfilled_quantity = GREATEST(COALESCE(fulfilled_quantity, 0) - $1, 0), updated_at = now()
-         WHERE lot_id = $2::uuid AND status = 'active'`,
-        [Number(alloc.allocated_quantity || 0), alloc.lot_id],
-      );
-    }
-
     res.json({ shipmentAllocation: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to update shipment allocation" });
+  } catch (error: any) {
+    if (error?.code === "23514" || error?.code === "55000" || error?.code === "42501") {
+      return res.status(409).json({ error: "Allocation state transition rejected by the database guard.", code: "ALLOCATION_TRANSITION_REJECTED" });
+    }
+    res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -2875,7 +4870,7 @@ app.get("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: expre
   }
 });
 
-app.post("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/fx-rates", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { fromCurrency, toCurrency, rate, rateType, source, effectiveDate } = req.body;
   if (!fromCurrency || !toCurrency || rate === undefined || !effectiveDate) return res.status(400).json({ error: "fromCurrency, toCurrency, rate, effectiveDate required" });
   try {
@@ -2899,14 +4894,17 @@ app.post("/api/v1/fx-rates", requireAuth, async (req: express.Request, res: expr
 });
 
 app.get("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT e.id, e.project_id, e.exposure_type, e.original_currency_id, e.original_amount,
               e.functional_amount, e.fx_rate, e.fx_date, e.created_at, e.updated_at,
               c.code AS original_currency_code
-       FROM fx_exposures e
-       LEFT JOIN currencies c ON c.id = e.original_currency_id
-       ORDER BY e.created_at DESC LIMIT 100`,
+       FROM fx_exposures e LEFT JOIN currencies c ON c.id = e.original_currency_id
+       WHERE e.project_id = $1::uuid ORDER BY e.created_at DESC LIMIT 100`,
+      [projectId],
     );
     res.json({ fxExposure: rows.map((r: any) => ({
       id: r.id,
@@ -2929,6 +4927,7 @@ app.get("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: ex
 app.post("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, amountIdr, amountFx, fxRate, exposureType, originalCurrency } = req.body;
   if (!projectId) return res.status(400).json({ error: "projectId required" });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.create"))) return;
   try {
     // Resolve original currency (default to IDR)
     const currencyCode = originalCurrency || "IDR";
@@ -2955,8 +4954,11 @@ app.post("/api/v1/fx-exposure", requireAuth, async (req: express.Request, res: e
 
 
 app.get("/api/v1/journal-entries", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "accounting.view"))) return;
   try {
-    const { rows } = await req.db.query("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100");
+    const { rows } = await req.db.query("SELECT * FROM journal_entries WHERE project_id = $1::uuid ORDER BY created_at DESC LIMIT 100", [projectId]);
     res.json({ journalEntries: rows });
   } catch (error) {
     res.status(500).json({ error: "Failed to load journal entries" });
@@ -2966,6 +4968,7 @@ app.get("/api/v1/journal-entries", requireAuth, async (req: express.Request, res
 app.post("/api/v1/journal-entries", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId, entryType, referenceId, referenceType, description, entryDate } = req.body;
   if (!projectId || !entryType || !description) return res.status(400).json({ error: "projectId, entryType, description required" });
+  if (!(await requireProjectPermission(req, res, projectId, "accounting.create"))) return;
   try {
     const { rows } = await req.db.query(
       `INSERT INTO journal_entries (project_id, entry_type, reference_id, reference_type, description, entry_date, status, posted_by, created_at, updated_at)
@@ -2983,10 +4986,11 @@ app.post("/api/v1/journal-entries/:id/post", requireAuth, async (req: express.Re
   try {
     // Verify the journal exists and is in draft status
     const { rows: entryRows } = await req.db.query(
-      "SELECT id, status FROM journal_entries WHERE id = $1::uuid",
+      "SELECT id, project_id, status FROM journal_entries WHERE id = $1::uuid FOR UPDATE",
       [journalEntryId],
     );
     if (entryRows.length === 0) return res.status(404).json({ error: "Journal entry not found" });
+    if (!(await requireProjectPermission(req, res, entryRows[0].project_id, "accounting.update"))) return;
     if (entryRows[0].status !== "draft") {
       return res.status(400).json({ error: "Only draft journal entries can be posted" });
     }
@@ -3034,16 +5038,57 @@ app.post("/api/v1/journal-entries/:id/post", requireAuth, async (req: express.Re
   }
 });
 
+app.post("/api/v1/journal-entries/:id/lines", requireAuth, async (req: express.Request, res: express.Response) => {
+  const lines = req.body?.lines;
+  if (!Array.isArray(lines) || lines.length < 2 || lines.length > 100) return res.status(400).json({ error: "Provide between 2 and 100 journal lines." });
+  try {
+    const { rows: entryRows } = await req.db.query("SELECT id, project_id, status FROM journal_entries WHERE id=$1::uuid FOR UPDATE", [req.params.id]);
+    if (!entryRows.length) return res.status(404).json({ error: "Journal entry not found." });
+    if (!(await requireProjectPermission(req, res, entryRows[0].project_id, "accounting.create"))) return;
+    if (entryRows[0].status !== "draft") return res.status(409).json({ error: "Journal lines can only be added to a draft entry." });
+    const normalized = lines.map((line: any) => ({
+      account_id: String(line.accountId || ""),
+      debit: Number(line.debit),
+      credit: Number(line.credit),
+      description: typeof line.description === "string" ? line.description.slice(0, 500) : null,
+      line_order: Number(line.lineOrder),
+    }));
+    if (normalized.some((line: any) => !/^[0-9a-f-]{36}$/i.test(line.account_id) ||
+      !Number.isFinite(line.debit) || !Number.isFinite(line.credit) || line.debit < 0 || line.credit < 0 ||
+      (line.debit === 0 && line.credit === 0) || (line.debit > 0 && line.credit > 0) ||
+      !Number.isInteger(line.line_order) || line.line_order < 1)) {
+      return res.status(400).json({ error: "Every journal line needs a valid account, one positive debit or credit, and a positive line order." });
+    }
+    const accountIds = [...new Set(normalized.map((line: any) => line.account_id))];
+    const { rows: accounts } = await req.db.query("SELECT id FROM chart_of_accounts WHERE id=ANY($1::uuid[]) AND is_active=true", [accountIds]);
+    if (accounts.length !== accountIds.length) return res.status(400).json({ error: "One or more accounts are invalid or inactive." });
+    const { rows } = await req.db.query(
+      `INSERT INTO journal_lines (journal_entry_id,account_id,debit,credit,description,line_order,created_at)
+       SELECT $1::uuid,x.account_id::uuid,x.debit,x.credit,x.description,x.line_order,now()
+       FROM jsonb_to_recordset($2::jsonb) AS x(account_id text,debit numeric,credit numeric,description text,line_order integer)
+       RETURNING *`,
+      [req.params.id, JSON.stringify(normalized)],
+    );
+    return res.status(201).json({ journalLines: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res: express.Response) => {
   const { journalEntryId, accountId, debit, credit, description, lineOrder } = req.body;
   if (!journalEntryId || !accountId || debit === undefined || credit === undefined) return res.status(400).json({ error: "journalEntryId, accountId, debit, credit required" });
   try {
     // Verify the journal entry exists and is in draft status
     const { rows: entryRows } = await req.db.query(
-      "SELECT id, status FROM journal_entries WHERE id = $1::uuid",
+      "SELECT id, project_id, status FROM journal_entries WHERE id = $1::uuid",
       [journalEntryId],
     );
     if (entryRows.length === 0) return res.status(404).json({ error: "Journal entry not found" });
+    if (!(await requireProjectPermission(req, res, entryRows[0].project_id, "accounting.create"))) return;
+    const debitValue = Number(debit), creditValue = Number(credit);
+    if (!Number.isFinite(debitValue) || !Number.isFinite(creditValue) || debitValue < 0 || creditValue < 0 ||
+        (debitValue === 0 && creditValue === 0) || (debitValue > 0 && creditValue > 0)) {
+      return res.status(400).json({ error: "Each journal line must have one positive debit or credit amount, never both." });
+    }
     if (entryRows[0].status !== "draft") {
       return res.status(400).json({ error: "Cannot add lines to a posted journal entry" });
     }
@@ -3063,7 +5108,7 @@ app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res:
     const { rows } = await req.db.query(
       `INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_order, created_at)
        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, now()) RETURNING *`,
-      [journalEntryId, accountId, debit || 0, credit || 0, description || null, lineOrder !== undefined ? lineOrder : 1],
+      [journalEntryId, accountId, debitValue, creditValue, description || null, lineOrder !== undefined ? lineOrder : 1],
     );
     res.status(201).json({ journalLine: rows[0] });
   } catch (error) {
@@ -3071,18 +5116,96 @@ app.post("/api/v1/journal-lines", requireAuth, async (req: express.Request, res:
   }
 });
 
+// AP/AR Project-scoped Finance endpoints; no bank payment execution.
+app.get("/api/v1/ap-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
+  try { const { rows } = await req.db.query("SELECT * FROM ap_invoices WHERE project_id=$1::uuid ORDER BY invoice_date DESC LIMIT 200",[projectId]); return res.json({apInvoices:rows}); }
+  catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+app.post("/api/v1/ap-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {projectId,supplierId,invoiceNumber,invoiceDate,dueDate,currencyCode,invoiceAmount,taxAmount=0}=req.body??{};
+  const amount=Number(invoiceAmount),tax=Number(taxAmount);
+  if(!projectId||!supplierId||!invoiceNumber||!invoiceDate||!currencyCode||!Number.isFinite(amount)||amount<=0||!Number.isFinite(tax)||tax<0)return res.status(400).json({error:"Valid Project, supplier, invoice/date, currency and amounts are required."});
+  if(!(await requireProjectPermission(req,res,projectId,"finance.create")))return;
+  try {
+    const {rows:v}=await req.db.query("SELECT v.id FROM vendors v JOIN project_supplier_participation psp ON psp.vendor_id=v.id WHERE v.id=$1::uuid AND psp.project_id=$2::uuid AND psp.is_active=true AND v.is_active=true",[supplierId,projectId]);
+    const {rows:c}=await req.db.query("SELECT id FROM currencies WHERE code=$1::text AND is_active=true",[currencyCode]);
+    if(!v.length||!c.length)return res.status(400).json({error:"Supplier or currency is invalid or inactive."});
+    const total=Math.round((amount+tax)*100)/100;
+    const {rows}=await req.db.query(`INSERT INTO ap_invoices
+      (project_id,supplier_id,invoice_number,invoice_date,due_date,currency_id,invoice_amount,tax_amount,total_amount,verification_status,three_way_match,paid_amount,outstanding_amount,created_by,created_at,updated_at)
+      VALUES ($1::uuid,$2::uuid,$3,$4::timestamptz,$5::timestamptz,$6::uuid,$7,$8,$9,'pending',false,0,$9,$10::uuid,now(),now()) RETURNING *`,
+      [projectId,supplierId,String(invoiceNumber).trim(),invoiceDate,dueDate||null,c[0].id,amount,tax,total,req.user?.id||null]);
+    return res.status(201).json({apInvoice:rows[0]});
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+app.patch("/api/v1/ap-invoices/:id/verification", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {verificationStatus,disputeReason}=req.body??{};
+  if(!["verified","disputed"].includes(verificationStatus)||(verificationStatus==="disputed"&&!String(disputeReason||"").trim()))return res.status(400).json({error:"Use verified or disputed; disputed requires a reason."});
+  try {
+    const {rows:s}=await req.db.query("SELECT id,project_id,three_way_match FROM ap_invoices WHERE id=$1::uuid",[req.params.id]);
+    if(!s.length)return res.status(404).json({error:"AP invoice not found."});
+    if(!(await requireProjectPermission(req,res,s[0].project_id,"finance.update")))return;
+    // The current schema has no Purchase Order master/workflow; only a system-calculated database flag can authorize verification.
+    const matched=s[0].three_way_match===true;
+    if(verificationStatus==="verified"&&!matched)return res.status(409).json({error:"Verification is blocked until the Purchase Order + Goods Receipt + Supplier Invoice matching workflow is implemented and system-verified.",code:"THREE_WAY_MATCH_WORKFLOW_REQUIRED"});
+    const {rows}=await req.db.query(`UPDATE ap_invoices SET verification_status=$1,dispute_reason=CASE WHEN $1='disputed' THEN $2 ELSE NULL END,
+      verified_by=$3::uuid,verified_at=now(),updated_by=$3::uuid,updated_at=now() WHERE id=$4::uuid AND project_id=$5::uuid RETURNING *`,
+      [verificationStatus,disputeReason?.trim()||null,req.user?.id||null,req.params.id,s[0].project_id]);
+    return res.json({apInvoice:rows[0]});
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+app.get("/api/v1/ar-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";
+  if(!projectId)return res.status(400).json({error:"projectId is required."});
+  if(!(await requireProjectPermission(req,res,projectId,"finance.view")))return;
+  try {const {rows}=await req.db.query("SELECT * FROM ar_invoices WHERE project_id=$1::uuid ORDER BY invoice_date DESC LIMIT 200",[projectId]);return res.json({arInvoices:rows});}
+  catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.post("/api/v1/ar-invoices", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {projectId,buyerMasterId,invoiceNumber,invoiceDate,dueDate,currencyCode,invoiceAmount,acceptedQuantity,unit="MT",sellingPrice,relatedShipmentId}=req.body??{};
+  const amount=Number(invoiceAmount),qty=acceptedQuantity===undefined?null:Number(acceptedQuantity),price=sellingPrice===undefined?null:Number(sellingPrice);
+  if(!projectId||!buyerMasterId||!invoiceNumber||!invoiceDate||!currencyCode||!Number.isFinite(amount)||amount<=0||(qty!==null&&(!Number.isFinite(qty)||qty<=0))||(price!==null&&(!Number.isFinite(price)||price<0)))return res.status(400).json({error:"Valid Project, buyer, invoice, currency and amount are required."});
+  if(!(await requireProjectPermission(req,res,projectId,"finance.create")))return;
+  try {
+    const {rows:b}=await req.db.query(`SELECT b.id FROM buyers b JOIN contract_programs cp ON cp.buyer_id=b.id JOIN projects p ON p.contract_program_id=cp.id WHERE b.id=$1::uuid AND p.id=$2::uuid AND b.is_active=true LIMIT 1`,[buyerMasterId,projectId]);
+    const {rows:c}=await req.db.query("SELECT id FROM currencies WHERE code=$1::text AND is_active=true",[currencyCode]);
+    if(!b.length||!c.length)return res.status(400).json({error:"Buyer is not assigned to this Project or currency is invalid."});
+    if(relatedShipmentId){const {rows}=await req.db.query("SELECT id FROM shipments WHERE id=$1::uuid AND project_id=$2::uuid",[relatedShipmentId,projectId]);if(!rows.length)return res.status(400).json({error:"Shipment is not part of this Project."});}
+    const {rows}=await req.db.query(`INSERT INTO ar_invoices (buyer_id,buyer_master_id,invoice_number,invoice_date,due_date,currency_id,invoice_amount,accepted_quantity,unit,selling_price,total_amount,project_id,related_shipment_id,approval_status,settlement_status,created_by,created_at,updated_at)
+      VALUES (NULL,$1::uuid,$2,$3::timestamptz,$4::timestamptz,$5::uuid,$6,$7,$8,$9,$6,$10::uuid,$11::uuid,'pending','open',$12::uuid,now(),now()) RETURNING *`,
+      [buyerMasterId,String(invoiceNumber).trim(),invoiceDate,dueDate||null,c[0].id,amount,qty,unit,price,projectId,relatedShipmentId||null,req.user?.id||null]);
+    return res.status(201).json({arInvoice:rows[0]});
+  } catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.patch("/api/v1/ar-invoices/:id/approval", requireAuth, async (req: express.Request, res: express.Response) => {
+  const {approvalStatus,reason}=req.body??{};
+  if(!["approved","disputed"].includes(approvalStatus)||(approvalStatus==="disputed"&&!String(reason||"").trim()))return res.status(400).json({error:"Use approved or disputed; disputed requires a reason."});
+  try {
+    const {rows:s}=await req.db.query("SELECT id,project_id FROM ar_invoices WHERE id=$1::uuid",[req.params.id]);
+    if(!s.length)return res.status(404).json({error:"AR invoice not found."});
+    if(!(await requireProjectPermission(req,res,s[0].project_id,"finance.update")))return;
+    const {rows}=await req.db.query(`UPDATE ar_invoices SET approval_status=$1,dispute_reason=$2,approved_by=$3::uuid,approved_at=now(),updated_by=$3::uuid,updated_at=now()
+      WHERE id=$4::uuid AND project_id=$5::uuid RETURNING *`,[approvalStatus,reason?.trim()||null,req.user?.id||null,req.params.id,s[0].project_id]);
+    return res.json({arInvoice:rows[0]});
+  } catch{return res.status(500).json(internalServerErrorPayload());}
+});
 // ============================================
 // RAB routes (P07 Finance)
 // ============================================
 app.get("/api/v1/rab", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId } = req.query;
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required.", code: "PROJECT_ID_REQUIRED" });
+  if (!(await requireProjectPermission(req, res, projectId, "finance.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT id, project_id, description, category, amount, version, is_active, created_at, updated_at
        FROM rab
-       WHERE ($1::uuid IS NULL OR project_id = $1::uuid) AND is_active = true
+       WHERE project_id = $1::uuid AND is_active = true
        ORDER BY created_at DESC LIMIT 200`,
-      [projectId || null],
+      [projectId],
     );
     res.json({ rab: rows.map((r: any) => ({
       id: r.id,
@@ -3105,6 +5228,7 @@ app.post("/api/v1/rab", requireAuth, async (req: express.Request, res: express.R
   if (!projectId || !description || !category || amount === undefined) {
     return res.status(400).json({ error: "Required fields: projectId, description, category, amount" });
   }
+  if (!(await requireProjectPermission(req, res, projectId, "finance.create"))) return;
   try {
     const { rows } = await req.db.query(
       `INSERT INTO rab (project_id, description, category, amount, version, is_active, created_at, updated_at)
@@ -3131,7 +5255,7 @@ app.get("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, r
   }
 });
 
-app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/chart-of-accounts", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { code, name, description, parentId, accountType } = req.body;
   if (!code || !name || !accountType) return res.status(400).json({ error: "Required fields: code, name, accountType" });
   try {
@@ -3147,36 +5271,168 @@ app.post("/api/v1/chart-of-accounts", requireAuth, async (req: express.Request, 
 });
 
 // ============================================
-// Payment instruction routes (P07 Finance) — unavailable/fail-closed
+// Finance reporting-only workflow (F1)
+// Finance records reports; the application does not execute payments.
 // ============================================
-// Payment execution schema requires owner approval. These routes return an
-// explicit unavailable state instead of simulating payment settlement.
-app.get("/api/v1/payment-instructions", requireAuth, async (_req: express.Request, res: express.Response) => {
-  res.status(503).json({
-    error: "Payment execution unavailable",
-    code: "PAYMENT_EXECUTION_UNAVAILABLE",
-    reason: "Payment execution data model requires owner-approved schema. No payments table exists in Production.",
-    available: false,
-  });
+app.get("/api/v1/finance/reports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!projectId) return res.status(400).json({ error: "projectId is required" });
+  if (!(await requireProjectPermission(req, res, projectId, "reports.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id, project_id, template_id, template_version, period_start, period_end,
+              report_payload, requested_by, submitted_at, generated_at, data_freshness, status
+         FROM report_runs
+        WHERE project_id = $1::uuid AND template_id = 'tpl-financial-report'
+        ORDER BY submitted_at DESC NULLS LAST, generated_at DESC
+        LIMIT 200`,
+      [projectId],
+    );
+    return res.json({ reports: rows });
+  } catch (error) {
+    return res.status(500).json(internalServerErrorPayload());
+  }
 });
 
-app.post("/api/v1/payment-instructions", requireAuth, async (_req: express.Request, res: express.Response) => {
-  res.status(503).json({
-    error: "Payment execution unavailable",
-    code: "PAYMENT_EXECUTION_UNAVAILABLE",
-    reason: "Cannot create payment instruction: payment execution data model requires owner-approved schema.",
-    available: false,
-  });
+app.post("/api/v1/finance/reports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, periodStart, periodEnd, report, summary } = req.body ?? {};
+  if (typeof projectId !== "string" || !projectId ||
+      typeof periodStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(periodStart) ||
+      typeof periodEnd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) ||
+      periodStart > periodEnd || !report || typeof report !== "object" || Array.isArray(report)) {
+    return res.status(400).json({ error: "Required: projectId, valid periodStart/periodEnd, and report object." });
+  }
+  const payload = JSON.stringify({ summary: typeof summary === "string" ? summary.slice(0, 4000) : "", report });
+  if (payload.length > 200_000) return res.status(413).json({ error: "Financial report payload exceeds 200 KB." });
+  if (!(await requireProjectPermission(req, res, projectId, "reports.create"))) return;
+  const requesterId = req.user?.id;
+  if (!requesterId) return res.status(401).json({ error: "Authenticated principal required" });
+  try {
+    const { rows: financeMembership } = await req.db.query(
+      `SELECT 1
+         FROM public.project_role_assignments a
+         JOIN public.project_members pm
+           ON pm.id = a.project_member_id AND pm.project_id = a.project_id AND pm.user_id = a.user_id
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+         JOIN public.users u ON u.id = a.user_id
+        WHERE a.project_id = $1::uuid AND a.user_id = $2::uuid
+          AND a.is_active = true AND a.revoked_at IS NULL
+          AND (a.expires_at IS NULL OR a.expires_at > now())
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+          AND pr.is_active = true AND pr.role_code = 'finance' AND u.is_active = true
+        LIMIT 1`,
+      [projectId, requesterId],
+    );
+    if (!financeMembership.length) {
+      return res.status(403).json({ error: "Only an active Finance member can submit a Project financial report.", code: "FINANCE_ROLE_REQUIRED" });
+    }
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, name FROM projects WHERE id = $1::uuid AND is_active = true LIMIT 1",
+      [projectId],
+    );
+    if (!projectRows.length) return res.status(404).json({ error: "Active Project not found." });
+    const { rows: reportRows } = await req.db.query(
+      `INSERT INTO report_runs
+        (id, schedule_id, template_id, template_version, cutoff_at, generated_at,
+         requested_by, audience, project_id, status, idempotency_key, data_freshness,
+         report_payload, period_start, period_end, submitted_at)
+       VALUES (gen_random_uuid(), NULL, 'tpl-financial-report', 1, $1::date::timestamptz,
+         now(), $2::uuid, 'project_management', $3::uuid, 'submitted',
+         NULL, now(), $4::jsonb, $5::date, $6::date, now())
+       RETURNING id, project_id, template_id, template_version, period_start, period_end,
+                 report_payload, requested_by, submitted_at, generated_at, data_freshness, status`,
+      [periodEnd, requesterId, projectId, payload, periodStart, periodEnd],
+    );
+    const reportRun = reportRows[0];
+    const { rows: notificationRows } = await req.db.query(
+      "SELECT public.pke_submit_finance_report_notifications($1::uuid, $2::uuid, $3::text, $4::text) AS notifications_created",
+      [projectId, requesterId,
+       `Laporan keuangan baru — ${projectRows[0].name}`,
+       `Finance mengirim laporan periode ${periodStart} sampai ${periodEnd}. Laporan siap ditinjau.`],
+    );
+    return res.status(201).json({
+      financialReport: reportRun,
+      notificationsCreated: Number(notificationRows[0]?.notifications_created ?? 0),
+      notifiedRoles: ["pm", "admin"],
+      paymentExecution: false,
+    });
+  } catch (error) {
+    return res.status(500).json(internalServerErrorPayload());
+  }
 });
 
-app.patch("/api/v1/payment-instructions/:id", requireAuth, async (_req: express.Request, res: express.Response) => {
-  res.status(503).json({
-    error: "Payment execution unavailable",
-    code: "PAYMENT_EXECUTION_UNAVAILABLE",
-    reason: "Cannot update payment instruction: payment execution data model requires owner-approved schema.",
-    available: false,
-  });
+// Cash Advance requestor → independent Finance decision vertical slice.
+app.get("/api/v1/currencies",requireAuth,async(req:express.Request,res:express.Response)=>{
+  try{const {rows}=await req.db.query("SELECT id,code,name,is_functional FROM public.currencies WHERE is_active=true ORDER BY is_functional DESC,code");return res.json({currencies:rows});}
+  catch{return res.status(500).json(internalServerErrorPayload());}
 });
+app.get("/api/v1/cash-advances",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";
+  if(!projectId)return res.status(400).json({error:"projectId is required."});
+  try{
+    const permission=await findExplicitProjectPermission(req,projectId,["finance.view","finance.cash_advance.request"]);
+    if(!permission)return res.status(403).json({error:"Explicit active Project role permission required.",code:"PROJECT_PERMISSION_REQUIRED"});
+    await applyExplicitProjectPermissionContext(req,projectId,permission);
+    const decisionPermission=await findExplicitProjectPermission(req,projectId,["finance.update"]);
+    const {rows}=await listCashAdvances(req.db,projectId);
+    return res.json({cashAdvances:rows,
+      canRequest:Boolean(await findExplicitProjectPermission(req,projectId,["finance.cash_advance.request"])),
+      canApprove:decisionPermission?.role_code==="finance",
+      canViewAll:Boolean(await findExplicitProjectPermission(req,projectId,["finance.view"]))});
+  }catch{return res.status(500).json(internalServerErrorPayload());}
+});
+app.post("/api/v1/cash-advances",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const {projectId,amount,currencyId,purpose,advanceDate}=req.body??{};
+  if(typeof projectId!=="string"||!projectId||!isValidCashAdvanceRequest({amount,currencyId,purpose,advanceDate}))
+    return res.status(400).json({error:"projectId, positive amount, valid currencyId, purpose and advanceDate are required.",code:"INVALID_CASH_ADVANCE_REQUEST"});
+  try{
+    const permission=await findExplicitProjectPermission(req,projectId,["finance.cash_advance.request"]);
+    if(!permission)return res.status(403).json({error:"Cash Advance request permission is not assigned to this active Project role.",code:"CASH_ADVANCE_REQUEST_PERMISSION_REQUIRED"});
+    await applyExplicitProjectPermissionContext(req,projectId,permission);
+    const {rows:projects}=await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true",[projectId]);
+    if(!projects.length)return res.status(404).json({error:"Active Project not found."});
+    const {rows:currencies}=await req.db.query("SELECT id FROM public.currencies WHERE id=$1::uuid AND is_active=true",[currencyId]);
+    if(!currencies.length)return res.status(400).json({error:"Currency is invalid or inactive."});
+    const cashAdvance=await createCashAdvance(req.db,{projectId,requestorId:req.user.id,amount:Number(amount),currencyId,purpose:purpose.trim(),advanceDate});
+    return res.status(201).json({cashAdvance});
+  }catch(error:any){
+    if(error?.code==="42501")return res.status(403).json({error:"Database RLS/requestor guard rejected the request.",code:"CASH_ADVANCE_RLS_DENIED"});
+    if(error?.code==="23503")return res.status(400).json({error:"Invalid Project or currency reference."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+app.patch("/api/v1/cash-advances/:id/decision",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const decision=req.body?.decision;
+  if(decision!=="approved"&&decision!=="rejected")return res.status(400).json({error:"decision must be approved or rejected."});
+  try{
+    const {rows}=await req.db.query("SELECT id,project_id,requestor_id,approval_status FROM public.cash_advances WHERE id=$1::uuid",[req.params.id]);
+    if(!rows.length)return res.status(404).json({error:"Cash Advance not found in an accessible Project."});
+    const current=rows[0],permission=await findExplicitProjectPermission(req,current.project_id,["finance.update"]);
+    if(!permission||permission.role_code!=="finance")return res.status(403).json({error:"Only an explicitly assigned Project Finance role may decide Cash Advances.",code:"FINANCE_DECISION_ROLE_REQUIRED"});
+    if(!canDecideCashAdvance({actorId:req.user.id,requestorId:current.requestor_id,roleCode:permission.role_code,currentStatus:current.approval_status,decision}))
+      return res.status(409).json({error:"Maker-checker or state-transition rule rejected this decision.",code:"CASH_ADVANCE_DECISION_CONFLICT"});
+    await applyExplicitProjectPermissionContext(req,current.project_id,permission);
+    const cashAdvance=await decideCashAdvance(req.db,{id:current.id,projectId:current.project_id,actorId:req.user.id,decision});
+    if(!cashAdvance)return res.status(409).json({error:"Cash Advance changed; refresh before deciding.",code:"CASH_ADVANCE_STATE_CHANGED"});
+    return res.json({cashAdvance});
+  }catch(error:any){
+    if(error?.code==="42501")return res.status(403).json({error:"Database maker-checker/RLS guard rejected this decision.",code:"CASH_ADVANCE_RLS_DENIED"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+// Payment execution endpoints are intentionally out of scope. Finance is reporting-only.
+const paymentExecutionOutOfScope = (_req: express.Request, res: express.Response) =>
+  res.status(410).json({
+    error: "Payment execution is outside this application's Finance scope.",
+    code: "PAYMENT_EXECUTION_OUT_OF_SCOPE",
+    available: false,
+    financeScope: "reporting_only",
+  });
+app.get("/api/v1/payment-instructions", requireAuth, paymentExecutionOutOfScope);
+app.post("/api/v1/payment-instructions", requireAuth, paymentExecutionOutOfScope);
+app.patch("/api/v1/payment-instructions/:id", requireAuth, paymentExecutionOutOfScope);
 
 // ============================================
 // Export compliance document routes (P08)
@@ -3273,7 +5529,7 @@ app.get("/api/v1/export-document-types", requireAuth, async (req: express.Reques
   }
 });
 
-app.post("/api/v1/export-document-types", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/export-document-types", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { documentTypeId, documentName, documentCategory, description } = req.body ?? {};
   if (!documentTypeId || !documentName) {
     return res.status(400).json({ error: "Required fields: documentTypeId, documentName" });
@@ -3323,7 +5579,7 @@ app.get("/api/v1/country-export-document-requirements", requireAuth, async (req:
   }
 });
 
-app.post("/api/v1/country-export-document-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/country-export-document-requirements", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const { countryCode, documentTypeId, importingAuthority, mandatory, status, effectiveFrom, effectiveTo, officialSourceUrl, notes } = req.body ?? {};
   if (!countryCode || !documentTypeId) {
     return res.status(400).json({ error: "Required fields: countryCode, documentTypeId" });
@@ -3476,7 +5732,7 @@ app.patch("/api/v1/project-export-documents/:id", requireAuth, async (req: expre
       [req.params.id],
     );
     if (existingRows.length === 0) return res.status(404).json({ error: "Not found" });
-    if (!(await requireProjectPermission(req, res, existingRows[0].project_id, "documents.review"))) return;
+    if (!(await requireProjectPermission(req, res, existingRows[0].project_id, "documents.update"))) return;
     const reviewerId = req.user?.id || null;
     const { rows } = await req.db.query(
       `UPDATE project_export_documents
@@ -3509,25 +5765,21 @@ app.get("/api/v1/buyers/:id", requireAuth, async (req: express.Request, res: exp
 
 app.get("/api/v1/contracts/:id", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
-    const { rows } = await req.db.query("SELECT * FROM contracts WHERE id = $1::uuid", [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ error: "Contract not found" });
-    res.json({ contract: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load contract" });
-  }
-});
-
-app.patch("/api/v1/contracts/:id", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { code, name, startDate, endDate, isActive } = req.body;
-  try {
-    const { rows } = await req.db.query(
-      `UPDATE contracts SET code = COALESCE($2, code), name = COALESCE($3, name), start_date = COALESCE($4::timestamptz, start_date), end_date = COALESCE($5::timestamptz, end_date), is_active = COALESCE($6, is_active), updated_at = now() WHERE id = $1::uuid RETURNING *`,
-      [req.params.id, code ?? null, name ?? null, startDate || null, endDate || null, typeof isActive === "boolean" ? isActive : null],
+    const { rows: scopeRows } = await req.db.query(
+      "SELECT project_id FROM contracts WHERE id = $1::uuid AND project_id IS NOT NULL",
+      [req.params.id],
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Contract not found" });
-    res.json({ contract: rows[0] });
+    if (scopeRows.length === 0) return res.status(404).json({ error: "Contract not found in an accessible Project." });
+    const projectId = scopeRows[0].project_id;
+    if (!(await requireProjectPermission(req, res, projectId, "contract.view"))) return;
+    const { rows } = await req.db.query(
+      "SELECT * FROM contracts WHERE id = $1::uuid AND project_id = $2::uuid",
+      [req.params.id, projectId],
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Contract not found in this Project." });
+    return res.json({ contract: rows[0] });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update contract" });
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
@@ -3573,78 +5825,281 @@ app.post("/api/v1/admin/users/provision", requireAuth, requireAdmin, async (req:
   }
 });
 
-app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+app.post("/api/v1/admin/projects/:projectId/members", requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
+  return res.status(403).json({
+    error: "Platform Admin may appoint or replace the Project Manager only. Project role staffing is decided by the PM.",
+    code: "PLATFORM_ADMIN_PM_APPOINTMENT_ONLY",
+  });
+});
+
+app.get("/api/v1/admin/projects/:projectId/pm-governance", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(projectId)) {
+    return res.status(400).json({ error: "Valid Project id is required.", code: "INVALID_PROJECT_ID" });
+  }
+  try {
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, name, is_active FROM public.projects WHERE id = $1::uuid",
+      [projectId],
+    );
+    if (projectRows.length !== 1) return res.status(404).json({ error: "Project not found.", code: "PROJECT_NOT_FOUND" });
+    const { rows: members } = await req.db.query(
+      `SELECT pm.id, pm.user_id, u.email, u.name, pm.is_active, pm.joined_at,
+              pm.expires_at, pm.deactivated_at,
+              COALESCE(assignments.roles, '[]'::jsonb) AS role_assignments
+         FROM public.project_members pm
+         JOIN public.users u ON u.id = pm.user_id
+         LEFT JOIN LATERAL (
+           SELECT jsonb_agg(jsonb_build_object(
+             'id', a.id, 'projectRoleId', a.project_role_id,
+             'roleCode', pr.role_code, 'roleName', pr.name,
+             'isActive', a.is_active, 'expiresAt', a.expires_at, 'revokedAt', a.revoked_at
+           ) ORDER BY a.created_at DESC) AS roles
+             FROM public.project_role_assignments a
+             JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+            WHERE a.project_member_id = pm.id AND pr.role_code = 'pm'
+         ) assignments ON true
+        WHERE pm.project_id = $1::uuid
+        ORDER BY u.email`,
+      [projectId],
+    );
+    const { rows: roles } = await req.db.query(
+      `SELECT id, role_code, name, description, is_active
+         FROM public.project_roles
+        WHERE project_id = $1::uuid AND role_code = 'pm'
+        ORDER BY role_code`,
+      [projectId],
+    );
+    return res.json({ project: projectRows[0], members, roles });
+  } catch (error: any) {
+    logger.error("Platform Admin PM governance read failed:", { code: error?.code || "UNKNOWN" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId = Array.isArray(req.params.projectId) ? req.params.projectId[0] : req.params.projectId;
   const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
-  const projectRoleId = typeof req.body?.projectRoleId === "string" ? req.body.projectRoleId : "";
+  const replaceUserId = typeof req.body?.replaceUserId === "string" ? req.body.replaceUserId : "";
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || !uuidPattern.test(projectRoleId) || reason.length < 5) {
-    return res.status(400).json({ error: "Project, user, project role, and an audit reason are required.", code: "INVALID_PROJECT_MEMBER_INPUT" });
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || (replaceUserId && !uuidPattern.test(replaceUserId)) || reason.length < 5) {
+    return res.status(400).json({ error: "Valid Project, PM user and audit reason (at least 5 characters) are required.", code: "INVALID_PM_APPOINTMENT_INPUT" });
   }
-
   try {
+    await req.db.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':pm-appointment', 0))",
+      [projectId],
+    );
+    const { rows: projectRows } = await req.db.query(
+      "SELECT id, name FROM public.projects WHERE id = $1::uuid AND is_active = true FOR UPDATE",
+      [projectId],
+    );
+    if (projectRows.length !== 1) return res.status(404).json({ error: "Active Project not found.", code: "PROJECT_NOT_FOUND" });
+
     const { rows: userRows } = await req.db.query(
       "SELECT user_id, email, is_active, neon_auth_user_id FROM public.pke_admin_get_user($1::uuid)",
       [userId],
     );
     if (userRows.length !== 1) return res.status(404).json({ error: "PKE user not found.", code: "USER_NOT_FOUND" });
     if (userRows[0].is_active !== true || !userRows[0].neon_auth_user_id) {
-      return res.status(409).json({ error: "User must have an active PKE account and a linked Neon Auth identity before project assignment.", code: "USER_NOT_READY" });
+      return res.status(409).json({ error: "PM must have an active PKE account and linked Neon Auth identity.", code: "PM_USER_NOT_READY" });
     }
 
-    const { rows: roleRows } = await req.db.query(
-      "SELECT id, role_code, name FROM public.project_roles WHERE id = $1::uuid AND project_id = $2::uuid AND is_active = true LIMIT 1",
-      [projectRoleId, projectId],
+    let { rows: pmRoleRows } = await req.db.query(
+      "SELECT id FROM public.project_roles WHERE project_id = $1::uuid AND role_code = 'pm' AND is_active = true LIMIT 1 FOR UPDATE",
+      [projectId],
     );
-    if (roleRows.length !== 1) return res.status(400).json({ error: "Project role is invalid, inactive, or belongs to another project.", code: "INVALID_PROJECT_ROLE" });
+    if (pmRoleRows.length !== 1) {
+      const pmTemplate = getCanonicalRoleTemplate("pm");
+      if (!pmTemplate) return res.status(500).json({ error: "Canonical PM template is unavailable.", code: "PM_TEMPLATE_UNAVAILABLE" });
+      const { rows: permissionRows } = await req.db.query(
+        "SELECT id, code FROM public.permissions WHERE code = ANY($1::text[]) AND is_active = true",
+        [pmTemplate.permissionCodes],
+      );
+      const found = new Set(permissionRows.map((row: any) => row.code));
+      const missing = pmTemplate.permissionCodes.filter((code) => !found.has(code));
+      if (missing.length) return res.status(503).json({ error: "PM template permission catalogue is incomplete.", code: "ROLE_TEMPLATE_PERMISSION_CATALOG_INCOMPLETE", missingPermissionCodes: missing });
+      const { rows: created } = await req.db.query(
+        `INSERT INTO public.project_roles
+           (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
+         VALUES ($1::uuid, 'pm', $2::text, $3::text, true, $4::uuid, now(), now())
+         ON CONFLICT (project_id, role_code) DO UPDATE SET is_active = true, updated_at = now()
+         RETURNING id`,
+        [projectId, pmTemplate.label, pmTemplate.restrictions.join(" "), req.user?.id],
+      );
+      pmRoleRows = created;
+      await req.db.query(
+        `INSERT INTO public.project_role_permissions
+           (project_id, project_role_id, permission_id, granted_by, granted_at)
+         SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+           FROM public.permissions p
+          WHERE p.code = ANY($4::text[]) AND p.is_active = true
+         ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+        [projectId, pmRoleRows[0].id, req.user?.id, pmTemplate.permissionCodes],
+      );
+    }
+    const pmRoleId = pmRoleRows[0].id;
 
-    // Serialize Admin assignments for this project/user pair because this schema has no unique pair constraint.
-    await req.db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))", [projectId, userId]);
-    const { rows: existingRows } = await req.db.query(
-      "SELECT id, user_id, project_role_id, is_active, deactivated_at, expires_at FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid ORDER BY joined_at DESC FOR UPDATE",
+    const { rows: currentRows } = await req.db.query(
+      `SELECT pm.id AS member_id, a.id AS assignment_id, a.user_id,
+              a.project_role_id, a.is_active, a.expires_at, u.email, pr.role_code
+         FROM public.project_role_assignments a
+         JOIN public.project_members pm ON pm.id = a.project_member_id
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+         JOIN public.users u ON u.id = a.user_id
+        WHERE a.project_id = $1::uuid AND pr.role_code = 'pm'
+          AND a.is_active = true AND a.revoked_at IS NULL
+          AND (a.expires_at IS NULL OR a.expires_at > now())
+          AND pm.is_active = true AND pm.deactivated_at IS NULL
+          AND (pm.expires_at IS NULL OR pm.expires_at > now())
+        FOR UPDATE OF a, pm`,
+      [projectId],
+    );
+    const current = currentRows[0] ?? null;
+    const pmDecision = evaluatePmAppointment(currentRows, userId, replaceUserId || null);
+    if (pmDecision.ok === false) {
+      if (pmDecision.code === "MULTIPLE_ACTIVE_PM_ASSIGNMENTS") {
+        return res.status(409).json({ error: "More than one active PM exists; Admin must explicitly reconcile appointments before continuing.", code: pmDecision.code });
+      }
+      return res.status(409).json({
+        error: "An active PM is already appointed. Supply its exact userId as replaceUserId to perform an audited handover.",
+        code: pmDecision.code,
+        currentPm: current ? { userId: current.user_id, email: current.email } : null,
+      });
+    }
+    if (pmDecision.idempotent) {
+      return res.status(200).json({ appointment: { projectId, userId, roleCode: "pm", status: "active" }, idempotentReplay: true });
+    }
+
+    const { rows: candidateMemberships } = await req.db.query(
+      "SELECT id, project_role_id, is_active, deactivated_at, expires_at FROM public.project_members WHERE project_id = $1::uuid AND user_id = $2::uuid FOR UPDATE",
       [projectId, userId],
     );
-    if (existingRows.length > 1) {
-      return res.status(409).json({ error: "Multiple memberships already exist for this user/project pair; reconcile duplicates before changing access.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
+    if (candidateMemberships.length > 1) return res.status(409).json({ error: "Duplicate Project membership requires reconciliation.", code: "DUPLICATE_PROJECT_MEMBERSHIP" });
+    const candidateMembership = candidateMemberships[0] ?? null;
+    // Existing membership and role assignments are independent; appointing PM must not replace another role.
+    if (candidateMembership && (candidateMembership.is_active !== true || candidateMembership.deactivated_at != null ||
+        (candidateMembership.expires_at && new Date(candidateMembership.expires_at).getTime() <= Date.now()))) {
+      return res.status(409).json({ error: "Project membership is inactive or expired. Admin must explicitly reactivate membership before appointing this user as PM.", code: "MEMBERSHIP_REACTIVATION_REQUIRED" });
     }
 
-    const before = existingRows[0] || null;
-    let member;
-    if (before) {
-      const { rows } = await req.db.query(
-        "UPDATE public.project_members SET project_role_id = $3::uuid, is_active = true, expires_at = NULL, deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = $1::uuid AND project_id = $2::uuid RETURNING *",
-        [before.id, projectId, projectRoleId],
+    if (current && current.user_id !== userId) {
+      const { rows: oldRows } = await req.db.query(
+        `UPDATE public.project_role_assignments
+            SET is_active = false, revoked_at = now(), revoked_by = $2::uuid,
+                revoke_reason = $3::text, updated_at = now()
+          WHERE id = $1::uuid AND revoked_at IS NULL RETURNING *`,
+        [current.assignment_id, req.user?.id, reason],
       );
-      member = rows[0];
+      await req.db.query(
+        `INSERT INTO public.audit_events
+           (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+            reason, before_snapshot, after_snapshot, metadata, outcome)
+         VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.unappointed', 'project_pm_appointment',
+                 $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
+        [req.user?.id, current.assignment_id, projectId, reason, JSON.stringify(current),
+         JSON.stringify({ is_active: false, revoked_at: oldRows[0]?.revoked_at, revoked_by: oldRows[0]?.revoked_by }),
+         JSON.stringify({ previousPmUserId: current.user_id, nextPmUserId: userId })],
+      );
+    }
+
+    let appointed;
+    if (candidateMembership) {
+      appointed = candidateMembership;
     } else {
       const { rows } = await req.db.query(
-        "INSERT INTO public.project_members (project_id, user_id, project_role_id, is_active, joined_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, true, now(), now()) RETURNING *",
-        [projectId, userId, projectRoleId],
+        `INSERT INTO public.project_members
+           (project_id, user_id, project_role_id, is_active, joined_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, NULL, true, now(), now()) RETURNING *`,
+        [projectId, userId],
       );
-      member = rows[0];
+      appointed = rows[0];
     }
-
-    const action = !before ? "project_member.created" :
-      before.is_active !== true || before.deactivated_at !== null ? "project_member.reactivated" :
-        before.project_role_id !== projectRoleId ? "project_member.role_changed" : "project_member.reconfirmed";
     await req.db.query(
-      "INSERT INTO public.audit_events (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id, reason, before_snapshot, after_snapshot, metadata, outcome) VALUES ($1::uuid, 'user', $2::text, $3::text, 'project_member', $4::uuid, $5::uuid, $6::text, $7::jsonb, $8::jsonb, $9::jsonb, 'success')",
-      [
-        req.user?.id ?? null,
-        req.user?.role ?? null,
-        action,
-        member.id,
-        projectId,
-        reason,
-        before ? JSON.stringify(before) : null,
-        JSON.stringify({ user_id: member.user_id, project_role_id: member.project_role_id, is_active: member.is_active, expires_at: member.expires_at, deactivated_at: member.deactivated_at }),
-        JSON.stringify({ email: userRows[0].email, role_code: roleRows[0].role_code }),
-      ],
+      `UPDATE public.project_role_assignments
+          SET is_active = false, updated_at = now()
+        WHERE project_id = $1::uuid AND project_member_id = $2::uuid
+          AND project_role_id = $3::uuid AND is_active = true
+          AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= now()`,
+      [projectId, appointed.id, pmRoleId],
     );
-    return res.status(before ? 200 : 201).json({ member });
-  } catch (error) {
-    logger.error("Admin project membership assignment failed:", error);
+    const { rows: assignmentResult } = await req.db.query(
+      `INSERT INTO public.project_role_assignments
+         (project_id, project_member_id, user_id, project_role_id, is_active, assigned_at, assigned_by)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, true, now(), $5::uuid)
+       RETURNING *`,
+      [projectId, appointed.id, userId, pmRoleId, req.user?.id],
+    );
+    const pmAssignment = assignmentResult[0];
+    await req.db.query(
+      `INSERT INTO public.audit_events
+         (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+          reason, before_snapshot, after_snapshot, metadata, outcome)
+       VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.appointed', 'project_pm_appointment',
+               $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
+      [req.user?.id, appointed.id, projectId, reason,
+       candidateMembership ? JSON.stringify(candidateMembership) : null,
+       JSON.stringify({ userId, projectRoleId: pmRoleId, assignmentId: pmAssignment.id, isActive: true }),
+       JSON.stringify({ email: userRows[0].email, handoverFromUserId: current?.user_id ?? null })],
+    );
+    return res.status(current ? 200 : 201).json({
+      appointment: { projectId, userId, email: userRows[0].email, projectRoleId: pmRoleId, status: "active" },
+      handoverFromUserId: current?.user_id ?? null,
+    });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ error: "PM appointment conflicts with an existing Project membership.", code: "PM_APPOINTMENT_CONFLICT" });
+    logger.error("Project PM appointment failed:", { code: error?.code || "UNKNOWN" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId = req.params.projectId as string;
+  const userId = req.params.userId as string;
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(userId) || reason.length < 5) {
+    return res.status(400).json({ error: "Valid Project, PM user, and administrative reason are required.", code: "INVALID_PM_DEACTIVATION_INPUT" });
+  }
+  try {
+    await req.db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':pm-appointment', 0))", [projectId]);
+    const { rows: beforeRows } = await req.db.query(
+      `SELECT a.*, pr.role_code
+         FROM public.project_role_assignments a
+         JOIN public.project_roles pr ON pr.id = a.project_role_id AND pr.project_id = a.project_id
+        WHERE a.project_id = $1::uuid AND a.user_id = $2::uuid
+          AND pr.role_code = 'pm' AND a.is_active = true AND a.revoked_at IS NULL
+        FOR UPDATE OF a`,
+      [projectId, userId],
+    );
+    if (beforeRows.length === 0) return res.status(404).json({ error: "No active PM assignment found for this user in the Project.", code: "ACTIVE_PM_ASSIGNMENT_NOT_FOUND" });
+    const revoked = [];
+    for (const before of beforeRows) {
+      const { rows } = await req.db.query(
+        `UPDATE public.project_role_assignments
+            SET is_active = false, revoked_at = now(), revoked_by = $3::uuid,
+                revoke_reason = $4::text, updated_at = now()
+          WHERE id = $2::uuid AND project_id = $1::uuid AND revoked_at IS NULL
+          RETURNING *`,
+        [projectId, before.id, req.user?.id ?? null, reason],
+      );
+      if (rows[0]) {
+        revoked.push(rows[0]);
+        await req.db.query(
+          `INSERT INTO public.audit_events
+             (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
+              reason, before_snapshot, after_snapshot, metadata, outcome)
+           VALUES ($1::uuid, 'user', 'platform_admin', 'project.pm.deactivated', 'project_pm_assignment',
+                   $2::uuid, $3::uuid, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, 'success')`,
+          [req.user?.id, before.id, projectId, reason, JSON.stringify(before), JSON.stringify(rows[0]),
+           JSON.stringify({ pmUserId: userId, adminDecision: true })],
+        );
+      }
+    }
+    return res.json({ ok: true, deactivatedAssignments: revoked.length, assignments: revoked, membershipPreserved: true });
+  } catch (error: any) {
+    logger.error("Admin PM deactivation failed:", { code: error?.code || "UNKNOWN" });
     return res.status(500).json(internalServerErrorPayload());
   }
 });
@@ -3758,6 +6213,85 @@ app.post("/api/v1/admin/users/:id/password-reset", requireAuth, requireAdmin, as
   }
 });
 
+app.get("/api/v1/role-templates", requireAuth, async (_req: express.Request, res: express.Response) => {
+  res.json({
+    version: 1,
+    templates: listProjectRoleTemplates(),
+    note: "Template activation does not assign a user. Platform Admin appoints the PM; the appointed PM activates Project workstream templates.",
+  });
+});
+
+app.post("/api/v1/projects/:id/role-templates/:roleCode/activate", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const roleCode = Array.isArray(req.params.roleCode) ? req.params.roleCode[0] : req.params.roleCode;
+  const template = getCanonicalRoleTemplate(roleCode);
+  if (!template || template.scope !== "project") {
+    return res.status(404).json({ error: "Canonical Project role template not found.", code: "ROLE_TEMPLATE_NOT_FOUND" });
+  }
+  if (!(await requireProjectPermission(req, res, projectId, "project.roles.manage"))) return;
+  try {
+    const { rows: permissionRows } = await req.db.query(
+      "SELECT id, code FROM public.permissions WHERE code = ANY($1::text[]) AND is_active = true",
+      [template.permissionCodes],
+    );
+    const found = new Set(permissionRows.map((row: any) => row.code));
+    const missing = template.permissionCodes.filter((code) => !found.has(code));
+    if (missing.length > 0) {
+      return res.status(503).json({
+        error: "Role template cannot be activated until every canonical permission exists and is active.",
+        code: "ROLE_TEMPLATE_PERMISSION_CATALOG_INCOMPLETE",
+        missingPermissionCodes: missing,
+      });
+    }
+    const { rows: roleRows } = await req.db.query(
+      `INSERT INTO public.project_roles
+         (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
+       VALUES ($1::uuid, $2::text, $3::text, $4::text, true, $5::uuid, now(), now())
+       ON CONFLICT (project_id, role_code)
+       DO UPDATE SET is_active = true, name = EXCLUDED.name, description = EXCLUDED.description, updated_at = now()
+       RETURNING *`,
+      [projectId, template.code, template.label, template.restrictions.join(" "), req.user?.id],
+    );
+    const projectRole = roleRows[0];
+    await req.db.query(
+      `INSERT INTO public.project_role_permissions
+         (project_id, project_role_id, permission_id, granted_by, granted_at)
+       SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+         FROM public.permissions p
+        WHERE p.code = ANY($4::text[]) AND p.is_active = true
+       ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+      [projectId, projectRole.id, req.user?.id, template.permissionCodes],
+    );
+    // The allowlist is the canonical extension point for permissions added after the role template version.
+    // This keeps newly activated roles in sync with UAT-validated P1 grants without widening beyond the allowlist.
+    await req.db.query(
+      `INSERT INTO public.project_role_permissions
+         (project_id, project_role_id, permission_id, granted_by, granted_at)
+       SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+         FROM public.pke_project_role_permission_allowlist a
+         JOIN public.permissions p ON p.code=a.permission_code AND p.is_active=true
+        WHERE a.role_code=$4::text
+       ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+      [projectId, projectRole.id, req.user?.id, template.code],
+    );
+    const { rows: grantedRows } = await req.db.query(
+      `SELECT p.code FROM public.project_role_permissions prp
+       JOIN public.permissions p ON p.id=prp.permission_id
+       WHERE prp.project_role_id=$1::uuid AND p.is_active=true ORDER BY p.code`,
+      [projectRole.id],
+    );
+    return res.status(200).json({
+      role: projectRole,
+      activated: true,
+      assignedUsers: 0,
+      templateVersion: template.templateVersion,
+      permissionCodes: grantedRows.map((row: any) => row.code),
+    });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.get("/api/v1/roles", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT * FROM role_catalog WHERE is_active = true ORDER BY name");
@@ -3812,6 +6346,471 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     res.status(500).json({ error: "Failed to create audit event" });
   }
 });
+
+
+  // P1 project-scoped domain workflows — schema-gated and fail-closed where not provisioned.
+  const p1Ready = async (req: express.Request, res: express.Response): Promise<boolean> => {
+    const { rows } = await req.db.query("SELECT to_regclass('public.p1_domain_records') IS NOT NULL AS ready");
+    if (!rows[0]?.ready) { res.status(503).json({error:"P1 workflow schema is not provisioned.",code:"P1_WORKFLOW_NOT_PROVISIONED"}); return false; }
+    return true;
+  };
+  const p1DefaultOwner: Record<P1RecordType,string> = {
+    purchase_requisition:"procurement",purchase_order:"procurement",supplier_commitment:"supplier",goods_receipt_match:"procurement",
+    production_batch:"production_manager",packing_batch:"packing_supervisor",quality_sample:"qc_officer",quality_result:"laboratory_officer",
+    qa_release:"qa_manager",hse_inspection:"hse_officer",hse_action:"hse_officer",dispatch_assignment:"transporter",
+    vessel_call:"master_of_loading",loading_plan:"master_of_loading",loading_survey:"marine_surveyor",ship_master_ack:"ship_master",
+    laytime_event:"master_of_loading",lc_record:"document_officer",lc_clause:"document_officer",lc_discrepancy:"document_officer",
+    lc_presentation:"document_officer",audit_finding:"internal_auditor",audit_response:"internal_auditor",audit_closure:"internal_auditor",
+  };
+  const p1ExternalRoles: Partial<Record<P1RecordType,string[]>> = {
+    supplier_commitment:["supplier"],dispatch_assignment:["transporter","driver"],vessel_call:["shipping_agent","terminal_representative"],
+    loading_survey:["marine_surveyor"],ship_master_ack:["ship_master"],laytime_event:["shipping_agent"],
+    lc_record:["shipping_agent"],lc_clause:["shipping_agent"],lc_discrepancy:["shipping_agent"],lc_presentation:["shipping_agent"],
+  };
+  const p1Permission = async (req: express.Request,type:P1RecordType,action:"view"|"create"|"update"|"manage_external"):Promise<string|null> => {
+    const q=await req.db.query("SELECT public.p1_workflow_permission($1,$2) AS code",[type,action]);
+    return typeof q.rows[0]?.code==="string"?q.rows[0].code:null;
+  };
+  const p1ReadPermission = async (req:express.Request,projectId:string,type:P1RecordType):Promise<string|null> => {
+    if(type==="audit_finding"||type==="audit_response"){
+      const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'audit.finding.view') AS auditor,public.pke_has_project_permission($1::uuid,'audit.finding.respond') AS owner",[projectId]);
+      return q.rows[0]?.auditor?"audit.finding.view":q.rows[0]?.owner?"audit.finding.respond":null;
+    }
+    if(type==="hse_action"){
+      const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'hse.action.view') AS viewer,public.pke_has_project_permission($1::uuid,'hse.action.respond') AS owner,public.pke_has_project_permission($1::uuid,'hse.action.manage') AS manager",[projectId]);
+      return q.rows[0]?.viewer?"hse.action.view":q.rows[0]?.owner?"hse.action.respond":q.rows[0]?.manager?"hse.action.manage":null;
+    }
+    const view=await p1Permission(req,type,"view"),manage=await p1Permission(req,type,"manage_external");
+    if(!view)return manage;
+    const q=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,$2) AS can_view,public.pke_has_project_permission($1::uuid,$3) AS can_manage",[projectId,view,manage]);
+    return q.rows[0]?.can_view?view:q.rows[0]?.can_manage?manage:null;
+  };
+  const p1Roles = async (req: express.Request,projectId:string):Promise<string[]> => {
+    const candidates=["pm","project_admin","platform_admin","finance","accounting","procurement","contract_manager","buyer","supplier","pks_site_manager",
+      "production_manager","packing_supervisor","qc_officer","laboratory_officer","qa_manager","hse_officer",
+      "transport_manager","dispatcher","transporter","driver","checker","master_of_loading","loading_manager",
+      "loading_supervisor","loading_operator","marine_surveyor","ship_master","terminal_representative","shipping_agent",
+      "document_officer","internal_auditor","warehouse","warehouse_manager","warehouse_officer","inventory_controller"];
+    const q=await req.db.query(
+      `SELECT r.role_code FROM unnest($2::text[]) AS r(role_code)
+       WHERE public.p1_has_active_project_role_assignment($1::uuid,r.role_code,public.pke_current_user_id())`,
+      [projectId,candidates]
+    );
+    return q.rows.map((row:any)=>String(row.role_code));
+  };
+  const p1Role = async (req: express.Request):Promise<string> => {
+    const q=await req.db.query("SELECT current_setting('app.current_role',true) AS code");
+    return String(q.rows[0]?.code??"");
+  };
+  const p1HasRole = async (req: express.Request,projectId:string,userId:string,roleCodes:string[]):Promise<boolean> => {
+    for(const roleCode of roleCodes){
+      const q=await req.db.query(
+        "SELECT public.p1_has_active_project_role_assignment($1::uuid,$2::text,$3::uuid) AS active",
+        [projectId,roleCode,userId]
+      );
+      if(q.rows[0]?.active) return true;
+    }
+    return false;
+  };
+
+  app.get("/api/v1/projects/:projectId/p1-workflows",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,type=String(req.query.recordType??"");
+    if(!isP1RecordType(type)) return res.status(400).json({error:"recordType is required and must be valid."});
+    try {
+      if(!(await p1Ready(req,res))) return;
+      const permission=await p1ReadPermission(req,projectId,type);
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const status=typeof req.query.status==="string"?req.query.status:null;
+      const q=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2 AND ($3::text IS NULL OR status=$3) ORDER BY updated_at DESC LIMIT 200",[projectId,type,status]);
+      return res.json({projectId,recordType:type,records:q.rows});
+    } catch { return res.status(500).json(internalServerErrorPayload()); }
+  });
+
+  app.get("/api/v1/projects/:projectId/p1-workflows/:id/events",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string;
+    try{
+      if(!(await p1Ready(req,res))) return;
+      const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
+      if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const permission=await p1ReadPermission(req,projectId,record.rows[0].record_type);
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const events=await req.db.query("SELECT * FROM public.p1_domain_events WHERE record_id=$1::uuid AND project_id=$2::uuid ORDER BY occurred_at ASC",[id,projectId]);
+      return res.json({events:events.rows});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
+
+  app.get("/api/v1/projects/:projectId/p1-workflows/:id/evidence",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string;
+    try{
+      if(!(await p1Ready(req,res))) return;
+      const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
+      if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const permission=await p1ReadPermission(req,projectId,record.rows[0].record_type);
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const evidence=await req.db.query(
+        "SELECT id,evidence_type,object_key,storage_bucket,original_filename,mime_type,file_size_bytes,sha256_checksum,uploaded_by,uploaded_at,verified_by,verified_at,status FROM public.p1_domain_evidence WHERE record_id=$1::uuid AND project_id=$2::uuid ORDER BY uploaded_at DESC",
+        [id,projectId]
+      );
+      return res.json({evidence:evidence.rows});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
+
+  app.post("/api/v1/projects/:projectId/p1-workflows",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,actorId=String(req.user?.id??""),b=req.body??{},type=b.recordType;
+    if(!isP1RecordType(type)) return res.status(400).json({error:"Valid recordType is required."});
+    const title=typeof b.title==="string"?b.title.trim():"",payload=b.payload&&typeof b.payload==="object"&&!Array.isArray(b.payload)?b.payload:{};
+    const errors=validateP1Create(type,payload);
+    if(title.length<3||title.length>240) errors.push("title must contain 3-240 characters");
+    if(typeof b.idempotencyKey!=="string"||b.idempotencyKey.trim().length<12) errors.push("idempotencyKey must contain at least 12 characters");
+    if(errors.length) return res.status(400).json({error:"P1 validation failed.",code:"P1_VALIDATION_FAILED",details:errors});
+    try {
+      if(!(await p1Ready(req,res))) return;
+      const permission=await p1Permission(req,type,"create");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const priorRequest=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND idempotency_key=$2",[projectId,b.idempotencyKey.trim()]);
+      if(priorRequest.rows.length){
+        const prior=priorRequest.rows[0];
+        if(prior.record_type!==type||prior.title!==title||JSON.stringify(prior.payload)!==JSON.stringify(payload)) return res.status(409).json({error:"Idempotency key conflict.",code:"IDEMPOTENCY_KEY_CONFLICT"});
+        return res.status(200).json({record:prior,idempotentReplay:true});
+      }
+      const roleCode=await p1Role(req);
+      if(["purchase_requisition","purchase_order","supplier_commitment"].includes(type)&&!["procurement","contract_manager"].includes(roleCode)) return res.status(403).json({error:"Procurement record creation is restricted to Procurement/Contract Manager."});
+      if(type==="audit_finding"&&roleCode!=="internal_auditor") return res.status(403).json({error:"Only Internal Auditor may create findings."});
+      if(type==="audit_closure"&&roleCode!=="internal_auditor") return res.status(403).json({error:"Only Internal Auditor may initiate closure."});
+      if(type==="qa_release"&&roleCode!=="qa_manager") return res.status(403).json({error:"Only QA Manager may create release decisions."});
+      if(type==="loading_survey"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit surveys."});
+      if(type==="ship_master_ack"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may submit acknowledgements."});
+      if(["purchase_order","supplier_commitment","goods_receipt_match","quality_sample","quality_result","audit_response","audit_closure","lc_clause","lc_discrepancy","lc_presentation","qa_release","hse_action"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
+      let parentRecord:any=null;
+      if(b.parentRecordId){
+        const parent=await req.db.query("SELECT id,record_type,status,created_by,owner_role_code,parent_record_id,payload FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[b.parentRecordId,projectId]);
+        if(parent.rows.length!==1) return res.status(422).json({error:"Parent record is not in the selected Project."});
+        parentRecord=parent.rows[0];
+        if(type==="purchase_order"&&(parent.rows[0].record_type!=="purchase_requisition"||parent.rows[0].status!=="approved")) return res.status(409).json({error:"Purchase Order requires an approved requisition."});
+        if(type==="supplier_commitment"&&(parent.rows[0].record_type!=="purchase_order"||!["issued","acknowledged","partially_received"].includes(parent.rows[0].status)||String(payload.purchaseOrderRecordId)!==String(b.parentRecordId))) return res.status(409).json({error:"Supplier commitment must reference its issued parent PO."});
+        if(type==="goods_receipt_match"&&(parent.rows[0].record_type!=="purchase_order"||String(payload.purchaseOrderRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"Three-way match must reference its parent Purchase Order."});
+        if(type==="quality_sample"&&!["production_batch","packing_batch"].includes(parent.rows[0].record_type)) return res.status(422).json({error:"QC sample must reference a production or packing batch."});
+        if(type==="quality_result"&&(parent.rows[0].record_type!=="quality_sample"||String(payload.sampleId)!==String(parent.rows[0].payload.sampleId))) return res.status(422).json({error:"Quality result must reference the sample record it evaluates."});
+        if(type==="audit_response"&&(parent.rows[0].record_type!=="audit_finding"||String(payload.findingRecordId)!==String(b.parentRecordId)||!["open","responded"].includes(parent.rows[0].status)||!(await p1HasRole(req,projectId,actorId,[parent.rows[0].owner_role_code])))) return res.status(403).json({error:"Only the active finding owner role may respond to its parent finding."});
+        if(type==="audit_response"&&(parent.rows[0].record_type!=="audit_finding"||!["open","responded"].includes(parent.rows[0].status)||!(await p1HasRole(req,projectId,actorId,[parent.rows[0].owner_role_code])))) return res.status(403).json({error:"Only the active finding owner role may respond."});
+        if(type==="audit_closure"&&(parent.rows[0].record_type!=="audit_finding"||String(payload.findingRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"Audit closure must reference the same parent audit finding."});
+        if(type==="qa_release"&&(!["production_batch","packing_batch"].includes(parent.rows[0].record_type)||String(payload.sourceRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"QA release must reference its production or packing source record."});
+        if(type==="hse_action"&&(parent.rows[0].record_type!=="hse_inspection"||String(payload.findingRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"HSE corrective action must reference its parent HSE inspection."});
+        if(type==="lc_clause"&&(parent.rows[0].record_type!=="lc_record"||String(payload.lcRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"LC clause must reference its parent LC record."});
+        if(type==="lc_discrepancy"&&parent.rows[0].record_type!=="lc_record"&&parent.rows[0].record_type!=="lc_clause") return res.status(422).json({error:"LC discrepancy must reference an LC record or clause."});
+        if(type==="lc_presentation"&&parent.rows[0].record_type!=="lc_record") return res.status(422).json({error:"LC presentation must reference an LC record."});
+      }
+      if(type==="goods_receipt_match"){
+        const po=await req.db.query("SELECT id,status,payload FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='purchase_order'",[payload.purchaseOrderRecordId,projectId]);
+        const inputs=await req.db.query("SELECT * FROM public.p1_get_three_way_match_inputs($1::uuid,$2::uuid,$3::uuid)",[projectId,payload.warehouseReceiptId,payload.apInvoiceId]);
+        if(po.rows.length!==1||inputs.rows.length!==1||!["issued","acknowledged","partially_received","received"].includes(po.rows[0].status)||!["verified","partial"].includes(inputs.rows[0].receipt_status)) return res.status(422).json({error:"PO, verified same-Project GRN and AP invoice are required."});
+        const pp=po.rows[0].payload??{},ii=inputs.rows[0],gg=inputs.rows[0];
+        if(ii.invoice_purchase_order_id&&String(ii.invoice_purchase_order_id)!==String(payload.purchaseOrderRecordId)) return res.status(409).json({error:"AP invoice is linked to another PO."});
+        if(ii.invoice_goods_receipt_id&&String(ii.invoice_goods_receipt_id)!==String(payload.warehouseReceiptId)) return res.status(409).json({error:"AP invoice is linked to another GRN."});
+        const match=validateThreeWayMatch({
+          po:{projectId,supplierId:String(pp.supplierId??""),currencyCode:String(pp.currencyCode??""),items:Array.isArray(pp.items)?pp.items:[]},
+          receipt:{projectId,quantity:Number(gg.receipt_quantity),unitCode:String(gg.receipt_unit),supplierId:null},
+          invoice:{projectId,supplierId:String(ii.invoice_supplier_id),currencyCode:String(ii.invoice_currency_code),totalAmount:Number(ii.invoice_total_amount)},
+          matchedQuantity:Number(payload.matchedQuantity),matchedAmount:Number(payload.matchedAmount),unitCode:String(payload.unitCode),currencyCode:String(payload.currencyCode),
+        });
+        if(!match.ok) return res.status(409).json({error:"Three-way match rejected.",code:match.reason});
+      }
+      if(type==="loading_survey"){
+        const key=String(payload.certificateObjectKey??""),checksum=String(payload.sha256Checksum??""),size=Number(payload.certificateFileSizeBytes);
+        const storage=privateStorage.status();
+        if(!key.startsWith(`projects/${projectId}/`)||!storage.available||storage.bucket!=="pke-private-documents") return res.status(400).json({error:"Survey certificate must be stored in the Project private bucket.",code:"SURVEY_CERTIFICATE_STORAGE_INVALID"});
+        try{await privateStorage.verifyObject(key,size,checksum);}catch{return res.status(422).json({error:"Survey certificate object checksum or size verification failed.",code:"SURVEY_CERTIFICATE_VERIFICATION_FAILED"});}
+      }
+      if(type==="production_batch"){
+        if(b.sourceEntityType!=="production_batches"||!b.sourceEntityId) return res.status(400).json({error:"Production batch must link an existing production_batches row."});
+        const q=await req.db.query("SELECT id FROM public.production_batches WHERE id=$1::uuid AND project_id=$2::uuid",[b.sourceEntityId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Production batch source is outside this Project."});
+      }
+      if(type==="packing_batch"){
+        if(b.sourceEntityType!=="packing_batches"||!b.sourceEntityId) return res.status(400).json({error:"Packing batch must link an existing packing_batches row."});
+        const q=await req.db.query("SELECT id FROM public.packing_batches WHERE id=$1::uuid AND project_id=$2::uuid",[b.sourceEntityId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Packing batch source is outside this Project."});
+      }
+      if(type==="quality_sample"){
+        const q=payload.sampleId
+          ? await req.db.query("SELECT id FROM public.product_quality_samples WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sampleId,projectId])
+          : await req.db.query("SELECT id FROM public.product_quality_samples WHERE sample_number=$1 AND project_id=$2::uuid",[payload.sampleNumber,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Quality sample must reference a same-Project sample."});
+        payload.sampleId=String(q.rows[0].id);
+      }
+      if(type==="quality_result"){
+        const q=await req.db.query("SELECT id FROM public.product_quality_samples WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sampleId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Quality result sample is outside this Project."});
+      }
+      if(type==="dispatch_assignment"){
+        const q=await req.db.query("SELECT id,vehicle_id FROM public.truck_trips WHERE id=$1::uuid AND project_id=$2::uuid",[payload.tripId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Dispatch assignment must reference a same-Project truck trip."});
+        if(q.rows[0].vehicle_id&&String(q.rows[0].vehicle_id)!==String(payload.vehicleId)) return res.status(409).json({error:"Dispatch vehicle does not match the registered truck trip vehicle."});
+        if(!await p1HasRole(req,projectId,String(payload.driverUserId),["driver"])) return res.status(422).json({error:"Dispatch driver must hold an active Driver Project role."});
+      }
+      if(type==="vessel_call"||type==="ship_master_ack"||type==="laytime_event"){
+        const voyageId=String(payload.voyageId??"");
+        const q=await req.db.query("SELECT id,vessel_id,port_id,origin_port_id,destination_port_id FROM public.voyages WHERE id=$1::uuid AND project_id=$2::uuid",[voyageId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Vessel workflow must reference a same-Project voyage."});
+        if(type==="vessel_call"&&String(q.rows[0].vessel_id)!==String(payload.vesselId)) return res.status(422).json({error:"Vessel call vessel must match the Project voyage."});
+        if(type==="vessel_call"&&![q.rows[0].port_id,q.rows[0].origin_port_id,q.rows[0].destination_port_id].filter(Boolean).map(String).includes(String(payload.portId))) return res.status(422).json({error:"Vessel call port must match the Project voyage route."});
+      }
+      if(type==="loading_plan"||type==="loading_survey"){
+        const opId=String(payload.loadingOperationId??"");
+        const q=await req.db.query("SELECT id,quantity FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid",[opId,projectId]);
+        if(!q.rows.length) return res.status(422).json({error:"Loading operation is outside this Project."});
+        if(type==="loading_plan"){
+          const shipment=await req.db.query("SELECT quantity FROM public.shipments WHERE id=$1::uuid AND project_id=$2::uuid",[payload.shipmentId,projectId]);
+          if(!shipment.rows.length||Number(payload.plannedQuantity)>Number(shipment.rows[0].quantity)) return res.status(422).json({error:"Loading plan must reference a same-Project shipment and not exceed shipment quantity."});
+        }
+        if(type==="loading_survey"&&Number(payload.surveyedQuantity)>Number(q.rows[0].quantity)) return res.status(422).json({error:"Surveyed quantity cannot exceed the loading operation quantity."});
+      }
+      if(type==="lc_record"){
+        const q=await req.db.query("SELECT id FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='lc_record' AND payload->>'lcNumber'=$2 LIMIT 1",[projectId,payload.lcNumber]);
+        if(q.rows.length) return res.status(409).json({error:"LC number already exists in this Project.",code:"DUPLICATE_LC_NUMBER"});
+      }
+      if(type==="lc_clause"&&String(payload.lcRecordId)!==String(parentRecord?.id??"")) return res.status(422).json({error:"LC clause must reference its parent LC record."});
+      if(type==="lc_discrepancy"&&parentRecord?.record_type==="lc_clause"&&(String(payload.clauseRecordId)!==String(parentRecord.id)||String(payload.lcRecordId)!==String(parentRecord.parent_record_id))) return res.status(422).json({error:"LC discrepancy clause and LC references must match the parent clause."});
+      if(type==="lc_discrepancy"&&parentRecord?.record_type==="lc_record"&&String(payload.lcRecordId)!==String(parentRecord.id)) return res.status(422).json({error:"LC discrepancy must reference its parent LC record."});
+      if(type==="lc_presentation"){
+        const lcId=String(payload.lcRecordId??"");
+        if(lcId!==String(parentRecord?.id??"")||parentRecord?.record_type!=="lc_record"||!["issued","acknowledged"].includes(parentRecord.status)) return res.status(409).json({error:"LC presentation requires an issued, same-Project LC record."});
+        const clauses=await req.db.query("SELECT payload,status FROM public.p1_domain_records WHERE project_id=$1::uuid AND parent_record_id=$2::uuid AND record_type='lc_clause'",[projectId,lcId]);
+        if(!clauses.rows.length||clauses.rows.some((x:any)=>x.status!=="accepted")) return res.status(409).json({error:"All LC clauses must be reviewed and accepted before presentation.",code:"LC_CLAUSES_NOT_READY"});
+        const selections=payload.documentSelections as Array<{documentRecordId:string;clauseCode:string;copyType:"original"|"copy"}>;
+        const ids=[...new Set(selections.map(x=>x.documentRecordId))];
+        const docs=await req.db.query("SELECT id,document_type_code,status,expiry_date,sha256_checksum,object_key,storage_bucket,file_size_bytes,upload_verified_at FROM public.project_export_documents WHERE project_id=$1::uuid AND id=ANY($2::uuid[])",[projectId,ids]);
+        if(docs.rows.length!==ids.length) return res.status(422).json({error:"Every presented document must exist in the same Project."});
+        const expired=docs.rows.some((d:any)=>d.status!=="approved"||!d.sha256_checksum||!d.object_key||!d.upload_verified_at||!d.file_size_bytes||d.storage_bucket!=="pke-private-documents"||(d.expiry_date&&new Date(d.expiry_date)<new Date()));
+        const required=clauses.rows.map((x:any)=>String(x.payload.clauseCode));
+        const supplied=[...new Set(selections.map(x=>x.clauseCode))];
+        const checklist=validateLcPresentation(required,supplied,expired);
+        if(!checklist.ok) return res.status(409).json({error:"LC presentation checklist is incomplete or contains invalid/expired evidence.",code:"LC_PRESENTATION_INCOMPLETE",missing:checklist.missing});
+        for(const clause of clauses.rows){
+          const code=String(clause.payload.clauseCode),matches=selections.filter(x=>x.clauseCode===code);
+          const docType=String(clause.payload.documentTypeCode);
+          if(matches.some(x=>docs.rows.find((d:any)=>d.id===x.documentRecordId)?.document_type_code!==docType)) return res.status(409).json({error:"Presented document type does not satisfy the LC clause.",code:"LC_DOCUMENT_TYPE_MISMATCH",clauseCode:code});
+          if(matches.filter(x=>x.copyType==="original").length<Number(clause.payload.requiredOriginals??0)||matches.filter(x=>x.copyType==="copy").length<Number(clause.payload.requiredCopies??0)) return res.status(409).json({error:"LC original/copy count is below the clause requirement.",code:"LC_DOCUMENT_COUNT_MISMATCH",clauseCode:code});
+        }
+      }
+      if(type==="laytime_event"){
+        const calc=calculateLaytime({allowedHours:Number(payload.allowedHours),startAt:String(payload.startAt),endAt:String(payload.endAt),excludedHours:Number(payload.excludedHours??0)});
+        if(!calc.valid) return res.status(400).json({error:"Invalid laytime interval or allowance.",code:"INVALID_LAYTIME"});
+        const overlap=await req.db.query(
+          `SELECT 1 FROM public.p1_domain_records
+           WHERE project_id=$1::uuid AND record_type='laytime_event'
+             AND payload->>'voyageId'=$2
+             AND tstzrange((payload->>'startAt')::timestamptz,(payload->>'endAt')::timestamptz,'[)')
+                 && tstzrange($3::timestamptz,$4::timestamptz,'[)')
+           LIMIT 1`,[projectId,payload.voyageId,payload.startAt,payload.endAt]);
+        if(overlap.rows.length) return res.status(409).json({error:"Laytime interval overlaps an existing event for this voyage.",code:"LAYTIME_INTERVAL_OVERLAP"});
+        payload.laytimeImpactHours=calc.usedHours;
+        payload.laytimeOverrunHours=calc.overrunHours;
+      }
+      if(type==="qa_release"){
+        const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type IN ('production_batch','packing_batch')",[payload.sourceRecordId,projectId]);
+        if(source.rows.length!==1||String(payload.sourceRecordId)!==String(b.parentRecordId)||source.rows[0].created_by===actorId) return res.status(409).json({error:"QA release requires an independent actor and production/packing source.",code:"QA_INDEPENDENCE_REQUIRED"});
+        const quality=await req.db.query(
+          `SELECT 1 FROM public.p1_domain_records s JOIN public.p1_domain_records r ON r.parent_record_id=s.id AND r.project_id=s.project_id
+           WHERE s.project_id=$1::uuid AND s.parent_record_id=$2::uuid AND s.record_type='quality_sample' AND s.status='verified'
+             AND r.record_type='quality_result' AND r.status='accepted' LIMIT 1`,[projectId,payload.sourceRecordId]);
+        if(!quality.rows.length) return res.status(409).json({error:"QA release requires at least one verified QC sample with an accepted laboratory result.",code:"QA_QUALITY_EVIDENCE_REQUIRED"});
+      }
+      if(type==="audit_closure"){
+        const fid=String(payload.findingRecordId??"");
+        const finding=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='audit_finding'",[fid,projectId]);
+        const response=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[fid,projectId]);
+        if(finding.rows.length!==1||!response.rows.length||!canCloseAuditFinding(actorId,finding.rows[0].created_by,response.rows[0].created_by,roleCode)) return res.status(409).json({error:"Audit closure requires independent Internal Auditor verification after owner response.",code:"AUDIT_CLOSURE_INDEPENDENCE_REQUIRED"});
+      }
+      const external=b.externalScopeUserId?String(b.externalScopeUserId):null;
+      let externalRoleCode:string|null=null;
+      if(external){
+        const allowed=p1ExternalRoles[type]??[];
+        for(const candidateRole of allowed){
+          const extRole=await req.db.query(
+            "SELECT public.p1_has_active_project_role_assignment($1::uuid,$2::text,$3::uuid) AS active",
+            [projectId,candidateRole,external]
+          );
+          if(extRole.rows[0]?.active){externalRoleCode=candidateRole;break;}
+        }
+        if(!externalRoleCode) return res.status(422).json({error:"External scope must match an active external Project assignment."});
+      }
+      const ownerRoleCode=typeof b.ownerRoleCode==="string"?b.ownerRoleCode:
+        type==="audit_finding"?String(payload.ownerRoleCode):
+        type==="audit_response"?String(parentRecord?.owner_role_code??""):
+        type==="hse_action"?String(payload.actionOwnerRoleCode??""):
+        externalRoleCode??p1DefaultOwner[type];
+      const owner=await req.db.query(
+        "SELECT public.p1_has_active_project_role_assignment($1::uuid,$2::text,NULL::uuid) AS active",
+        [projectId,ownerRoleCode]
+      );
+      if(!owner.rows[0]?.active) return res.status(422).json({error:"ownerRoleCode must have an active assignee in this Project.",code:"P1_OWNER_ROLE_UNASSIGNED"});
+      let assignee=b.assigneeUserId?String(b.assigneeUserId):null;
+      if(external&&!assignee) assignee=external;
+      if(assignee&&!await p1HasRole(req,projectId,assignee,[ownerRoleCode])) return res.status(422).json({error:"Assignee must hold the selected active Project role."});
+      if(external&&assignee!==external) return res.status(422).json({error:"External scope and assignee must be the same user."});
+      if(["supplier_commitment","dispatch_assignment","loading_survey","ship_master_ack"].includes(type)&&!external) return res.status(422).json({error:"This workflow requires an explicitly assigned external Project user.",code:"EXTERNAL_ASSIGNMENT_REQUIRED"});
+      const dueAt=b.dueAt?new Date(b.dueAt):null;
+      if(b.dueAt&&Number.isNaN(dueAt!.getTime())) return res.status(400).json({error:"Invalid dueAt."});
+      const effectiveParentId=b.parentRecordId??(type==="goods_receipt_match"?payload.purchaseOrderRecordId:null);
+      const ins=await req.db.query(
+        `INSERT INTO public.p1_domain_records(project_id,record_type,record_code,parent_record_id,source_entity_type,source_entity_id,title,payload,status,owner_role_code,assignee_user_id,external_scope_user_id,created_by,updated_by,due_at,idempotency_key)
+         VALUES($1::uuid,$2,COALESCE(NULLIF($3,''),'P1-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12))),$4::uuid,$5,$6::uuid,$7,$8::jsonb,$9,$10,$11::uuid,$12::uuid,$13::uuid,$13::uuid,$14::timestamptz,$15)
+         ON CONFLICT (project_id,idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING *`,
+        [projectId,type,b.recordCode??"",effectiveParentId,b.sourceEntityType??null,b.sourceEntityId??null,title,JSON.stringify(payload),initialP1Status(type),ownerRoleCode,assignee,external,actorId,dueAt,b.idempotencyKey.trim()]);
+      if(!ins.rows.length){
+        const prior=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND idempotency_key=$2",[projectId,b.idempotencyKey.trim()]);
+        if(prior.rows.length!==1||prior.rows[0].record_type!==type||prior.rows[0].title!==title||JSON.stringify(prior.rows[0].payload)!==JSON.stringify(payload)) return res.status(409).json({error:"Idempotency key conflict.",code:"IDEMPOTENCY_KEY_CONFLICT"});
+        return res.status(200).json({record:prior.rows[0],idempotentReplay:true});
+      }
+      const currentRole=await p1Role(req);
+      await req.db.query("INSERT INTO public.p1_domain_events(record_id,project_id,event_type,actor_user_id,actor_role_code,payload) VALUES($1::uuid,$2::uuid,'created',$3::uuid,$4,$5::jsonb)",[ins.rows[0].id,projectId,actorId,currentRole,JSON.stringify({recordType:type})]);
+      return res.status(201).json({record:ins.rows[0],idempotentReplay:false});
+    } catch { return res.status(500).json(internalServerErrorPayload()); }
+  });
+
+  app.patch("/api/v1/projects/:projectId/p1-workflows/:id/transition",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string,actorId=String(req.user?.id??""),b=req.body??{};
+    if(typeof b.status!=="string") return res.status(400).json({error:"status is required."});
+    try {
+      if(!(await p1Ready(req,res))) return;
+      const found=await req.db.query("SELECT * FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid FOR UPDATE",[id,projectId]);
+      if(found.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const record=found.rows[0];
+      if(!isP1RecordType(record.record_type)) return res.status(409).json({error:"Unsupported stored workflow type."});
+      const to=b.status as P1Status;
+      const permission=record.record_type==="loading_survey"&&["accepted","rejected"].includes(to)
+        ?"shipping.update"
+        :record.record_type==="laytime_event"&&to==="verified"?"shipping.update"
+        :await p1Permission(req,record.record_type,"update");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const from=record.status as P1Status;
+      if(!validateP1Transition(record.record_type,from,to)) return res.status(409).json({error:"Invalid status transition.",code:"INVALID_P1_TRANSITION",from,to});
+      if(["rejected","held","blocked","cancelled","discrepancy"].includes(to)&&String(b.reason??"").trim().length<5) return res.status(400).json({error:"A reason of at least 5 characters is required."});
+      if(record.record_type==="purchase_order"&&to==="approved"){
+        if(!(await requireProjectPermission(req,res,projectId,"procurement.po.approve"))) return;
+        if(!canApprovePurchaseOrder(actorId,record.created_by,await p1Role(req))) return res.status(403).json({error:"PO approval requires an independent Procurement/Contract Manager.",code:"MAKER_CHECKER_REQUIRED"});
+      }
+      if(record.record_type==="qa_release"&&(to==="released"||to==="held")){
+        if(!(await requireProjectPermission(req,res,projectId,"quality.release.decide"))) return;
+        const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[record.payload.sourceRecordId,projectId]);
+        if(source.rows.length!==1||!canDecideQaRelease(actorId,source.rows[0].created_by,await p1Role(req))) return res.status(403).json({error:"QA release requires an independent QA Manager."});
+      }
+      if(record.record_type==="audit_finding"&&(to==="verified"||to==="closed")){
+        if(!(await requireProjectPermission(req,res,projectId,"audit.finding.close"))) return;
+        const response=await req.db.query("SELECT created_by,status FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[id,projectId]);
+        if(!response.rows.length||!canCloseAuditFinding(actorId,record.created_by,response.rows[0].created_by,await p1Role(req))||(to==="closed"&&response.rows[0].status!=="verified")) return res.status(403).json({error:"Finding verification/closure requires an independent Internal Auditor after a verified owner response.",code:"AUDIT_CLOSURE_INDEPENDENCE_REQUIRED"});
+      }
+      const roleCode=await p1Role(req);
+      if(record.record_type==="supplier_commitment"&&to==="acknowledged"&&roleCode!=="supplier") return res.status(403).json({error:"Only the assigned Supplier may acknowledge the commitment."});
+      if(record.record_type==="ship_master_ack"&&to==="acknowledged"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may acknowledge."});
+      if(record.record_type==="loading_survey"&&to==="submitted"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit the survey."});
+      if(record.record_type==="loading_survey"&&["accepted","rejected"].includes(to)){
+        if(!["master_of_loading","loading_supervisor"].includes(roleCode)||actorId===record.created_by) return res.status(403).json({error:"Survey acceptance/rejection requires an independent Master of Loading or Loading Supervisor."});
+      }
+      if(record.record_type==="hse_action"&&to==="verified"){
+        if(!(await requireProjectPermission(req,res,projectId,"hse.action.manage"))||roleCode!=="hse_officer"||actorId===record.created_by||actorId===record.assignee_user_id) return res.status(403).json({error:"HSE action verification requires an independent HSE Officer.",code:"HSE_VERIFICATION_INDEPENDENCE_REQUIRED"});
+      }
+      if(record.record_type==="dispatch_assignment"&&["acknowledged","in_progress","completed"].includes(to)&&["transporter","driver"].includes(roleCode)&&record.external_scope_user_id!==actorId) return res.status(403).json({error:"External dispatch updates are restricted to the assigned user."});
+      if(record.record_type==="audit_response"&&to==="submitted"){
+        const finding=await req.db.query("SELECT owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='audit_finding'",[record.parent_record_id]);
+        if(finding.rows.length!==1||!await p1HasRole(req,projectId,actorId,[finding.rows[0].owner_role_code])) return res.status(403).json({error:"Only finding owner role may submit the response."});
+      }
+      if(record.record_type==="lc_presentation"&&(to==="accepted"||to==="discrepancy")){
+        if(!b.transitionData?.bankAcknowledgementReference||String(b.transitionData.bankAcknowledgementReference).trim().length<3||!b.transitionData?.bankAcknowledgementEvidenceId) return res.status(409).json({error:"Bank acknowledgement reference and evidence are required before recording LC presentation outcome."});
+        const bankEvidence=await req.db.query("SELECT id FROM public.p1_domain_evidence WHERE id=$1::uuid AND record_id=$2::uuid AND project_id=$3::uuid AND status IN ('uploaded','verified')",[b.transitionData.bankAcknowledgementEvidenceId,id,projectId]);
+        if(!bankEvidence.rows.length) return res.status(409).json({error:"Bank acknowledgement evidence must be attached to this LC presentation."});
+      }
+      if(record.record_type==="lc_record"&&to==="issued"&&roleCode!=="document_officer") return res.status(403).json({error:"Only Document Officer may record issuance of an LC."});
+      if(record.record_type==="loading_plan"&&to==="approved"&&roleCode!=="master_of_loading") return res.status(403).json({error:"Only Master of Loading may approve the shore-side loading plan."});
+      if(record.record_type==="laytime_event"&&to==="verified"&&(roleCode!=="master_of_loading"||actorId===record.created_by)) return res.status(403).json({error:"Laytime verification requires a different Master of Loading actor."});
+      const data=b.transitionData&&typeof b.transitionData==="object"?b.transitionData:{};
+      const update=await req.db.query(
+        `UPDATE public.p1_domain_records SET status=$1,updated_by=$2::uuid,updated_at=now(),version=version+1,payload=payload||$3::jsonb,
+         closed_at=CASE WHEN $1='closed' THEN now() WHEN $1 IN ('open','responded','verified') THEN NULL ELSE closed_at END,
+         closed_by=CASE WHEN $1='closed' THEN $2::uuid WHEN $1 IN ('open','responded','verified') THEN NULL ELSE closed_by END
+         WHERE id=$4::uuid AND project_id=$5::uuid AND version=$6 RETURNING *`,
+        [to,actorId,JSON.stringify(data),id,projectId,b.expectedVersion??record.version]);
+      if(update.rows.length!==1) return res.status(409).json({error:"Record changed concurrently; reload and retry.",code:"P1_VERSION_CONFLICT"});
+      const eventType:Record<string,string>={submitted:"submitted",approved:"approved",issued:"issued",acknowledged:"acknowledged",in_progress:"started",blocked:"blocked",partially_received:"updated",received:"completed",matched:"matched",held:"held",released:"released",rejected:"rejected",completed:"completed",cancelled:"cancelled",open:"created",responded:"responded",verified:"verified",closed:"closed",presented:"presented",accepted:"accepted",discrepancy:"discrepancy",expired:"updated"};
+      await req.db.query("INSERT INTO public.p1_domain_events(record_id,project_id,event_type,actor_user_id,actor_role_code,reason,payload) VALUES($1::uuid,$2::uuid,$3,$4::uuid,$5,$6,$7::jsonb)",[id,projectId,eventType[to]??"updated",actorId,roleCode,b.reason??null,JSON.stringify({from,to,version:update.rows[0].version,...data})]);
+      return res.json({record:update.rows[0]});
+    } catch { return res.status(500).json(internalServerErrorPayload()); }
+  });
+
+  app.post("/api/v1/projects/:projectId/p1-workflows/:id/evidence",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string,actorId=String(req.user?.id??""),b=req.body??{};
+    const evidenceKey=String(b.objectKey??""),evidenceSha=String(b.sha256Checksum??""),evidenceBucket=String(b.storageBucket??"pke-private-documents"),evidenceSize=Number(b.fileSizeBytes);
+    if(!validateP1Evidence({objectKey:evidenceKey,sha256:evidenceSha,bucket:evidenceBucket,sizeBytes:evidenceSize})||!Number.isSafeInteger(evidenceSize)||evidenceSize<=0) return res.status(400).json({error:"Evidence requires private bucket, valid SHA-256 and verified file size <=50 MB."});
+    if(!evidenceKey.startsWith(`projects/${projectId}/`)) return res.status(400).json({error:"Evidence object key must be namespaced to the selected Project.",code:"INVALID_OBJECT_KEY"});
+    const storageStatus=privateStorage.status();
+    if(!storageStatus.available||storageStatus.bucket!==evidenceBucket) return res.status(503).json({error:"Private object storage is unavailable or bucket does not match.",code:"STORAGE_UNAVAILABLE"});
+    try{
+      try{await privateStorage.verifyObject(evidenceKey,evidenceSize,evidenceSha);}catch{return res.status(422).json({error:"Evidence object checksum or size verification failed.",code:"EVIDENCE_OBJECT_VERIFICATION_FAILED"});}
+      if(!(await p1Ready(req,res))) return;
+      const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
+      if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const permission=record.rows[0].record_type==="quality_result"
+        ?"quality.result.create"
+        :await p1Permission(req,record.rows[0].record_type,"update");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const inserted=await req.db.query(
+        `INSERT INTO public.p1_domain_evidence(record_id,project_id,evidence_type,object_key,storage_bucket,original_filename,mime_type,file_size_bytes,sha256_checksum,uploaded_by)
+         VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10::uuid) RETURNING *`,
+        [id,projectId,b.evidenceType??"supporting",evidenceKey,evidenceBucket,b.originalFilename??null,b.mimeType??null,evidenceSize,evidenceSha,actorId]);
+      const roleCode=await p1Role(req);
+      await req.db.query("INSERT INTO public.p1_domain_events(record_id,project_id,event_type,actor_user_id,actor_role_code,payload) VALUES($1::uuid,$2::uuid,'evidence_added',$3::uuid,$4,$5::jsonb)",[id,projectId,actorId,roleCode,JSON.stringify({evidenceId:inserted.rows[0].id})]);
+      return res.status(201).json({evidence:inserted.rows[0]});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
+
+  app.get("/api/v1/projects/:projectId/p1-kpis",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string;
+    try{
+      if(!(await p1Ready(req,res))) return;
+      const kpiAccess=await req.db.query(
+        "SELECT public.pke_has_project_permission($1::uuid,'p1.kpi.view') OR public.pke_has_project_permission($1::uuid,'reports.view') AS allowed",
+        [projectId]
+      );
+      if(!kpiAccess.rows[0]?.allowed) return res.status(403).json({error:"Missing required Project permission: p1.kpi.view or reports.view"});
+      const defs=await req.db.query("SELECT * FROM public.p1_report_kpi_definitions WHERE is_active=true AND (project_id IS NULL OR project_id=$1::uuid) ORDER BY template_id,metric_key",[projectId]);
+      const roleCodes=await p1Roles(req,projectId);
+      const p1KpiTemplatesByRole:Record<string,string[]> = {
+        procurement:["tpl-procurement"],contract_manager:["tpl-procurement"],buyer:["tpl-procurement"],finance:["tpl-procurement"],accounting:["tpl-procurement"],
+        pks_site_manager:["tpl-procurement","tpl-operational"],
+        production_manager:["tpl-operational"],packing_supervisor:["tpl-operational"],qc_officer:["tpl-operational"],
+        laboratory_officer:["tpl-operational"],qa_manager:["tpl-operational"],hse_officer:["tpl-operational"],
+        transport_manager:["tpl-logistics"],dispatcher:["tpl-logistics"],transporter:["tpl-logistics"],driver:["tpl-logistics"],checker:["tpl-logistics"],
+        master_of_loading:["tpl-shipping"],loading_manager:["tpl-shipping"],loading_supervisor:["tpl-shipping"],loading_operator:["tpl-shipping"],
+        marine_surveyor:["tpl-shipping"],ship_master:["tpl-shipping"],terminal_representative:["tpl-shipping"],
+        shipping_agent:["tpl-shipping","tpl-trade"],document_officer:["tpl-trade","tpl-compliance"],
+        internal_auditor:["tpl-audit","tpl-compliance"],
+        warehouse:["tpl-warehouse"],warehouse_manager:["tpl-warehouse"],warehouse_officer:["tpl-warehouse"],inventory_controller:["tpl-warehouse"]
+      };
+      const allTemplates=roleCodes.some((code)=>["pm","project_admin","platform_admin"].includes(code))
+        ?new Set(defs.rows.map((d:any)=>String(d.template_id)))
+        :new Set(roleCodes.flatMap((code)=>p1KpiTemplatesByRole[code]??[]));
+      const kpiDefinitions=defs.rows.filter((d:any)=>allTemplates.has(String(d.template_id)));
+      const kpis=[];
+      for(const d of kpiDefinitions){
+        const q=await req.db.query(
+          "SELECT value,source_rows AS n,as_of FROM public.p1_get_kpi_metric($1::uuid,$2::text)",
+          [projectId,String(d.formula_key)]
+        );
+        const row=q.rows[0]??{};
+        const value=row.value===null||row.value===undefined?null:Number(row.value);
+        const n=Number(row.n??0);
+        const asOf=row.as_of??null;
+        kpis.push({
+          templateId:d.template_id,metricKey:d.metric_key,label:d.label,value,unit:d.unit_code,
+          sourceEntity:d.source_entity,sourceRows:n,asOf,
+          freshnessStatus:evaluateFreshness(asOf?new Date(asOf).toISOString():null,Number(d.freshness_minutes)),
+          status:value===null?"unavailable":"available",missingDataPolicy:d.missing_data_policy
+        });
+      }
+      return res.json({projectId,kpis,generatedAt:new Date().toISOString()});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
 
 }
 
@@ -3904,16 +6903,7 @@ async function startServer(): Promise<void> {
   });
 }
 
-function isServerlessRuntime(): boolean {
-  return Boolean(
-    process.env.VERCEL ||
-      process.env.VERCEL_ENV ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.LAMBDA_TASK_ROOT,
-  );
-}
-
-if (!isServerlessRuntime()) {
+if (!isServerlessRuntime(process.env)) {
   process.on("SIGTERM", async () => {
     logger.info("SIGTERM received. Shutting down gracefully...");
     try {
@@ -3949,7 +6939,29 @@ if (!isServerlessRuntime()) {
 
 export async function ensureRuntimeReady(): Promise<void> {
   if (manualTrialMode.enabled) return;
+  if (runtimeStartupFailure) {
+    throw new Error("PKE runtime configuration is incomplete.");
+  }
+  if (!pool) {
+    throw new Error("PKE database pool is unavailable.");
+  }
   await verifyProductionRuntimeSecurity();
+}
+
+export function getRuntimeReadinessState(): {
+  ready: boolean;
+  failure: RuntimeStartupFailure | null;
+} {
+  if (manualTrialMode.enabled) return { ready: true, failure: null };
+  const failure = runtimeStartupFailure
+    ? {
+        code: runtimeStartupFailure.code,
+        missingEnvironmentVariables: [...runtimeStartupFailure.missingEnvironmentVariables],
+      }
+    : !pool
+      ? { code: "DATABASE_POOL_UNAVAILABLE", missingEnvironmentVariables: [] }
+      : null;
+  return { ready: failure === null, failure };
 }
 
 export default app;

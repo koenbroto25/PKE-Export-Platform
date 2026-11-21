@@ -364,6 +364,25 @@ export class PrivateStorageAdapter {
     };
   }
 
+  async verifyObject(objectKey: string, expectedSize: number, expectedSha256: string): Promise<{ objectKey: string; size: number; sha256: string; etag?: string }> {
+    if (!Number.isSafeInteger(expectedSize) || expectedSize <= 0 || expectedSize > MAX_CONTENT_LENGTH) throw new Error("Expected object size is invalid or exceeds the upload limit.");
+    if (!/^[a-f0-9]{64}$/i.test(expectedSha256)) throw new Error("Expected SHA-256 checksum must be a 64-character hexadecimal digest.");
+    const metadata = await this.objectMetadata(objectKey);
+    if (metadata.size !== expectedSize || metadata.size > MAX_CONTENT_LENGTH) throw new Error("Stored object size does not match the declared upload size.");
+    const { url } = this.buildPresignedUrl("GET", objectKey, 900);
+    let response: Response;
+    try { response = await this.fetchImpl(url, { method: "GET", redirect: "error", signal: AbortSignal.timeout(30_000) }); }
+    catch { throw new Error("Storage checksum verification failed before a provider response was received."); }
+    if (!response.ok || !response.body) throw new Error(`Storage checksum verification failed (HTTP ${response.status}).`);
+    const reader=response.body.getReader(), hash=crypto.createHash("sha256"); let size=0;
+    try { while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>expectedSize||size>MAX_CONTENT_LENGTH){await reader.cancel();throw new Error("Stored object size exceeds the declared upload size.");}hash.update(Buffer.from(chunk.value));} }
+    finally { reader.releaseLock(); }
+    const sha256=hash.digest("hex");
+    if(size!==expectedSize)throw new Error("Stored object size does not match the declared upload size.");
+    if(sha256.toLowerCase()!==expectedSha256.toLowerCase())throw new Error("Stored object SHA-256 does not match the declared checksum.");
+    return {objectKey,size,sha256,etag:metadata.etag};
+  }
+
   async deleteObject(objectKey: string): Promise<void> {
     if (!this.available) {
       throw new Error(this.reason || "Storage unavailable");

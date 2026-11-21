@@ -1,0 +1,13 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+const sql=fs.readFileSync("migrations/055_platform_admin_pm_governance_rls.sql");
+const expected="9ad4c7e87954ff49df4922301efb37dcf674299bd207d6545db3f8780284e802";
+const actual=crypto.createHash("sha256").update(sql).digest("hex");
+const fail=(m)=>{console.error("FAIL: "+m);process.exitCode=1;};
+if(actual!==expected)fail("Migration 055 SHA-256 mismatch.");
+const source=sql.toString("utf8");
+if(!/^--[^\n]*\nBEGIN;/.test(source)||!/COMMIT;\s*$/.test(source))fail("Migration 055 must be explicitly transactional.");
+for(const token of ["DROP POLICY IF EXISTS pke_admin_all ON public.project_members","DROP POLICY IF EXISTS pke_admin_all ON public.project_roles","DROP POLICY IF EXISTS pke_admin_all ON public.project_invitations","project_role_id IS NULL","role_code = 'pm'","pke_project_role_assignments_select","pke_project_role_assignment_events_select","pke_project_role_permissions_select","Platform Admin broad staffing policies remain"])if(!source.includes(token))fail("Missing Migration 055 control: "+token);
+if(process.exitCode)process.exit(process.exitCode);
+console.log("PASS: Migration 055 SHA-256, transaction wrapper and Platform Admin PM-governance RLS controls verified.");
+console.log("NOTICE: static verification does not apply SQL or certify UAT backtests.");

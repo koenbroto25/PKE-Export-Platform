@@ -18,6 +18,89 @@ function registerRoutes(src: string): { method: string; path: string }[] {
 }
 
 describe("API route registry (regression)", () => {
+  it("registers P2-A Project product requirement CRUD with Admin-only approval", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => `${r.method} ${r.path}`));
+    expect(set.has("GET /api/v1/projects/:projectId/product-requirements")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/product-requirements")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/product-requirements/:requirementId")).toBe(true);
+    expect(INDEX_SRC).toContain('"product.requirement.view"');
+    expect(INDEX_SRC).toContain('"product.requirement.manage"');
+    expect(INDEX_SRC).toContain("Only Platform Admin may approve Project product requirements.");
+    expect(INDEX_SRC).toContain("project_product_requirements");
+  });
+
+  it("registers P2-A facility catalog and public candidate CRUD with Project permission gates", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => `${r.method} ${r.path}`));
+    expect(set.has("GET /api/v1/projects/:projectId/pks-sites/catalog")).toBe(true);
+    expect(set.has("GET /api/v1/projects/:projectId/pks-candidates")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/pks-candidates")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/pks-candidates/:candidateId")).toBe(true);
+    expect(INDEX_SRC).toContain("p2a_master_data_candidates");
+    expect(INDEX_SRC).toContain("Only Platform Admin may change candidate verification status.");
+    expect(INDEX_SRC).toContain("sourceUrl && !/^https?:\\/\\//i.test(sourceUrl)");
+  });
+
+  it("registers P2-A Project PKS participation endpoints with scoped edit permission", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => `${r.method} ${r.path}`));
+    expect(set.has("GET /api/v1/projects/:projectId/pks-sites")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/pks-sites")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/pks-sites/:participationId")).toBe(true);
+    expect(INDEX_SRC).toContain('"pks.site.view"');
+    expect(INDEX_SRC).toContain('"pks.participation.manage"');
+    expect(INDEX_SRC).toContain("project_pks_site_participation");
+  });
+
+
+  it("registers P15 Project-scoped master-data change requests with Admin-only approval", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
+    expect(set.has("GET /api/v1/projects/:projectId/master-data-change-requests")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/master-data-change-requests")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data-change-requests/:requestId")).toBe(true);
+    expect(INDEX_SRC).toContain('"pks.master_data.change_request.view"');
+    expect(INDEX_SRC).toContain('"pks.master_data.change_request.manage"');
+    expect(INDEX_SRC).toContain("PM may only submit a draft; approval is Admin-only.");
+    expect(INDEX_SRC).toContain("Canonical data changed after submission");
+  });
+
+  it("registers P15 Admin-only verification routes for organizations, facilities and products", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data/organizations/:organizationId/verification")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data/facilities/:facilityId/verification")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/master-data/products/:productId/classification")).toBe(true);
+    expect(INDEX_SRC).toContain("requireAuth, requireAdmin");
+    expect(INDEX_SRC).toContain("Evidence document must be approved, checksum-verified and belong to this Project.");
+  });
+
+  it("registers P15 evidence-linked quality sample and result APIs", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
+    expect(set.has("GET /api/v1/projects/:projectId/quality-samples")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/quality-samples/:sampleId/mark-tested")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/quality-samples")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/quality-samples/:sampleId/results")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/quality-samples/:sampleId/review")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/quality-results/:resultId/review")).toBe(true);
+    expect(INDEX_SRC).toContain("Quality result lacks complete sample-linked evidence or measurement provenance.");
+    expect(INDEX_SRC).toContain("Tested samples require an approved lab report and laboratory.");
+  });
+
+  it("registers P16 authenticated port and warehouse read surfaces with Project permission gates", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
+    for (const route of [
+      "GET /api/v1/ports",
+      "GET /api/v1/ports/:portId",
+      "GET /api/v1/warehouses",
+      "GET /api/v1/warehouses/:warehouseId",
+    ]) expect(set.has(route)).toBe(true);
+    expect(INDEX_SRC).toContain('requireP16ReadAccess(req, res, projectId, "port.view")');
+    expect(INDEX_SRC).toContain('requireP16ReadAccess(req, res, projectId, "warehouse.view")');
+    expect(INDEX_SRC).toContain("return requireProjectPermission(req, res, projectId, permissionCode)");
+    expect(INDEX_SRC).toContain("public.pke_is_platform_admin() AS is_admin");
+    expect(INDEX_SRC).toContain('assessmentMode: "advisory_only"');
+    expect(INDEX_SRC).toContain("effective_verification_status");
+    expect(INDEX_SRC).toContain("NULLIF(btrim(p.source_reference),'') IS NULL");
+    expect(INDEX_SRC).toContain('canManage: req.user?.isAdmin === true');
+  });
+
   it("registers exactly one handler per method+path (no duplicate route groups)", () => {
     const routes = registerRoutes(INDEX_SRC).filter((r) => r.method !== "USE");
     const seen = new Set<string>();

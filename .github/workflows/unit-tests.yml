@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - phase0/reconcile-source-20261117
+      - f1/project-scoped-cob-20261119
   pull_request:
     branches:
       - main
@@ -30,7 +31,19 @@ jobs:
         run: npm test
       - name: Verify Production migration ledger and release gates
         run: npm run verify:release-migrations
+      - name: Verify applied Migration 052 and pre-apply backup evidence
+        run: npm run verify:migration-052
+      - name: Verify prepared Migration 054 permission boundary contract
+        run: npm run verify:migration-054
+      - name: Verify prepared Migration 055 PM governance RLS contract
+        run: npm run verify:migration-055
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
       - name: Typecheck backend API
         run: npx tsc -p api/tsconfig.json --noEmit
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend --include=dev --no-audit
+      - name: Typecheck frontend
+        run: npm run typecheck --prefix frontend
+      - name: Build frontend
+        run: npm run build --prefix frontend

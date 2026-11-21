@@ -311,3 +311,13 @@ All 17 commands EXIT 0/1 per spec with logs in `VALIDATION/`:
 - `ARTIFACT_SHA256.txt` — All file hashes
 
 
+
+
+## 2026-11-20 — F1 Production migrations and owner-directed closure
+
+- Applied Production migrations 042–044 in one PostgreSQL transaction; verified ledger 44/44 and exact SHA-256 values.
+- Verified migration 043 legacy backfill (24 assignments / 24 events), role assignment RLS and runtime privileges, and ungranted project.change.delete permission.
+- Owner waived the separate Neon Auth authenticated HTTP UAT after confirming successful application login; this waiver is not reported as a test PASS.
+- Deleted Neon validation branch br-noisy-fog-b379k1uu after owner-directed waiver. Retained pre-apply restore branch br-restless-sky-b38dsjol.
+- Unit Tests run 44599494672 SUCCESS; Dependency Audit Evidence run 44599494504 SUCCESS.
+- Vercel deployment was explicitly skipped by owner instruction. No new GitHub branch was created and no PM appointment decision was made.

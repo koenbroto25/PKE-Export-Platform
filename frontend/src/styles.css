@@ -24,3 +24,66 @@
 .document-status-select select{font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);min-width:120px}
 .status-pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .pill-green{background:#e7f4f1;color:#16836d}.pill-amber{background:#fdf3e0;color:#b98129}.pill-red{background:#fdeeee;color:#c45555}.pill-slate{background:#eef3f6;color:#758493}
+
+
+/* P16 Port & Warehouse read workspace */
+.p16-page{display:flex;flex-direction:column;gap:18px;color:var(--text,#172033)}
+.p16-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.p16-header h1{font-size:26px;line-height:1.2;margin:6px 0}
+.p16-header p{color:var(--muted,#687386);max-width:760px;margin:0}
+.p16-eyebrow{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--muted,#687386)}
+.p16-readonly{white-space:nowrap;border:1px solid var(--border,#dce1e8);border-radius:999px;padding:7px 11px;font-size:11px;font-weight:700;color:var(--muted,#687386)}
+.p16-notice,.p16-warning{border:1px solid #e7d8a8;background:#fffaf0;color:#6b5520;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.55}
+.p16-error{border:1px solid #e9b8b8;background:#fff4f4;color:#8b2626;border-radius:10px;padding:11px 13px;font-size:12px}
+.p16-tabs{display:flex;gap:8px;border-bottom:1px solid var(--border,#dce1e8);padding-bottom:8px}
+.p16-tabs button{border:1px solid transparent;background:transparent;color:var(--muted,#687386);padding:9px 13px;border-radius:9px;font-weight:700;cursor:pointer}
+.p16-tabs button.active{background:var(--surface-2,#eef2f7);color:var(--text,#172033);border-color:var(--border,#dce1e8)}
+.p16-tabs button span,.p16-group h3 span{font-size:10px;margin-left:6px;border-radius:999px;background:var(--surface-2,#eef2f7);padding:2px 7px}
+.p16-layout{display:grid;grid-template-columns:minmax(260px, .8fr) minmax(0,1.6fr);gap:14px;align-items:start}
+.p16-list,.p16-detail{border:1px solid var(--border,#dce1e8);border-radius:14px;background:var(--surface,#fff);padding:12px;min-width:0}
+.p16-list{display:flex;flex-direction:column;gap:8px}
+.p16-list-card{display:flex;flex-direction:column;gap:7px;text-align:left;border:1px solid var(--border,#e1e5eb);background:transparent;border-radius:11px;padding:12px;cursor:pointer;color:inherit}
+.p16-list-card:hover,.p16-list-card.selected{border-color:var(--accent,#4d6c9c);background:var(--surface-2,#f6f8fb)}
+.p16-list-card__top,.p16-detail-heading,.p16-record{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.p16-list-card__top strong{font-size:13px}
+.p16-muted{display:block;color:var(--muted,#687386);font-size:11px;line-height:1.5}
+.p16-status{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:700;background:#edf0f4;color:#596273}
+.p16-status--verified,.p16-status--operational{background:#e8f5ed;color:#23623c}
+.p16-status--submitted,.p16-status--under_review,.p16-status--reviewed{background:#fff4dc;color:#78561a}
+.p16-status--stale,.p16-status--expired,.p16-status--rejected,.p16-status--suspended{background:#fceaea;color:#8a3030}
+.p16-detail-stack{display:flex;flex-direction:column;gap:15px}
+.p16-detail-heading h2{font-size:19px;margin:4px 0}
+.p16-detail-heading p{font-size:11px;color:var(--muted,#687386);margin:0}
+.p16-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.p16-fact{display:flex;flex-direction:column;gap:5px;background:var(--surface-2,#f6f8fb);border-radius:9px;padding:10px;min-width:0}
+.p16-fact span{font-size:10px;color:var(--muted,#687386)}
+.p16-fact strong{font-size:12px;overflow-wrap:anywhere}
+.p16-group{border-top:1px solid var(--border,#e3e7ed);padding-top:10px}
+.p16-group h3{font-size:12px;margin:0 0 8px}
+.p16-record{padding:8px 0;border-bottom:1px solid var(--border,#edf0f4)}
+.p16-record:last-child{border-bottom:0}
+.p16-record strong{display:block;font-size:11px}
+.p16-record small{display:block;color:var(--muted,#687386);font-size:10px;margin-top:3px}
+.p16-empty{border:1px dashed var(--border,#cfd6e0);border-radius:10px;padding:22px;text-align:center;color:var(--muted,#687386);font-size:12px}
+.p16-footer{font-size:11px;color:var(--muted,#687386);margin:0}
+@media(max-width:900px){.p16-layout{grid-template-columns:1fr}.p16-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.p16-header{flex-direction:column}}
+
+/* P16 governed editing and Project evidence submission */
+.p16-header-actions,.p16-workflow-row,.p16-editor__heading,.p16-editor__actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.p16-header-actions button,.p16-workflows button,.p16-editor button{border:1px solid var(--border,#dce1e8);border-radius:8px;padding:8px 11px;background:var(--surface-2,#f5f7fa);color:var(--text,#172033);font-size:11px;font-weight:700;cursor:pointer}
+.p16-header-actions button:hover,.p16-workflows button:hover,.p16-editor button:hover{border-color:var(--accent,#4d6c9c)}
+.p16-workflows,.p16-editor{border:1px solid var(--border,#dce1e8);border-radius:14px;background:var(--surface,#fff);padding:14px;display:flex;flex-direction:column;gap:12px}
+.p16-workflows h3,.p16-editor strong{font-size:13px;margin:0}
+.p16-workflow-form{border-top:1px solid var(--border,#e3e7ed);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.p16-workflow-form h4{font-size:12px;margin:0}
+.p16-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.p16-form-grid label,.p16-editor label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:650;color:var(--muted,#687386)}
+.p16-form-grid input,.p16-form-grid select,.p16-workflow-row input,.p16-editor select,.p16-editor textarea{width:100%;min-width:0;border:1px solid var(--border,#dce1e8);border-radius:8px;padding:8px 9px;background:var(--surface,#fff);color:var(--text,#172033);font:inherit}
+.p16-editor{background:var(--surface-2,#f8f9fb)}
+.p16-editor__heading{justify-content:space-between}
+.p16-editor textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.5}
+.p16-editor__actions{align-items:flex-start}
+.p16-editor__actions span{font-size:11px;color:var(--muted,#687386)}
+.p16-assessment{border:1px solid var(--border,#dce1e8);border-radius:9px;padding:10px;background:var(--surface-2,#f5f7fa);font-size:12px}
+.p16-assessment p{margin:4px 0 0;color:var(--muted,#687386);font-size:11px}
+@media(max-width:700px){.p16-form-grid{grid-template-columns:1fr}.p16-header-actions{width:100%}}

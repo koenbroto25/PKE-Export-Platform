@@ -1,53 +1,123 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { canAccessProjectMembership, canManageContractProgram, isPositiveQuantity } from "./f1-contract-rules.js";
+import { canAccessProjectMembership, canManageProjectBusiness, isCobCyclePaid, isPositiveQuantity } from "./f1-contract-rules.js";
+import { getCanonicalRoleTemplate } from "./role-catalogue.js";
 
 const INDEX = readFileSync(fileURLToPath(new URL("./index.ts", import.meta.url)), "utf8");
+const MIGRATION_PATH = fileURLToPath(new URL("../migrations/039_project_scoped_contract_cob_cycles.sql", import.meta.url));
+// Deployment packaging intentionally excludes *.sql. These source-policy assertions run in repository CI.
+const HAS_MIGRATION_SOURCE = existsSync(MIGRATION_PATH);
+const MIGRATION = HAS_MIGRATION_SOURCE ? readFileSync(MIGRATION_PATH, "utf8") : "";
+const MIGRATION_041_PATH = fileURLToPath(new URL("../migrations/041_finance_notification_rls_recipient_guard.sql", import.meta.url));
+const HAS_MIGRATION_041_SOURCE = existsSync(MIGRATION_041_PATH);
+const MIGRATION_041 = HAS_MIGRATION_041_SOURCE ? readFileSync(MIGRATION_041_PATH, "utf8") : "";
 
-describe("F1 Admin ownership of contract programs and project instances", () => {
-  for (const [method, route] of [
-    ["post", "/api/v1/contracts"],
-    ["post", "/api/v1/contract-programs"],
-    ["patch", "/api/v1/contract-programs/:id"],
-    ["post", "/api/v1/cycle-policies"],
-    ["post", "/api/v1/projects"],
-  ] as const) {
-    it(`requires authenticated Admin for ${method.toUpperCase()} ${route}`, () => {
-      const marker = `app.${method}("${route}",`;
-      const start = INDEX.indexOf(marker);
-      expect(start, marker + " should exist").toBeGreaterThanOrEqual(0);
-      const signature = INDEX.slice(start, start + 200);
-      expect(signature).toMatch(/requireAuth\s*,\s*requireAdmin\s*,\s*async/);
-    });
-  }
-
-  it("allows only active platform Admin to manage the program", () => {
-    expect(canManageContractProgram({ isAdmin: true, isActive: true })).toBe(true);
-    expect(canManageContractProgram({ isAdmin: true, isActive: false })).toBe(false);
-    expect(canManageContractProgram({ isAdmin: false, isActive: true })).toBe(false);
-    expect(canManageContractProgram(null)).toBe(false);
+describe("F1 Project Manager ownership and shipment Cash on Board", () => {
+  it("requires PM project permission for contract, cycle, and CoB business writes", () => {
+    for (const route of [
+      'app.post("/api/v1/contracts", requireAuth',
+      'app.patch("/api/v1/contracts/:id", requireAuth',
+      'app.post("/api/v1/contract-programs", requireAuth',
+      'app.post("/api/v1/projects/:projectId/contract-programs", requireAuth',
+      'app.post("/api/v1/cycle-policies", requireAuth',
+      'app.patch("/api/v1/cycle-policies/:id", requireAuth',
+      'app.post("/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle", requireAuth',
+    ]) {
+      const start = INDEX.indexOf(route);
+      expect(start, route + " should exist").toBeGreaterThanOrEqual(0);
+      const signature = INDEX.slice(start, start + 3000);
+      expect(signature).toContain("requireProjectPermission");
+      expect(signature).not.toMatch(/requireAuth\s*,\s*requireAdmin/);
+    }
   });
 
-  it("accepts only finite positive settlement quantities", () => {
+  it("keeps platform Admin limited to initial Project setup", () => {
+    expect(INDEX).toMatch(/app\.post\("\/api\/v1\/projects",\s*requireAuth,\s*requireAdmin/);
+    expect(INDEX).toContain("Contract Programs are created by the Project Manager after Project setup.");
+    expect(getCanonicalRoleTemplate("pm")?.permissionCodes).toContain("project.configuration.manage");
+    expect(getCanonicalRoleTemplate("pm")?.permissionCodes).toContain("contract.view");
+  });
+
+  it("isolates Project Manager access to an active Project membership", () => {
+    const now = new Date("2026-11-19T00:00:00.000Z");
+    const common = { accountActive: true, projectActive: true, membershipActive: true, projectRoleCode: "pm", now };
+    expect(canManageProjectBusiness(common)).toBe(true);
+    expect(canManageProjectBusiness({ ...common, projectRoleCode: "finance" })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, projectRoleCode: "admin" })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, membershipActive: false })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, accountActive: false })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, projectActive: false })).toBe(false);
+    expect(canManageProjectBusiness({ ...common, expiresAt: "2026-11-18T23:59:59.000Z" })).toBe(false);
+  });
+
+  it("accepts only finite positive contract and shipment amounts", () => {
     for (const value of [1, 2500, "125.50"]) expect(isPositiveQuantity(value)).toBe(true);
     for (const value of [0, -1, "-0.01", "", "abc", null, undefined, Infinity, NaN]) expect(isPositiveQuantity(value)).toBe(false);
   });
 
-  it("keeps per-project membership independent while honoring global account status", () => {
-    const now = new Date("2026-11-19T00:00:00.000Z");
-    const common = { accountActive: true, projectActive: true, membershipActive: true, now };
-    expect(canAccessProjectMembership(common)).toBe(true); // Project A
-    expect(canAccessProjectMembership({ ...common, membershipActive: false })).toBe(false); // Project B revoked
-    expect(canAccessProjectMembership({ ...common, expiresAt: "2026-11-18T23:59:59.000Z" })).toBe(false);
-    expect(canAccessProjectMembership({ ...common, accountActive: false })).toBe(false); // global suspension
-    expect(canAccessProjectMembership({ ...common, projectActive: false })).toBe(false);
+  it("requires full settlement before a CoB cycle is paid", () => {
+    expect(isCobCyclePaid("100.00", "100.00")).toBe(true);
+    expect(isCobCyclePaid(100, 99.99)).toBe(false);
+    expect(isCobCyclePaid(100, 0)).toBe(false);
+    expect(isCobCyclePaid(0, 0)).toBe(false);
+    expect(INDEX).toContain("payment_trigger_event");
+    expect(INDEX).toContain("'cash_on_board'");
   });
 
-  it("keeps project-scoped reads authenticated", () => {
-    expect(INDEX).toContain('app.get("/api/v1/projects", requireAuth');
-    expect(INDEX).toContain('app.get("/api/v1/contract-programs", requireAuth');
-    expect(INDEX).toContain('SELECT id FROM contract_programs WHERE id = $1::uuid AND is_active = true LIMIT 1');
-    expect(INDEX).toContain('targetQuantity !== undefined && !isPositiveQuantity(targetQuantity)');
+  it.skipIf(!HAS_MIGRATION_SOURCE)("enforces one CoB obligation per shipment and Project in the database", () => {
+    expect(MIGRATION).toContain("payment_obligations_project_shipment_unique");
+    expect(MIGRATION).toContain("FOREIGN KEY (project_id, shipment_id)");
+    expect(MIGRATION).toContain("payment_obligations_cob_paid_full_check");
+    expect(MIGRATION).toContain("DROP POLICY IF EXISTS pke_admin_all ON public.contracts");
+    expect(MIGRATION).toContain("DROP POLICY IF EXISTS pke_admin_all ON public.payment_obligations");
+  });
+
+  it.skipIf(!HAS_MIGRATION_SOURCE)("prevents the generic platform Admin permission shortcut from bypassing Project business RLS", () => {
+    expect(MIGRATION.match(/NOT public\.pke_is_platform_admin\(\) AND public\.pke_has_project_permission/g)?.length).toBeGreaterThanOrEqual(10);
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_select");
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_insert");
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_update");
+    expect(MIGRATION).toContain("CREATE POLICY pke_payment_obligations_project_delete");
+  });
+
+  it("implements Finance reporting only and routes report notifications to PM and Admin", () => {
+    expect(INDEX).toContain('app.post("/api/v1/finance/reports"');
+    expect(INDEX).toContain('app.get("/api/v1/finance/reports"');
+    expect(INDEX).toContain("FINANCE_ROLE_REQUIRED");
+    expect(INDEX).toContain("pr.role_code = 'finance'");
+    if (HAS_MIGRATION_041_SOURCE) {
+      expect(MIGRATION_041).toContain("pr.role_code = 'pm'");
+      expect(MIGRATION_041).toContain("recipient.role::text = 'admin'");
+    }
+    expect(INDEX).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
+    expect(INDEX).not.toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
+    expect(INDEX).toContain('"reports.create"');
+  });
+
+
+  it.skipIf(!HAS_MIGRATION_041_SOURCE)("uses a narrowly scoped definer for Finance notification recipients and avoids RETURNING visibility conflicts", () => {
+    expect(MIGRATION_041).toContain("SECURITY DEFINER");
+    expect(MIGRATION_041).toContain("pke_submit_finance_report_notifications");
+    expect(MIGRATION_041).toContain("REVOKE ALL ON FUNCTION public.pke_submit_finance_report_notifications");
+    expect(MIGRATION_041).toContain("GRANT EXECUTE ON FUNCTION public.pke_submit_finance_report_notifications");
+    expect(MIGRATION_041).toContain("p_actor_id <> public.pke_current_user_id()");
+    expect(MIGRATION_041).toContain("pr.role_code = 'finance'");
+    expect(MIGRATION_041).toContain("pr.role_code = 'pm'");
+    expect(MIGRATION_041).toContain("recipient.role::text = 'admin'");
+    const financeRoute = INDEX.slice(INDEX.indexOf('app.post("/api/v1/finance/reports"'));
+    expect(financeRoute).toContain("pke_submit_finance_report_notifications");
+    expect(financeRoute).not.toContain("RETURNING id, event_id, recipient_user_id");
+  });
+
+  it("keeps payment execution explicitly outside the reporting-only Finance scope", () => {
+    expect(INDEX).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
+    expect(INDEX).not.toContain("PAYMENT_WORKFLOW_NOT_IMPLEMENTED");
+    expect(INDEX).toContain('financeScope: "reporting_only"');
+  });
+
+  it.skipIf(!HAS_MIGRATION_SOURCE)("does not use a calendar period as the shipment cycle identity", () => {
+    expect(INDEX).toContain('"/api/v1/projects/:projectId/shipments/:shipmentId/cob-cycle"');
+    expect(MIGRATION).toContain("UNIQUE INDEX IF NOT EXISTS payment_obligations_project_shipment_unique");
   });
 });

@@ -254,9 +254,38 @@ describe("PrivateStorageAdapter validation (offline)", () => {
     await expect(adapter.verifyObject("projects/test/documents/invoice.pdf",payload.length,"0".repeat(64))).rejects.toThrow(/SHA-256/);
   });
 
-  it("keeps object deletion fail-closed until an approved deletion workflow exists", async () => {
-    await expect(adapterWithCreds.deleteObject("projects/test/documents/invoice.pdf"))
-      .rejects.toThrow(/round-trip|fail-closed/i);
+  it("deletes one private object through a signed S3 DELETE request", async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Response(null, { status: 204 }),
+    );
+    const adapter = new PrivateStorageAdapter({
+      bucket: "pke-private-documents",
+      region: "ap-southeast-1",
+      endpoint: "https://storage.ap-southeast-1.neonpublic.com",
+      accessKeyId: "test-access-key",
+      secretAccessKey: "test-secret-key",
+      fetchImpl,
+    });
+    await expect(adapter.deleteObject("projects/test/documents/invoice.pdf")).resolves.toBeUndefined();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchImpl.mock.calls[0];
+    expect(String(url)).toContain("X-Amz-Signature=");
+    expect(options?.method).toBe("DELETE");
+    expect(options?.redirect).toBe("error");
+  });
+
+  it("does not expose signed URLs when private object deletion cannot reach storage", async () => {
+    const fetchImpl = vi.fn(async () => { throw new Error("network failed"); });
+    const adapter = new PrivateStorageAdapter({
+      bucket: "pke-private-documents",
+      region: "ap-southeast-1",
+      endpoint: "https://storage.ap-southeast-1.neonpublic.com",
+      accessKeyId: "test-access-key",
+      secretAccessKey: "test-secret-key",
+      fetchImpl,
+    });
+    await expect(adapter.deleteObject("projects/test/documents/invoice.pdf"))
+      .rejects.toThrow("Storage object deletion failed before a provider response was received.");
   });
 
   it("rejects presign when endpoint protocol is wrong", async () => {

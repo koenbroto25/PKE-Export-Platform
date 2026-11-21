@@ -752,6 +752,9 @@ DECLARE
 BEGIN
  v_user_id:=NULLIF(current_setting('app.current_user_id',true),'')::uuid;
  IF TG_TABLE_NAME='product_quality_samples' THEN
+   IF NEW.lot_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.inventory_lots l WHERE l.id=NEW.lot_id AND l.project_id=NEW.project_id) THEN
+     RAISE EXCEPTION 'Quality sample lot must belong to the same Project' USING ERRCODE='23514';
+   END IF;
    IF NEW.lab_report_document_id IS NOT NULL THEN
      SELECT id,object_key,sha256_checksum,original_filename,document_type_code INTO v_doc
        FROM public.project_export_documents

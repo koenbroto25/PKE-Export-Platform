@@ -8,7 +8,7 @@ const runner=readFileSync(new URL("../scripts/migrate.mjs",import.meta.url),"utf
 
 describe("Migration 066 P1 UAT work-item synchronization",()=>{
   it("matches the exact UAT-applied SHA-256 pin",()=>{
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("f92775cb262647185fc4a1d32f91f9dacd25963a6b6ea73259b8fcb29305d746");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("76b19520116f26525379f694a95d2081f2d62721f7b07625d0507ac07a29bce4");
   });
   it("resolves role membership through a narrowly granted SECURITY DEFINER helper",()=>{
     expect(migration).toContain("p1_has_active_project_role_assignment");

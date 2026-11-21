@@ -79,6 +79,38 @@ describe("Funder external-role isolation and explicit sharing", () => {
     expect(hasPageAccess("funder", wrongRole)).toBe(false);
   });
 
+  it("allows Finance and Accounting Project context without opening staffing or Funder pages", () => {
+    const finance = {
+      selectedProjectId: "project-a",
+      projectPermissions: ["project.view", "finance.view"],
+      projectMemberships: [{ projectId: "project-a", isActive: true, roleAssignments: [
+        { roleCode: "finance", isActive: true, roleIsActive: true },
+      ] }],
+    };
+    const accounting = {
+      selectedProjectId: "project-a",
+      projectPermissions: ["project.view", "accounting.view"],
+      projectMemberships: [{ projectId: "project-a", isActive: true, roleAssignments: [
+        { roleCode: "accounting", isActive: true, roleIsActive: true },
+      ] }],
+    };
+    expect(hasPageAccess("project-detail", finance)).toBe(true);
+    expect(hasPageAccess("project-detail", accounting)).toBe(true);
+    expect(hasPageAccess("finance", finance)).toBe(true);
+    expect(hasPageAccess("journal-entries", accounting)).toBe(true);
+    expect(hasPageAccess("project-members", finance)).toBe(false);
+    expect(hasPageAccess("project-roles", accounting)).toBe(false);
+    expect(hasPageAccess("funder", finance)).toBe(false);
+    expect(hasPageAccess("funder", accounting)).toBe(false);
+  });
+
+  it("does not return member or role catalogue details from the basic Project detail endpoint", () => {
+    const detail = api.slice(api.indexOf('app.get("/api/v1/projects/:id/detail"'), api.indexOf('// Project roles (RBAC builder)'));
+    expect(detail).toContain("memberAccess[0]?.allowed");
+    expect(detail).toContain("roleAccess[0]?.allowed");
+    expect(detail).toContain(": []");
+  });
+
   it("renders only shared report data in Funder workspace and provides a manager share/revoke flow", () => {
     expect(app).toContain("/funder/shared-reports?projectId=");
     expect(app).toContain("/funder/report-shares");

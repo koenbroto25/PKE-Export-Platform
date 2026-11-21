@@ -10243,3 +10243,43 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 
 - Migration 082 SHA-256: 8f768a41acfcccbe8879a296dbf1a8530f6436660712f39fe8e0aa39f2819205 — applied to UAT only. It enables the lab officer/QC role to attach an approved same-Project lab report after a sample was first registered as pending/submitted; it does not grant broad UPDATE access to quality sample rows.
 - Positive tested-sample transition cannot be demonstrated in this UAT session because there are no real approved, checksum-verified lab-report documents in the test Project. The function will be backtested for denial of nonexistent/unapproved evidence; positive use awaits an actual approved test document.
+
+
+## 56.53.4 P15 UAT engineering completion report (21 November 2026)
+
+### Delivered
+- P15 supplier/facility master-data workspace now supports Project facility participation overlays, public-source candidate register, Project product-requirement drafts, Admin verification/approval, and Project-scoped canonical master-data change requests.
+- Database Migration 079 closes the cross-Project canonical target gap at the database trigger and filters P15 organization/facility/capability/capacity/certification read lists to the selected Project for non-Admin users.
+- The request UI distinguishes organization, facility, facility-product capability, capacity and certification request types.
+- Facility capability/capacity/certification views now show provenance and verification status accurately; unverified fixtures are not presented as verified.
+- Quality provenance workspace now supports Project-scoped sample creation/read, source snapshot and chain-of-custody capture, approved lab-report selection, controlled pending/submitted-to-tested transition, result capture, and QA review/accept/reject/retest. Sample/result and product-attribute RLS now includes the intended Project quality viewer/creator/reviewer roles.
+- Migrations 079–082 applied only to Neon UAT with exact SHA-256 checksums:
+  - 079: 6d3de061226109428fa0963f7fa697cbd7c1aca929558e0529628debdcc7d968
+  - 080: a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150
+  - 081: 05ad71458aafcc8042da4707464686ac6f3a01474f72d16a21791e09f538100f
+  - 082: 8f768a41acfcccbe8879a296dbf1a8530f6436660712f39fe8e0aa39f2819205
+- UAT migration ledger is contiguous through 082 (82 rows). Neon Production remains at migration 053 (53 rows); no Production DDL/DML was executed.
+- Targeted pre-migration snapshots were retained for migrations 079–082 in p2a_backup_072_20261121.
+- Runtime backtests passed:
+  - PM Alpha can submit a same-Project facility change request.
+  - PM Beta is denied when targeting Alpha's facility or supplier organization (SQLSTATE 42501).
+  - PM Alpha sees 2 facilities and 3 linked supplier organizations; PM Beta sees 0 facilities and 0 supplier organizations in its Project workspace.
+  - Finance has no P15 change-request view/manage permissions and sees zero request rows.
+  - Requester self-approval is denied; Platform Admin rejection stamps reviewer identity/time and does not apply canonical data.
+  - QC Officer can create a pending sample; QC Officer and QA Manager can read it; Finance cannot.
+  - Lab-result insertion without approved sample-linked evidence is denied (SQLSTATE 23514).
+  - Lab-report transition rejects nonexistent/unapproved evidence (SQLSTATE 23514) and Finance invocation is denied (SQLSTATE 42501).
+  - All temporary test change-request/sample rows created in this execution were removed; their audit events were retained where applicable.
+- GitHub CI at commit 8ba49b2fbd5a32494abdb2a69c7fc3e947b1bde2: Unit Tests SUCCESS; Dependency Audit Evidence SUCCESS; backend typecheck SUCCESS; frontend typecheck SUCCESS; frontend build SUCCESS; migration-runner dry-run SUCCESS.
+
+### Remaining data and release gates (not software blockers)
+- P15 public company candidates remain unverified. Public membership categories are leads, not proof of current KCP/PKE operating capability, legal identity, capacity, certification, or supply availability.
+- PKE and PKC catalog classifications remain unverified. The Project PKE product requirement is a draft regulatory identity baseline; no numerical commercial limits were invented.
+- The two facility overlays are synthetic. The existing facility-product row is submitted with unknown source and no evidence; the 500 MT/day capacity row is a synthetic/unverified fixture with no evidence, checksum or reviewer. No facility-to-PKE capability is verified.
+- The existing UAT sample and three accepted result fixtures have no approved lab report or evidence checksum. The UI flags them as provenance-incomplete; they are not valid COA/release evidence.
+- The earlier UAT approval backtest artifact [TEST FIXTURE] P15 Approval Backtest 20261121 remains unverified and is retained pending explicit cleanup authorization. No Production data is involved.
+- Positive lab-report transition and accepted COA flow require a real approved, checksum-verified Project document; none was available in this UAT test set, so no synthetic document was fabricated.
+- Authenticated browser acceptance and deployment/preview are deferred to the final combined deployment session per owner instruction. No Vercel inspection, deployment, promotion, PR merge or new branch was performed.
+
+### Status
+P15 engineering implementation and UAT database/security backtests are complete. Production rollout, authenticated browser acceptance, and verification of real supplier/facility/product/COA evidence remain separate owner-controlled gates.

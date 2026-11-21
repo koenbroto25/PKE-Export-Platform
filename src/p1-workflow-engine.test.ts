@@ -73,6 +73,14 @@ describe("P1 workflow domain contracts", () => {
     expect(evaluateFreshness("2026-11-20T20:00:00Z",60,now)).toBe("stale");
     expect(evaluateFreshness("2026-11-20T23:30:00Z",60,now)).toBe("fresh");
   });
+  it("requires a bounded laytime interval and allowance", () => {
+    expect(validateP1Create("laytime_event",{voyageId:"v",eventCode:"NOR",eventAt:"2026-01-01T00:00:00Z",startAt:"2026-01-01T00:00:00Z",endAt:"2026-01-01T01:00:00Z",allowedHours:24,excludedHours:0})).toEqual([]);
+    expect(validateP1Create("laytime_event",{voyageId:"v",eventCode:"NOR",eventAt:"2026-01-01T00:00:00Z"}).length).toBeGreaterThan(0);
+  });
+  it("requires typed LC document selections", () => {
+    expect(validateP1Create("lc_presentation",{lcRecordId:"lc",presentationReference:"P-1",documentSelections:[{documentRecordId:"doc",clauseCode:"46A",copyType:"original"}]})).toEqual([]);
+    expect(validateP1Create("lc_presentation",{lcRecordId:"lc",presentationReference:"P-1",documentSelections:[{documentRecordId:"doc",clauseCode:"46A",copyType:"unknown"}]}).length).toBeGreaterThan(0);
+  });
   it("calculates laytime after excluded hours and never returns negative usage", () => {
     expect(calculateLaytime({allowedHours:24,startAt:"2026-01-01T00:00:00Z",endAt:"2026-01-02T12:00:00Z",excludedHours:12})).toEqual({usedHours:24,overrunHours:0,valid:true});
     expect(calculateLaytime({allowedHours:24,startAt:"bad",endAt:"bad"}).valid).toBe(false);

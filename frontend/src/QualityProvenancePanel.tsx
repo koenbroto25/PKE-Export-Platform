@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { get, post, patch } from './api';
 
 type AnyRecord = Record<string, any>;
@@ -135,7 +135,7 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
       <div className="quality-sample-list">
         {(data.samples || []).map((s: AnyRecord) => <article className="quality-sample-card" key={s.id}>
           <div className="panel-heading"><div><strong>{s.sample_number}</strong><p>{s.sample_type} · {s.status} · {new Date(s.sampled_at).toLocaleString('id-ID')}</p></div>
-            {data.canReview && s.status !== 'reviewed' && s.status !== 'rejected' && <div className="table-actions"><button type="button" className="primary-button" disabled={busy || !s.lab_report_document_id} onClick={() => reviewSample(s.id,'reviewed')}>Review sampel</button><button type="button" className="secondary-button" disabled={busy} onClick={() => reviewSample(s.id,'rejected')}>Tolak</button></div>}
+            {data.canReview && s.status !== 'reviewed' && s.status !== 'rejected' && <div className="table-actions"><button type="button" className="primary-button" disabled={busy || !s.lab_report_document_id || !s.laboratory_name} onClick={() => reviewSample(s.id,'reviewed')}>Review sampel</button><button type="button" className="secondary-button" disabled={busy} onClick={() => reviewSample(s.id,'rejected')}>Tolak</button></div>}
           </div>
           <p>Metode: {s.sampling_method} · Lab: {s.laboratory_name || 'Belum ditetapkan'} · Sumber: {s.source_type} / {s.source_reference || '—'}</p>
           <p>Bukti lab: {s.lab_report_document_id || 'Belum ada'} · SHA-256 {s.lab_report_sha256 || '—'} · Chain of custody: {JSON.stringify(s.chain_of_custody || {})}</p>
@@ -156,6 +156,6 @@ export default function QualityProvenancePanel({ projectId, onNotice }: { projec
   </section>;
 }
 
-function FormField({ label, children, wide = false }: { label: string; children: React.ReactNode; wide?: boolean }) {
+function FormField({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) {
   return <label className={'form-field ' + (wide ? 'form-wide' : '')}><span>{label}</span>{children}</label>;
 }

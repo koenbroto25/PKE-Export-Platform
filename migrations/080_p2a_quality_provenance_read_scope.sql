@@ -7,6 +7,7 @@ USING (
   public.pke_has_any_project_permission('quality.sample.view')
   OR public.pke_has_any_project_permission('quality.result.view')
   OR public.pke_has_any_project_permission('quality.result.create')
+  OR public.pke_has_any_project_permission('quality.result.review')
 );
 GRANT SELECT ON public.product_attributes TO app_runtime_secure;
 COMMIT;

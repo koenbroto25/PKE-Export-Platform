@@ -10218,3 +10218,10 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 - Workflow backtest: PM draft creation and submission passed; requester self-approval was denied; Platform Admin rejection stamped reviewed_by and reviewed_at and did not apply canonical data. A same-Project positive request and a rejected test request were created for these checks, then both exact temporary request rows were deleted by the database owner; their audit events were retained.
 - A UAT fixture capability record is still only submitted and the existing 500 MT/day fixture capacity record has source_type unknown, no approved evidence, no checksum and no reviewer. Neither is verified; PKE and PKC catalog classifications remain unverified. UI labels were corrected so these rows are shown as a register/history with explicit verification status rather than falsely described as verified.
 - Existing UAT-only canonical organization [TEST FIXTURE] P15 Approval Backtest 20261121 remains from the prior backtest (unverified). It is preserved pending explicit cleanup authorization; no Production data is involved.
+
+
+## 56.53.2 P15 quality provenance workspace
+- Added Project-scoped GET API for quality samples/results, controlled product attributes and approved same-Project lab evidence documents. Read/create/review flags are derived from the active Project permissions; users without quality permissions receive no sample data.
+- Added a quality provenance workspace to the PKS & Supplier module: sample creation, sampling method/location/seal/condition, source reference, lab evidence selection, chain-of-custody display, measurement results with unit/basis/method, and QA review/accept/reject/retest actions. Tested samples require approved checksum-verified lab evidence and laboratory identity.
+- Migration 080 adds read access to the controlled product-attribute dictionary for Project quality readers/reviewers only. Apply UAT only after recording a targeted policy backup; no Production changes.
+- Browser acceptance remains deferred to the final combined deployment/preview session per owner instruction.

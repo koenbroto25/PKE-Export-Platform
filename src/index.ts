@@ -1034,7 +1034,7 @@ app.get("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: 
   const { projectId } = req.params;
   try {
     const access = await req.db.query(
-      "SELECT public.pke_is_platform_admin() AS is_admin, public.pke_has_project_permission($1::uuid,'quality.sample.view') AS sample_view, public.pke_has_project_permission($1::uuid,'quality.sample.create') AS sample_create, public.pke_has_project_permission($1::uuid,'quality.result.view') AS result_view, public.pke_has_project_permission($1::uuid,'quality.result.create') AS result_create, public.pke_has_project_permission($1::uuid,'quality.result.review') AS result_review",
+      "SELECT public.pke_is_platform_admin() AS is_admin, public.pke_has_project_permission($1::uuid,'quality.sample.view') AS sample_view, public.pke_has_project_permission($1::uuid,'quality.sample.create') AS sample_create, public.pke_has_project_permission($1::uuid,'quality.sample.view') AS sample_view, public.pke_has_project_permission($1::uuid,'quality.result.view') AS result_view, public.pke_has_project_permission($1::uuid,'quality.result.create') AS result_create, public.pke_has_project_permission($1::uuid,'quality.result.review') AS result_review",
       [projectId],
     );
     const a = access.rows[0] ?? {};

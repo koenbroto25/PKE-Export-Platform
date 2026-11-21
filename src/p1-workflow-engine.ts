@@ -50,6 +50,7 @@ export function validateP1Create(type: P1RecordType, payload: Record<string, unk
     case "purchase_requisition":
     case "purchase_order": {
       if (!nonEmpty(payload.currencyCode) || !/^[A-Z]{3}$/.test(String(payload.currencyCode))) errors.push("currencyCode must be an ISO-4217 code");
+      if(type==="purchase_order"&&!nonEmpty(payload.supplierId)) errors.push("supplierId is required for a Purchase Order");
       if (!Array.isArray(payload.items) || payload.items.length === 0) errors.push("items must contain at least one line");
       else for (const [i, raw] of payload.items.entries()) {
         const item = raw as Record<string, unknown>;

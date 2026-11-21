@@ -4001,6 +4001,113 @@ app.patch("/api/v1/truck-trips/:id", requireAuth, async (req: express.Request, r
 });
 
 // ============================================
+// P16: Port network and warehouse master read surfaces.
+// Writes remain disabled until the UAT RLS/maker-checker migration is applied.
+// ============================================
+const p16UuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+app.get("/api/v1/ports", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!p16UuidPattern.test(projectId)) return res.status(400).json({ error: "A valid projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "port.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT p.id,p.name,p.code,p.city,p.province,p.country_code,p.unlocode,p.national_code,
+              p.authority_name,p.operator_name,p.source_reference,p.verification_status,p.verified_at,
+              (SELECT count(*)::int FROM public.port_terminals t WHERE t.port_id=p.id) AS terminal_count,
+              (SELECT count(*)::int FROM public.port_depth_observations d WHERE d.port_id=p.id) AS depth_observation_count
+         FROM public.ports p
+        WHERE p.is_active=true
+        ORDER BY p.country_code,p.province,p.city,p.name
+        LIMIT 250`,
+    );
+    return res.json({ ports: rows, canManage: false, projectId });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  const portId = String(req.params.portId || "");
+  if (!p16UuidPattern.test(projectId) || !p16UuidPattern.test(portId)) return res.status(400).json({ error: "Valid projectId and portId are required." });
+  if (!(await requireProjectPermission(req, res, projectId, "port.view"))) return;
+  try {
+    const { rows: ports } = await req.db.query("SELECT * FROM public.ports WHERE id=$1::uuid AND is_active=true", [portId]);
+    if (!ports.length) return res.status(404).json({ error: "Port not found." });
+    const [terminals, berths, channels, anchorages, depths, tides, services, equipment, operatingLimits] = await Promise.all([
+      req.db.query("SELECT * FROM public.port_terminals WHERE port_id=$1::uuid ORDER BY name", [portId]),
+      req.db.query("SELECT b.*,t.name AS terminal_name FROM public.port_berths b JOIN public.port_terminals t ON t.id=b.terminal_id WHERE t.port_id=$1::uuid ORDER BY t.name,b.berth_code", [portId]),
+      req.db.query("SELECT * FROM public.port_channels WHERE port_id=$1::uuid ORDER BY channel_name", [portId]),
+      req.db.query("SELECT * FROM public.port_anchorages WHERE port_id=$1::uuid ORDER BY anchorage_name", [portId]),
+      req.db.query("SELECT * FROM public.port_depth_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
+      req.db.query("SELECT * FROM public.port_tide_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
+      req.db.query("SELECT * FROM public.port_loading_services WHERE port_id=$1::uuid ORDER BY service_type", [portId]),
+      req.db.query("SELECT * FROM public.port_equipment WHERE port_id=$1::uuid ORDER BY equipment_type", [portId]),
+      req.db.query("SELECT * FROM public.port_operating_limits WHERE port_id=$1::uuid ORDER BY effective_from DESC", [portId]),
+    ]);
+    return res.json({
+      port: ports[0], terminals: terminals.rows, berths: berths.rows, channels: channels.rows,
+      anchorages: anchorages.rows, depthObservations: depths.rows, tideObservations: tides.rows,
+      loadingServices: services.rows, equipment: equipment.rows, operatingLimits: operatingLimits.rows,
+      canManage: false, assessmentMode: "advisory_only",
+    });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/warehouses", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  if (!p16UuidPattern.test(projectId)) return res.status(400).json({ error: "A valid projectId is required." });
+  if (!(await requireProjectPermission(req, res, projectId, "warehouse.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT w.id,w.code,w.name,w.location,w.port_id,w.terminal_id,w.operator_organization_id,
+              w.latitude,w.longitude,w.storage_mode,w.storage_capacity_mt,w.floor_area_m2,w.usable_volume_m3,
+              w.verification_status,w.verified_at,w.is_active,p.name AS port_name,t.name AS terminal_name,
+              (SELECT count(*)::int FROM public.warehouse_zones z WHERE z.warehouse_id=w.id) AS zone_count,
+              (SELECT count(*)::int FROM public.warehouse_equipment e WHERE e.warehouse_id=w.id) AS equipment_count
+         FROM public.warehouses w
+         LEFT JOIN public.ports p ON p.id=w.port_id
+         LEFT JOIN public.port_terminals t ON t.id=w.terminal_id
+        WHERE w.is_active=true
+        ORDER BY p.name,w.name
+        LIMIT 250`,
+    );
+    return res.json({ warehouses: rows, projectId, canManage: false });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/warehouses/:warehouseId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
+  const warehouseId = String(req.params.warehouseId || "");
+  if (!p16UuidPattern.test(projectId) || !p16UuidPattern.test(warehouseId)) return res.status(400).json({ error: "Valid projectId and warehouseId are required." });
+  if (!(await requireProjectPermission(req, res, projectId, "warehouse.view"))) return;
+  try {
+    const { rows: warehouses } = await req.db.query(
+      "SELECT w.*,p.name AS port_name,t.name AS terminal_name FROM public.warehouses w LEFT JOIN public.ports p ON p.id=w.port_id LEFT JOIN public.port_terminals t ON t.id=w.terminal_id WHERE w.id=$1::uuid AND w.is_active=true",
+      [warehouseId],
+    );
+    if (!warehouses.length) return res.status(404).json({ error: "Warehouse not found." });
+    const [zones, equipment, reservations] = await Promise.all([
+      req.db.query("SELECT * FROM public.warehouse_zones WHERE warehouse_id=$1::uuid ORDER BY zone_code", [warehouseId]),
+      req.db.query("SELECT * FROM public.warehouse_equipment WHERE warehouse_id=$1::uuid ORDER BY equipment_type", [warehouseId]),
+      req.db.query("SELECT * FROM public.warehouse_reservations WHERE warehouse_id=$1::uuid AND project_id=$2::uuid ORDER BY window_start DESC LIMIT 100", [warehouseId, projectId]),
+    ]);
+    const zoneIds = zones.rows.map((z: { id: string }) => z.id);
+    const bins = zoneIds.length
+      ? await req.db.query("SELECT * FROM public.warehouse_bins WHERE zone_id=ANY($1::uuid[]) ORDER BY bin_code", [zoneIds])
+      : { rows: [] };
+    return res.json({ warehouse: warehouses[0], zones: zones.rows, bins: bins.rows, equipment: equipment.rows, reservations: reservations.rows, projectId, canManage: false });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+// ============================================
 // Transport legs (read-only listing for trip assignment)
 // ============================================
 app.get("/api/v1/transport-legs", requireAuth, async (req: express.Request, res: express.Response) => {

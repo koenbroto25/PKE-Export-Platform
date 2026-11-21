@@ -110,20 +110,26 @@ export function validateP1Create(type: P1RecordType, payload: Record<string, unk
       if (!nonEmpty(payload.voyageId) || !nonEmpty(payload.acknowledgementType) || !isDate(payload.acknowledgedAt)) errors.push("voyageId, acknowledgementType and acknowledgedAt are required");
       break;
     case "laytime_event":
-      if (!nonEmpty(payload.voyageId) || !nonEmpty(payload.eventCode) || !isDate(payload.eventAt)) errors.push("voyageId, eventCode and eventAt are required");
-      if (payload.laytimeImpactHours !== undefined && (typeof payload.laytimeImpactHours !== "number" || !Number.isFinite(payload.laytimeImpactHours) || payload.laytimeImpactHours < 0)) errors.push("laytimeImpactHours must be non-negative");
+      if (!nonEmpty(payload.voyageId) || !nonEmpty(payload.eventCode) || !isDate(payload.eventAt) || !isDate(payload.startAt) || !isDate(payload.endAt)) errors.push("voyageId, eventCode, eventAt, startAt and endAt are required");
+      if (typeof payload.allowedHours !== "number" || !Number.isFinite(payload.allowedHours) || payload.allowedHours < 0) errors.push("allowedHours must be non-negative");
+      if (payload.excludedHours !== undefined && (typeof payload.excludedHours !== "number" || !Number.isFinite(payload.excludedHours) || payload.excludedHours < 0)) errors.push("excludedHours must be non-negative");
       break;
     case "lc_record":
       if (!nonEmpty(payload.lcNumber) || !nonEmpty(payload.issuingBank) || !nonEmpty(payload.currencyCode) || !positive(payload.amount) || !isDate(payload.expiryAt) || !isDate(payload.latestShipmentAt)) errors.push("LC number, issuing bank, currency, positive amount, expiry and latest shipment dates are required");
       break;
     case "lc_clause":
-      if (!nonEmpty(payload.lcRecordId) || !nonEmpty(payload.clauseCode) || !nonEmpty(payload.requirementText)) errors.push("lcRecordId, clauseCode and requirementText are required");
+      if (!nonEmpty(payload.lcRecordId) || !nonEmpty(payload.clauseCode) || !nonEmpty(payload.requirementText) || !nonEmpty(payload.documentTypeCode)) errors.push("lcRecordId, clauseCode, requirementText and documentTypeCode are required");
+      for (const key of ["requiredOriginals","requiredCopies"]) if (payload[key] !== undefined && (!Number.isInteger(payload[key]) || Number(payload[key]) < 0)) errors.push(`${key} must be a non-negative integer`);
       break;
     case "lc_discrepancy":
       if (!nonEmpty(payload.lcRecordId) || !nonEmpty(payload.clauseRecordId) || !nonEmpty(payload.description) || !isDate(payload.resolutionDueAt)) errors.push("LC, clause, discrepancy description and resolution deadline are required");
       break;
     case "lc_presentation":
-      if (!nonEmpty(payload.lcRecordId) || !Array.isArray(payload.documentRecordIds) || payload.documentRecordIds.length === 0 || !nonEmpty(payload.presentationReference)) errors.push("LC, at least one document record and presentation reference are required");
+      if (!nonEmpty(payload.lcRecordId) || !Array.isArray(payload.documentSelections) || payload.documentSelections.length === 0 || !nonEmpty(payload.presentationReference)) errors.push("LC, documentSelections and presentationReference are required");
+      else for (const [i,raw] of payload.documentSelections.entries()) {
+        const item=raw as Record<string,unknown>;
+        if (!nonEmpty(item.documentRecordId) || !nonEmpty(item.clauseCode) || !["original","copy"].includes(String(item.copyType))) errors.push(`documentSelections[${i}] must include documentRecordId, clauseCode and original/copy type`);
+      }
       break;
     case "audit_finding":
       if (!nonEmpty(payload.findingCode) || !nonEmpty(payload.criteria) || !nonEmpty(payload.condition) || !nonEmpty(payload.cause) || !nonEmpty(payload.effect) || !nonEmpty(payload.recommendation) || !nonEmpty(payload.ownerRoleCode) || !isDate(payload.dueAt)) errors.push("findingCode, criteria, condition, cause, effect, recommendation, ownerRoleCode and dueAt are required");

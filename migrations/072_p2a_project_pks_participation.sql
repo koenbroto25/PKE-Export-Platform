@@ -20,8 +20,7 @@ VALUES
  ('View Project PKS Sites','pks.site.view','View Project-scoped facility participation and non-sensitive facility identity.',true),
  ('Manage Project PKS Participation','pks.participation.manage','Manage Project-specific facility participation, operational capacity, delivery windows and notes; not global legal identity.',true),
  ('View Project Suppliers','supplier.view','View supplier organizations and Project participation.',true)
-ON CONFLICT (code) DO UPDATE
-SET name=EXCLUDED.name, description=EXCLUDED.description, is_active=true, updated_at=now();
+ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
 VALUES ('pm','pks.site.view'),('pm','pks.participation.manage'),('pm','supplier.view')
@@ -72,6 +71,9 @@ CREATE INDEX project_pks_site_participation_project_status_idx
  ON public.project_pks_site_participation(project_id,status,updated_at DESC);
 CREATE INDEX project_pks_site_participation_site_idx
  ON public.project_pks_site_participation(pks_site_id);
+
+CREATE POLICY p2a_pks_sites_platform_admin_read ON public.pks_sites
+ FOR SELECT TO app_runtime_secure USING (public.pke_is_platform_admin());
 
 ALTER TABLE public.project_pks_site_participation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_pks_site_participation FORCE ROW LEVEL SECURITY;

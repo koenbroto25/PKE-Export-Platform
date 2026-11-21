@@ -57,14 +57,12 @@ describe("P1 workflow API security contracts",()=>{
     expect(api).toContain('record.rows[0].record_type==="quality_result"');
     expect(api).toContain('"quality.result.create"');
   });
-  it("scopes KPI templates by the selected active role and uses verified loading-ticket source",()=>{
+  it("scopes KPI templates by active roles and reads only the secure aggregate API",()=>{
     expect(api).toContain("p1KpiTemplatesByRole");
     expect(api).toContain("const p1Roles");
     expect(api).toContain("public.pke_current_user_id()");
     expect(api).toContain("initialP1Status(type)");
-    expect(api).toContain("public.loading_tickets");
-    expect(api).toContain("status='verified'");
-    expect(api).toContain("status IN ('presented','accepted','discrepancy')");
+    expect(api).toContain("public.p1_get_kpi_metric($1::uuid,$2::text)");
   });
   it("seeds newly activated Project roles from the canonical permission allowlist",()=>{
     expect(api).toContain("pke_project_role_permission_allowlist a");

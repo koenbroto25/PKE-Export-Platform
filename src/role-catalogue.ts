@@ -73,7 +73,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   role("internal_auditor", "Internal Auditor", "governance", [
     "project.view", "audit.view", "operations.view", "inventory.view", "warehouse.view",
     "logistics.view", "shipping.view", "shipment.view", "finance.view", "accounting.view",
-    "documents.view", "workflow.view", "reports.view", "audit.finding.view", "audit.finding.create", "audit.finding.close",
+    "documents.view", "workflow.view", "reports.view", "audit.finding.view", "audit.finding.create", "audit.finding.respond", "audit.finding.close",
   ], [
     "Read-only on business records; may not modify audit_events or source transactions.",
     "Finding/corrective-action write capability requires its separately governed permission set.",
@@ -100,11 +100,11 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ]),
   role("production_manager", "Production Manager", "production_quality", [
     "operations.view", "operations.create", "operations.update", "inventory.view",
-    "facility.view", "facility.capacity.view", "product.view", "audit.finding.respond",
+    "facility.view", "facility.capacity.view", "product.view", "quality.release.view", "audit.finding.respond",
   ]),
   role("packing_supervisor", "Packing Supervisor", "production_quality", [
     "operations.view", "operations.create", "operations.update", "record_packing",
-    "inventory.view", "product.view", "audit.finding.respond",
+    "inventory.view", "product.view", "quality.release.view", "audit.finding.respond",
   ], [], { legacyAliases: ["packing_supervisor"] }),
   role("qc_officer", "Quality Control Officer", "production_quality", [
     "quality.sample.view", "quality.sample.create", "quality.result.view", "quality.result.create", "product.view", "inventory.view", "audit.finding.respond",

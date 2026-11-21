@@ -5386,7 +5386,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         const key=String(payload.certificateObjectKey??""),checksum=String(payload.sha256Checksum??""),size=Number(payload.certificateFileSizeBytes);
         const storage=privateStorage.status();
         if(!key.startsWith(`projects/${projectId}/`)||!storage.available||storage.bucket!=="pke-private-documents") return res.status(400).json({error:"Survey certificate must be stored in the Project private bucket.",code:"SURVEY_CERTIFICATE_STORAGE_INVALID"});
-        await privateStorage.verifyObject(key,size,checksum);
+        try{await privateStorage.verifyObject(key,size,checksum);}catch{return res.status(422).json({error:"Survey certificate object checksum or size verification failed.",code:"SURVEY_CERTIFICATE_VERIFICATION_FAILED"});}
       }
       if(type==="production_batch"){
         if(b.sourceEntityType!=="production_batches"||!b.sourceEntityId) return res.status(400).json({error:"Production batch must link an existing production_batches row."});
@@ -5603,7 +5603,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     const storageStatus=privateStorage.status();
     if(!storageStatus.available||storageStatus.bucket!==evidenceBucket) return res.status(503).json({error:"Private object storage is unavailable or bucket does not match.",code:"STORAGE_UNAVAILABLE"});
     try{
-      await privateStorage.verifyObject(evidenceKey,evidenceSize,evidenceSha);
+      try{await privateStorage.verifyObject(evidenceKey,evidenceSize,evidenceSha);}catch{return res.status(422).json({error:"Evidence object checksum or size verification failed.",code:"EVIDENCE_OBJECT_VERIFICATION_FAILED"});}
       if(!(await p1Ready(req,res))) return;
       const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
       if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});

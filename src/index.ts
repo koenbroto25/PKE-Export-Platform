@@ -4036,15 +4036,15 @@ app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: 
     const { rows: ports } = await req.db.query("SELECT p.*,CASE WHEN p.verification_status='verified' AND (NULLIF(btrim(p.source_reference),'') IS NULL OR p.verified_at IS NULL OR (NULLIF(btrim(p.unlocode),'') IS NULL AND NULLIF(btrim(p.national_code),'') IS NULL AND NULLIF(btrim(p.code),'') IS NULL)) THEN 'unverified' ELSE p.verification_status END AS effective_verification_status FROM public.ports p WHERE p.id=$1::uuid AND p.is_active=true", [portId]);
     if (!ports.length) return res.status(404).json({ error: "Port not found." });
     const [terminals, berths, channels, anchorages, depths, tides, services, equipment, operatingLimits] = await Promise.all([
-      req.db.query("SELECT * FROM public.port_terminals WHERE port_id=$1::uuid ORDER BY name", [portId]),
-      req.db.query("SELECT b.*,t.name AS terminal_name FROM public.port_berths b JOIN public.port_terminals t ON t.id=b.terminal_id WHERE t.port_id=$1::uuid ORDER BY t.name,b.berth_code", [portId]),
-      req.db.query("SELECT * FROM public.port_channels WHERE port_id=$1::uuid ORDER BY channel_name", [portId]),
-      req.db.query("SELECT * FROM public.port_anchorages WHERE port_id=$1::uuid ORDER BY name NULLS LAST,anchorage_code", [portId]),
-      req.db.query("SELECT * FROM public.port_depth_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
-      req.db.query("SELECT * FROM public.port_tide_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
-      req.db.query("SELECT * FROM public.port_loading_services WHERE port_id=$1::uuid ORDER BY service_type", [portId]),
-      req.db.query("SELECT * FROM public.port_equipment WHERE port_id=$1::uuid ORDER BY equipment_type", [portId]),
-      req.db.query("SELECT * FROM public.port_operating_limits WHERE port_id=$1::uuid ORDER BY effective_from DESC", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_terminals WHERE port_id=$1::uuid ORDER BY name", [portId]),
+      req.db.query("SELECT b.*,t.name AS terminal_name,CASE WHEN b.verification_status='verified' AND (b.verified_at IS NULL OR NULLIF(btrim(b.source_reference),'') IS NULL OR COALESCE(b.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE b.verification_status END AS effective_verification_status FROM public.port_berths b JOIN public.port_terminals t ON t.id=b.terminal_id WHERE t.port_id=$1::uuid ORDER BY t.name,b.berth_code", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_channels WHERE port_id=$1::uuid ORDER BY channel_name", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_anchorages WHERE port_id=$1::uuid ORDER BY name NULLS LAST,anchorage_code", [portId]),
+      req.db.query("SELECT *,CASE WHEN quality_status='verified' AND (evidence_object_key IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' WHEN valid_to IS NOT NULL AND valid_to<CURRENT_DATE THEN 'stale' ELSE quality_status END AS effective_verification_status FROM public.port_depth_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
+      req.db.query("SELECT *,CASE WHEN quality_status='verified' AND (evidence_object_key IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' WHEN observed_at<now()-interval '24 hours' OR (valid_to IS NOT NULL AND valid_to<CURRENT_DATE) THEN 'stale' ELSE quality_status END AS effective_verification_status FROM public.port_tide_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_loading_services WHERE port_id=$1::uuid ORDER BY service_type", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_equipment WHERE port_id=$1::uuid ORDER BY equipment_type", [portId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND approval_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.port_operating_limits WHERE port_id=$1::uuid ORDER BY effective_from DESC", [portId]),
     ]);
     return res.json({
       port: ports[0], terminals: terminals.rows, berths: berths.rows, channels: channels.rows,
@@ -4065,7 +4065,7 @@ app.get("/api/v1/warehouses", requireAuth, async (req: express.Request, res: exp
     const { rows } = await req.db.query(
       `SELECT w.id,w.code,w.name,w.location,w.port_id,w.terminal_id,w.operator_organization_id,
               w.latitude,w.longitude,w.storage_mode,w.storage_capacity_mt,w.floor_area_m2,w.usable_volume_m3,
-              w.verification_status,w.verified_at,w.is_active,p.name AS port_name,t.name AS terminal_name,
+              w.verification_status,w.verified_at,w.source_reference,w.evidence_sha256,CASE WHEN w.verification_status='verified' AND (w.verified_at IS NULL OR NULLIF(btrim(w.source_reference),'') IS NULL OR COALESCE(w.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE w.verification_status END AS effective_verification_status,w.is_active,p.name AS port_name,t.name AS terminal_name,
               (SELECT count(*)::int FROM public.warehouse_zones z WHERE z.warehouse_id=w.id) AS zone_count,
               (SELECT count(*)::int FROM public.warehouse_equipment e WHERE e.warehouse_id=w.id) AS equipment_count
          FROM public.warehouses w
@@ -4088,18 +4088,18 @@ app.get("/api/v1/warehouses/:warehouseId", requireAuth, async (req: express.Requ
   if (!(await requireProjectPermission(req, res, projectId, "warehouse.view"))) return;
   try {
     const { rows: warehouses } = await req.db.query(
-      "SELECT w.*,p.name AS port_name,t.name AS terminal_name FROM public.warehouses w LEFT JOIN public.ports p ON p.id=w.port_id LEFT JOIN public.port_terminals t ON t.id=w.terminal_id WHERE w.id=$1::uuid AND w.is_active=true",
+      "SELECT w.*,p.name AS port_name,t.name AS terminal_name,CASE WHEN w.verification_status='verified' AND (w.verified_at IS NULL OR NULLIF(btrim(w.source_reference),'') IS NULL OR COALESCE(w.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE w.verification_status END AS effective_verification_status FROM public.warehouses w LEFT JOIN public.ports p ON p.id=w.port_id LEFT JOIN public.port_terminals t ON t.id=w.terminal_id WHERE w.id=$1::uuid AND w.is_active=true",
       [warehouseId],
     );
     if (!warehouses.length) return res.status(404).json({ error: "Warehouse not found." });
     const [zones, equipment, reservations] = await Promise.all([
-      req.db.query("SELECT * FROM public.warehouse_zones WHERE warehouse_id=$1::uuid ORDER BY zone_code", [warehouseId]),
-      req.db.query("SELECT * FROM public.warehouse_equipment WHERE warehouse_id=$1::uuid ORDER BY equipment_type", [warehouseId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.warehouse_zones WHERE warehouse_id=$1::uuid ORDER BY zone_code", [warehouseId]),
+      req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.warehouse_equipment WHERE warehouse_id=$1::uuid ORDER BY equipment_type", [warehouseId]),
       req.db.query("SELECT * FROM public.warehouse_reservations WHERE warehouse_id=$1::uuid AND project_id=$2::uuid ORDER BY window_start DESC LIMIT 100", [warehouseId, projectId]),
     ]);
     const zoneIds = zones.rows.map((z: { id: string }) => z.id);
     const bins = zoneIds.length
-      ? await req.db.query("SELECT * FROM public.warehouse_bins WHERE zone_id=ANY($1::uuid[]) ORDER BY bin_code", [zoneIds])
+      ? await req.db.query("SELECT *,CASE WHEN verification_status='verified' AND (verified_at IS NULL OR NULLIF(btrim(source_reference),'') IS NULL OR COALESCE(evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE verification_status END AS effective_verification_status FROM public.warehouse_bins WHERE zone_id=ANY($1::uuid[]) ORDER BY bin_code", [zoneIds])
       : { rows: [] };
     return res.json({ warehouse: warehouses[0], zones: zones.rows, bins: bins.rows, equipment: equipment.rows, reservations: reservations.rows, projectId, canManage: false });
   } catch {

@@ -5529,9 +5529,13 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(found.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
       const record=found.rows[0];
       if(!isP1RecordType(record.record_type)) return res.status(409).json({error:"Unsupported stored workflow type."});
-      const permission=await p1Permission(req,record.record_type,"update");
+      const to=b.status as P1Status;
+      const permission=record.record_type==="loading_survey"&&["accepted","rejected"].includes(to)
+        ?"shipping.update"
+        :record.record_type==="laytime_event"&&to==="verified"?"shipping.update"
+        :await p1Permission(req,record.record_type,"update");
       if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
-      const from=record.status as P1Status,to=b.status as P1Status;
+      const from=record.status as P1Status;
       if(!validateP1Transition(record.record_type,from,to)) return res.status(409).json({error:"Invalid status transition.",code:"INVALID_P1_TRANSITION",from,to});
       if(["rejected","held","blocked","cancelled","discrepancy"].includes(to)&&String(b.reason??"").trim().length<5) return res.status(400).json({error:"A reason of at least 5 characters is required."});
       if(record.record_type==="purchase_order"&&to==="approved"){
@@ -5552,6 +5556,12 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(record.record_type==="supplier_commitment"&&to==="acknowledged"&&roleCode!=="supplier") return res.status(403).json({error:"Only the assigned Supplier may acknowledge the commitment."});
       if(record.record_type==="ship_master_ack"&&to==="acknowledged"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may acknowledge."});
       if(record.record_type==="loading_survey"&&to==="submitted"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit the survey."});
+      if(record.record_type==="loading_survey"&&["accepted","rejected"].includes(to)){
+        if(!["master_of_loading","loading_supervisor"].includes(roleCode)||actorId===record.created_by) return res.status(403).json({error:"Survey acceptance/rejection requires an independent Master of Loading or Loading Supervisor."});
+      }
+      if(record.record_type==="hse_action"&&to==="verified"){
+        if(!(await requireProjectPermission(req,res,projectId,"hse.action.manage"))||roleCode!=="hse_officer"||actorId===record.created_by||actorId===record.assignee_user_id) return res.status(403).json({error:"HSE action verification requires an independent HSE Officer."});
+      }
       if(record.record_type==="dispatch_assignment"&&["acknowledged","in_progress","completed"].includes(to)&&["transporter","driver"].includes(roleCode)&&record.external_scope_user_id!==actorId) return res.status(403).json({error:"External dispatch updates are restricted to the assigned user."});
       if(record.record_type==="audit_response"&&to==="submitted"){
         const finding=await req.db.query("SELECT owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='audit_finding'",[record.parent_record_id]);
@@ -5564,7 +5574,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       }
       if(record.record_type==="lc_record"&&to==="issued"&&roleCode!=="document_officer") return res.status(403).json({error:"Only Document Officer may record issuance of an LC."});
       if(record.record_type==="loading_plan"&&to==="approved"&&roleCode!=="master_of_loading") return res.status(403).json({error:"Only Master of Loading may approve the shore-side loading plan."});
-      if(record.record_type==="laytime_event"&&to==="verified"&&actorId===record.created_by) return res.status(403).json({error:"Laytime verification must be performed by a different authorized actor."});
+      if(record.record_type==="laytime_event"&&to==="verified"&&(roleCode!=="master_of_loading"||actorId===record.created_by)) return res.status(403).json({error:"Laytime verification requires a different Master of Loading actor."});
       const data=b.transitionData&&typeof b.transitionData==="object"?b.transitionData:{};
       const update=await req.db.query(
         `UPDATE public.p1_domain_records SET status=$1,updated_by=$2::uuid,updated_at=now(),version=version+1,payload=payload||$3::jsonb,

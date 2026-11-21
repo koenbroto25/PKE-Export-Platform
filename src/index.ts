@@ -5322,6 +5322,10 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     );
     return q.rows.map((row:any)=>String(row.role_code));
   };
+  const p1Role = async (req: express.Request):Promise<string> => {
+    const q=await req.db.query("SELECT current_setting('app.current_role',true) AS code");
+    return String(q.rows[0]?.code??"");
+  };
   const p1HasRole = async (req: express.Request,projectId:string,userId:string,roleCodes:string[]):Promise<boolean> => {
     for(const roleCode of roleCodes){
       const q=await req.db.query(

@@ -71,4 +71,10 @@ describe("P1 workflow API security contracts",()=>{
     expect(api).toContain("WHERE a.role_code=$4::text");
     expect(api).toContain("grantedRows.map");
   });
+  it("allows role-scoped P1 KPI access without granting broad reports.view",()=>{
+    expect(api).toContain("'p1.kpi.view'");
+    expect(api).toContain("public.pke_has_project_permission($1::uuid,'reports.view')");
+    expect(api).toContain("finance:[\"tpl-procurement\"]");
+    expect(api).toContain("accounting:[\"tpl-procurement\"]");
+  });
 });

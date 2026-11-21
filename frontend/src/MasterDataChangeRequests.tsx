@@ -26,6 +26,8 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
   const [editingId, setEditingId] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [decisionNotes, setDecisionNotes] = useState<Record<string,string>>({});
+  const [identityEvidence, setIdentityEvidence] = useState<Record<string,string>>({});
+  const [identityRefs, setIdentityRefs] = useState<Record<string,string>>({});
 
   const canManage = data.canManage === true && data.canReview !== true;
   const canReview = data.canReview === true;
@@ -146,6 +148,24 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
     finally { setBusy(false); }
   };
 
+  const verifyIdentity = async (entity: 'organizations' | 'facilities', id: string) => {
+    const key = entity + ':' + id;
+    if (!identityEvidence[key] || (identityRefs[key] || '').trim().length < 2) {
+      onNotice('error', 'Pilih dokumen approved dan isi referensi verifikasi.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const route = entity === 'organizations' ? 'organizations' : 'facilities';
+      await patch('/projects/' + projectId + '/master-data/' + route + '/' + id + '/verification', {
+        evidenceDocumentId: identityEvidence[key], sourceReference: identityRefs[key].trim(),
+      });
+      onNotice('success', 'Identitas kanonis berhasil diverifikasi dengan bukti dan reviewer Admin.');
+      await refresh();
+    } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Verifikasi identitas gagal.'); }
+    finally { setBusy(false); }
+  };
+
   return <section className="panel">
     <div className="panel-heading">
       <div><h3>Permintaan perubahan identitas master</h3><p>PM mengajukan perubahan supplier/fasilitas global. Hanya Platform Admin yang dapat menyetujui; identitas material yang berubah kembali berstatus belum terverifikasi.</p></div>
@@ -197,6 +217,30 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
             </div></td>
           </tr>)}
         </tbody></table></div>}
+      {canReview && <div className="master-data-verification">
+        <h4>Verifikasi identitas kanonis</h4>
+        <p>Hanya record yang belum verified ditampilkan. Setiap verifikasi harus memakai dokumen Project yang approved dan checksum-terverifikasi.</p>
+        <div className="verification-list">
+          {(data.organizations || []).filter((r: AnyRecord) => r.verification_status !== 'verified').map((row: AnyRecord) => {
+            const key = 'organizations:' + row.id;
+            return <div className="verification-row" key={key}>
+              <div><strong>{row.legal_name}</strong><small>Organisasi · {row.organization_type} · {row.country_code} · {row.verification_status}</small></div>
+              <select value={identityEvidence[key] || ''} onChange={e => setIdentityEvidence(v => ({ ...v, [key]: e.target.value }))}><option value="">Pilih dokumen bukti</option>{(data.evidenceDocuments || []).map((d: AnyRecord) => <option key={d.id} value={d.id}>{d.original_filename || d.document_type_code} · {String(d.sha256_checksum).slice(0,10)}…</option>)}</select>
+              <input value={identityRefs[key] || ''} onChange={e => setIdentityRefs(v => ({ ...v, [key]: e.target.value }))} placeholder="Referensi pemeriksaan / dokumen" />
+              <button type="button" className="primary-button" disabled={busy || !identityEvidence[key] || (identityRefs[key] || '').trim().length < 2} onClick={() => verifyIdentity('organizations',row.id)}>Verifikasi organisasi</button>
+            </div>;
+          })}
+          {(data.facilities || []).filter((r: AnyRecord) => r.verification_status !== 'verified').map((row: AnyRecord) => {
+            const key = 'facilities:' + row.id;
+            return <div className="verification-row" key={key}>
+              <div><strong>{row.name}</strong><small>Fasilitas · {row.facility_type} · {row.city || row.province || row.country_code} · {row.verification_status}</small></div>
+              <select value={identityEvidence[key] || ''} onChange={e => setIdentityEvidence(v => ({ ...v, [key]: e.target.value }))}><option value="">Pilih dokumen bukti</option>{(data.evidenceDocuments || []).map((d: AnyRecord) => <option key={d.id} value={d.id}>{d.original_filename || d.document_type_code} · {String(d.sha256_checksum).slice(0,10)}…</option>)}</select>
+              <input value={identityRefs[key] || ''} onChange={e => setIdentityRefs(v => ({ ...v, [key]: e.target.value }))} placeholder="Referensi pemeriksaan / dokumen" />
+              <button type="button" className="primary-button" disabled={busy || !identityEvidence[key] || (identityRefs[key] || '').trim().length < 2} onClick={() => verifyIdentity('facilities',row.id)}>Verifikasi fasilitas</button>
+            </div>;
+          })}
+        </div>
+      </div>}
     </>}
   </section>;
 }

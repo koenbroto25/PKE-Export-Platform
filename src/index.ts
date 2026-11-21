@@ -1030,6 +1030,62 @@ app.patch("/api/v1/projects/:projectId/master-data/products/:productId/classific
 
 
 /** P15 quality provenance API: sample creation, evidence-linked results and reviewer decisions. */
+app.get("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  try {
+    const access = await req.db.query(
+      "SELECT public.pke_is_platform_admin() AS is_admin, public.pke_has_project_permission($1::uuid,'quality.sample.view') AS sample_view, public.pke_has_project_permission($1::uuid,'quality.sample.create') AS sample_create, public.pke_has_project_permission($1::uuid,'quality.result.view') AS result_view, public.pke_has_project_permission($1::uuid,'quality.result.create') AS result_create, public.pke_has_project_permission($1::uuid,'quality.result.review') AS result_review",
+      [projectId],
+    );
+    const a = access.rows[0] ?? {};
+    const isAdmin = req.user?.isAdmin === true || a.is_admin === true;
+    const canView = isAdmin || a.sample_view === true || a.sample_create === true || a.result_view === true || a.result_create === true || a.result_review === true;
+    if (!canView) return res.json({ canView: false, canCreate: false, canCreateResults: false, canReview: false, samples: [], results: [], attributes: [], evidenceDocuments: [] });
+    const [samples, results, attributes, evidenceDocuments] = await Promise.all([
+      req.db.query(
+        `SELECT id,project_id,lot_id,sample_number,sample_type,sampling_method,sampled_at,sampled_by,
+                sample_location,seal_number,sample_condition,laboratory_name,status,lab_report_document_id,
+                lab_report_sha256,laboratory_accreditation_reference,chain_of_custody,source_type,source_reference,
+                reviewed_by,reviewed_at,review_note,created_at,updated_at
+           FROM public.product_quality_samples
+          WHERE project_id=$1::uuid ORDER BY sampled_at DESC,sample_number`,
+        [projectId],
+      ),
+      req.db.query(
+        `SELECT r.id,r.sample_id,r.attribute_id,a.attribute_code,a.name AS attribute_name,a.data_type,
+                r.result_numeric,r.result_text,r.result_boolean,r.unit_code,r.measurement_basis,r.method_code,
+                r.detection_limit,r.uncertainty,r.review_status,r.reviewed_by,r.reviewed_at,r.review_note,
+                r.evidence_document_id,r.evidence_sha256,r.source_type,r.source_reference
+           FROM public.product_quality_results r
+           JOIN public.product_quality_samples s ON s.id=r.sample_id
+           LEFT JOIN public.product_attributes a ON a.id=r.attribute_id
+          WHERE s.project_id=$1::uuid ORDER BY r.created_at,s.sample_number`,
+        [projectId],
+      ),
+      req.db.query(
+        "SELECT id,attribute_code,name,data_type,unit_code,dimension,comparison_basis FROM public.product_attributes WHERE is_active=true ORDER BY attribute_code",
+      ),
+      req.db.query(
+        `SELECT id,original_filename,document_type_code,sha256_checksum,uploaded_at
+           FROM public.project_export_documents
+          WHERE project_id=$1::uuid AND status='approved' AND upload_verified_at IS NOT NULL
+            AND object_key IS NOT NULL AND sha256_checksum IS NOT NULL
+            AND storage_bucket='pke-private-documents' AND legal_hold=false
+            AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)
+          ORDER BY uploaded_at DESC`,
+        [projectId],
+      ),
+    ]);
+    return res.json({
+      canView: true, canCreate: isAdmin || a.sample_create === true,
+      canCreateResults: isAdmin || a.result_create === true,
+      canReview: isAdmin || a.result_review === true,
+      samples: samples.rows, results: results.rows, attributes: attributes.rows,
+      evidenceDocuments: evidenceDocuments.rows,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 app.post("/api/v1/projects/:projectId/quality-samples", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
   if (!(await requireProjectPermission(req, res, projectId, "quality.sample.create"))) return;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { get, post, patch } from './api';
+import QualityProvenancePanel from './QualityProvenancePanel';
 
 type AnyRecord = Record<string, any>;
 type Notice = (kind: 'success' | 'error' | 'info', text: string) => void;
@@ -286,6 +287,7 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
         </div>
       </div>}
     </>}
+    <QualityProvenancePanel projectId={projectId} onNotice={onNotice} />
   </section>;
 }
 

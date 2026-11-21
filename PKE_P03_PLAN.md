@@ -1248,3 +1248,13 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Final UAT cleanup: 93 ledger rows (16 baseline, 77 applied, 0 pending); Production unchanged at 53 rows; private bucket exists and remains empty; zero temporary Project evidence documents or master fixtures remain.
 - Vercel reports no deployment for final commit. PR #2 remains OPEN/DRAFT and unmerged.
 - P16 remains **NOT ALL PASS**: actual private storage PUT and read-back verification could not run because the execution environment cannot resolve the Neon storage hostname; authenticated HTTP/browser acceptance and positive evidence-driven depth/tide workflow therefore remain blocked. Continue with the ordered B1–B5 backtest plan in the Master Implementation Plan §56.54.8.
+
+
+### P16 Neon Object Storage direct UAT verification (21 November 2026)
+
+- Neon UAT Object Storage endpoint is enabled in `ap-southeast-1`; bucket `pke-private-documents` is `private`.
+- Direct data-plane upload/read-back passed from a short-lived network-enabled sandbox: synthetic `UAT_TEST_ONLY` PDF PUT HTTP 200; presigned GET HTTP 200; 633 bytes; MIME `application/pdf`; local and downloaded SHA-256 both `a24ff07760c9c698a3a34b0c5a3ba4c3fc4e3013072fa05e27c328134796b801`.
+- Object listing confirmed exact Project/requirement prefix, size and ETag. Unsigned GET returned HTTP 403, confirming private bucket access. A restricted execution container had previously failed DNS; the same endpoint worked from the Vercel sandbox in Singapore.
+- Cleanup completed: temporary object deleted; prefix listing empty; both short-lived UAT storage credentials revoked; zero `project_export_documents` rows created. No business data was added.
+- Browser UAT acceptance is deferred as instructed and is not a blocker for this storage task. Still open: authenticated API path invoking the app's own `privateStorage.verifyObject` and registration, independent document approval through API, and positive evidence-backed depth/tide API workflow. Do not fabricate a database document record to substitute for the API acceptance.
+- P16 remains **NOT ALL PASS** until the remaining API workflow and regression gates pass; Production and Vercel remain untouched.

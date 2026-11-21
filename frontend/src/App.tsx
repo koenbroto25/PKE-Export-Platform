@@ -1329,6 +1329,18 @@ function ReportsPage({ projectId, activeUser, onNotice }: { projectId: string; a
     } catch (e) { onNotice('error', e instanceof Error ? e.message : 'Laporan gagal dibagikan.'); }
     finally { setShareBusy(false); }
   };
+  const renderShareAction = (report: AnyRecord): ReactNode => {
+    if (!canShare) return '—';
+    return (
+      <ActionButton
+        variant="secondary"
+        disabled={shareBusy || !funderUserId || report.status !== 'completed' || !report.fileReference}
+        onClick={() => { void shareReport(report.id); }}
+      >
+        Bagikan
+      </ActionButton>
+    );
+  };
   const revokeShare = async (shareId: string) => {
     const reason = window.prompt('Alasan pencabutan akses (minimal 5 karakter):') || '';
     if (reason.trim().length < 5) return;
@@ -1349,7 +1361,7 @@ function ReportsPage({ projectId, activeUser, onNotice }: { projectId: string; a
       {key:'status',label:'Status',render:r=><StatusPill value={r.status||'queued'}/>},
       {key:'generatedAt',label:'Dibuat',render:r=>dateTime(r.generatedAt)},
       {key:'fileReference',label:'File',render:r=>r.fileReference||'—'},
-      {key:'share',label:'Funder',render:(r:AnyRecord)=>canShare ? <ActionButton variant="secondary" disabled={shareBusy || !funderUserId || r.status!=='completed' || !r.fileReference} onClick={()=>void shareReport(r.id)}>Bagikan</ActionButton> : '—'},
+      {key:'share',label:'Funder',render:renderShareAction},
     ]} emptyTitle="Belum ada run" emptyText="Belum ada report run pada Project terpilih." /></Card>
     {canShare && <Card><PanelHeading title="Bagikan laporan ke Funder" description="Pilih penerima yang memiliki assignment Funder aktif di Project ini." />
       {members.loading ? <Loading /> : members.error ? <ErrorState message={members.error} retry={members.refresh} /> : funderCandidates.length === 0

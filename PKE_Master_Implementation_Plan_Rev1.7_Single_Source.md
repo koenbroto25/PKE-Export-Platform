@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.36 — Indonesia AIS and Vessel Readiness scope
+# Master Implementation Plan Rev2.37 — P16 selected-Project governance and evidence lifecycle
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.36 (20 November 2026 — Indonesia AIS and Vessel Readiness scope; see §56.43)  
+**Revision:** 2.37 (21 November 2026 — P16 selected-Project governance and evidence lifecycle; see §56.54.8)  
 
 **Tanggal dokumen:** 19 November 2026  
 
@@ -10451,3 +10451,40 @@ P15 engineering implementation and UAT database/security backtests are complete.
 2. Authenticated HTTP/API and browser acceptance for Admin and PM workflows against the current branch build. The current freeze excludes Vercel deployment and there is no authenticated current-branch browser session in this execution context.
 
 **Status:** Database schema, RLS permission isolation, Admin write guard, maker-checker, negative evidence guards, source contracts, CI and dependency audit pass. P16 remains NOT ALL PASS solely on the two explicitly listed acceptance gates; Production remains untouched.
+
+
+### 56.54.8 — P16 selected-Project RLS, document lifecycle, and master CRUD hardening (21 November 2026)
+
+**Migrations 091–093 — Neon UAT only**
+- Migration 091 `091_p16_selected_project_child_rls.sql`, SHA-256 `46b4b705ee7917633b7e45e82ffaceeb58e039cd1a6f8c1a5ffde91146b7b3ae`: scopes port child resources, depth/tide observations, warehouse zones/bins/equipment, vessel detail children and PKS-port routes to the selected Project and its actual parent-resource relationship. Global master INSERT/UPDATE/DELETE RLS now independently requires `pke_is_platform_admin()`.
+- Migration 092 `092_p16_parent_and_project_scope.sql`, SHA-256 `d53422bbbd9bf80798f35c3e93db0e415ae6a70bafeb19fb6f55a3cc6ef40be5`: scopes parent `ports` and `warehouses` by the selected Project's port/reservation relationship; binds vessel nominations, vessel-port assessments, warehouse reservations, project document requirements and evidence documents to the selected Project context.
+- Migration 093 `093_p16_admin_evidence_review_access.sql`, SHA-256 `880452e2f0ad1566e087f1c339aa1c5817e810d30edb14e5b7173a2d9bcd5d5e`: grants Platform Admin global read access to Project evidence/review queues and Admin insert/update access to evidence records; database trigger still enforces upload metadata, allowed status transitions and independent reviewer.
+- Pre-change policies are backed up under `p2b_backup_090_20261121`, `p2b_backup_091_20261121`, and `p2b_backup_092_20261121`.
+- UAT ledger is 93 rows: 16 baseline markers and 77 applied migrations, zero pending. Exact UAT-only manifest: `migration_history_manifest_uat_001_093.json`. Neon Production remains at 53 rows (IDs 1–53); no Production DDL/DML or migration-manifest changes.
+
+**Runtime RLS and write backtests**
+- Re-tested as `app_runtime_secure` after migrations 091–093. Project Alpha selected: 1 linked port, 1 linked warehouse, 3 warehouse zones, 1 vessel catalogue record, 1 Project vessel nomination, 3 document requirements and zero registered documents. Project Beta selected: zero linked ports, zero warehouses/zones, zero vessel nominations, zero document requirements/documents. Admin without Project context reads global master rows and the Admin document-requirement queue.
+- PM Alpha in Project Beta cannot read Alpha's port/warehouse children, nominations, document requirements or evidence rows. Project-owned document and reservation policies now compare `project_id` with `app.current_project_id`.
+- Admin master UPDATE probe under `app_runtime_secure` returned the target row and was rolled back to a savepoint. PM UPDATE returned zero rows; PM INSERT was rejected by RLS. All 13 global master write policy sets (INSERT/UPDATE/DELETE) now use `pke_is_platform_admin()`.
+- All audited P16 port, warehouse, vessel and evidence tables have RLS enabled. Vessel master catalogue remains a permission-gated shared reference catalogue; vessel certificates, identifiers, name history, port calls and tracking positions are Project-relationship scoped.
+
+**Application and UI revisions**
+- Added Admin-only `DELETE /api/v1/p16/master/:resource/:recordId`; foreign-key-referenced records return 409 rather than silently breaking operational history. UI now exposes Admin delete controls alongside create/update/review.
+- Platform Admin can load global port/warehouse masters without a selected Project. Project document officer can access the evidence panel through `documents.view/create/update`; PM retains view-only evidence access and selects only Approved, upload-verified evidence for depth/tide submissions.
+- Added evidence workflow UI: browser SHA-256 calculation, private presigned upload, exact Project/requirement object namespace, server-side object size/SHA re-verification, sequential document version lock, Uploaded → Under Review → Approved/Rejected independent review. Platform Admin evidence review uses a narrowly scoped document-permission helper and explicit RLS policies; the general Project permission middleware was not weakened.
+- Updated the project document list API to return storage bucket, byte size and upload-verification timestamp.
+
+**Acceptance backtests and remaining blockers — P16 is NOT ALL PASS**
+1. Neon UAT confirms the private bucket `pke-private-documents` exists and object storage is enabled; a short-lived presigned PUT URL was generated. The execution environment could not resolve the Neon storage hostname (`curl: Could not resolve host`), so no object was uploaded and no synthetic/false evidence record was created. The bucket currently has no Project evidence objects.
+2. The positive document lifecycle (actual object PUT → server-side size/SHA verification → registration → independent reviewer approval) and positive depth/tide submission/review with that Approved object remain unexecuted. Existing negative missing/unapproved evidence guards remain in place.
+3. Authenticated HTTP/API and browser acceptance for Platform Admin, PM and Document Officer against this current branch build remains open. Vercel deployment is intentionally frozen under the owner's instruction; do not deploy or merge to work around the freeze.
+4. CI must be re-run on the final commit after these revisions. Do not mark P16 complete until the full positive/negative acceptance matrix below passes.
+
+**Ordered backtest plan to close every remaining blocker**
+- **B1 — storage connectivity and evidence upload:** from an authenticated UAT application/browser with outbound DNS, select a Project document requirement and upload a clearly labelled temporary `UAT_TEST_ONLY` PDF to the private bucket. Confirm the returned bucket/key, object existence, exact byte count, MIME type and SHA-256 by re-reading the object; register only through `POST /api/v1/projects/:projectId/documents`. Delete the temporary object and roll back/remove all temporary DB rows after the test.
+- **B2 — document maker-checker:** uploader registers the object; uploader may move it to Under Review but cannot approve it. A different authorized Document Officer/Admin reviewer approves it. Backtest same-actor approval, wrong Project, wrong requirement, wrong bucket, mismatched SHA, mismatched size, unsupported MIME, expired evidence and legal-hold cases; all negative cases must be denied.
+- **B3 — PM depth/tide workflow:** PM Alpha selects the approved evidence from the UI, submits depth and tide observations on a port linked to Project Alpha, then a distinct Admin reviewer verifies/rejects. Repeat with wrong-Project port, wrong evidence, unapproved evidence and stale/expired evidence; all must fail closed.
+- **B4 — role/UI acceptance:** authenticated Admin create/update/delete/review across every P16 master resource; confirm FK-protected delete returns 409. Document Officer uploads and reviews evidence. PM views only selected-Project resources, selects approved evidence and submits depth/tide. Finance/Warehouse/other unauthorized roles cannot mutate global masters or read unrelated Project children.
+- **B5 — final regression/release gate:** verify migration 093 source SHA against UAT ledger, manifest count/hash integrity, RLS/role matrix, all P0–P15 regression suites, backend/frontend typecheck, frontend build, migration runner dry-run and dependency audit. Keep Production unchanged and Vercel frozen until owner authorizes the final combined deployment session.
+
+**Status:** P16 schema/RLS hardening, source implementation, document upload/review UI, Admin master CRUD (including delete) and negative permission backtests have progressed. P16 remains **NOT ALL PASS** because actual private-object upload/positive evidence lifecycle and authenticated browser/API acceptance are still blocked by storage DNS/runtime access and the agreed deployment freeze.

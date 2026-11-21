@@ -23,7 +23,7 @@ import { listCashAdvances, createCashAdvance, decideCashAdvance } from "./cash-a
 import {
   isP1RecordType, validateP1Create, validateP1Transition, validateThreeWayMatch,
   canApprovePurchaseOrder, canDecideQaRelease, canCloseAuditFinding, validateP1Evidence,
-  evaluateFreshness, isDispatchOnTime, type P1RecordType, type P1Status,
+  evaluateFreshness, isDispatchOnTime, calculateLaytime, validateLcPresentation, type P1RecordType, type P1Status,
 } from "./p1-workflow-engine.js";
 
 // Extend Express Request type to include db, logger, and user
@@ -5253,9 +5253,9 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     return true;
   };
   const p1DefaultOwner: Record<P1RecordType,string> = {
-    purchase_requisition:"procurement",purchase_order:"procurement",supplier_commitment:"procurement",goods_receipt_match:"procurement",
+    purchase_requisition:"procurement",purchase_order:"procurement",supplier_commitment:"supplier",goods_receipt_match:"procurement",
     production_batch:"production_manager",packing_batch:"packing_supervisor",quality_sample:"qc_officer",quality_result:"laboratory_officer",
-    qa_release:"qa_manager",hse_inspection:"hse_officer",hse_action:"hse_officer",dispatch_assignment:"dispatcher",
+    qa_release:"qa_manager",hse_inspection:"hse_officer",hse_action:"hse_officer",dispatch_assignment:"transporter",
     vessel_call:"master_of_loading",loading_plan:"master_of_loading",loading_survey:"marine_surveyor",ship_master_ack:"ship_master",
     laytime_event:"master_of_loading",lc_record:"document_officer",lc_clause:"document_officer",lc_discrepancy:"document_officer",
     lc_presentation:"document_officer",audit_finding:"internal_auditor",audit_response:"internal_auditor",audit_closure:"internal_auditor",
@@ -5317,13 +5317,17 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(type==="qa_release"&&roleCode!=="qa_manager") return res.status(403).json({error:"Only QA Manager may create release decisions."});
       if(type==="loading_survey"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit surveys."});
       if(type==="ship_master_ack"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may submit acknowledgements."});
-      if(["purchase_order","supplier_commitment","audit_response"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
+      if(["purchase_order","supplier_commitment","audit_response","audit_closure","lc_clause","lc_discrepancy","lc_presentation"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
+      let parentRecord:any=null;
       if(b.parentRecordId){
         const parent=await req.db.query("SELECT id,record_type,status,created_by,owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[b.parentRecordId,projectId]);
         if(parent.rows.length!==1) return res.status(422).json({error:"Parent record is not in the selected Project."});
+        parentRecord=parent.rows[0];
         if(type==="purchase_order"&&(parent.rows[0].record_type!=="purchase_requisition"||parent.rows[0].status!=="approved")) return res.status(409).json({error:"Purchase Order requires an approved requisition."});
         if(type==="supplier_commitment"&&(parent.rows[0].record_type!=="purchase_order"||!["issued","acknowledged","partially_received"].includes(parent.rows[0].status))) return res.status(409).json({error:"Supplier commitment requires an issued PO."});
         if(type==="audit_response"&&(parent.rows[0].record_type!=="audit_finding"||!["open","responded"].includes(parent.rows[0].status)||!(await p1HasRole(req,projectId,actorId,[parent.rows[0].owner_role_code])))) return res.status(403).json({error:"Only the active finding owner role may respond."});
+        if(type==="audit_closure"&&parent.rows[0].record_type!=="audit_finding") return res.status(422).json({error:"Audit closure must reference an audit finding."});
+        if(["lc_clause","lc_discrepancy","lc_presentation"].includes(type)&&parent.rows[0].record_type!=="lc_record"&&parent.rows[0].record_type!=="lc_clause") return res.status(422).json({error:"LC workflow child must reference an LC record or clause."});
       }
       if(type==="goods_receipt_match"){
         const [po,grn,inv]=await Promise.all([
@@ -5343,6 +5347,12 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         });
         if(!match.ok) return res.status(409).json({error:"Three-way match rejected.",code:match.reason});
       }
+      if(type==="laytime_event"){
+        const calc=calculateLaytime({allowedHours:Number(payload.allowedHours),startAt:String(payload.startAt),endAt:String(payload.endAt),excludedHours:Number(payload.excludedHours??0)});
+        if(!calc.valid) return res.status(400).json({error:"Invalid laytime interval or allowance.",code:"INVALID_LAYTIME"});
+        payload.laytimeImpactHours=calc.usedHours;
+        payload.laytimeOverrunHours=calc.overrunHours;
+      }
       if(type==="qa_release"){
         const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sourceRecordId,projectId]);
         if(source.rows.length!==1||source.rows[0].created_by===actorId) return res.status(409).json({error:"QA release requires an independent actor and source record."});
@@ -5353,13 +5363,22 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         const response=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[fid,projectId]);
         if(finding.rows.length!==1||!response.rows.length||!canCloseAuditFinding(actorId,finding.rows[0].created_by,response.rows[0].created_by,roleCode)) return res.status(409).json({error:"Audit closure requires independent Internal Auditor verification after owner response."});
       }
-      const ownerRoleCode=typeof b.ownerRoleCode==="string"?b.ownerRoleCode:p1DefaultOwner[type];
+      const ownerRoleCode=typeof b.ownerRoleCode==="string"?b.ownerRoleCode:
+        type==="audit_finding"?String(payload.ownerRoleCode):
+        type==="audit_response"?String(parentRecord?.owner_role_code??""):
+        type==="hse_action"?String(payload.actionOwnerRoleCode??""):
+        p1DefaultOwner[type];
       const owner=await req.db.query("SELECT id FROM public.project_roles WHERE project_id=$1::uuid AND role_code=$2 AND is_active=true",[projectId,ownerRoleCode]);
       if(owner.rows.length!==1) return res.status(422).json({error:"ownerRoleCode must be active in this Project."});
-      const assignee=b.assigneeUserId?String(b.assigneeUserId):null;
-      if(assignee&&!await p1HasRole(req,projectId,assignee,[ownerRoleCode])) return res.status(422).json({error:"Assignee must hold the selected active Project role."});
+      let assignee=b.assigneeUserId?String(b.assigneeUserId):null;
       const external=b.externalScopeUserId?String(b.externalScopeUserId):null;
-      if(external){const allowed=p1ExternalRoles[type]??[];if(!allowed.length||!await p1HasRole(req,projectId,external,allowed)) return res.status(422).json({error:"External scope must match an active external Project assignment."});}
+      if(external&&!assignee) assignee=external;
+      if(assignee&&!await p1HasRole(req,projectId,assignee,[ownerRoleCode])) return res.status(422).json({error:"Assignee must hold the selected active Project role."});
+      if(external){
+        const allowed=p1ExternalRoles[type]??[];
+        if(!allowed.length||!await p1HasRole(req,projectId,external,allowed)||assignee!==external) return res.status(422).json({error:"External scope must match the assigned external Project user."});
+      }
+      if(["supplier_commitment","dispatch_assignment","loading_survey","ship_master_ack"].includes(type)&&!external) return res.status(422).json({error:"This workflow requires an explicitly assigned external Project user.",code:"EXTERNAL_ASSIGNMENT_REQUIRED"});
       const dueAt=b.dueAt?new Date(b.dueAt):null;
       if(b.dueAt&&Number.isNaN(dueAt!.getTime())) return res.status(400).json({error:"Invalid dueAt."});
       const ins=await req.db.query(

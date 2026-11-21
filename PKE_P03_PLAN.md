@@ -1199,3 +1199,12 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - UAT migration ledger: 88 contiguous rows, 16 baseline markers and 72 applied migrations; authoritative manifest `migration_history_manifest_uat_001_088.json`. Production remains at 53 ledger rows and was not modified.
 - CI commit `f5f735bc9927290e7eaa1054cd5efe0b59d9d322`: Unit Tests and Dependency Audit PASS; backend/frontend typecheck, frontend build and migration runner dry-run PASS.
 - P16 remains open pending authenticated live Admin write/negative denial backtests, PM evidence-document acceptance/denial and browser acceptance. No Vercel deployment or PR merge.
+
+
+### P16 permission-scope remediation — 2026-11-21
+
+- Found and closed a mismatch where legacy membership-only RLS SELECT policies on `ports`, `warehouses`, and `vessels` bypassed the dedicated `port.view`, `warehouse.view`, and `vessel.view` checks.
+- Added Migration 089, with a pre-change policy backup in `p2b_backup_088_20261121`, replacing those broad policies with exact Project-permission policies while preserving Platform Admin global read.
+- Applied Migration 089 to Neon UAT only; SHA-256 `392bdf42848a258e5e70b236374f982ffe88d83da903d4d8a9fd66d8e7328df9`. UAT ledger now 89 rows (16 baseline, 73 applied); Production remains untouched.
+- Runtime-role read matrix after application: PM with P16 permissions sees ports/warehouses/vessels; Finance sees none; Warehouse role sees warehouse only; Platform Admin sees all three globally without Project context.
+- Added Migration 089 hash/policy assertions to `p16-governance.test.ts` and included the P16 suite in the primary `npm test` script. Final CI and remaining write/evidence/backtest gates still required before P16 completion.

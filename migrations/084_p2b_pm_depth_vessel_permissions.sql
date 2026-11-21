@@ -16,6 +16,3 @@ INSERT INTO public.project_role_permissions(project_id,project_role_id,permissio
  JOIN public.permissions p ON p.code IN ('port.depth.submit','vessel.view') AND p.is_active=true
  WHERE pr.role_code='pm' AND pr.is_active=true
  ON CONFLICT(project_role_id,permission_id) DO NOTHING;
-INSERT INTO public.migration_history(id,filename,sha256,status,applied_at)
- VALUES(84,'084_p2b_pm_depth_vessel_permissions.sql','__HASH__','applied',now());
-SELECT setval('public.migration_history_id_seq',84,true);

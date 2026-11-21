@@ -1096,3 +1096,23 @@ PASS on isolated PostgreSQL validation branch:
 - Migration 066 has **not** been applied. UAT runtime/backtest of the task synchronization and P1 API changes is therefore pending.
 - No Production database changes, no Production deployment, no Vercel deployment, no PR merge and no GitHub branch creation.
 - Next gate: owner authorization to apply Migration 066 to Neon UAT only, then verify helper execution grants, evidence policy, role-specific KPI output, task/event/notification synchronization, idempotency and rollback. Do not run against Production.
+
+
+## 2026-11-21 — P1 UAT ledger reconciliation and KPI scope finding (superseding the earlier preflight note)
+
+A fresh read of the Neon UAT ledger corrected the earlier snapshot in this plan: **Migrations 058–069 are already applied on UAT**, not pending. The verified rows are 058–069 with the exact SHA-256 values pinned in `scripts/verify-p1-uat-release-policy.mjs`; UAT latest ledger is 69. Production was checked read-only and remains at ledger 53.
+
+### Backtest completed after Migration 066
+- With `app_runtime_secure`, the Procurement user successfully resolved their own active Project role through `p1_has_active_project_role_assignment`, while the same user had zero visible Project role catalogue rows and could not resolve an assignment in another Project.
+- A synthetic P1 Purchase Requisition was inserted in a savepoint. Migration 066 created exactly one PM task, one task event and one assignee notification. Updating the source to `completed` moved the task to `resolved` and emitted the second task event. The savepoint was rolled back; follow-up counts confirmed zero residual test record, task, event or notification.
+- Backup schema `p1_backup_066_20261121` remains present. Its capture metadata records UAT ledger 65 immediately before Migration 066; copied P1/task tables were empty.
+
+### Additional security finding — KPI formula scope
+A direct UAT test as Procurement showed `p1_get_kpi_metric(...,'production_output_quantity')` returned an aggregate value (400) even though the API workbench correctly filters Procurement to the Procurement KPI template. The database aggregate function itself only checked generic `p1.kpi.view`, so a caller with that permission could request a formula outside their role's dashboard scope.
+
+- Migration 070 source now adds `p1_kpi_formula_allowed` and applies the active-role/formula mapping inside `p1_get_kpi_metric`; the explicit generic `reports.view` path remains available for authorized broad report viewers.
+- Migration 070 SHA-256: `0a8d30176bde45f71cf6147a2dc9ab60d736bdc62ced53640ceec6e9080cfc6b`.
+- Migration 070 is **prepared only** and has not been applied. The direct cross-role KPI test remains an open UAT security gate until this migration is approved/applied and re-tested.
+- Source CI for Migration 070 is running at the time of this update; require Unit Tests and Dependency Audit SUCCESS on the final branch head before application.
+
+No Production migration, DDL/DML, branch, merge or deployment was performed. The earlier statement that UAT ledger was 65 and Migrations 058–069 were pending is superseded by this ledger reconciliation.

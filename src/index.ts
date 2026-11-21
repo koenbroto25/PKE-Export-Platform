@@ -5298,6 +5298,19 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
     } catch { return res.status(500).json(internalServerErrorPayload()); }
   });
 
+  app.get("/api/v1/projects/:projectId/p1-workflows/:id/events",requireAuth,async(req:express.Request,res:express.Response)=>{
+    const projectId=req.params.projectId as string,id=req.params.id as string;
+    try{
+      if(!(await p1Ready(req,res))) return;
+      const record=await req.db.query("SELECT record_type FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[id,projectId]);
+      if(record.rows.length!==1) return res.status(404).json({error:"P1 workflow record not found."});
+      const permission=await p1Permission(req,record.rows[0].record_type,"view");
+      if(!permission||!(await requireProjectPermission(req,res,projectId,permission))) return;
+      const events=await req.db.query("SELECT * FROM public.p1_domain_events WHERE record_id=$1::uuid AND project_id=$2::uuid ORDER BY occurred_at ASC",[id,projectId]);
+      return res.json({events:events.rows});
+    }catch{return res.status(500).json(internalServerErrorPayload());}
+  });
+
   app.post("/api/v1/projects/:projectId/p1-workflows",requireAuth,async(req:express.Request,res:express.Response)=>{
     const projectId=req.params.projectId as string,actorId=String(req.user?.id??""),b=req.body??{},type=b.recordType;
     if(!isP1RecordType(type)) return res.status(400).json({error:"Valid recordType is required."});
@@ -5495,10 +5508,10 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[record.payload.sourceRecordId,projectId]);
         if(source.rows.length!==1||!canDecideQaRelease(actorId,source.rows[0].created_by,await p1Role(req))) return res.status(403).json({error:"QA release requires an independent QA Manager."});
       }
-      if(record.record_type==="audit_finding"&&to==="closed"){
+      if(record.record_type==="audit_finding"&&(to==="verified"||to==="closed")){
         if(!(await requireProjectPermission(req,res,projectId,"audit.finding.close"))) return;
-        const response=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[id,projectId]);
-        if(!response.rows.length||!canCloseAuditFinding(actorId,record.created_by,response.rows[0].created_by,await p1Role(req))) return res.status(403).json({error:"Audit closure requires an independent Internal Auditor and owner response."});
+        const response=await req.db.query("SELECT created_by,status FROM public.p1_domain_records WHERE parent_record_id=$1::uuid AND project_id=$2::uuid AND record_type='audit_response' ORDER BY created_at DESC LIMIT 1",[id,projectId]);
+        if(!response.rows.length||!canCloseAuditFinding(actorId,record.created_by,response.rows[0].created_by,await p1Role(req))||(to==="closed"&&response.rows[0].status!=="verified")) return res.status(403).json({error:"Finding verification/closure requires an independent Internal Auditor after a verified owner response."});
       }
       const roleCode=await p1Role(req);
       if(record.record_type==="supplier_commitment"&&to==="acknowledged"&&roleCode!=="supplier") return res.status(403).json({error:"Only the assigned Supplier may acknowledge the commitment."});
@@ -5509,7 +5522,14 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         const finding=await req.db.query("SELECT owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type='audit_finding'",[record.parent_record_id]);
         if(finding.rows.length!==1||!await p1HasRole(req,projectId,actorId,[finding.rows[0].owner_role_code])) return res.status(403).json({error:"Only finding owner role may submit the response."});
       }
-      if(record.record_type==="lc_presentation"&&(to==="accepted"||to==="discrepancy")&&(!b.transitionData?.bankAcknowledgementReference||String(b.transitionData.bankAcknowledgementReference).trim().length<3)) return res.status(409).json({error:"Bank acknowledgement reference is required before recording LC presentation outcome."});
+      if(record.record_type==="lc_presentation"&&(to==="accepted"||to==="discrepancy")){
+        if(!b.transitionData?.bankAcknowledgementReference||String(b.transitionData.bankAcknowledgementReference).trim().length<3||!b.transitionData?.bankAcknowledgementEvidenceId) return res.status(409).json({error:"Bank acknowledgement reference and evidence are required before recording LC presentation outcome."});
+        const bankEvidence=await req.db.query("SELECT id FROM public.p1_domain_evidence WHERE id=$1::uuid AND record_id=$2::uuid AND project_id=$3::uuid AND status IN ('uploaded','verified')",[b.transitionData.bankAcknowledgementEvidenceId,id,projectId]);
+        if(!bankEvidence.rows.length) return res.status(409).json({error:"Bank acknowledgement evidence must be attached to this LC presentation."});
+      }
+      if(record.record_type==="lc_record"&&to==="issued"&&roleCode!=="document_officer") return res.status(403).json({error:"Only Document Officer may record issuance of an LC."});
+      if(record.record_type==="loading_plan"&&to==="approved"&&roleCode!=="master_of_loading") return res.status(403).json({error:"Only Master of Loading may approve the shore-side loading plan."});
+      if(record.record_type==="laytime_event"&&to==="verified"&&actorId===record.created_by) return res.status(403).json({error:"Laytime verification must be performed by a different authorized actor."});
       const data=b.transitionData&&typeof b.transitionData==="object"?b.transitionData:{};
       const update=await req.db.query(
         `UPDATE public.p1_domain_records SET status=$1,updated_by=$2::uuid,updated_at=now(),version=version+1,payload=payload||$3::jsonb,

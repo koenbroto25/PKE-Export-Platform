@@ -2,7 +2,7 @@ export type WorkspacePageKey =
   | 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance'
   | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations'
   | 'cash-advances' | 'payment-instructions' | 'my-work' | 'project-detail' | 'project-edit' | 'project-configuration' | 'project-roles' | 'project-members' | 'buyer' | 'supplier' | 'transporter'
-  | 'warehouse' | 'warehouse_manager' | 'funder' | 'p1-workflows' | 'pks-sites';
+  | 'warehouse' | 'warehouse_manager' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network';
 
 export interface WorkspaceAccessUser {
   platformAdmin?: boolean;
@@ -36,6 +36,7 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   warehouse_manager: ['warehouse.view', 'inventory.view'],
   funder: ['funder.view'],
   'pks-sites': ['pks.site.view'],
+  'port-network': ['port.view', 'warehouse.view'],
   'p1-workflows': ['procurement.po.view','procurement.commitment.view','procurement.commitment.manage','procurement.po.manage','procurement.match.view','operations.view','quality.sample.view','quality.result.view','quality.release.view','hse.inspection.view','hse.action.view','dispatch.view','shipping.view','shipping.survey.view','shipping.ack.view','shipping.laytime.view','lc.view','audit.finding.view','audit.finding.respond'],
 };
 

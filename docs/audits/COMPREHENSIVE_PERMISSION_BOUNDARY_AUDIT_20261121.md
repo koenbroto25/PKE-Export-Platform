@@ -203,3 +203,13 @@ These rows were present before this audit. No fixture was inserted or removed by
 - CI at `f538e512133986465d5429cb8bbc154fa3658a52`: 251/251 unit tests passed, typechecks/build/verifier/dependency audit passed. PR #2 remains open/draft; no merge/deploy/new GitHub branch.
 
 **Decision:** Migration 054 is successfully installed on UAT. Overall P0 remains NOT PASS until the Platform Admin membership/role/invitation RLS bypasses and historical duplicate PM fixture are reconciled and retested. Do not start dashboard UX yet.
+
+
+## 12. Follow-up Migration 055 prepared — not applied
+
+UAT backtest after Migration 054 found a residual governance boundary failure: Platform Admin retains broad `pke_admin_all` policies and table write privileges on `project_members`, `project_roles`, and `project_invitations`. Prepared `migrations/055_platform_admin_pm_governance_rls.sql` removes those policies, retains read-only membership-candidate visibility, permits only a null-role PM candidate membership insert, limits Project role writes to the canonical PM role, and narrows assignment/event/permission visibility to PM records.
+
+- Migration 055 SHA-256: `9ad4c7e87954ff49df4922301efb37dcf674299bd207d6545db3f8780284e802`.
+- Status: PREPARED / NOT APPLIED to UAT or Production. Await exact approval before UAT execution.
+- PM appointment endpoint compatibility is preserved: it can create a role-less membership candidate, create/reactivate only the PM role, and insert only allowlisted PM permissions/assignment.
+- Migration 054 UAT backtests otherwise pass for canonical grants and permission helper boundaries. Overall P0 remains NOT PASS until Migration 055 RLS backtest and historical duplicate PM reconciliation pass.

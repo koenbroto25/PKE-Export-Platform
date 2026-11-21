@@ -25,7 +25,8 @@
     "verify:release-migrations": "node scripts/verify-migration-release-policy.mjs",
     "migrate:052:apply": "MIGRATE_CONFIRM=1 MIGRATE_052_CONFIRM=1 node scripts/apply-migration-052.mjs apply",
     "verify:migration-052": "node scripts/verify-migration-052-release-policy.mjs",
-    "verify:migration-054": "node scripts/verify-migration-054-release-policy.mjs"
+    "verify:migration-054": "node scripts/verify-migration-054-release-policy.mjs",
+    "verify:migration-055": "node scripts/verify-migration-055-release-policy.mjs"
   },
   "keywords": [],
   "author": "",
@@ -60,4 +61,4 @@
     "vite": "6.4.6",
     "tinypool": "2.1.2"
   }
-}
+}\n

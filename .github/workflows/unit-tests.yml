@@ -35,6 +35,8 @@ jobs:
         run: npm run verify:migration-052
       - name: Verify prepared Migration 054 permission boundary contract
         run: npm run verify:migration-054
+      - name: Verify prepared Migration 055 PM governance RLS contract
+        run: npm run verify:migration-055
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
       - name: Typecheck backend API

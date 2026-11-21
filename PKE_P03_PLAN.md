@@ -1024,3 +1024,12 @@ PASS on isolated PostgreSQL validation branch:
 - **Remaining P0 PM invariant blocker:** Project Alpha still has two effective active PM assignments from pre-existing fixture data. Migration 054 did not change assignments. The existing duplicate-PM trigger denies new duplicates, but the old duplicate remains. Do not choose a live PM automatically.
 - Migration 054 therefore **does not make the complete P0 permission audit PASS**. Dashboard UX remains blocked. Next: prepare and backtest the narrowly scoped RLS follow-up in UAT, reconcile fixture-only duplicate PM in UAT, then request separate owner approval for any Production fixture cleanup/migration.
 - Source CI at commit `f538e512133986465d5429cb8bbc154fa3658a52`: 24 test files / 251 tests passed; backend/frontend typecheck and frontend build passed; Migration 054 static verifier and dependency audit passed. PR remains draft; no merge, no Vercel deployment, no Production DDL/DML and no new GitHub branch.
+
+
+## 2026-11-21 — Migration 055 prepared for remaining Platform Admin staffing RLS bypass
+
+- Migration 054 is applied on UAT with exact SHA `821800c7a30a80a1a63bab1bfe458d29df393fc31026645f5c181660f853a0a2`; helper and role-grant tests passed.
+- UAT backtest identified remaining `pke_admin_all` write bypasses on `project_members`, `project_roles`, and `project_invitations`. Platform Admin still sees all member/role rows and can write these tables despite the intended PM-only staffing workflow.
+- Prepared Migration 055 to remove these broad policies, retain read-only membership candidate visibility, allow Platform Admin to create a membership shell only with `project_role_id IS NULL`, and limit Platform Admin role create/update to `role_code='pm'`. Assignment/event/role-permission visibility is narrowed to PM rows only.
+- **Status: PREPARED; NOT APPLIED.** Exact SHA-256: `9ad4c7e87954ff49df4922301efb37dcf674299bd207d6545db3f8780284e802`. Await owner approval before applying to UAT. No Production change.
+- Historical duplicate active PM assignment remains in Alpha fixture data. It must be reconciled explicitly in UAT and Production separately; no automatic choice of PM.

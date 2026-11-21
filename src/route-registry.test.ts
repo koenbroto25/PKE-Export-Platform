@@ -83,6 +83,20 @@ describe("API route registry (regression)", () => {
     expect(INDEX_SRC).toContain("Tested samples require an approved lab report and laboratory.");
   });
 
+  it("registers P16 authenticated port and warehouse read surfaces with Project permission gates", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => r.method + " " + r.path));
+    for (const route of [
+      "GET /api/v1/ports",
+      "GET /api/v1/ports/:portId",
+      "GET /api/v1/warehouses",
+      "GET /api/v1/warehouses/:warehouseId",
+    ]) expect(set.has(route)).toBe(true);
+    expect(INDEX_SRC).toContain('requireProjectPermission(req, res, projectId, "port.view")');
+    expect(INDEX_SRC).toContain('requireProjectPermission(req, res, projectId, "warehouse.view")');
+    expect(INDEX_SRC).toContain('assessmentMode: "advisory_only"');
+    expect(INDEX_SRC).toContain('canManage: false');
+  });
+
   it("registers exactly one handler per method+path (no duplicate route groups)", () => {
     const routes = registerRoutes(INDEX_SRC).filter((r) => r.method !== "USE");
     const seen = new Set<string>();

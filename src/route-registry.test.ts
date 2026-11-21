@@ -77,8 +77,8 @@ describe("API route registry (regression)", () => {
     expect(set.has("POST /api/v1/projects/:projectId/quality-samples/:sampleId/results")).toBe(true);
     expect(set.has("PATCH /api/v1/projects/:projectId/quality-samples/:sampleId/review")).toBe(true);
     expect(set.has("PATCH /api/v1/projects/:projectId/quality-results/:resultId/review")).toBe(true);
-    expect(INDEX_SRC).toContain("Every quality result requires sample-linked lab evidence");
-    expect(INDEX_SRC).toContain("Quality sample lot must belong to the same Project");
+    expect(INDEX_SRC).toContain("Quality result lacks complete sample-linked evidence or measurement provenance.");
+    expect(INDEX_SRC).toContain("Tested samples require an approved lab report and laboratory.");
   });
 
   it("registers exactly one handler per method+path (no duplicate route groups)", () => {

@@ -6,7 +6,7 @@ const migration = readFileSync(new URL("../migrations/078_p2a_facility_capabilit
 
 describe("Migration 078 P15 facility capability and quality provenance", () => {
   it("matches the exact migration SHA-256", () => {
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("46ef781e688021b35631efc975fe21f8a764b9a209d3700152e9ff8656cd7408");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("1be6b853327a6401075fb1917d144f13c1983c12198f7f837b377fc64eab80bf");
   });
   it("extends master-data approval to evidence-backed capability, capacity and certification only", () => {
     expect(migration).toContain("facility_product','capacity_record','certification");

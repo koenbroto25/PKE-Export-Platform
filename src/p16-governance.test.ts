@@ -99,7 +99,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(UI).toContain("Ajukan observasi pasang-surut");
     expect(UI).toContain("Jalankan screening");
   });
-  it("pins UAT migration ledger 083-085 to exact SQL source hashes without modifying Production history", () => {
+  it("pins UAT migration ledger 083-092 to exact SQL source hashes without modifying Production history", () => {
     expect(UAT_MANIFEST.branch_id).toBe("br-young-boat-b3re832d");
     expect(UAT_MANIFEST.ledger_row_count).toBe(92);
     expect(UAT_MANIFEST.applied_count).toBe(76);
@@ -113,7 +113,9 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
       [87, "087_p2b_admin_master_rls_guard_alignment.sql"],
       [88, "088_p2b_admin_global_read_policies.sql"],
       [89, "089_p2b_resource_read_permission_scope.sql"],
-      [90, "090_p2b_resource_read_project_context.sql"],\n      [91, "091_p16_selected_project_child_rls.sql"],\n      [92, "092_p16_parent_and_project_scope.sql"],
+      [90, "090_p2b_resource_read_project_context.sql"],
+      [91, "091_p16_selected_project_child_rls.sql"],
+      [92, "092_p16_parent_and_project_scope.sql"],
     ] as const) {
       const entry = UAT_MANIFEST.entries[id - 1];
       const actual = createHash("sha256").update(readFileSync(join(ROOT, "..", "migrations", filename))).digest("hex");
@@ -124,6 +126,19 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     }
     expect(UAT_MANIFEST.purpose).toBe("verified_uat_history_only_not_production_history");
     expect(MIGRATION_086).toContain("'updated_at'");
+  });
+
+  it("provides real private Project evidence upload, server-side checksum verification and independent review", () => {
+    expect(API).toContain('app.post("/api/v1/storage/presigned-upload"');
+    expect(API).toContain("privateStorage.verifyObject(key, Number(contentLength), String(sha256Checksum))");
+    expect(API).toContain("upload_verified_at");
+    expect(API).toContain("FOR UPDATE OF per");
+    expect(UI).toContain('"/storage/presigned-upload"');
+    expect(UI).toContain('crypto.subtle.digest("SHA-256"');
+    expect(UI).toContain("fetch(signed.upload.uploadUrl");
+    expect(UI).toContain("reviewProjectDocument");
+    expect(UI).toContain('permissions.includes("documents.update")');
+    expect(UI).toContain("inferredMime");
   });
 
   it("uses an authenticated RLS gate while the SECURITY DEFINER trigger enforces Platform Admin", () => {

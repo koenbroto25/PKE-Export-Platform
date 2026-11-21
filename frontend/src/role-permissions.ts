@@ -2,7 +2,7 @@ export type WorkspacePageKey =
   | 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance'
   | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations'
   | 'cash-advances' | 'payment-instructions' | 'my-work' | 'project-detail' | 'project-edit' | 'project-configuration' | 'project-roles' | 'project-members' | 'buyer' | 'supplier' | 'transporter'
-  | 'warehouse' | 'warehouse_manager' | 'funder';
+  | 'warehouse' | 'warehouse_manager' | 'funder' | 'p1-workflows';
 
 export interface WorkspaceAccessUser {
   platformAdmin?: boolean;
@@ -35,6 +35,7 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   warehouse: ['warehouse.view', 'inventory.view'],
   warehouse_manager: ['warehouse.view', 'inventory.view'],
   funder: ['funder.view'],
+  'p1-workflows': ['procurement.po.view','procurement.commitment.view','procurement.match.view','operations.view','quality.sample.view','quality.result.view','quality.release.view','hse.inspection.view','hse.action.view','dispatch.view','shipping.view','shipping.survey.view','shipping.ack.view','shipping.laytime.view','lc.view','audit.finding.view','audit.finding.respond'],
 };
 
 export function hasProjectPermission(permission: string, user?: WorkspaceAccessUser): boolean {
@@ -91,6 +92,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");
   if (pageKey === 'projects') return user.platformAdmin === true || hasActiveProjectMembership(user);
   if (pageKey === 'funder') return activeProjectRoleCodes(user).includes('funder') && hasProjectPermission('funder.view', user);
+  if (pageKey === 'p1-workflows') return hasAnyProjectPermission(PAGE_PERMISSION_REQUIREMENTS['p1-workflows'], user);
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
     return pageKey === 'dashboard' && hasActiveProjectMembership(user);
   }
@@ -116,6 +118,6 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
 }
 
 export function visiblePageKeys(user: WorkspaceAccessUser): WorkspacePageKey[] {
-  const keys: WorkspacePageKey[] = ['dashboard', 'projects', 'contracts', 'operations', 'finance', 'compliance', 'journal-entries', 'shipment-allocations', 'cash-advances', 'payment-instructions', 'reports', 'notifications', 'access', 'buyer', 'supplier', 'transporter', 'warehouse', 'funder'];
+  const keys: WorkspacePageKey[] = ['dashboard', 'projects', 'contracts', 'operations', 'finance', 'compliance', 'journal-entries', 'shipment-allocations', 'cash-advances', 'payment-instructions', 'reports', 'notifications', 'access', 'buyer', 'supplier', 'transporter', 'warehouse', 'funder', 'p1-workflows'];
   return keys.filter(key => hasPageAccess(key, user));
 }

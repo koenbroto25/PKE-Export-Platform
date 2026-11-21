@@ -61,7 +61,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ], { mandatory: true, legacyAliases: ["admin"] }),
   role("pm", "Project Manager", "governance", [
     "project.view", "project.update", "project.members.view", "project.members.invite", "project.members.manage", "project.roles.manage", "project.configuration.manage", "audit.finding.view",
-    "contract.view", "manage_contract_programs", "shipping.view", "shipment.view",
+    "contract.view", "manage_contract_programs", "pks.site.view", "pks.participation.manage", "supplier.view", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
     "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view",
     "project.tasks.view", "project.tasks.create", "project.tasks.assign", "project.tasks.update", "project.tasks.resolve", "project.tasks.escalate",

@@ -7,7 +7,7 @@ const manifest=JSON.parse(readFileSync(new URL("../migration_history_manifest_00
 
 describe("Migration 070 active-role P1 KPI formula scope",()=>{
   it("matches the exact UAT-only SHA-256",()=>{
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("0a8d30176bde45f71cf6147a2dc9ab60d736bdc62ced53640ceec6e9080cfc6b");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("37d5aacd556271021298c57a0940e03efbd276bed2b7ac26a72530efb5bf786d");
   });
   it("restricts aggregate formulas to active Project role assignments",()=>{
     expect(migration).toContain("p1_kpi_formula_allowed");

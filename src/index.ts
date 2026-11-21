@@ -4005,11 +4005,27 @@ app.patch("/api/v1/truck-trips/:id", requireAuth, async (req: express.Request, r
 // Writes remain disabled until the UAT RLS/maker-checker migration is applied.
 // ============================================
 const p16UuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+async function requireP16ReadAccess(req: express.Request, res: express.Response, projectId: string, permissionCode: string): Promise<boolean> {
+  if (projectId && !p16UuidPattern.test(projectId)) {
+    res.status(400).json({ error: "Valid projectId is required when supplied." });
+    return false;
+  }
+  const { rows } = await req.db.query("SELECT public.pke_is_platform_admin() AS is_admin");
+  if (rows[0]?.is_admin === true) {
+    if (projectId) await req.db.query("SELECT set_config('app.current_project_id',$1,true)", [projectId]);
+    return true;
+  }
+  if (!p16UuidPattern.test(projectId)) {
+    res.status(400).json({ error: "A valid projectId is required." });
+    return false;
+  }
+  return requireProjectPermission(req, res, projectId, permissionCode);
+}
+
 
 app.get("/api/v1/ports", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
-  if (!p16UuidPattern.test(projectId)) return res.status(400).json({ error: "A valid projectId is required." });
-  if (!(await requireProjectPermission(req, res, projectId, "port.view"))) return;
+  if (!(await requireP16ReadAccess(req, res, projectId, "port.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT p.id,p.name,p.code,p.city,p.province,p.country_code,p.unlocode,p.national_code,
@@ -4030,8 +4046,8 @@ app.get("/api/v1/ports", requireAuth, async (req: express.Request, res: express.
 app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
   const portId = String(req.params.portId || "");
-  if (!p16UuidPattern.test(projectId) || !p16UuidPattern.test(portId)) return res.status(400).json({ error: "Valid projectId and portId are required." });
-  if (!(await requireProjectPermission(req, res, projectId, "port.view"))) return;
+  if (!p16UuidPattern.test(portId)) return res.status(400).json({ error: "Valid portId is required." });
+  if (!(await requireP16ReadAccess(req, res, projectId, "port.view"))) return;
   try {
     const { rows: ports } = await req.db.query("SELECT p.*,CASE WHEN p.verification_status='verified' AND (NULLIF(btrim(p.source_reference),'') IS NULL OR p.verified_at IS NULL OR (NULLIF(btrim(p.unlocode),'') IS NULL AND NULLIF(btrim(p.national_code),'') IS NULL AND NULLIF(btrim(p.code),'') IS NULL) OR COALESCE(p.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE p.verification_status END AS effective_verification_status FROM public.ports p WHERE p.id=$1::uuid AND p.is_active=true", [portId]);
     if (!ports.length) return res.status(404).json({ error: "Port not found." });
@@ -4059,8 +4075,7 @@ app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: 
 
 app.get("/api/v1/warehouses", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
-  if (!p16UuidPattern.test(projectId)) return res.status(400).json({ error: "A valid projectId is required." });
-  if (!(await requireProjectPermission(req, res, projectId, "warehouse.view"))) return;
+  if (!(await requireP16ReadAccess(req, res, projectId, "warehouse.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT w.id,w.code,w.name,w.location,w.port_id,w.terminal_id,w.operator_organization_id,
@@ -4084,8 +4099,8 @@ app.get("/api/v1/warehouses", requireAuth, async (req: express.Request, res: exp
 app.get("/api/v1/warehouses/:warehouseId", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
   const warehouseId = String(req.params.warehouseId || "");
-  if (!p16UuidPattern.test(projectId) || !p16UuidPattern.test(warehouseId)) return res.status(400).json({ error: "Valid projectId and warehouseId are required." });
-  if (!(await requireProjectPermission(req, res, projectId, "warehouse.view"))) return;
+  if (!p16UuidPattern.test(warehouseId)) return res.status(400).json({ error: "Valid warehouseId is required." });
+  if (!(await requireP16ReadAccess(req, res, projectId, "warehouse.view"))) return;
   try {
     const { rows: warehouses } = await req.db.query(
       "SELECT w.*,p.name AS port_name,t.name AS terminal_name,CASE WHEN w.verification_status='verified' AND (w.verified_at IS NULL OR NULLIF(btrim(w.source_reference),'') IS NULL OR COALESCE(w.evidence_sha256,'') !~ '^[0-9a-f]{64}$') THEN 'unverified' ELSE w.verification_status END AS effective_verification_status FROM public.warehouses w LEFT JOIN public.ports p ON p.id=w.port_id LEFT JOIN public.port_terminals t ON t.id=w.terminal_id WHERE w.id=$1::uuid AND w.is_active=true",
@@ -4167,13 +4182,12 @@ app.patch("/api/v1/port-tide-observations/:id/review",requireAuth,requireAdmin,a
 });
 app.get("/api/v1/vessels",requireAuth,async(req:express.Request,res:express.Response)=>{
  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";
- if(!p16UuidPattern.test(projectId))return res.status(400).json({error:"Valid projectId is required."});
- if(!(await requireProjectPermission(req,res,projectId,"vessel.view")))return;
+ if(!(await requireP16ReadAccess(req,res,projectId,"vessel.view")))return;
  try{const r=await req.db.query("SELECT id,name,imo_number,vessel_type,loa_m,beam_m,max_draft_m,summer_draft_m,verification_status,verified_at,source_reference FROM public.vessels WHERE is_active=true ORDER BY name LIMIT 250");return res.json({vessels:r.rows,projectId});}
  catch{return res.status(500).json(internalServerErrorPayload());}
 });
 app.get("/api/v1/port-routes",requireAuth,async(req:express.Request,res:express.Response)=>{
- const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";if(!p16UuidPattern.test(projectId))return res.status(400).json({error:"Valid projectId is required."});if(!(await requireProjectPermission(req,res,projectId,"route.estimate")))return;
+ const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";if(!(await requireP16ReadAccess(req,res,projectId,"route.estimate")))return;
  try{const r=await req.db.query("SELECT r.*,ps.name AS pks_site_name,p.name AS port_name,CASE WHEN r.verification_status='verified' AND r.verified_at IS NOT NULL AND NULLIF(btrim(r.source_reference),'') IS NOT NULL AND r.evidence_sha256 ~ '^[0-9a-f]{64}$' THEN 'verified' ELSE 'unverified' END AS effective_verification_status FROM public.pks_port_routes r JOIN public.pks_sites ps ON ps.id=r.pks_site_id JOIN public.ports p ON p.id=r.port_id WHERE r.is_active=true AND (EXISTS(SELECT 1 FROM public.project_operating_profiles op WHERE op.project_id=$1::uuid AND op.primary_pks_site_id=r.pks_site_id) OR EXISTS(SELECT 1 FROM public.project_pks_site_participation part WHERE part.project_id=$1::uuid AND part.pks_site_id=r.pks_site_id AND part.status='active')) ORDER BY ps.name,p.name,r.route_mode",[projectId]);return res.json({routes:r.rows,projectId,estimateMode:"advisory_only"});}catch{return res.status(500).json(internalServerErrorPayload());}
 });
 app.post("/api/v1/vessel-port-assessments",requireAuth,async(req:express.Request,res:express.Response)=>{

@@ -5358,18 +5358,22 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(type==="qa_release"&&roleCode!=="qa_manager") return res.status(403).json({error:"Only QA Manager may create release decisions."});
       if(type==="loading_survey"&&roleCode!=="marine_surveyor") return res.status(403).json({error:"Only Marine Surveyor may submit surveys."});
       if(type==="ship_master_ack"&&roleCode!=="ship_master") return res.status(403).json({error:"Only Ship Master may submit acknowledgements."});
-      if(["purchase_order","supplier_commitment","audit_response","audit_closure","lc_clause","lc_discrepancy","lc_presentation","qa_release","hse_action"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
+      if(["purchase_order","supplier_commitment","goods_receipt_match","quality_sample","quality_result","audit_response","audit_closure","lc_clause","lc_discrepancy","lc_presentation","qa_release","hse_action"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
       let parentRecord:any=null;
       if(b.parentRecordId){
         const parent=await req.db.query("SELECT id,record_type,status,created_by,owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[b.parentRecordId,projectId]);
         if(parent.rows.length!==1) return res.status(422).json({error:"Parent record is not in the selected Project."});
         parentRecord=parent.rows[0];
         if(type==="purchase_order"&&(parent.rows[0].record_type!=="purchase_requisition"||parent.rows[0].status!=="approved")) return res.status(409).json({error:"Purchase Order requires an approved requisition."});
-        if(type==="supplier_commitment"&&(parent.rows[0].record_type!=="purchase_order"||!["issued","acknowledged","partially_received"].includes(parent.rows[0].status))) return res.status(409).json({error:"Supplier commitment requires an issued PO."});
+        if(type==="supplier_commitment"&&(parent.rows[0].record_type!=="purchase_order"||!["issued","acknowledged","partially_received"].includes(parent.rows[0].status)||String(payload.purchaseOrderRecordId)!==String(b.parentRecordId))) return res.status(409).json({error:"Supplier commitment must reference its issued parent PO."});
+        if(type==="goods_receipt_match"&&(parent.rows[0].record_type!=="purchase_order"||String(payload.purchaseOrderRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"Three-way match must reference its parent Purchase Order."});
+        if(type==="quality_sample"&&!["production_batch","packing_batch"].includes(parent.rows[0].record_type)) return res.status(422).json({error:"QC sample must reference a production or packing batch."});
+        if(type==="quality_result"&&(parent.rows[0].record_type!=="quality_sample"||String(payload.sampleId)!==String(parent.rows[0].payload.sampleId))) return res.status(422).json({error:"Quality result must reference the sample record it evaluates."});
+        if(type==="audit_response"&&(parent.rows[0].record_type!=="audit_finding"||String(payload.findingRecordId)!==String(b.parentRecordId)||!["open","responded"].includes(parent.rows[0].status)||!(await p1HasRole(req,projectId,actorId,[parent.rows[0].owner_role_code])))) return res.status(403).json({error:"Only the active finding owner role may respond to its parent finding."});
         if(type==="audit_response"&&(parent.rows[0].record_type!=="audit_finding"||!["open","responded"].includes(parent.rows[0].status)||!(await p1HasRole(req,projectId,actorId,[parent.rows[0].owner_role_code])))) return res.status(403).json({error:"Only the active finding owner role may respond."});
         if(type==="audit_closure"&&(parent.rows[0].record_type!=="audit_finding"||String(payload.findingRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"Audit closure must reference the same parent audit finding."});
         if(type==="qa_release"&&(!["production_batch","packing_batch"].includes(parent.rows[0].record_type)||String(payload.sourceRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"QA release must reference its production or packing source record."});
-        if(type==="hse_action"&&parent.rows[0].record_type!=="hse_inspection") return res.status(422).json({error:"HSE corrective action must reference an HSE inspection."});
+        if(type==="hse_action"&&(parent.rows[0].record_type!=="hse_inspection"||String(payload.findingRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"HSE corrective action must reference its parent HSE inspection."});
         if(type==="lc_clause"&&(parent.rows[0].record_type!=="lc_record"||String(payload.lcRecordId)!==String(b.parentRecordId))) return res.status(422).json({error:"LC clause must reference its parent LC record."});
         if(type==="lc_discrepancy"&&parent.rows[0].record_type!=="lc_record"&&parent.rows[0].record_type!=="lc_clause") return res.status(422).json({error:"LC discrepancy must reference an LC record or clause."});
         if(type==="lc_presentation"&&parent.rows[0].record_type!=="lc_record") return res.status(422).json({error:"LC presentation must reference an LC record."});
@@ -5443,6 +5447,8 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         if(q.rows.length) return res.status(409).json({error:"LC number already exists in this Project.",code:"DUPLICATE_LC_NUMBER"});
       }
       if(type==="lc_clause"&&String(payload.lcRecordId)!==String(parentRecord?.id??"")) return res.status(422).json({error:"LC clause must reference its parent LC record."});
+      if(type==="lc_discrepancy"&&parentRecord?.record_type==="lc_clause"&&String(payload.clauseRecordId)!==String(parentRecord.id)) return res.status(422).json({error:"LC discrepancy clause reference must match its parent record."});
+      if(type==="lc_discrepancy"&&parentRecord?.record_type==="lc_record"&&String(payload.lcRecordId)!==String(parentRecord.id)) return res.status(422).json({error:"LC discrepancy must reference its parent LC record."});
       if(type==="lc_presentation"){
         const lcId=String(payload.lcRecordId??"");
         if(lcId!==String(parentRecord?.id??"")||parentRecord?.record_type!=="lc_record"||!["issued","acknowledged"].includes(parentRecord.status)) return res.status(409).json({error:"LC presentation requires an issued, same-Project LC record."});
@@ -5479,8 +5485,13 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         payload.laytimeOverrunHours=calc.overrunHours;
       }
       if(type==="qa_release"){
-        const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sourceRecordId,projectId]);
-        if(source.rows.length!==1||source.rows[0].created_by===actorId) return res.status(409).json({error:"QA release requires an independent actor and source record.",code:"QA_INDEPENDENCE_REQUIRED"});
+        const source=await req.db.query("SELECT created_by FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid AND record_type IN ('production_batch','packing_batch')",[payload.sourceRecordId,projectId]);
+        if(source.rows.length!==1||String(payload.sourceRecordId)!==String(b.parentRecordId)||source.rows[0].created_by===actorId) return res.status(409).json({error:"QA release requires an independent actor and production/packing source.",code:"QA_INDEPENDENCE_REQUIRED"});
+        const quality=await req.db.query(
+          `SELECT 1 FROM public.p1_domain_records s JOIN public.p1_domain_records r ON r.parent_record_id=s.id AND r.project_id=s.project_id
+           WHERE s.project_id=$1::uuid AND s.parent_record_id=$2::uuid AND s.record_type='quality_sample' AND s.status='verified'
+             AND r.record_type='quality_result' AND r.status='accepted' LIMIT 1`,[projectId,payload.sourceRecordId]);
+        if(!quality.rows.length) return res.status(409).json({error:"QA release requires at least one verified QC sample with an accepted laboratory result.",code:"QA_QUALITY_EVIDENCE_REQUIRED"});
       }
       if(type==="audit_closure"){
         const fid=String(payload.findingRecordId??"");
@@ -5517,11 +5528,12 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(["supplier_commitment","dispatch_assignment","loading_survey","ship_master_ack"].includes(type)&&!external) return res.status(422).json({error:"This workflow requires an explicitly assigned external Project user.",code:"EXTERNAL_ASSIGNMENT_REQUIRED"});
       const dueAt=b.dueAt?new Date(b.dueAt):null;
       if(b.dueAt&&Number.isNaN(dueAt!.getTime())) return res.status(400).json({error:"Invalid dueAt."});
+      const effectiveParentId=b.parentRecordId??(type==="goods_receipt_match"?payload.purchaseOrderRecordId:null);
       const ins=await req.db.query(
         `INSERT INTO public.p1_domain_records(project_id,record_type,record_code,parent_record_id,source_entity_type,source_entity_id,title,payload,owner_role_code,assignee_user_id,external_scope_user_id,created_by,updated_by,due_at,idempotency_key)
          VALUES($1::uuid,$2,COALESCE(NULLIF($3,''),'P1-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12))),$4::uuid,$5,$6::uuid,$7,$8::jsonb,$9,$10::uuid,$11::uuid,$12::uuid,$12::uuid,$13::timestamptz,$14)
          ON CONFLICT (project_id,idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING *`,
-        [projectId,type,b.recordCode??"",b.parentRecordId??null,b.sourceEntityType??null,b.sourceEntityId??null,title,JSON.stringify(payload),ownerRoleCode,assignee,external,actorId,dueAt,b.idempotencyKey.trim()]);
+        [projectId,type,b.recordCode??"",effectiveParentId,b.sourceEntityType??null,b.sourceEntityId??null,title,JSON.stringify(payload),ownerRoleCode,assignee,external,actorId,dueAt,b.idempotencyKey.trim()]);
       if(!ins.rows.length){
         const prior=await req.db.query("SELECT * FROM public.p1_domain_records WHERE project_id=$1::uuid AND idempotency_key=$2",[projectId,b.idempotencyKey.trim()]);
         if(prior.rows.length!==1||prior.rows[0].record_type!==type||prior.rows[0].title!==title||JSON.stringify(prior.rows[0].payload)!==JSON.stringify(payload)) return res.status(409).json({error:"Idempotency key conflict.",code:"IDEMPOTENCY_KEY_CONFLICT"});

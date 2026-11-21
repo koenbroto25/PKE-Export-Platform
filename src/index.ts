@@ -622,6 +622,145 @@ app.get("/api/v1/vendors", requireAuth, async (req: express.Request, res: expres
  * Global legal/facility identity remains read-only here and requires a separate
  * independently reviewed master-data change workflow.
  */
+app.get("/api/v1/projects/:projectId/pks-sites/catalog", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.site.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT s.id,s.name,s.code,s.facility_type,s.city,s.province,s.country_code,
+              s.operating_status,s.verification_status,s.source_type,s.source_reference,
+              v.id AS vendor_id,v.name AS supplier_name,v.code AS supplier_code
+         FROM public.pks_sites s
+         LEFT JOIN public.vendors v ON v.organization_id=s.organization_id AND v.is_active=true
+        WHERE s.is_active=true
+          AND NOT EXISTS (
+            SELECT 1 FROM public.project_pks_site_participation pp
+             WHERE pp.project_id=$1::uuid AND pp.pks_site_id=s.id
+          )
+        ORDER BY s.facility_type,s.name`,
+      [projectId],
+    );
+    return res.json({ facilities: rows });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.get("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.site.view"))) return;
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id,project_id,candidate_type,candidate_name,candidate_category,location_text,
+              source_type,source_name,source_url,source_reference,source_snapshot,
+              confidence_score,verification_status,notes,is_seed_data,seed_batch_id,
+              created_at,updated_at,reviewed_at
+         FROM public.p2a_master_data_candidates
+        WHERE project_id=$1::uuid
+        ORDER BY is_seed_data DESC,verification_status,candidate_type,candidate_name`,
+      [projectId],
+    );
+    const { rows: manageRows } = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'pks.participation.manage') AS allowed",
+      [projectId],
+    );
+    return res.json({
+      candidates: rows,
+      canManage: req.user?.isAdmin === true || manageRows[0]?.allowed === true,
+      canVerify: req.user?.isAdmin === true,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b = req.body ?? {};
+  const candidateType = b.candidateType;
+  const candidateName = typeof b.candidateName === "string" ? b.candidateName.trim() : "";
+  const sourceName = typeof b.sourceName === "string" ? b.sourceName.trim() : "";
+  const sourceReference = typeof b.sourceReference === "string" ? b.sourceReference.trim() : "";
+  const sourceUrl = typeof b.sourceUrl === "string" && b.sourceUrl.trim() ? b.sourceUrl.trim() : null;
+  if (!["organization","facility"].includes(candidateType) || candidateName.length < 2 || candidateName.length > 240 ||
+      !sourceName || sourceName.length > 180 || !sourceReference || sourceReference.length > 240) {
+    return res.status(400).json({ error: "Candidate type, name, source name and source reference are required and must be valid." });
+  }
+  if (sourceUrl && !/^https?:\/\//i.test(sourceUrl)) return res.status(400).json({ error: "Source URL must use HTTP or HTTPS." });
+  try {
+    const { rows } = await req.db.query(
+      `INSERT INTO public.p2a_master_data_candidates(
+         project_id,candidate_type,candidate_name,candidate_category,location_text,source_type,
+         source_name,source_url,source_reference,source_snapshot,confidence_score,
+         verification_status,notes,is_seed_data,seed_batch_id,created_by,updated_by
+       ) VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,'unverified',$12,false,NULL,$13::uuid,$13::uuid)
+       RETURNING *`,
+      [projectId,candidateType,candidateName,b.candidateCategory ?? null,b.locationText ?? null,
+       b.sourceType === "public_candidate" ? "public_candidate" : "manual",sourceName,sourceUrl,sourceReference,
+       JSON.stringify(b.sourceSnapshot ?? {}),b.confidenceScore == null ? null : Number(b.confidenceScore),
+       b.notes ?? null,req.user?.id ?? null],
+    );
+    return res.status(201).json({ candidate: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "23514" || error?.code === "22P02") return res.status(400).json({ error: "Candidate fields failed validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/pks-candidates/:candidateId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId,candidateId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
+  const b=req.body ?? {};
+  const updates:string[]=[]; const values:any[]=[]; let idx=1;
+  const editable:Array<[string,string,(v:any)=>any]>=[
+    ["candidateName","candidate_name",v=>typeof v==="string"?v.trim():v],
+    ["candidateCategory","candidate_category",v=>v],
+    ["locationText","location_text",v=>v],
+    ["notes","notes",v=>v],
+    ["confidenceScore","confidence_score",v=>v===""||v==null?null:Number(v)],
+  ];
+  for(const [key,column,convert] of editable) if(Object.prototype.hasOwnProperty.call(b,key)){
+    const value=convert(b[key]);
+    if(column==="candidate_name" && (typeof value!=="string" || value.length<2 || value.length>240))
+      return res.status(400).json({error:"Candidate name must contain 2–240 characters."});
+    if(column==="confidence_score" && value!==null && (!Number.isFinite(value)||value<0||value>1))
+      return res.status(400).json({error:"Confidence score must be between 0 and 1."});
+    updates.push(`${column}=${idx++}`); values.push(value);
+  }
+  if(b.verificationStatus!==undefined){
+    if(req.user?.isAdmin!==true) return res.status(403).json({error:"Only Platform Admin may change candidate verification status."});
+    if(!["unverified","submitted","under_review","verified","rejected","expired"].includes(b.verificationStatus))
+      return res.status(400).json({error:"Invalid verification status."});
+    updates.push(`verification_status=${idx++}`); values.push(b.verificationStatus);
+    updates.push("reviewed_by=$"+idx++); values.push(req.user?.id ?? null);
+    updates.push("reviewed_at=now()");
+  }
+  if(!updates.length) return res.status(400).json({error:"No editable candidate fields supplied."});
+  updates.push("updated_by=$"+idx+++"::uuid"); values.push(req.user?.id ?? null);
+  updates.push("updated_at=now()");
+  values.push(candidateId,projectId);
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.p2a_master_data_candidates SET ${updates.join(",")}
+        WHERE id=${idx++}::uuid AND project_id=${idx}::uuid RETURNING *`,values);
+    if(!rows.length) return res.status(404).json({error:"Candidate not found in this Project."});
+    return res.json({candidate:rows[0]});
+  }catch(error:any){
+    if(error?.code==="42501") return res.status(403).json({error:"Candidate provenance and verification decisions are protected."});
+    if(error?.code==="23514" || error?.code==="22P02") return res.status(400).json({error:"Candidate fields failed validation."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.get("/api/v1/projects/:projectId/pks-sites", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
   if (req.user?.isAdmin) {

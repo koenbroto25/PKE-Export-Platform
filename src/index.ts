@@ -5448,6 +5448,14 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(type==="laytime_event"){
         const calc=calculateLaytime({allowedHours:Number(payload.allowedHours),startAt:String(payload.startAt),endAt:String(payload.endAt),excludedHours:Number(payload.excludedHours??0)});
         if(!calc.valid) return res.status(400).json({error:"Invalid laytime interval or allowance.",code:"INVALID_LAYTIME"});
+        const overlap=await req.db.query(
+          `SELECT 1 FROM public.p1_domain_records
+           WHERE project_id=$1::uuid AND record_type='laytime_event'
+             AND payload->>'voyageId'=$2
+             AND tstzrange((payload->>'startAt')::timestamptz,(payload->>'endAt')::timestamptz,'[)')
+                 && tstzrange($3::timestamptz,$4::timestamptz,'[)')
+           LIMIT 1`,[projectId,payload.voyageId,payload.startAt,payload.endAt]);
+        if(overlap.rows.length) return res.status(409).json({error:"Laytime interval overlaps an existing event for this voyage.",code:"LAYTIME_INTERVAL_OVERLAP"});
         payload.laytimeImpactHours=calc.usedHours;
         payload.laytimeOverrunHours=calc.overrunHours;
       }
@@ -5599,11 +5607,12 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       for(const d of defs.rows){
         let value:number|null=null,asOf:any=null,n=0;
         if(d.formula_key==="po_cycle_time_hours"){
-          const q=await req.db.query("SELECT avg(extract(epoch FROM(updated_at-created_at))/3600)::float value,max(updated_at) as_of,count(*)::int n FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type='purchase_order' AND status IN ('approved','issued','acknowledged','partially_received','received')",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
+          const q=await req.db.query("SELECT avg(extract(epoch FROM(e.occurred_at-r.created_at))/3600)::float value,max(e.occurred_at) as_of,count(*)::int n FROM public.p1_domain_records r JOIN LATERAL (SELECT occurred_at FROM public.p1_domain_events WHERE record_id=r.id AND project_id=r.project_id AND event_type='approved' ORDER BY occurred_at LIMIT 1) e ON true WHERE r.project_id=$1::uuid AND r.record_type='purchase_order' AND r.status IN ('approved','issued','acknowledged','partially_received','received')",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
         }else if(d.formula_key==="three_way_match_rate"||d.formula_key==="loading_completion_rate"||d.formula_key==="qa_release_rate"||d.formula_key==="lc_discrepancy_rate"){
           const type=d.formula_key==="three_way_match_rate"?"goods_receipt_match":d.formula_key==="loading_completion_rate"?"loading_plan":d.formula_key==="qa_release_rate"?"qa_release":"lc_presentation";
           const done=d.formula_key==="three_way_match_rate"?"status IN ('matched','verified')":d.formula_key==="loading_completion_rate"?"status='completed'":d.formula_key==="qa_release_rate"?"status='released'":"status='discrepancy'";
-          const q=await req.db.query(`SELECT count(*) FILTER(WHERE ${done})::int good,count(*)::int n,max(updated_at) as_of FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2`,[projectId,type]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
+          const denominator=d.formula_key==="qa_release_rate"?"status IN ('released','held')":"true";
+          const q=await req.db.query(`SELECT count(*) FILTER(WHERE ${done})::int good,count(*) FILTER(WHERE ${denominator})::int n,max(updated_at) as_of FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2`,[projectId,type]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
         }else if(d.formula_key==="production_output_quantity"){
           const q=await req.db.query("SELECT sum(quantity)::float value,max(updated_at) as_of,count(*)::int n FROM public.production_batches WHERE project_id=$1::uuid AND quality_status='passed'",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].value):null;asOf=q.rows[0].as_of;
         }else if(d.formula_key==="hse_open_actions"||d.formula_key==="audit_overdue_count"){
@@ -5618,7 +5627,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         }else if(d.formula_key==="inventory_variance_quantity"){
           const q=await req.db.query("SELECT count(*)::int n,max(created_at) as_of FROM public.inventory_reconciliations WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);asOf=q.rows[0].as_of;if(n){const sum=await req.db.query("SELECT COALESCE(sum(variance_quantity),0)::float value FROM public.inventory_reconciliations WHERE project_id=$1::uuid",[projectId]);value=Number(sum.rows[0].value);}
         }else if(d.formula_key==="document_freshness_rate"){
-          const q=await req.db.query("SELECT count(*)::int n,count(*) FILTER(WHERE status='approved' AND (expiry_date IS NULL OR expiry_date>=current_date) AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND upload_verified_at IS NOT NULL AND storage_bucket='pke-private-documents')::int good,max(uploaded_at) as_of FROM public.project_export_documents WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
+          const q=await req.db.query("SELECT count(*)::int n,count(*) FILTER(WHERE status='approved' AND (expiry_date IS NULL OR expiry_date>=current_date) AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND upload_verified_at IS NOT NULL AND storage_bucket='pke-private-documents')::int good,max(upload_verified_at) as_of FROM public.project_export_documents WHERE project_id=$1::uuid",[projectId]);n=Number(q.rows[0].n);value=n?Number(q.rows[0].good)/n*100:null;asOf=q.rows[0].as_of;
         }
         kpis.push({templateId:d.template_id,metricKey:d.metric_key,label:d.label,value,unit:d.unit_code,sourceEntity:d.source_entity,sourceRows:n,asOf,freshnessStatus:evaluateFreshness(asOf?new Date(asOf).toISOString():null,Number(d.freshness_minutes)),status:value===null?"unavailable":"available",missingDataPolicy:d.missing_data_policy});
       }

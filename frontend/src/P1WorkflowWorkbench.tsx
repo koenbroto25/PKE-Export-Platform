@@ -10,7 +10,7 @@ type WorkflowType = {code:string;label:string;read:string[];create:string;exampl
 const WORKFLOW_TYPES:WorkflowType[]=[
  {code:"purchase_requisition",label:"Purchase Requisition",read:["procurement.po.view"],create:"procurement.po.create",example:{currencyCode:"IDR",supplierId:"",items:[{description:"Palm kernel cake",quantity:1,unitCode:"MT",unitPrice:0}]}},
  {code:"purchase_order",label:"Purchase Order",read:["procurement.po.view"],create:"procurement.po.create",example:{supplierId:"",currencyCode:"IDR",items:[{description:"Palm kernel cake",quantity:1,unitCode:"MT",unitPrice:0}]}},
- {code:"supplier_commitment",label:"Supplier Delivery Commitment",read:["procurement.commitment.view","procurement.po.manage"],create:"procurement.commitment.manage",example:{purchaseOrderRecordId:"",committedQuantity:1,unitCode:"MT",committedAt:"2026-11-25T08:00:00Z"}},
+ {code:"supplier_commitment",label:"Supplier Delivery Commitment",read:["procurement.commitment.view","procurement.po.manage"],create:"procurement.po.manage",example:{purchaseOrderRecordId:"",committedQuantity:1,unitCode:"MT",committedAt:"2026-11-25T08:00:00Z"}},
  {code:"goods_receipt_match",label:"PO–GRN–Invoice Match",read:["procurement.match.view"],create:"procurement.match.create",example:{purchaseOrderRecordId:"",warehouseReceiptId:"",apInvoiceId:"",matchedQuantity:1,matchedAmount:0,unitCode:"MT",currencyCode:"IDR"}},
  {code:"production_batch",label:"Production Batch",read:["operations.view"],create:"operations.create",example:{quantity:1,unitCode:"MT",startedAt:"2026-11-21T08:00:00Z"}},
  {code:"packing_batch",label:"Packing Batch",read:["operations.view"],create:"operations.create",example:{quantity:1,unitCode:"MT",startedAt:"2026-11-21T08:00:00Z"}},
@@ -18,7 +18,7 @@ const WORKFLOW_TYPES:WorkflowType[]=[
  {code:"quality_result",label:"Laboratory / QC Result",read:["quality.result.view"],create:"quality.result.create",example:{sampleId:"",attributeId:"",methodCode:"",resultNumeric:0}},
  {code:"qa_release",label:"Independent QA Release",read:["quality.release.view"],create:"quality.release.decide",example:{sourceRecordId:"",decision:"release",decisionReason:""}},
  {code:"hse_inspection",label:"HSE Inspection",read:["hse.inspection.view"],create:"hse.inspection.create",example:{category:"",severity:"moderate",observedAt:"2026-11-21T08:00:00Z"}},
- {code:"hse_action",label:"HSE Corrective Action",read:["hse.action.view"],create:"hse.action.manage",example:{findingRecordId:"",actionOwnerRoleCode:"hse_officer",dueAt:"2026-11-28T08:00:00Z"}},
+ {code:"hse_action",label:"HSE Corrective Action",read:["hse.action.view","hse.action.respond"],create:"hse.action.manage",example:{findingRecordId:"",actionOwnerRoleCode:"hse_officer",dueAt:"2026-11-28T08:00:00Z"}},
  {code:"dispatch_assignment",label:"Dispatch & SLA",read:["dispatch.view"],create:"dispatch.create",example:{tripId:"",driverUserId:"",vehicleId:"",plannedDepartureAt:"2026-11-21T08:00:00Z",plannedArrivalAt:"2026-11-21T18:00:00Z"}},
  {code:"vessel_call",label:"Vessel / Port Call",read:["shipping.view"],create:"shipping.create",example:{voyageId:"",vesselId:"",portId:"",predictedArrivalAt:"2026-11-25T08:00:00Z"}},
  {code:"loading_plan",label:"Loading Plan",read:["shipping.view"],create:"shipping.update",example:{loadingOperationId:"",shipmentId:"",plannedQuantity:1,unitCode:"MT"}},
@@ -36,8 +36,8 @@ const WORKFLOW_TYPES:WorkflowType[]=[
 
 const UPDATE_PERMISSION:Record<string,string>={
  purchase_requisition:"procurement.po.update",purchase_order:"procurement.po.update",supplier_commitment:"procurement.commitment.manage",goods_receipt_match:"procurement.match.create",
- production_batch:"operations.update",packing_batch:"operations.update",quality_sample:"quality.sample.create",quality_result:"quality.result.review",qa_release:"quality.release.decide",
- hse_inspection:"hse.inspection.update",hse_action:"hse.action.manage",dispatch_assignment:"dispatch.update",vessel_call:"shipping.update",loading_plan:"shipping.update",
+ production_batch:"operations.update",packing_batch:"operations.update",quality_sample:"quality.sample.create",quality_result:"quality.result.create",qa_release:"quality.release.decide",
+ hse_inspection:"hse.inspection.update",hse_action:"hse.action.respond",dispatch_assignment:"dispatch.update",vessel_call:"shipping.update",loading_plan:"shipping.update",
  loading_survey:"shipping.survey.submit",ship_master_ack:"shipping.acknowledge",laytime_event:"shipping.laytime.manage",lc_record:"lc.update",lc_clause:"lc.update",
  lc_discrepancy:"lc.discrepancy.manage",lc_presentation:"lc.present",audit_finding:"audit.finding.respond",audit_response:"audit.finding.respond",audit_closure:"audit.finding.close",
 };
@@ -54,7 +54,7 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
  const [ownerRole,setOwnerRole]=useState(""),[assignee,setAssignee]=useState(""),[externalUser,setExternalUser]=useState(""),[dueAt,setDueAt]=useState("");
  const [idempotencyKey,setIdempotencyKey]=useState(()=>crypto.randomUUID());
  const [nextStatus,setNextStatus]=useState<Record<string,string>>({}),[reason,setReason]=useState<Record<string,string>>({});
- const [expanded,setExpanded]=useState(""),[events,setEvents]=useState<Record<string,AnyRecord[]>>({});
+ const [expanded,setExpanded]=useState(""),[events,setEvents]=useState<Record<string,AnyRecord[]>>({}),[evidence,setEvidence]=useState<Record<string,AnyRecord[]>>({});
  const [evidenceRecord,setEvidenceRecord]=useState(""),[objectKey,setObjectKey]=useState(""),[sha,setSha]=useState(""),[fileSize,setFileSize]=useState("");
 
  const loadRecords=useCallback(async()=>{
@@ -92,9 +92,15 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
  };
  const showEvents=async(id:string)=>{
   if(expanded===id){setExpanded("");return;}setExpanded(id);
-  if(events[id])return;
-  try{const data=await get<{events?:AnyRecord[]}>(`/projects/${encodeURIComponent(projectId)}/p1-workflows/${encodeURIComponent(id)}/events`);setEvents(v=>({...v,[id]:data.events||[]}));}
-  catch(err){onNotice("error",err instanceof Error?err.message:"Gagal memuat event history.");}
+  if(events[id]&&evidence[id])return;
+  try{
+   const [eventData,evidenceData]=await Promise.all([
+    get<{events?:AnyRecord[]}>(`/projects/${encodeURIComponent(projectId)}/p1-workflows/${encodeURIComponent(id)}/events`),
+    get<{evidence?:AnyRecord[]}>(`/projects/${encodeURIComponent(projectId)}/p1-workflows/${encodeURIComponent(id)}/evidence`)
+   ]);
+   setEvents(v=>({...v,[id]:eventData.events||[]}));
+   setEvidence(v=>({...v,[id]:evidenceData.evidence||[]}));
+  }catch(err){onNotice("error",err instanceof Error?err.message:"Gagal memuat event/evidence history.");}
  };
  const addEvidence=async()=>{
   if(!evidenceRecord||!objectKey.trim()||!sha.trim())return;setBusy(true);
@@ -127,7 +133,10 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
    {loading?<p className="muted">Memuat data…</p>:records.length===0?<p className="muted">Belum ada record untuk jenis workflow ini. KPI tanpa source data ditampilkan sebagai unavailable, bukan nol.</p>:
     <div className="table-wrap"><table className="data-table"><thead><tr><th>Record</th><th>Status</th><th>Owner / Assignee</th><th>Due</th><th>Action</th></tr></thead><tbody>
      {records.map(record=><Fragment key={record.id}><tr><td><strong>{record.record_code}</strong><small>{record.title}</small><small>{record.record_type} · v{record.version}</small></td><td><span className="status-pill">{record.status}</span></td><td>{record.owner_role_code}<small>{record.assignee_user_id||"Belum ditugaskan"}</small></td><td>{record.due_at?new Date(record.due_at).toLocaleString("id-ID"):"—"}</td><td><div className="p1-row-actions"><select aria-label="Status berikutnya" value={nextStatus[record.id]||""} onChange={e=>setNextStatus(v=>({...v,[record.id]:e.target.value}))}><option value="">Transisi…</option>{NEXT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select><input aria-label="Alasan transisi" value={reason[record.id]||""} onChange={e=>setReason(v=>({...v,[record.id]:e.target.value}))} placeholder="Alasan bila perlu"/><button className="secondary-button" disabled={busy||!nextStatus[record.id]} onClick={()=>void updateStatus(record)}>Update</button><button className="text-button" onClick={()=>void showEvents(record.id)}>Events</button></div></td></tr>
-      {expanded===record.id&&<tr><td colSpan={5}><div className="p1-event-list">{(events[record.id]||[]).map(ev=><div key={ev.id}><strong>{ev.event_type}</strong><span>{ev.actor_role_code} · {new Date(ev.occurred_at).toLocaleString("id-ID")}</span><small>{ev.reason||""}</small></div>)}</div></td></tr>}
+      {expanded===record.id&&<tr><td colSpan={5}>
+       <div className="p1-event-list"><strong>Riwayat workflow</strong>{(events[record.id]||[]).map(ev=><div key={ev.id}><strong>{ev.event_type}</strong><span>{ev.actor_role_code} · {new Date(ev.occurred_at).toLocaleString("id-ID")}</span><small>{ev.reason||""}</small></div>)}</div>
+       <div className="p1-evidence-list"><strong>Evidence terverifikasi</strong>{(evidence[record.id]||[]).length?(evidence[record.id]||[]).map(ev=><div key={ev.id}><span>{ev.original_filename||ev.evidence_type} · {ev.status}</span><small>{ev.sha256_checksum} · {Number(ev.file_size_bytes||0).toLocaleString("id-ID")} bytes</small></div>):<small className="muted">Belum ada evidence.</small>}</div>
+      </td></tr>}
      </Fragment>)}
     </tbody></table></div>}
    {canAttach&&<div className="p1-evidence-row"><select value={evidenceRecord} onChange={e=>setEvidenceRecord(e.target.value)}><option value="">Record untuk evidence</option>{records.map(r=><option key={r.id} value={r.id}>{r.record_code}</option>)}</select><input value={objectKey} onChange={e=>setObjectKey(e.target.value)} placeholder="Private object key (file sudah diunggah)"/><input value={sha} onChange={e=>setSha(e.target.value)} placeholder="SHA-256"/><input type="number" min="1" max="52428800" value={fileSize} onChange={e=>setFileSize(e.target.value)} placeholder="File size (bytes)"/><button className="secondary-button" disabled={busy||!evidenceRecord||!fileSize} onClick={()=>void addEvidence()}>Verifikasi & catat evidence</button></div>}

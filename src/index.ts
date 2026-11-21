@@ -4013,7 +4013,7 @@ app.get("/api/v1/ports", requireAuth, async (req: express.Request, res: express.
   try {
     const { rows } = await req.db.query(
       `SELECT p.id,p.name,p.code,p.city,p.province,p.country_code,p.unlocode,p.national_code,
-              p.authority_name,p.operator_name,p.source_reference,p.verification_status,p.verified_at,
+              p.authority_name,p.operator_name,p.source_reference,CASE WHEN p.verification_status='verified' AND (NULLIF(btrim(p.source_reference),'') IS NULL OR p.verified_at IS NULL OR (NULLIF(btrim(p.unlocode),'') IS NULL AND NULLIF(btrim(p.national_code),'') IS NULL AND NULLIF(btrim(p.code),'') IS NULL)) THEN 'unverified' ELSE p.verification_status END AS verification_status,p.verified_at,
               (SELECT count(*)::int FROM public.port_terminals t WHERE t.port_id=p.id) AS terminal_count,
               (SELECT count(*)::int FROM public.port_depth_observations d WHERE d.port_id=p.id) AS depth_observation_count
          FROM public.ports p
@@ -4033,7 +4033,7 @@ app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: 
   if (!p16UuidPattern.test(projectId) || !p16UuidPattern.test(portId)) return res.status(400).json({ error: "Valid projectId and portId are required." });
   if (!(await requireProjectPermission(req, res, projectId, "port.view"))) return;
   try {
-    const { rows: ports } = await req.db.query("SELECT * FROM public.ports WHERE id=$1::uuid AND is_active=true", [portId]);
+    const { rows: ports } = await req.db.query("SELECT p.*,CASE WHEN p.verification_status='verified' AND (NULLIF(btrim(p.source_reference),'') IS NULL OR p.verified_at IS NULL OR (NULLIF(btrim(p.unlocode),'') IS NULL AND NULLIF(btrim(p.national_code),'') IS NULL AND NULLIF(btrim(p.code),'') IS NULL)) THEN 'unverified' ELSE p.verification_status END AS effective_verification_status FROM public.ports p WHERE p.id=$1::uuid AND p.is_active=true", [portId]);
     if (!ports.length) return res.status(404).json({ error: "Port not found." });
     const [terminals, berths, channels, anchorages, depths, tides, services, equipment, operatingLimits] = await Promise.all([
       req.db.query("SELECT * FROM public.port_terminals WHERE port_id=$1::uuid ORDER BY name", [portId]),

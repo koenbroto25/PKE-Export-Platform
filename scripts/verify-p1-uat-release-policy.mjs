@@ -15,7 +15,7 @@ const expected = Object.freeze({
   "066_p1_work_item_sync_and_kpi_scope.sql": "76b19520116f26525379f694a95d2081f2d62721f7b07625d0507ac07a29bce4",
   "067_p1_supplier_commitment_creator_grants.sql": "fc6e82204e7fbfa17d5180280f96b292a3096bd05bb5dec0e0be31acdc6d691f",
   "068_p1_role_scoped_kpi_permission.sql": "e1cdab2b89a418cdcf2e5ae80345f4495c5854920e55d2897573c30929958402",
-  "069_p1_kpi_secure_aggregate_function.sql": "0000000000000000000000000000000000000000000000000000000000000000"
+  "069_p1_kpi_secure_aggregate_function.sql": "402f26bebc0016fa2fbcc3b7c661f96e07df08db4769e94d66d709206b78e349"
 });
 
 function fail(message) {

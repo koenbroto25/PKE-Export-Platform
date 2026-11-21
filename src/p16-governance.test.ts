@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
+import { hasPageAccess } from "../frontend/src/role-permissions";
 
 const ROOT = __dirname;
 const API = readFileSync(join(ROOT, "index.ts"), "utf8");
@@ -127,6 +128,12 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(MIGRATION_088).toContain("pke_is_platform_admin()");
     expect(API).toContain("requireP16ReadAccess");
     expect(UI).toContain("platformAdmin || permissions.includes(\"port.view\")");
+  });
+
+  it("makes the P16 workspace visible to Platform Admin without Project membership", () => {
+    expect(hasPageAccess("port-network", { platformAdmin: true })).toBe(true);
+    expect(hasPageAccess("port-network", { selectedProjectId: "a1000000-0000-4000-8000-000000000001", projectPermissions: ["port.view"] })).toBe(true);
+    expect(hasPageAccess("port-network", { selectedProjectId: "a1000000-0000-4000-8000-000000000001", projectPermissions: [] })).toBe(false);
   });
 
 });

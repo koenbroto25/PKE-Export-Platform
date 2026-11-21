@@ -5186,12 +5186,30 @@ app.post("/api/v1/projects/:id/role-templates/:roleCode/activate", requireAuth, 
        ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
       [projectId, projectRole.id, req.user?.id, template.permissionCodes],
     );
+    // The allowlist is the canonical extension point for permissions added after the role template version.
+    // This keeps newly activated roles in sync with UAT-validated P1 grants without widening beyond the allowlist.
+    await req.db.query(
+      `INSERT INTO public.project_role_permissions
+         (project_id, project_role_id, permission_id, granted_by, granted_at)
+       SELECT $1::uuid, $2::uuid, p.id, $3::uuid, now()
+         FROM public.pke_project_role_permission_allowlist a
+         JOIN public.permissions p ON p.code=a.permission_code AND p.is_active=true
+        WHERE a.role_code=$4::text
+       ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
+      [projectId, projectRole.id, req.user?.id, template.code],
+    );
+    const { rows: grantedRows } = await req.db.query(
+      `SELECT p.code FROM public.project_role_permissions prp
+       JOIN public.permissions p ON p.id=prp.permission_id
+       WHERE prp.project_role_id=$1::uuid AND p.is_active=true ORDER BY p.code`,
+      [projectRole.id],
+    );
     return res.status(200).json({
       role: projectRole,
       activated: true,
       assignedUsers: 0,
       templateVersion: template.templateVersion,
-      permissionCodes: template.permissionCodes,
+      permissionCodes: grantedRows.map((row: any) => row.code),
     });
   } catch {
     return res.status(500).json(internalServerErrorPayload());

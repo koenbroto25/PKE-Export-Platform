@@ -10488,3 +10488,11 @@ P15 engineering implementation and UAT database/security backtests are complete.
 - **B5 — final regression/release gate:** verify migration 093 source SHA against UAT ledger, manifest count/hash integrity, RLS/role matrix, all P0–P15 regression suites, backend/frontend typecheck, frontend build, migration runner dry-run and dependency audit. Browser UAT is deferred per owner instruction. Keep Production unchanged and Vercel frozen until owner authorizes the final combined deployment session.
 
 **Status:** P16 schema/RLS hardening, source implementation, document upload/review UI, Admin master CRUD (including delete) and negative permission backtests have progressed. P16 remains **NOT ALL PASS** because actual private-object upload/positive evidence lifecycle and authenticated browser/API acceptance are still blocked by storage DNS/runtime access and the agreed deployment freeze.
+
+
+**Preview runtime storage configuration — UAT branch only**
+- Found the second configuration blocker during environment audit: Preview variables for branch `f1/project-scoped-cob-20261119` had Neon DB/Auth settings but no AWS S3 storage variables. Production already had its own AWS storage variables; they were not read, modified, or reused.
+- Created a dedicated Neon scoped credential anchored specifically to UAT branch `br-young-boat-b3re832d`, scopes `storage:read` + `storage:write`, expires `2027-11-21T00:00:00Z`. Credential short ID `ed2b903628b3`; secret material is stored only in Vercel sensitive variables, not committed to Git.
+- Added four Vercel Preview variables restricted to Git branch `f1/project-scoped-cob-20261119`: `AWS_ENDPOINT_URL_S3` and `AWS_REGION` encrypted; `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` sensitive. All four target Preview only. Verified their branch filters and types via Vercel environment metadata.
+- No Vercel deployment was triggered. The existing deployment freeze remains in force. On the next owner-authorized Preview deployment, `privateStorage` will resolve its existing `AWS_*` fallback configuration against Neon UAT. The new credential must be rotated/replaced before its 2027-11-21 expiry.
+- Production AWS environment variables remain Production-only and unchanged. The UAT scoped credential cannot reach Production or sibling branches.

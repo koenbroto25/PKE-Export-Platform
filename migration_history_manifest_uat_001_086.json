@@ -5,9 +5,9 @@
   "branch_id": "br-young-boat-b3re832d",
   "database": "neondb",
   "verified_at": "2026-11-21",
-  "applied_count": 86,
+  "applied_count": 87,
   "pending_migrations": [],
-  "source_recovery_note": "Read directly from Neon UAT branch after P16 migrations 083-086. This is UAT-only evidence and must never be used as Production migration history.",
+  "source_recovery_note": "Read directly from Neon UAT branch after P16 migrations 083-087. UAT-only evidence; never use as Production migration history.",
   "entries": [
     {
       "id": 1,
@@ -610,6 +610,13 @@
       "sha256": "40a28c888f618f555f27b9b54b2a6a9c5d8fd12bec887f55a6686dedd7fdec0b",
       "status": "applied",
       "applied_at": "2026-11-21T12:34:08.208Z"
+    },
+    {
+      "id": 87,
+      "filename": "087_p2b_admin_master_rls_guard_alignment.sql",
+      "sha256": "d834e4e5b843c2a9dad45c5f66b753aaf9f7d0bfe9dc93fa3006f636f38bda3e",
+      "status": "applied",
+      "applied_at": "2026-11-21T12:42:14.533Z"
     }
   ]
 }

@@ -10225,3 +10225,9 @@ Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
 - Added a quality provenance workspace to the PKS & Supplier module: sample creation, sampling method/location/seal/condition, source reference, lab evidence selection, chain-of-custody display, measurement results with unit/basis/method, and QA review/accept/reject/retest actions. Tested samples require approved checksum-verified lab evidence and laboratory identity.
 - Migration 080 adds read access to the controlled product-attribute dictionary for Project quality readers/reviewers only. Apply UAT only after recording a targeted policy backup; no Production changes.
 - Browser acceptance remains deferred to the final combined deployment/preview session per owner instruction.
+
+
+### 56.53.3 Quality read-policy alignment
+- Migration 080 adds Project-quality-role SELECT access to the shared product-attribute dictionary.
+- Migration 081 aligns sample/result SELECT RLS with the existing quality.sample.view and quality.sample.create permissions so sample creators/viewers can actually see their own Project-scoped sample/result rows. The policies remain Project-scoped through pke_has_project_permission and do not grant writes or deletes.
+- Apply migration 081 to UAT only after taking a targeted policy snapshot. Validate QA reader/creator/reviewer and Finance isolation.

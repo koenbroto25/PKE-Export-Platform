@@ -6,7 +6,7 @@ const indexSource = readFileSync(new URL("./index.ts", import.meta.url), "utf8")
 const uiSource = readFileSync(new URL("../frontend/src/QualityProvenancePanel.tsx", import.meta.url), "utf8");
 describe("Migration 080 P15 quality provenance read scope", () => {
   it("matches the exact UAT migration SHA-256", () => {
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("HASH_TO_FILL");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150");
   });
   it("allows only Project quality roles to read the shared attribute dictionary", () => {
     expect(migration).toContain("pke_product_attributes_quality_view");

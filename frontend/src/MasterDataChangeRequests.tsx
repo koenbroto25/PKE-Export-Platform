@@ -6,16 +6,19 @@ type Notice = (kind: 'success' | 'error' | 'info', text: string) => void;
 
 const defaultOrgJson = '{\n  "legal_name": "",\n  "organization_type": "supplier",\n  "country_code": "ID"\n}';
 const defaultFacilityJson = '{\n  "name": "",\n  "facility_type": "kernel_crushing_plant",\n  "country_code": "ID",\n  "operating_status": "planned"\n}';
+const defaultFacilityProductJson = '{\n  "process_type": "mechanical_screw_press"\n}';
+const defaultCapacityJson = '{\n  "process_type": "kernel_crushing",\n  "capacity_kind": "nominal",\n  "capacity_value": 0,\n  "unit_code": "PKE_MT_PER_DAY",\n  "period_type": "day",\n  "effective_from": "2026-11-21"\n}';
+const defaultCertificationJson = '{\n  "certification_type": "",\n  "certificate_number": "",\n  "issuer": "",\n  "scope": "",\n  "valid_from": "",\n  "valid_to": ""\n}';
 const emptyForm = {
   entityType: 'organization', operation: 'create', targetId: '',
   proposedData: defaultOrgJson, requestReason: '', sourceType: 'manual',
-  sourceReference: '', sourceUrl: '',
+  sourceReference: '', sourceUrl: '', evidenceDocumentId: '', facilityId: '', productId: '',
 };
 
 export default function MasterDataChangeRequests({ projectId, activeUser, onNotice }: {
   projectId: string; activeUser?: AnyRecord; onNotice: Notice;
 }) {
-  const [data, setData] = useState<AnyRecord>({ requests: [], organizations: [], facilities: [], canManage: false, canReview: false });
+  const [data, setData] = useState<AnyRecord>({ requests: [], organizations: [], facilities: [], products: [], evidenceDocuments: [], facilityProducts: [], capacityRecords: [], certifications: [], canManage: false, canReview: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -67,6 +70,8 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
       proposedData: JSON.stringify(row.proposed_data || {}, null, 2),
       requestReason: row.request_reason || '', sourceType: row.source_type || 'manual',
       sourceReference: row.source_reference || '', sourceUrl: row.source_url || '',
+      evidenceDocumentId: row.evidence_document_id || '',
+      facilityId: row.proposed_data?.facility_id || '', productId: row.proposed_data?.product_id || '',
     });
   };
 
@@ -76,6 +81,14 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
     let proposedData: AnyRecord;
     try {
       proposedData = JSON.parse(form.proposedData);
+      if (['facility_product','capacity_record','certification'].includes(form.entityType)) {
+        if (!form.facilityId) throw new Error('Pilih fasilitas yang sudah terverifikasi.');
+        proposedData.facility_id = form.facilityId;
+      }
+      if (form.entityType === 'facility_product') {
+        if (!form.productId) throw new Error('Pilih produk yang klasifikasinya sudah terverifikasi.');
+        proposedData.product_id = form.productId;
+      }
       if (!proposedData || typeof proposedData !== 'object' || Array.isArray(proposedData) || !Object.keys(proposedData).length)
         throw new Error('Proposal harus berupa objek JSON yang tidak kosong.');
     } catch (e) {
@@ -89,11 +102,13 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
         targetId: form.operation === 'update' ? form.targetId : null,
         proposedData, requestReason: form.requestReason, sourceType: form.sourceType,
         sourceReference: form.sourceReference, sourceUrl: form.sourceUrl || null, sourceSnapshot: {},
+        evidenceDocumentId: form.evidenceDocumentId || null,
       };
       if (editingId) {
         await patch('/projects/' + projectId + '/master-data-change-requests/' + editingId, {
           proposedData, requestReason: form.requestReason, sourceType: form.sourceType,
           sourceReference: form.sourceReference, sourceUrl: form.sourceUrl || null, sourceSnapshot: {},
+          evidenceDocumentId: form.evidenceDocumentId || null,
         });
         onNotice('success', 'Draft perubahan master data diperbarui.');
       } else {
@@ -141,15 +156,32 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
       {canReview && <div className="notice notice-info">Mode Platform Admin: tinjau bukti dan proposal. Pengaju tidak dapat menyetujui permintaannya sendiri.</div>}
       {canManage && <div className="notice notice-info">Mode PM: perubahan identitas global tidak langsung diterapkan. Simpan draft, lalu kirim untuk persetujuan Platform Admin.</div>}
       {formOpen && canManage && <form className="form-grid" onSubmit={save}>
-        <FormField label="Jenis master"><select value={form.entityType} onChange={e => setForm(v => ({ ...v, entityType: e.target.value, targetId: '', operation: 'create', proposedData: e.target.value === 'facility' ? defaultFacilityJson : defaultOrgJson }))}><option value="organization">Organisasi / supplier</option><option value="facility">Fasilitas / PKS / KCP</option></select></FormField>
-        <FormField label="Operasi"><select value={form.operation} onChange={e => setForm(v => ({ ...v, operation: e.target.value, targetId: '' }))}><option value="create">Buat identitas baru</option><option value="update">Usulkan perubahan identitas</option></select></FormField>
+        <FormField label="Jenis master"><select value={form.entityType} onChange={e => setForm(v => ({
+          ...v, entityType: e.target.value, targetId: '', operation: 'create', evidenceDocumentId: '', facilityId: '', productId: '',
+          sourceType: ['facility_product','capacity_record','certification'].includes(e.target.value) ? 'official_document' : 'manual',
+          proposedData: e.target.value === 'facility' ? defaultFacilityJson :
+            e.target.value === 'facility_product' ? defaultFacilityProductJson :
+            e.target.value === 'capacity_record' ? defaultCapacityJson :
+            e.target.value === 'certification' ? defaultCertificationJson : defaultOrgJson,
+        }))}>
+          <option value="organization">Organisasi / supplier</option>
+          <option value="facility">Fasilitas / PKS / KCP</option>
+          <option value="facility_product">Bukti kapabilitas produk fasilitas</option>
+          <option value="capacity_record">Catatan kapasitas</option>
+          <option value="certification">Sertifikasi fasilitas</option>
+        </select></FormField>
+        <FormField label="Operasi"><select value={form.operation} disabled={['facility_product','capacity_record','certification'].includes(form.entityType)} onChange={e => setForm(v => ({ ...v, operation: e.target.value, targetId: '' }))}><option value="create">Buat / usulkan record baru</option><option value="update" disabled={['facility_product','capacity_record','certification'].includes(form.entityType)}>Usulkan perubahan identitas</option></select></FormField>
+        {['facility_product','capacity_record','certification'].includes(form.entityType) && <FormField label="Fasilitas terverifikasi"><select required value={form.facilityId} onChange={e => setForm(v => ({ ...v, facilityId: e.target.value }))}><option value="">Pilih fasilitas terverifikasi</option>{(data.facilities || []).filter((r: AnyRecord) => r.verification_status === 'verified').map((r: AnyRecord) => <option key={r.id} value={r.id}>{r.name} · {r.city || r.province || r.country_code}</option>)}</select></FormField>}
+        {form.entityType === 'facility_product' && <FormField label="Produk terverifikasi"><select required value={form.productId} onChange={e => setForm(v => ({ ...v, productId: e.target.value }))}><option value="">Pilih produk terverifikasi</option>{(data.products || []).filter((r: AnyRecord) => r.classification_status === 'verified').map((r: AnyRecord) => <option key={r.id} value={r.id}>{r.product_code} · {r.product_name}</option>)}</select></FormField>}
+        {['facility_product','capacity_record','certification'].includes(form.entityType) && <FormField label="Dokumen bukti approved + checksum" wide><select required value={form.evidenceDocumentId} onChange={e => setForm(v => ({ ...v, evidenceDocumentId: e.target.value }))}><option value="">Pilih dokumen Project yang sudah approved</option>{(data.evidenceDocuments || []).map((r: AnyRecord) => <option key={r.id} value={r.id}>{r.original_filename || r.document_type_code || r.id} · SHA-256 {String(r.sha256_checksum).slice(0,12)}…</option>)}</select></FormField>}
+        {['facility_product','capacity_record','certification'].includes(form.entityType) && <div className="notice notice-info form-wide">Sistem tidak menyimpulkan kemampuan PKE dari nama atau tipe fasilitas. Fasilitas dan produk harus berstatus verified, serta bukti dokumen Project harus approved dan checksum-terverifikasi sebelum Admin dapat mengesahkan.</div>}
         {form.operation === 'update' && <FormField label="Record kanonis"><select required value={form.targetId} onChange={e => setForm(v => ({ ...v, targetId: e.target.value }))}><option value="">Pilih record</option>{targets.map((r: AnyRecord) => <option key={r.id} value={r.id}>{r.label}</option>)}</select></FormField>}
         <FormField label="Alasan perubahan" wide><textarea required minLength={10} maxLength={2000} rows={2} value={form.requestReason} onChange={e => setForm(v => ({ ...v, requestReason: e.target.value }))} /></FormField>
         <FormField label="Tipe sumber"><select value={form.sourceType} onChange={e => setForm(v => ({ ...v, sourceType: e.target.value }))}><option value="manual">Manual</option><option value="public_reference">Referensi publik</option><option value="official_document">Dokumen resmi</option><option value="buyer_confirmed">Konfirmasi buyer</option></select></FormField>
         <FormField label="Referensi / nomor dokumen"><input required maxLength={500} value={form.sourceReference} onChange={e => setForm(v => ({ ...v, sourceReference: e.target.value }))} /></FormField>
         <FormField label="URL bukti (opsional)" wide><input type="url" value={form.sourceUrl} onChange={e => setForm(v => ({ ...v, sourceUrl: e.target.value }))} placeholder="https://..." /></FormField>
         <FormField label="Proposal perubahan (JSON)" wide><textarea required rows={9} spellCheck={false} value={form.proposedData} onChange={e => setForm(v => ({ ...v, proposedData: e.target.value }))} /></FormField>
-        <div className="form-actions"><button type="button" className="secondary-button" onClick={reset}>Batal</button><button className="primary-button" disabled={busy || !form.requestReason.trim() || !form.sourceReference.trim() || (form.operation === 'update' && !form.targetId)}>{busy ? 'Menyimpan…' : editingId ? 'Simpan draft' : 'Simpan draft permintaan'}</button></div>
+        <div className="form-actions"><button type="button" className="secondary-button" onClick={reset}>Batal</button><button className="primary-button" disabled={busy || !form.requestReason.trim() || !form.sourceReference.trim() || (form.operation === 'update' && !form.targetId) || (['facility_product','capacity_record','certification'].includes(form.entityType) && (!form.evidenceDocumentId || !form.facilityId || (form.entityType === 'facility_product' && !form.productId)))}>{busy ? 'Menyimpan…' : editingId ? 'Simpan draft' : 'Simpan draft permintaan'}</button></div>
       </form>}
       {loading ? <div className="loading-state">Memuat permintaan…</div> : error ? <div className="error-state">{error}</div> : !(data.requests || []).length ? <div className="empty-state"><strong>Belum ada permintaan perubahan</strong><span>Pengajuan perubahan legal name, nomor registrasi, alamat, atau identitas fasilitas akan tercatat di sini.</span></div> :
         <div className="table-wrap"><table><thead><tr><th>Entitas / Operasi</th><th>Alasan & Sumber</th><th>Status</th><th>Jejak persetujuan</th><th>Aksi</th></tr></thead><tbody>

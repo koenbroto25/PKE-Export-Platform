@@ -2423,6 +2423,7 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
   if (!storageStatus.available || storageStatus.bucket !== "pke-private-documents") {
     return res.status(503).json({ error: "Private object storage is unavailable or bucket does not match.", code: "STORAGE_UNAVAILABLE" });
   }
+  let objectVerified = false;
   try {
     const { rows: reqRows } = await req.db.query(
       `SELECT per.id, edt.document_code
@@ -2441,8 +2442,14 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
     let verifiedObject;
     try {
       verifiedObject = await privateStorage.verifyObject(key, Number(contentLength), String(sha256Checksum));
+      objectVerified = true;
     } catch {
-      return res.status(422).json({ error: "Stored object size or SHA-256 verification failed.", code: "DOCUMENT_OBJECT_VERIFICATION_FAILED" });
+      try {
+        await privateStorage.deleteObject(key);
+        return res.status(422).json({ error: "Stored object size or SHA-256 verification failed; the rejected object was removed.", code: "DOCUMENT_OBJECT_VERIFICATION_FAILED", objectRemoved: true });
+      } catch {
+        return res.status(503).json({ error: "Storage verification failed and the rejected object could not be removed; operator cleanup is required.", code: "DOCUMENT_OBJECT_CLEANUP_REQUIRED" });
+      }
     }
     const { rows } = await req.db.query(
       `INSERT INTO project_export_documents
@@ -2458,6 +2465,9 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
     );
     return res.status(201).json({ document: rows[0], uploadVerified: true });
   } catch (error: any) {
+    if (objectVerified) {
+      try { await privateStorage.deleteObject(key); } catch { /* retain generic DB error; orphan cleanup is tracked separately */ }
+    }
     if (error?.code === "23503" || error?.code === "23514" || error?.code === "42501") {
       return res.status(400).json({ error: "Project document metadata or workflow validation failed." });
     }

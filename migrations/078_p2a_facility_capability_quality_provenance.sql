@@ -6,17 +6,18 @@ INSERT INTO public.permissions(name,code,description,is_active)
 VALUES
  ('View Facility Product Capabilities','facility.product.view','Read verified facility-to-product capability records.',true),
  ('View Facility Capacity Records','facility.capacity.view','Read verified facility capacity history.',true),
- ('View Facility Records','facility.view','Read verified facility identity and certification records.',true)
+ ('View Facility Records','facility.view','Read verified facility identity and certification records.',true),
+ ('View Product Catalog','product.view','Read canonical product identities and verified classifications.',true)
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
-VALUES ('pm','facility.product.view'),('pm','facility.capacity.view'),('pm','facility.view')
+VALUES ('pm','facility.product.view'),('pm','facility.capacity.view'),('pm','facility.view'),('pm','product.view')
 ON CONFLICT (role_code,permission_code) DO NOTHING;
 
 INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id,granted_by)
 SELECT pr.project_id,pr.id,perm.id,NULL
 FROM public.project_roles pr
-JOIN public.permissions perm ON perm.code IN ('facility.product.view','facility.capacity.view','facility.view')
+JOIN public.permissions perm ON perm.code IN ('facility.product.view','facility.capacity.view','facility.view','product.view')
 WHERE pr.role_code='pm' AND pr.is_active=true AND perm.is_active=true
 ON CONFLICT (project_role_id,permission_id) DO NOTHING;
 

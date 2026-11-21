@@ -34,7 +34,7 @@ BEGIN
  VALUES(v_actor,'admin','admin',CASE WHEN NEW.verification_status IN ('verified','rejected') AND OLD.verification_status IS DISTINCT FROM NEW.verification_status THEN 'p16.master.reviewed' ELSE 'p16.master.updated' END,TG_TABLE_NAME,NEW.id,v_before,to_jsonb(NEW),NULLIF(btrim(COALESCE(NEW.review_note,'')),''),'success');
  RETURN NEW;
 END
-$function$
+$function$;
 
 DO $policies$
 DECLARE t text;

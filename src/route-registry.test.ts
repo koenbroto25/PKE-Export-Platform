@@ -58,7 +58,7 @@ describe("API route registry (regression)", () => {
     expect(set.has("PATCH /api/v1/projects/:projectId/master-data-change-requests/:requestId")).toBe(true);
     expect(INDEX_SRC).toContain('"pks.master_data.change_request.view"');
     expect(INDEX_SRC).toContain('"pks.master_data.change_request.manage"');
-    expect(INDEX_SRC).toContain("Only Platform Admin may approve or reject");
+    expect(INDEX_SRC).toContain("PM may only submit a draft; approval is Admin-only.");
     expect(INDEX_SRC).toContain("Canonical data changed after submission");
   });
 

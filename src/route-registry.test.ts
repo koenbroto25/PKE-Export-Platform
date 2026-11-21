@@ -18,6 +18,17 @@ function registerRoutes(src: string): { method: string; path: string }[] {
 }
 
 describe("API route registry (regression)", () => {
+  it("registers P2-A facility catalog and public candidate CRUD with Project permission gates", () => {
+    const set = new Set(registerRoutes(INDEX_SRC).map((r) => `${r.method} ${r.path}`));
+    expect(set.has("GET /api/v1/projects/:projectId/pks-sites/catalog")).toBe(true);
+    expect(set.has("GET /api/v1/projects/:projectId/pks-candidates")).toBe(true);
+    expect(set.has("POST /api/v1/projects/:projectId/pks-candidates")).toBe(true);
+    expect(set.has("PATCH /api/v1/projects/:projectId/pks-candidates/:candidateId")).toBe(true);
+    expect(INDEX_SRC).toContain("p2a_master_data_candidates");
+    expect(INDEX_SRC).toContain("Only Platform Admin may change candidate verification status.");
+    expect(INDEX_SRC).toContain("sourceUrl && !/^https?:\\/\\//i.test(sourceUrl)");
+  });
+
   it("registers P2-A Project PKS participation endpoints with scoped edit permission", () => {
     const set = new Set(registerRoutes(INDEX_SRC).map((r) => `${r.method} ${r.path}`));
     expect(set.has("GET /api/v1/projects/:projectId/pks-sites")).toBe(true);

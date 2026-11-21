@@ -120,30 +120,31 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ]),
   role("warehouse_manager", "Warehouse Manager", "warehouse_logistics", [
     "warehouse.view", "warehouse.create", "warehouse.update", "warehouse.receipt.create",
-    "inventory.view", "inventory.update", "inventory.reserve", "inventory.hold", "inventory.reconcile",
+    "inventory.view", "inventory.update", "inventory.reserve", "inventory.hold", "inventory.reconcile", "audit.finding.respond",
   ], [], { legacyAliases: ["warehouse"] }),
   role("warehouse_officer", "Warehouse Officer", "warehouse_logistics", [
-    "warehouse.view", "warehouse.receipt.create", "inventory.view",
+    "warehouse.view", "warehouse.receipt.create", "inventory.view", "audit.finding.respond",
   ]),
   role("inventory_controller", "Inventory Controller", "warehouse_logistics", [
     "inventory.view", "inventory.create", "inventory.update", "inventory.reserve",
-    "inventory.hold", "inventory.reconcile", "warehouse.view",
+    "inventory.hold", "inventory.reconcile", "warehouse.view", "audit.finding.respond",
   ]),
   role("transport_manager", "Transport Manager", "warehouse_logistics", [
-    "logistics.view", "logistics.create", "logistics.update", "record_truck_trips", "dispatch.view", "dispatch.create", "dispatch.update", "dispatch.manage", "audit.finding.respond",
+    "logistics.view", "logistics.create", "logistics.update", "record_truck_trips",
     "dispatch.view", "dispatch.create", "dispatch.update", "dispatch.manage", "shipping.view", "shipment.view", "audit.finding.respond",
   ]),
   role("dispatcher", "Dispatcher", "warehouse_logistics", [
     "logistics.view", "logistics.create", "logistics.update", "record_truck_trips",
+    "dispatch.view", "dispatch.create", "dispatch.update", "dispatch.manage", "audit.finding.respond",
   ]),
   role("transporter", "Transporter", "warehouse_logistics", [
-    "logistics.view", "record_truck_trips", "verify_checkpoints", "dispatch.view", "dispatch.update", "dispatch.view", "dispatch.update",
+    "logistics.view", "record_truck_trips", "verify_checkpoints", "dispatch.view", "dispatch.update",
   ], ["Assigned trips and evidence only."], { classification: "external" }),
   role("checker", "Checker", "warehouse_logistics", [
     "logistics.view", "verify_checkpoints", "operations.view", "dispatch.view", "dispatch.update",
   ]),
   role("driver", "Driver", "warehouse_logistics", [
-    "record_truck_trips", "verify_checkpoints",
+    "record_truck_trips", "verify_checkpoints", "dispatch.view", "dispatch.update",
   ], ["Assigned trip/checkpoint scope only."], { classification: "external" }),
   role("master_of_loading", "Master of Loading", "shipping_loading", [
     "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create",
@@ -156,7 +157,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create", "shipping.laytime.view", "shipping.laytime.manage", "audit.finding.respond",
   ]),
   role("loading_operator", "Loading Operator", "shipping_loading", [
-    "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",
+    "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view", "audit.finding.respond",
   ]),
   role("terminal_representative", "Terminal Representative", "shipping_loading", [
     "port.view", "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",

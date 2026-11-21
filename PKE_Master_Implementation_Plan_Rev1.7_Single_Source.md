@@ -10115,3 +10115,81 @@ Committed on existing branch `f1/project-scoped-cob-20261119`; no new GitHub bra
 3. Add the independent global master-data change request/approval workflow before permitting edits to legal identity or verified facility identity.
 4. Enrich product/specification master using applicable authoritative standards and source-backed parameter definitions. Do not apply SNI CPO values to PKC.
 5. Keep seed batch removable by `seed_batch_id`; after owner/PM review, either retain it as a documented demo fixture or remove only that batch and verify cleanup.
+
+
+## 56.52 — P2-A / P15 expansion: public candidate register, separate mill fixture and editable PKE requirement (21 November 2026)
+
+**Owner deployment instruction:** defer all explicit deployment, promotion and deployment-related troubleshooting until the final combined P2-A/P15 session. Continue source, database, permission and backtest work on the existing branch and UAT only. Do not merge or deploy as part of this section.
+
+### 56.52.1 Public-source research and limits
+
+- GIMNI's public member page identifies its 2025 member companies and states that its membership covers refining/fractionation, kernel crushing plants (KCP) and copra crushing plants (CCP). Its displayed company category and plant-location fields are useful for candidate discovery, but do not prove that each listed company operates a specific KCP rather than a CCP, that the named location is a verified site, or that any capacity/stock is available: https://gimni.org/en/members
+- Three GIMNI entries were loaded into the Project-scoped candidate register as organizations only, all `verification_status='unverified'`:
+  - PT Agro Jaya Perdana — category shown by GIMNI: Crushing; location shown: Yos Sudarso – Medan; member number 001.01.II.G-AJP/2022.
+  - PT Cargil Indonesia — exact displayed spelling retained from the source; category: Crushing; location: Minahasa – Sulut; member number 039.01.XXIII.G-CI/2022. Legal spelling must be checked before canonical onboarding.
+  - PT Citra Borneo Utama — category: Refinery & Crushing; location: Kota Waringin – Kalteng; member numbers 034.01.XX.G-CBU/2022 and 034.02.XX.G-CBU/2022.
+- These three entries are not inserted into canonical `partner_organizations`, `vendors`, or `pks_sites`. They remain editable candidate leads with original source snapshot/reference preserved. No capacity, stock, facility subtype, certification, or current operating status has been inferred.
+- BPS's *Direktori Perusahaan Perkebunan Kelapa Sawit Indonesia 2025* was identified as a future legal-identity cross-check source. Its described fields include legal company name/status, address, telephone, headquarters and email; individual BPS records were not extracted or asserted for these GIMNI leads: https://www.bps.go.id/id/publication/2026/09/30/e895d1a25bd8b51c4136ae1a/direktori-perusahaan-perkebunan-kelapa-sawit-indonesia-2025.html
+
+### 56.52.2 Distinct synthetic palm-oil-mill fixture
+
+- Migration 074 added a second synthetic facility `[TEST FIXTURE] Alpha Palm Oil Mill` with `facility_type='palm_oil_mill'`, separate from the existing `[TEST FIXTURE] Alpha Kernel Crushing Plant` with `facility_type='kernel_crushing_plant'`.
+- The new facility is `planned` and `unverified`, with no asserted street address, coordinates, permit, production, capacity, stock, certification or availability. Its operator organization/vendor and Project link are also explicitly synthetic.
+- Seed batch `P2A-SEED-20261121-02` is separately removable. Both facility overlay rows remain editable by Admin/PM at Project level through `project_facility_label`, `project_location_notes`, operational contacts, capacity fields, delivery window, Project terms and notes. Global legal/facility identity remains protected by existing RLS.
+- UAT query confirms exactly two seed facility overlays and preserves the two distinct facility types.
+
+### 56.52.3 Candidate register and Admin verification control
+
+- Migration 074 created `p2a_master_data_candidates`, Project-scoped with FORCE RLS, no runtime DELETE grant/policy, provenance snapshot, source name/URL/reference, seed markers and before/after audit.
+- PM can create and revise working candidate name/category/location/notes. PM cannot modify source provenance, source snapshot, verification status, reviewer or review timestamp. Platform Admin alone can make verification decisions.
+- Migration 075 makes Admin verification-status changes automatically stamp `reviewed_by` and `reviewed_at`; all changes are audited.
+- Seed/public candidate inventory: 4 rows total — 3 GIMNI public candidates and 1 synthetic palm-oil-mill facility candidate. All 3 public candidates remain unverified.
+- Permission backtest: PM read 4 rows in the Alpha Project and 0 in the second Project; PM note update and restore passed; PM provenance and verification changes were denied; Finance saw 0 rows; Admin verification transition stamped its own reviewer ID and timestamp. A temporary PM create/update test row was deleted by the database owner after the runtime DELETE denial was confirmed.
+
+### 56.52.4 Product master and source-backed PKE classification draft
+
+- Existing `PKC` catalog item and its `[TEST FIXTURE]` draft specification were left unchanged. No fixture numeric limit was promoted to a standard or buyer specification.
+- Migration 076 added a distinct `PKE` product catalog entry: `Palm Kernel Expeller (PKE) / Palm Kernel Meal (PKM)`. It remains `classification_status='unverified'`; the existing `PKC` code was not silently merged or renamed.
+- Permenperin No. 32 Tahun 2024, Lampiran Kelompok Komoditas Turunan II, defines PKE/PKM as bungkil from palm-kernel processing that has not undergone chemical processing; lists tariff positions `ex 2306.60.10` and `ex 2306.60.90`; describes solid/powder form containing oil/fat; and qualitative identification. The PKE/PKM row does not prescribe numerical commercial limits: https://peraturan.bpk.go.id/Download/355456/permenperin-no-32-tahun-2024.pdf
+- BSN's catalogue lists SNI 7856:2017 *Bungkil inti kelapa sawit* with status `Berlaku`. The catalogue page does not expose the full standard text; the full standard and test-method details were not reviewed here: https://pesta.bsn.go.id/produk/detail/11135-sni78562017
+- Migration 076 created `project_product_requirements`, a Project-scoped RLS/audited overlay. It holds a draft PKE/PKM regulatory identity baseline under seed batch `P2A-SEED-20261121-03`. Numerical limits are explicitly `NULL`; the notes state that buyer contract and batch COA must define commercial thresholds. This is not a buyer specification, COA, certification or approved commercial limit.
+- PM can create/update Project product requirement drafts, but cannot change source provenance or approval status. Platform Admin alone can approve/reject and the trigger stamps `approved_by` and `approved_at`.
+- The old PKC fixture specification remains draft and unchanged.
+
+### 56.52.5 Migrations, backups and UAT verification
+
+Neon project `purple-base-63944903`, UAT branch `br-young-boat-b3re832d` only:
+
+| Migration | SHA-256 | Status |
+|---|---|---|
+| 072 `072_p2a_project_pks_participation.sql` | `76e094238f430835fe068fd733e8eb111363d5d686507f89646e9f42c9579107` | Applied |
+| 073 `073_p2a_platform_admin_supplier_read.sql` | `6f7e84ad7823de9f29a9545dd877ed43fb0e04b1faa7004d3afe5b736f7cb010` | Applied |
+| 074 `074_p2a_candidate_register_and_mill_fixture.sql` | `c59e8a1f9e31215f49a5f83b42cb814f6f99d787f3d4f5a59ec2e238f227ce27` | Applied |
+| 075 `075_p2a_candidate_review_stamps.sql` | `d8567f9e7fc09e200bed8133a36031f6f597f26a6262b044fd1173bc2b56ec23` | Applied |
+| 076 `076_p2a_project_product_requirements.sql` | `7ee71fbb5db52fd1a561fee1ab3ebfb855c4c90db6e43d0d3bc90b63bc8abfa0` | Applied |
+
+- UAT migration ledger is contiguous through 076. Production branch `br-damp-shape-b3xlh4nr` was read-only checked and remains at migration 053; no Production writes were made.
+- Before 074, targeted backup snapshots were created under `p2a_backup_072_20261121` for candidate organization/vendor/site/supplier/overlay rows. The target IDs were absent before insertion (zero-row snapshots). Before 076, product catalog and specification snapshots preserved the pre-existing PKC fixture (one row each); pre-076 PM product permission snapshots were also retained.
+- PM facility overlay alias/location edit and restore: PASS. PM candidate create/update: PASS; runtime DELETE denied; exact temporary backtest row cleaned by owner and zero remaining. PM candidate provenance/verification write: DENIED as intended. Admin candidate verification stamp: PASS. Finance candidate visibility: zero rows.
+- PM product requirement read/update: PASS; PM approval update: DENIED as intended. Admin approval status transition recorded reviewer identity/time: PASS. Finance product requirement visibility: zero rows. Temporary PM create/update product requirement row was removed by owner after runtime DELETE denial; zero remaining.
+- UAT now contains 2 synthetic facility overlays, 4 candidate rows (3 public unverified + 1 synthetic), 1 draft PKE/PKM Project requirement, and 27 P2-A audit events at the time of the final count query.
+
+### 56.52.6 Source/API/UI and CI state
+
+- `src/index.ts`: authenticated GET/POST/PATCH APIs for Project facility catalog/participation, candidate register and Project product requirements. Permission gates are Project-scoped; candidate verification and product requirement approval are Platform Admin-only.
+- `frontend/src/App.tsx`: PKS & Supplier workspace now includes editable Project facility overlays, editable public candidate register, and editable Project product requirement drafts. It displays source/seed status and separates draft edits from Admin verification/approval.
+- `src/role-catalogue.ts`: PM role template includes Project product requirement view/manage permissions.
+- `src/route-registry.test.ts`, migration contract tests 074/075/076 and `package.json`: added regression coverage for new routes, migration hashes, RLS/approval contracts and PKE classification safeguards.
+- Latest Unit Tests workflow `44883881193`: SUCCESS. Latest Dependency Audit workflow `44883881205`: SUCCESS. The Unit Tests job completed offline tests, backend typecheck, frontend typecheck and frontend build successfully.
+- Authenticated HTTP/browser acceptance has not been run because deployment is deferred per owner instruction. Do not claim the UI is live or that a real PM session has edited it in-browser.
+- No explicit Vercel deployment/promotion action, PR merge or Production migration was performed in this section. GitHub branch updates may trigger repository-configured automatic Vercel activity; its actual state was not inspected or modified because deployment work is deferred.
+
+### 56.52.7 Remaining P2-A gates before P2-B
+
+1. Final combined deployment/preview and authenticated browser acceptance session, after all P2-A/P15 source and UAT work is consolidated.
+2. Admin/PM browser verification of candidate create/edit, Project facility overlay edit, product draft create/edit, Admin-only verify/approve, audit trail and cross-Project isolation.
+3. Obtain/confirm the full SNI 7856:2017 text and buyer-specific COA/contract limits before setting numeric PKE commercial specifications.
+4. Independently verify GIMNI candidates against BPS legal-entity records and direct source evidence before canonical organization/facility onboarding.
+5. Implement the separate global master-data change-request/approval workflow before allowing legal identity, registration or verified facility identity changes.
+6. Add distinct facility-product capability evidence and capacity/quality provenance; do not infer PKE production capability from the facility name/type.
+7. Keep all three seed batches removable by exact `seed_batch_id`; owner/PM must decide whether to retain them as documented UAT demo fixtures or clean them after review.

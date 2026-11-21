@@ -1915,6 +1915,23 @@ async function requireProjectPermission(
   return true;
 }
 
+async function requireProjectDocumentPermission(
+  req: express.Request,
+  res: express.Response,
+  projectId: string,
+  permissionCode: string,
+): Promise<boolean> {
+  const { rows } = await req.db.query("SELECT public.pke_is_platform_admin() AS is_admin");
+  if (rows[0]?.is_admin === true) {
+    await req.db.query(
+      "SELECT set_config('app.current_project_id',$1,true), set_config('app.current_role','admin',true), set_config('app.current_permission_code',$2,true)",
+      [projectId, permissionCode],
+    );
+    return true;
+  }
+  return requireProjectPermission(req, res, projectId, permissionCode);
+}
+
 async function findExplicitProjectPermission(req: express.Request, projectId: string, permissionCodes: string[]): Promise<any | null> {
   const principalId=req.user?.id; if(!principalId) return null;
   const {rows}=await req.db.query(
@@ -2288,7 +2305,7 @@ app.get("/api/v1/country-packs", requireAuth, requireAdmin, async (req: express.
 // List document requirements for a project (derived from country requirements)
 app.get("/api/v1/projects/:projectId/document-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
-  const hasPerm = await requireProjectPermission(req, res, projectId, "documents.view");
+  const hasPerm = await requireProjectDocumentPermission(req, res, projectId, "documents.view");
   if (!hasPerm) return;
   try {
     const { rows } = await req.db.query(
@@ -2339,7 +2356,7 @@ app.get("/api/v1/projects/:projectId/document-requirements", requireAuth, async 
 // List uploaded documents for a project
 app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
-  const hasPerm = await requireProjectPermission(req, res, projectId, "documents.view");
+  const hasPerm = await requireProjectDocumentPermission(req, res, projectId, "documents.view");
   if (!hasPerm) return;
   try {
     const { rows } = await req.db.query(
@@ -2392,7 +2409,7 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
 // Register a document file reference for a project requirement
 app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
-  if (!(await requireProjectPermission(req, res, projectId, "documents.create"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.create"))) return;
   const { projectRequirementId, fileReference, objectKey, originalFilename, mimeType, sha256Checksum, contentLength, versionNo, expiryDate, notes } = req.body ?? {};
   if (!projectRequirementId || !fileReference || !objectKey || !originalFilename || !sha256Checksum || contentLength === undefined || !mimeType) {
     return res.status(400).json({ error: "Project requirement, private object key, filename, MIME type, SHA-256 and content length are required." });
@@ -2462,7 +2479,7 @@ app.patch("/api/v1/documents/:id", requireAuth, async (req: express.Request, res
     );
     if (existingRows.length === 0) return res.status(404).json({ error: "Not found" });
     const projectId = existingRows[0].project_id;
-    if (!(await requireProjectPermission(req, res, projectId, "documents.update"))) return;
+    if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.update"))) return;
     const reviewerId = req.user?.id || null;
     const { rows } = await req.db.query(
       `UPDATE project_export_documents
@@ -2496,7 +2513,7 @@ app.post("/api/v1/storage/presigned-upload", requireAuth, async (req: express.Re
   const key = String(objectKey);
   const m = /^projects\/([0-9a-fA-F-]{36})\//.exec(key);
   if (!m) return res.status(400).json({ error: "Object key must be namespaced to a project", code: "INVALID_OBJECT_KEY" });
-  if (!(await requireProjectPermission(req, res, m[1], "documents.create"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, m[1], "documents.create"))) return;
   const status = privateStorage.status();
   if (!status.available) {
     return res.status(503).json({ error: "Object storage unavailable", code: "STORAGE_UNAVAILABLE", reason: status.reason, bucket: status.bucket });
@@ -2520,7 +2537,7 @@ app.get("/api/v1/storage/presigned-download/*objectKey", requireAuth, async (req
   if (!objectKey) return res.status(400).json({ error: "objectKey is required" });
   const m = /^projects\/([0-9a-fA-F-]{36})\//.exec(objectKey);
   if (!m) return res.status(400).json({ error: "Invalid object key namespace", code: "INVALID_OBJECT_KEY" });
-  if (!(await requireProjectPermission(req, res, m[1], "documents.view"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, m[1], "documents.view"))) return;
   const status = privateStorage.status();
   if (!status.available) {
     return res.status(503).json({ error: "Object storage unavailable", code: "STORAGE_UNAVAILABLE", reason: status.reason, bucket: status.bucket });
@@ -5627,7 +5644,7 @@ app.post("/api/v1/country-export-document-requirements", requireAuth, requireAdm
 app.get("/api/v1/project-export-document-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
   if (!projectId) return res.status(400).json({ error: "projectId is required" });
-  if (!(await requireProjectPermission(req, res, projectId, "documents.view"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT per.id, per.project_id, per.country_requirement_id, per.is_required,
@@ -5665,7 +5682,7 @@ app.post("/api/v1/project-export-document-requirements", requireAuth, async (req
   if (!projectId || !countryRequirementId) {
     return res.status(400).json({ error: "Required fields: projectId, countryRequirementId" });
   }
-  if (!(await requireProjectPermission(req, res, String(projectId), "documents.create"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, String(projectId), "documents.create"))) return;
   try {
     const { rows } = await req.db.query(
       `INSERT INTO project_export_document_requirements (project_id, country_requirement_id, is_required, status, override_reason)
@@ -5682,7 +5699,7 @@ app.post("/api/v1/project-export-document-requirements", requireAuth, async (req
 app.get("/api/v1/project-export-documents", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
   if (!projectId) return res.status(400).json({ error: "projectId is required" });
-  if (!(await requireProjectPermission(req, res, projectId, "documents.view"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT d.id, d.project_id, d.project_requirement_id, d.file_reference, d.object_key,
@@ -5717,7 +5734,7 @@ app.post("/api/v1/project-export-documents", requireAuth, async (req: express.Re
   if (!projectId || !projectRequirementId || !fileReference || !objectKey || !originalFilename) {
     return res.status(400).json({ error: "Required fields: projectId, projectRequirementId, fileReference, objectKey, originalFilename" });
   }
-  if (!(await requireProjectPermission(req, res, String(projectId), "documents.create"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, String(projectId), "documents.create"))) return;
   const key = String(objectKey);
   if (!key.startsWith(`projects/${projectId}/`)) {
     return res.status(400).json({ error: "Invalid object key namespace", code: "INVALID_OBJECT_KEY" });
@@ -5757,7 +5774,7 @@ app.patch("/api/v1/project-export-documents/:id", requireAuth, async (req: expre
       [req.params.id],
     );
     if (existingRows.length === 0) return res.status(404).json({ error: "Not found" });
-    if (!(await requireProjectPermission(req, res, existingRows[0].project_id, "documents.update"))) return;
+    if (!(await requireProjectDocumentPermission(req, res, existingRows[0].project_id, "documents.update"))) return;
     const reviewerId = req.user?.id || null;
     const { rows } = await req.db.query(
       `UPDATE project_export_documents

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode, type FormEvent } from "react";
-import { get, post, patch } from "./api";
+import { get, post, patch, del } from "./api";
 
 type Row = Record<string, any>;
 type Props = { projectId: string; activeUser?: { id?: string; projectPermissions?: string[]; platformAdmin?: boolean } };
@@ -260,6 +260,18 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     finally { setActionBusy(false); }
   }
 
+  async function deleteMaster() {
+    if(!masterId || !window.confirm("Hapus record master P16 ini? Record yang sudah dipakai data operasional akan ditolak database.")) return;
+    setActionBusy(true); setMasterMessage("");
+    try {
+      await del(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}`);
+      setMasterId(null); setMasterDraft(""); setMasterMessage("Record master berhasil dihapus.");
+      if(canViewPorts){const p=await get<{ports?:Row[]}>(`/ports?projectId=${encodeURIComponent(projectId)}`);setPorts(p.ports||[]);}
+      if(canViewWarehouses){const w=await get<{warehouses?:Row[]}>(`/warehouses?projectId=${encodeURIComponent(projectId)}`);setWarehouses(w.warehouses||[]);}
+    } catch(e:any) { setMasterMessage(e?.message||"Penghapusan ditolak karena record masih direferensikan atau tidak diizinkan."); }
+    finally { setActionBusy(false); }
+  }
+
   async function reviewProjectDocument(documentId:string,status:"under_review"|"approved"|"rejected") {
     setActionBusy(true); setEvidenceMessage("");
     try {
@@ -307,7 +319,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
         <label>Data master (JSON, hanya kolom yang diizinkan akan disimpan)
           <textarea rows={7} value={masterDraft} onChange={e => setMasterDraft(e.target.value)} spellCheck={false} />
         </label>
-        <div className="p16-editor__actions"><button type="submit" disabled={actionBusy}>{actionBusy ? "Menyimpan…" : "Simpan sebagai diajukan"}</button>{masterId && <button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={async () => { setActionBusy(true); try { await patch(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}/review`, {status:"verified",reviewNote}); setMasterMessage("Verifikasi independen tersimpan."); } catch (e:any) { setMasterMessage(e?.message || "Verifikasi gagal: reviewer harus berbeda dari pengaju."); } finally { setActionBusy(false); } }}>Verifikasi independen</button>}{masterMessage && <span role="status">{masterMessage}</span>}</div>
+        <div className="p16-editor__actions"><button type="submit" disabled={actionBusy}>{actionBusy ? "Menyimpan…" : "Simpan sebagai diajukan"}</button>{masterId && <button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={async () => { setActionBusy(true); try { await patch(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}/review`, {status:"verified",reviewNote}); setMasterMessage("Verifikasi independen tersimpan."); } catch (e:any) { setMasterMessage(e?.message || "Verifikasi gagal: reviewer harus berbeda dari pengaju."); } finally { setActionBusy(false); } }}>Verifikasi independen</button>}{masterId && <button type="button" className="p16-danger" disabled={actionBusy} onClick={deleteMaster}>Hapus master</button>}{masterMessage && <span role="status">{masterMessage}</span>}</div>
       </form>}
       {error && <div className="p16-error" role="alert">{error}</div>}
 

@@ -4039,7 +4039,7 @@ app.get("/api/v1/ports/:portId", requireAuth, async (req: express.Request, res: 
       req.db.query("SELECT * FROM public.port_terminals WHERE port_id=$1::uuid ORDER BY name", [portId]),
       req.db.query("SELECT b.*,t.name AS terminal_name FROM public.port_berths b JOIN public.port_terminals t ON t.id=b.terminal_id WHERE t.port_id=$1::uuid ORDER BY t.name,b.berth_code", [portId]),
       req.db.query("SELECT * FROM public.port_channels WHERE port_id=$1::uuid ORDER BY channel_name", [portId]),
-      req.db.query("SELECT * FROM public.port_anchorages WHERE port_id=$1::uuid ORDER BY anchorage_name", [portId]),
+      req.db.query("SELECT * FROM public.port_anchorages WHERE port_id=$1::uuid ORDER BY name NULLS LAST,anchorage_code", [portId]),
       req.db.query("SELECT * FROM public.port_depth_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
       req.db.query("SELECT * FROM public.port_tide_observations WHERE port_id=$1::uuid ORDER BY observed_at DESC LIMIT 100", [portId]),
       req.db.query("SELECT * FROM public.port_loading_services WHERE port_id=$1::uuid ORDER BY service_type", [portId]),

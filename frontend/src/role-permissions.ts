@@ -121,6 +121,6 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
 }
 
 export function visiblePageKeys(user: WorkspaceAccessUser): WorkspacePageKey[] {
-  const keys: WorkspacePageKey[] = ['dashboard', 'projects', 'contracts', 'operations', 'finance', 'compliance', 'journal-entries', 'shipment-allocations', 'cash-advances', 'payment-instructions', 'reports', 'notifications', 'access', 'buyer', 'supplier', 'transporter', 'warehouse', 'funder', 'p1-workflows', 'pks-sites'];
+  const keys: WorkspacePageKey[] = ['dashboard', 'projects', 'contracts', 'operations', 'finance', 'compliance', 'journal-entries', 'shipment-allocations', 'cash-advances', 'payment-instructions', 'reports', 'notifications', 'access', 'buyer', 'supplier', 'transporter', 'warehouse', 'funder', 'p1-workflows', 'pks-sites', 'port-network'];
   return keys.filter(key => hasPageAccess(key, user));
 }

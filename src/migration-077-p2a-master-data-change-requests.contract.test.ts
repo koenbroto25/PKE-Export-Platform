@@ -6,7 +6,7 @@ const migration = readFileSync(new URL("../migrations/077_p2a_master_data_change
 
 describe("Migration 077 P15 canonical master-data approval workflow", () => {
   it("matches the exact UAT migration SHA-256", () => {
-    expect(createHash("sha256").update(migration).digest("hex")).toBe("HASH_PLACEHOLDER");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe("da96283f683760f4679edb701f5b53bafc7b69ead9bf834e825b03001839e208");
   });
   it("creates a Project-scoped FORCE-RLS request register without runtime DELETE", () => {
     expect(migration).toContain("CREATE TABLE public.p2a_master_data_change_requests");

@@ -159,11 +159,11 @@ export function validateThreeWayMatch(input: {
   if (input.po.projectId !== input.receipt.projectId || input.po.projectId !== input.invoice.projectId) return { ok:false, reason:"CROSS_PROJECT_REFERENCE" };
   if (input.po.supplierId !== input.invoice.supplierId || (input.receipt.supplierId && input.receipt.supplierId !== input.po.supplierId)) return { ok:false, reason:"SUPPLIER_MISMATCH" };
   if (input.po.currencyCode !== input.invoice.currencyCode || input.po.currencyCode !== input.currencyCode) return { ok:false, reason:"CURRENCY_MISMATCH" };
-  if (input.receipt.unitCode !== input.unitCode) return { ok:false, reason:"UNIT_MISMATCH" };
+  if (input.receipt.unitCode !== input.unitCode || input.po.items.some(item=>item.unitCode!==input.unitCode)) return {ok:false, reason:"UNIT_MISMATCH"};
   const poQty = input.po.items.reduce((sum,item)=>sum+item.quantity,0);
   const poAmount = input.po.items.reduce((sum,item)=>sum+item.quantity*item.unitPrice,0);
-  if (input.matchedQuantity - input.receipt.quantity > tolerance || input.matchedQuantity - poQty > tolerance) return { ok:false, reason:"QUANTITY_OVER_MATCH" };
-  if (Math.abs(input.matchedQuantity-input.receipt.quantity)>tolerance) return { ok:false, reason:"RECEIPT_QUANTITY_MISMATCH" };
+  if (Math.abs(input.matchedQuantity-input.receipt.quantity)>tolerance) return {ok:false, reason:"RECEIPT_QUANTITY_MISMATCH"};
+  if (input.matchedQuantity - poQty > tolerance) return {ok:false, reason:"QUANTITY_OVER_MATCH"};
   if (Math.abs(input.matchedAmount-input.invoice.totalAmount)>tolerance) return { ok:false, reason:"INVOICE_AMOUNT_MISMATCH" };
   if (input.matchedAmount - poAmount > tolerance) return { ok:false, reason:"PO_AMOUNT_EXCEEDED" };
   return {ok:true};

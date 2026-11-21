@@ -439,6 +439,10 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
     () => projectId ? get(`/projects/${projectId}/pks-candidates`) : Promise.resolve({ candidates: [], canManage: false, canVerify: false }),
     [projectId],
   );
+  const productRequirements = useLoad<{ requirements?: AnyRecord[]; products?: AnyRecord[]; canManage?: boolean; canApprove?: boolean }>(
+    () => projectId ? get(`/projects/${projectId}/product-requirements`) : Promise.resolve({ requirements: [], products: [], canManage: false, canApprove: false }),
+    [projectId],
+  );
   const [editingId, setEditingId] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -456,9 +460,21 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
     locationText: '', sourceName: '', sourceUrl: '', sourceReference: '',
     notes: '', verificationStatus: 'unverified',
   });
+  const [requirementEditingId, setRequirementEditingId] = useState('');
+  const [requirementFormOpen, setRequirementFormOpen] = useState(false);
+  const [requirementBusy, setRequirementBusy] = useState(false);
+  const [requirementForm, setRequirementForm] = useState({
+    productId: '', requirementCode: '', specificationLabel: '',
+    measurementBasis: 'qualitative_identity; buyer_numeric_limits_not_set',
+    legalDefinition: '', tariffPositions: '', physicalForm: '', colour: '',
+    numericLimitsNote: '', identityTestMethod: '', notes: '',
+    sourceReference: '', approvalStatus: 'draft',
+  });
   const canManage = data.data?.canManage === true;
   const canManageCandidates = candidates.data?.canManage === true;
   const canVerifyCandidates = candidates.data?.canVerify === true;
+  const canManageProducts = productRequirements.data?.canManage === true;
+  const canApproveProducts = productRequirements.data?.canApprove === true;
   const startEdit = (row: AnyRecord) => {
     const window = row.delivery_window || {};
     setEditingId(String(row.id));
@@ -568,6 +584,85 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
       setCandidateBusy(false);
     }
   };
+  const startRequirementEdit = (row: AnyRecord) => {
+    const spec = row.specification_data || {};
+    const methods = row.test_methods || {};
+    setRequirementEditingId(String(row.id));
+    setRequirementFormOpen(true);
+    setRequirementForm({
+      productId: String(row.product_id),
+      requirementCode: row.requirement_code || '',
+      specificationLabel: row.specification_label || '',
+      measurementBasis: row.measurement_basis || 'as_received',
+      legalDefinition: spec.legal_definition || '',
+      tariffPositions: Array.isArray(spec.tariff_positions) ? spec.tariff_positions.join(', ') : '',
+      physicalForm: spec.physical_form_at_25c || '',
+      colour: spec.colour_description || '',
+      numericLimitsNote: spec.numeric_limits_note || '',
+      identityTestMethod: methods.identity || '',
+      notes: row.notes || '',
+      sourceReference: row.source_reference || '',
+      approvalStatus: row.approval_status || 'draft',
+    });
+  };
+  const resetRequirementForm = () => {
+    setRequirementEditingId('');
+    setRequirementFormOpen(false);
+    setRequirementForm({
+      productId: '', requirementCode: '', specificationLabel: '',
+      measurementBasis: 'qualitative_identity; buyer_numeric_limits_not_set',
+      legalDefinition: '', tariffPositions: '', physicalForm: '', colour: '',
+      numericLimitsNote: '', identityTestMethod: '', notes: '',
+      sourceReference: '', approvalStatus: 'draft',
+    });
+  };
+  const saveProductRequirement = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!canManageProducts) return;
+    setRequirementBusy(true);
+    const specificationData = {
+      legal_definition: requirementForm.legalDefinition || null,
+      tariff_positions: requirementForm.tariffPositions.split(',').map(v => v.trim()).filter(Boolean),
+      physical_form_at_25c: requirementForm.physicalForm || null,
+      colour_description: requirementForm.colour || null,
+      numeric_limits: null,
+      numeric_limits_note: requirementForm.numericLimitsNote || 'Buyer/contract COA thresholds are not set.',
+    };
+    const testMethods = { identity: requirementForm.identityTestMethod || null };
+    try {
+      if (requirementEditingId) {
+        const body: AnyRecord = {
+          specificationLabel: requirementForm.specificationLabel,
+          measurementBasis: requirementForm.measurementBasis,
+          specificationData,
+          testMethods,
+          notes: requirementForm.notes || null,
+        };
+        if (canApproveProducts) body.approvalStatus = requirementForm.approvalStatus;
+        await patch(`/projects/${projectId}/product-requirements/${requirementEditingId}`, body);
+      } else {
+        await post(`/projects/${projectId}/product-requirements`, {
+          productId: requirementForm.productId,
+          requirementCode: requirementForm.requirementCode,
+          specificationLabel: requirementForm.specificationLabel,
+          measurementBasis: requirementForm.measurementBasis,
+          specificationData,
+          testMethods,
+          sourceType: 'manual',
+          sourceReference: requirementForm.sourceReference,
+          sourceSnapshot: {},
+          notes: requirementForm.notes || null,
+        });
+      }
+      onNotice('success', requirementEditingId ? 'Draft persyaratan produk berhasil diperbarui.' : 'Draft persyaratan produk berhasil ditambahkan.');
+      resetRequirementForm();
+      productRequirements.refresh();
+    } catch (error) {
+      onNotice('error', error instanceof Error ? error.message : 'Draft persyaratan produk tidak dapat disimpan.');
+    } finally {
+      setRequirementBusy(false);
+    }
+  };
   return <>
     <PageTitle eyebrow="P2-A · P15 SUPPLY MASTER" title="PKS & Supplier Project" subtitle="Kelola partisipasi operasional, kandidat perusahaan/fasilitas, dan kapasitas Project. Identitas legal/fasilitas global tetap melalui verifikasi terpisah." />
     {!projectId ? <Card><EmptyState title="Pilih Project terlebih dahulu" desc="Pilih Project pada pemilih di bagian atas untuk melihat dan mengubah data PKS yang terkait." /></Card> : <>
@@ -628,6 +723,34 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
           { key: 'notes', label: 'Catatan', render: r => r.notes || '—' },
           { key: 'actions', label: 'Aksi', render: r => canManageCandidates ? <ActionButton variant="secondary" onClick={() => startCandidateEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
         ]} emptyTitle="Belum ada kandidat" emptyText="Tambahkan kandidat perusahaan atau fasilitas dengan sumber yang dapat ditelusuri." />}
+      </Card>
+      <Card><PanelHeading title="Master produk & persyaratan Project" description="Katalog produk menjadi referensi; batas kualitas dan COA bersifat spesifik kontrak/buyer. Angka numerik tidak diisi otomatis dari sumber yang tidak menetapkannya." action={canManageProducts ? <ActionButton onClick={() => { setRequirementEditingId(''); setRequirementFormOpen(true); }}>Tambah draft persyaratan</ActionButton> : undefined} />
+        {requirementFormOpen && canManageProducts && <form className="form-grid" onSubmit={saveProductRequirement}>
+          {!requirementEditingId && <>
+            <FormField label="Produk"><select required value={requirementForm.productId} onChange={e => setRequirementForm(v => ({ ...v, productId: e.target.value }))}><option value="">Pilih produk</option>{(productRequirements.data?.products || []).map(p => <option key={p.id} value={p.id}>{p.product_code} · {p.product_name}</option>)}</select></FormField>
+            <FormField label="Kode requirement"><input required maxLength={120} value={requirementForm.requirementCode} onChange={e => setRequirementForm(v => ({ ...v, requirementCode: e.target.value }))} /></FormField>
+            <FormField label="Referensi sumber"><input required value={requirementForm.sourceReference} onChange={e => setRequirementForm(v => ({ ...v, sourceReference: e.target.value }))} /></FormField>
+          </>}
+          <FormField label="Nama draft spesifikasi" wide><input required maxLength={240} value={requirementForm.specificationLabel} onChange={e => setRequirementForm(v => ({ ...v, specificationLabel: e.target.value }))} /></FormField>
+          <FormField label="Basis pengukuran" wide><input value={requirementForm.measurementBasis} onChange={e => setRequirementForm(v => ({ ...v, measurementBasis: e.target.value }))} /></FormField>
+          <FormField label="Definisi produk" wide><textarea rows={2} value={requirementForm.legalDefinition} onChange={e => setRequirementForm(v => ({ ...v, legalDefinition: e.target.value }))} /></FormField>
+          <FormField label="Pos tarif (pisahkan koma)"><input value={requirementForm.tariffPositions} onChange={e => setRequirementForm(v => ({ ...v, tariffPositions: e.target.value }))} /></FormField>
+          <FormField label="Bentuk fisik"><input value={requirementForm.physicalForm} onChange={e => setRequirementForm(v => ({ ...v, physicalForm: e.target.value }))} /></FormField>
+          <FormField label="Deskripsi warna"><input value={requirementForm.colour} onChange={e => setRequirementForm(v => ({ ...v, colour: e.target.value }))} /></FormField>
+          <FormField label="Catatan batas numerik" wide><textarea rows={2} value={requirementForm.numericLimitsNote} onChange={e => setRequirementForm(v => ({ ...v, numericLimitsNote: e.target.value }))} placeholder="Isi setelah buyer contract / COA menetapkan batas" /></FormField>
+          <FormField label="Metode identifikasi / pengujian" wide><textarea rows={2} value={requirementForm.identityTestMethod} onChange={e => setRequirementForm(v => ({ ...v, identityTestMethod: e.target.value }))} /></FormField>
+          <FormField label="Catatan kerja" wide><textarea rows={2} value={requirementForm.notes} onChange={e => setRequirementForm(v => ({ ...v, notes: e.target.value }))} /></FormField>
+          {canApproveProducts && requirementEditingId && <FormField label="Status persetujuan"><select value={requirementForm.approvalStatus} onChange={e => setRequirementForm(v => ({ ...v, approvalStatus: e.target.value }))}><option value="draft">Draft</option><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="superseded">Superseded</option></select></FormField>}
+          <div className="form-actions"><ActionButton variant="secondary" onClick={resetRequirementForm}>Batal</ActionButton><button className="primary-button" disabled={requirementBusy}>{requirementBusy ? 'Menyimpan…' : 'Simpan draft'}</button></div>
+        </form>}
+        {productRequirements.loading ? <Loading /> : productRequirements.error ? <ErrorState message={productRequirements.error} retry={productRequirements.refresh} /> : <DataTable rows={productRequirements.data?.requirements || []} columns={[
+          { key: 'product', label: 'Produk', render: r => <div className="primary-cell"><strong>{r.product_code} · {r.product_name}</strong><small>{r.requirement_code} · v{r.version_no}</small></div> },
+          { key: 'specification_label', label: 'Draft persyaratan', render: r => <div className="primary-cell"><strong>{r.specification_label}</strong><small>{r.measurement_basis}</small></div> },
+          { key: 'approval_status', label: 'Persetujuan', render: r => <StatusPill value={r.approval_status} /> },
+          { key: 'limits', label: 'Batas numerik', render: r => r.specification_data?.numeric_limits ? 'Terisi' : 'Belum ditetapkan' },
+          { key: 'source', label: 'Sumber', render: r => <div className="primary-cell"><strong>{r.is_seed_data ? 'SEED / MOCK' : r.source_type}</strong><small>{r.source_reference}</small></div> },
+          { key: 'actions', label: 'Aksi', render: r => canManageProducts ? <ActionButton variant="secondary" onClick={() => startRequirementEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
+        ]} emptyTitle="Belum ada draft persyaratan produk" emptyText="Tambahkan persyaratan Project berdasarkan buyer contract, COA, atau sumber resmi yang ditelusuri." />}
       </Card>
     </>}
   </>;

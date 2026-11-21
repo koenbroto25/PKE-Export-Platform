@@ -1,0 +1,608 @@
+{
+  "schema_version": 1,
+  "purpose": "verified_uat_history_only_not_production_history",
+  "project_id": "purple-base-63944903",
+  "branch_id": "br-young-boat-b3re832d",
+  "database": "neondb",
+  "verified_at": "2026-11-21",
+  "applied_count": 85,
+  "pending_migrations": [],
+  "source_recovery_note": "Read directly from Neon UAT branch after P16 migrations 083-085. This is UAT-only evidence and must never be used as Production migration history.",
+  "entries": [
+    {
+      "id": 1,
+      "filename": "001_initial_schema.sql",
+      "sha256": "ccbd616845ba0536f871fe3ff359ae366a0aa553e4313252252f2771220cf15e",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:33.872Z"
+    },
+    {
+      "id": 2,
+      "filename": "002_phase2_business_foundations.sql",
+      "sha256": "ec17f4d384856e35ccc27a0e0eba274dc2c05ad2b7fbabaf4a33a4f59f6fa85a",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:34.266Z"
+    },
+    {
+      "id": 3,
+      "filename": "003_rls_policies.sql",
+      "sha256": "2e713822b80c2aa90a8d9c38cf9a6fd4676bb2a53ed10119ccaa05b123e6082e",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:34.714Z"
+    },
+    {
+      "id": 4,
+      "filename": "004_operational_workflow.sql",
+      "sha256": "5ce63825b19627f675d3c2b9565d3e2c4a29310490ac1fcabe9ee65ca71477c6",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:35.307Z"
+    },
+    {
+      "id": 5,
+      "filename": "005_inventory_and_receipts.sql",
+      "sha256": "7c7c3d235ff34ac89f626a038589aefa8b2c143ce963b6967c6e2e53433f159d",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:35.439Z"
+    },
+    {
+      "id": 6,
+      "filename": "006_workflows_and_stages.sql",
+      "sha256": "5cf15ff15587ed92d35cb620ea7bb32cc70adeb72fd82ba7197cb0717e0a4432",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:35.564Z"
+    },
+    {
+      "id": 7,
+      "filename": "007_rls_operational_policies.sql",
+      "sha256": "52f4fe940c04ed0209b6d2f6f421bee43f906cbf0acedea36c798c664dd0f313",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:35.689Z"
+    },
+    {
+      "id": 8,
+      "filename": "008_financial_master_data.sql",
+      "sha256": "5d2d954dfd6914a160d4bb523854f09c31bd481bc186a0d94270a13217058146",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:35.814Z"
+    },
+    {
+      "id": 9,
+      "filename": "009_cost_obligations_and_payment.sql",
+      "sha256": "0838345126b741db7824141d7c730ad1d99bbe54983f373514f3896770294099",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:35.976Z"
+    },
+    {
+      "id": 10,
+      "filename": "010_ap_ar_cash.sql",
+      "sha256": "5a43330a656752974718fd0aa10d2f1209a6ee337e424795c713008c4f9c0b51",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:36.107Z"
+    },
+    {
+      "id": 11,
+      "filename": "011_cash_advances_and_schedules.sql",
+      "sha256": "fef8eaab7410c2dcde8c040d5a0640f262fe93dffdc333dd762b1b54f68fd030",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:36.247Z"
+    },
+    {
+      "id": 12,
+      "filename": "012_accounting_ledger_and_fx.sql",
+      "sha256": "0f91fc9c29dbcc696e3729e2c77bad8163bfd0a8bda9d000587fd4772e80d03d",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:36.389Z"
+    },
+    {
+      "id": 13,
+      "filename": "013_fx_management.sql",
+      "sha256": "8458d61adbf26910bf6ca8190cffe04b4ce4e48862433455acc0399e5b24d75b",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:36.532Z"
+    },
+    {
+      "id": 14,
+      "filename": "014_settlement_and_profitability.sql",
+      "sha256": "124b7536de59efa7f47d7e1bad21cec89d296915bfa4fb208fcbfeee6b14d277",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:36.662Z"
+    },
+    {
+      "id": 15,
+      "filename": "015_regulatory_source_registry.sql",
+      "sha256": "5663504dc1393f683d337c631b08889f0e844eee786f7ee4950c08395f730638",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:36.787Z"
+    },
+    {
+      "id": 16,
+      "filename": "016_reporting_bi.sql",
+      "sha256": "78513bce29a7df12ce283e9c9eef088622592d3d12646a2cf9acffbebb76d0d1",
+      "status": "baselined",
+      "applied_at": "2026-11-07T00:43:36.904Z"
+    },
+    {
+      "id": 17,
+      "filename": "017_neon_auth_identity_mapping.sql",
+      "sha256": "ca5cda943326a8873958cab083054d4b7912ba11111c3642bc5f4d67d42c9f4d",
+      "status": "applied",
+      "applied_at": "2026-11-07T00:43:51.424Z"
+    },
+    {
+      "id": 18,
+      "filename": "018_rls_request_transaction.sql",
+      "sha256": "f7185310a2391a14921eca2b68c31bd778948d03c7cd67104de716cf798464c6",
+      "status": "applied",
+      "applied_at": "2026-11-07T00:43:51.799Z"
+    },
+    {
+      "id": 19,
+      "filename": "019_project_auth_rbac_export_ops.sql",
+      "sha256": "84b2d789cf234cb30a2ba09260c19ee47518fab3554f965545a5d9fbb429e0ed",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:41:44.773Z"
+    },
+    {
+      "id": 20,
+      "filename": "020_runtime_default_privileges.sql",
+      "sha256": "65006cff08490d8cd987d781633e921fa5763ab2422dd830c6e7bfb4bdb82778",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:41:44.773Z"
+    },
+    {
+      "id": 21,
+      "filename": "021_secure_runtime_auth_resolver.sql",
+      "sha256": "ec01b5bc695ce1b8839ce59bd1532d751338351446d594d8d1e1d404ae23e054",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:41:44.773Z"
+    },
+    {
+      "id": 22,
+      "filename": "022_persistent_user_notifications.sql",
+      "sha256": "8f5f762ac52152d022f6d5c8444304307b5b0ae623c61a6ed43f0203537c7475",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:41:44.773Z"
+    },
+    {
+      "id": 23,
+      "filename": "023_accept_project_invitation.sql",
+      "sha256": "f1ad644c003a39401743e445651722e75050d6c61148711edee3fd48d9400906",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:41:44.773Z"
+    },
+    {
+      "id": 24,
+      "filename": "024_tracking_evidence_write_policies.sql",
+      "sha256": "6879e593729d93e661d0222f3f0d3975b02a598180f82947bf3ea2402afc566e",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:41:44.773Z"
+    },
+    {
+      "id": 25,
+      "filename": "025_project_rbac_read_after_write.sql",
+      "sha256": "4b03a64bd628ce11e6a7dd4223e8a60b49a8f1e1c0af332bcf2cc7e6a6c49f35",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:43:38.496Z"
+    },
+    {
+      "id": 26,
+      "filename": "026_fix_invitation_acceptance_ambiguity.sql",
+      "sha256": "c01f4a1f6012946c2c68c6403ff6eb3bfa63a17f8c0324066be121bdb5adf669",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:50:55.852Z"
+    },
+    {
+      "id": 27,
+      "filename": "027_workflow_and_shipment_child_rls.sql",
+      "sha256": "c7c4b09ae3a18dc94a9a9787bfefcfa2f658312e689d1d27c2be8ab397ca3c0d",
+      "status": "applied",
+      "applied_at": "2026-11-07T02:52:33.270Z"
+    },
+    {
+      "id": 28,
+      "filename": "028_project_foundation_module_config.sql",
+      "sha256": "2d9c5edcf8a46e850e1948ce0fc9cabd2c299a07edbae50eaa4c0bf6ba927812",
+      "status": "applied",
+      "applied_at": "2026-11-08T17:31:04.591Z"
+    },
+    {
+      "id": 29,
+      "filename": "029_restrict_set_rls_context_public_execute.sql",
+      "sha256": "d7b9376495a36e5bf5e90539403b674eb39f1df01308744a262eb6519f4ea5d1",
+      "status": "applied",
+      "applied_at": "2026-11-11T14:01:06.807Z"
+    },
+    {
+      "id": 30,
+      "filename": "030_validate_production_foreign_keys.sql",
+      "sha256": "2bb2f8fcc9f947669b1712214d425679e9b6385269d4e471f77f09a028b6b499",
+      "status": "applied",
+      "applied_at": "2026-11-11T14:01:35.415Z"
+    },
+    {
+      "id": 31,
+      "filename": "031_harden_rls_context_function.sql",
+      "sha256": "90a07b35c9b40758ad33c4e6c28407c341dcdd67310c8ead76fe5fe965bde788",
+      "status": "applied",
+      "applied_at": "2026-11-11T14:03:16.993Z"
+    },
+    {
+      "id": 32,
+      "filename": "032_seed_core_currency_reference_data.sql",
+      "sha256": "1944c163d1185e8bf606b411b305f36a0c732d76118934db0a9c57dbb5328f48",
+      "status": "applied",
+      "applied_at": "2026-11-11T14:03:32.720Z"
+    },
+    {
+      "id": 33,
+      "filename": "033_candidate_tenant_scoped_relations_rls_gps_reports.sql",
+      "sha256": "bc759884315ecf3b0716f04581b7677e3ca4ec1dec2c683fab777ca848523029",
+      "status": "applied",
+      "applied_at": "2026-11-12T21:12:21.138Z"
+    },
+    {
+      "id": 34,
+      "filename": "034_harden_trigger_function_execute_privileges.sql",
+      "sha256": "c0265dfe554e55bebe5061ea90a41e74c10e1ff353616174cbfd0f590d46596a",
+      "status": "applied",
+      "applied_at": "2026-11-13T20:41:12.732Z"
+    },
+    {
+      "id": 35,
+      "filename": "035_remove_redundant_ai_rls_policies.sql",
+      "sha256": "6f4425f297202a5618e4914705ea610d2058ef0fe01ebab5468af5824a84fa45",
+      "status": "applied",
+      "applied_at": "2026-11-14T01:35:58.421Z"
+    },
+    {
+      "id": 36,
+      "filename": "036_validate_production_schema_invariants.sql",
+      "sha256": "4a70d8b343c44e26c9592402c4c8dceb3b6a0d11c5f4e619847baff774034a52",
+      "status": "applied",
+      "applied_at": "2026-11-17T21:31:15.111Z"
+    },
+    {
+      "id": 37,
+      "filename": "037_restrict_security_definer_execute.sql",
+      "sha256": "c74f472812aca4e5eb6d7c2e9096b883ddfb232bc011f5096eec745e02b90b85",
+      "status": "applied",
+      "applied_at": "2026-11-18T05:58:32.719Z"
+    },
+    {
+      "id": 38,
+      "filename": "038_admin_managed_neon_auth_user_lifecycle.sql",
+      "sha256": "37344eb4794c36cfd8c5b10e85a4f0ee947cd6bd0951bde8c6b8fb94f147c8d5",
+      "status": "applied",
+      "applied_at": "2026-11-18T14:06:07.630Z"
+    },
+    {
+      "id": 39,
+      "filename": "039_project_scoped_contract_cob_cycles.sql",
+      "sha256": "2478220b8813c90ab0461ea4e810b663607b57cc43c6728b9cc82647104ea168",
+      "status": "applied",
+      "applied_at": "2026-11-18T21:03:33.335Z"
+    },
+    {
+      "id": 40,
+      "filename": "040_finance_reporting_notifications.sql",
+      "sha256": "3dcba30a1592617e8747f144ed650de5d6af50112c8b105bec62681ddf1b485f",
+      "status": "applied",
+      "applied_at": "2026-11-19T00:35:39.148Z"
+    },
+    {
+      "id": 41,
+      "filename": "041_finance_notification_rls_recipient_guard.sql",
+      "sha256": "96bf6ea57d68bc9913bc402cadeeb85beee6938a57b9acb9bd13c8d6c5ad2770",
+      "status": "applied",
+      "applied_at": "2026-11-19T01:40:01.754Z"
+    },
+    {
+      "id": 42,
+      "filename": "042_inventory_reservation_release_reason.sql",
+      "sha256": "4894520de17e45b38a3d50db96e9aaa1c5fa5603186e13bab0ee0f32e3bb4996",
+      "status": "applied",
+      "applied_at": "2026-11-19T19:32:04.323Z"
+    },
+    {
+      "id": 43,
+      "filename": "043_project_role_assignments_and_history.sql",
+      "sha256": "15e73e189b4b454582a6e2ce996eb13605bdb5157e9f3ea93837bd5c97f22086",
+      "status": "applied",
+      "applied_at": "2026-11-19T19:32:04.323Z"
+    },
+    {
+      "id": 44,
+      "filename": "044_project_change_delete_permission.sql",
+      "sha256": "618726680810cce39225442cd3cb5d87cdc118136aba33c092091c756122b48d",
+      "status": "applied",
+      "applied_at": "2026-11-19T19:32:04.323Z"
+    },
+    {
+      "id": 45,
+      "filename": "045_cash_advance_financial_audit.sql",
+      "sha256": "da80dc506ec81389232068fc84c810b62e7d85493aaa4b59f7870007c72c0261",
+      "status": "applied",
+      "applied_at": "2026-11-19T21:31:16.662Z"
+    },
+    {
+      "id": 46,
+      "filename": "046_cash_advance_finance_role_guard.sql",
+      "sha256": "4697eebc8e2187a52143d5d1748d8e062c5b6bbee8a7b98fbf21da91135b7d31",
+      "status": "applied",
+      "applied_at": "2026-11-20T07:41:27.184Z"
+    },
+    {
+      "id": 47,
+      "filename": "047_project_admin_finance_read_only.sql",
+      "sha256": "1ad12527d79db45d4f3a7bd3e6764268679709f2ebec9f2f3c1b902cbc767682",
+      "status": "applied",
+      "applied_at": "2026-11-20T08:54:49.774Z"
+    },
+    {
+      "id": 48,
+      "filename": "048_buyer_accounting_ap_ar_document_hardening.sql",
+      "sha256": "48eea58270848cc90945cf42972f1a01216e66bb1f6b90c56204b47e877bcdc3",
+      "status": "applied",
+      "applied_at": "2026-11-20T13:23:13.432Z"
+    },
+    {
+      "id": 49,
+      "filename": "049_project_work_item_task_engine.sql",
+      "sha256": "f61edb6ee54d7294a13cfd0a7319c4dee03299f718a3efdb6805081a50df2780",
+      "status": "applied",
+      "applied_at": "2026-11-20T13:23:32.430Z"
+    },
+    {
+      "id": 50,
+      "filename": "050_inventory_holds_legacy_schema_alignment.sql",
+      "sha256": "e6c883652c841c3ffb597b81ae403c09f6f9015ee48d914ec6a0216a17c488ab",
+      "status": "applied",
+      "applied_at": "2026-11-20T13:43:26.352Z"
+    },
+    {
+      "id": 51,
+      "filename": "051_task_notification_recipient_rls_helper.sql",
+      "sha256": "acda688d928ef06e2a8a069953976d0fa57f8fa7a5a0d988534d7da189d8a927",
+      "status": "applied",
+      "applied_at": "2026-11-20T13:43:37.740Z"
+    },
+    {
+      "id": 52,
+      "filename": "052_funder_finance_report_scope_isolation.sql",
+      "sha256": "cc8d34c12d34eab9c4cc9aeabd46d9da59b1ec7ef0c7c89345d4b49455a6ac0b",
+      "status": "applied",
+      "applied_at": "2026-11-20T15:59:14.227Z"
+    },
+    {
+      "id": 53,
+      "filename": "053_project_admin_accounting_reports_read_only.sql",
+      "sha256": "3a016b348bfb3d2976c9619746bfe574e6153618797858d8a2abfdbc2dd0b3c4",
+      "status": "applied",
+      "applied_at": "2026-11-20T16:00:53.642Z"
+    },
+    {
+      "id": 54,
+      "filename": "054_complete_project_permission_boundary.sql",
+      "sha256": "821800c7a30a80a1a63bab1bfe458d29df393fc31026645f5c181660f853a0a2",
+      "status": "applied",
+      "applied_at": "2026-11-21T00:07:47.928Z"
+    },
+    {
+      "id": 55,
+      "filename": "055_platform_admin_pm_governance_rls.sql",
+      "sha256": "9ad4c7e87954ff49df4922301efb37dcf674299bd207d6545db3f8780284e802",
+      "status": "applied",
+      "applied_at": "2026-11-21T00:50:26.201Z"
+    },
+    {
+      "id": 56,
+      "filename": "056_project_context_and_funder_report_shares.sql",
+      "sha256": "8cfb54c6c9dc728f2ae71975826ad8e589fabb82ee3cd634c3f6672abcd8ecc7",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:06:56.195Z"
+    },
+    {
+      "id": 57,
+      "filename": "057_restrict_project_context_read_surface.sql",
+      "sha256": "806b649e49180d7f6b8e5984324d7b8981d3fd6c84ebdf4fbee6da0b27067ae9",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:11:16.536Z"
+    },
+    {
+      "id": 58,
+      "filename": "058_p1_domain_workflow_foundation.sql",
+      "sha256": "7ba30806002c8123da1a9795053208362c21e49777c3cd83702b50176d3903fd",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:23:18.193Z"
+    },
+    {
+      "id": 59,
+      "filename": "059_p1_workflow_independence_and_audit_scope.sql",
+      "sha256": "72b3ba0514fe3e7d2a9153cca20c1f36dabff313f96a28a161f0697b04e22c88",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:30:27.806Z"
+    },
+    {
+      "id": 60,
+      "filename": "060_p1_cross_functional_read_surfaces.sql",
+      "sha256": "2f9cfe08fca665886e760b2711729612b64fa3d0489ce3c2bed8e22e4099dc63",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:31:53.098Z"
+    },
+    {
+      "id": 61,
+      "filename": "061_p1_document_integrity_metadata.sql",
+      "sha256": "c37fafa664b6327747e6d1629128788eca33067c382aff73ee328b39418314bc",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:37:35.610Z"
+    },
+    {
+      "id": 62,
+      "filename": "062_p1_owner_action_and_delegated_verification.sql",
+      "sha256": "6a129b85914963831d7113a35e2fa9ee040da3ba19cf3744b2d231e9b66542eb",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:41:34.574Z"
+    },
+    {
+      "id": 63,
+      "filename": "063_p1_rls_permission_function_grant.sql",
+      "sha256": "9dfce8a8df62ecd823d60af38fe5b0473c5ffffa615772445a732dddaa165f0d",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:48:30.573Z"
+    },
+    {
+      "id": 64,
+      "filename": "064_p1_managed_record_read_scope.sql",
+      "sha256": "838f078d8ed116495ea2fe7b9e98541e1900bf01210e2eeac86b01bd7ecfd108",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:49:32.130Z"
+    },
+    {
+      "id": 65,
+      "filename": "065_p1_quality_chain_project_context.sql",
+      "sha256": "eb433cd269cfc436166844ee247cfc5eac0b34fe2184a8a0a5553f1f42c69852",
+      "status": "applied",
+      "applied_at": "2026-11-21T01:51:39.717Z"
+    },
+    {
+      "id": 66,
+      "filename": "066_p1_work_item_sync_and_kpi_scope.sql",
+      "sha256": "76b19520116f26525379f694a95d2081f2d62721f7b07625d0507ac07a29bce4",
+      "status": "applied",
+      "applied_at": "2026-11-21T02:06:52.586Z"
+    },
+    {
+      "id": 67,
+      "filename": "067_p1_supplier_commitment_creator_grants.sql",
+      "sha256": "fc6e82204e7fbfa17d5180280f96b292a3096bd05bb5dec0e0be31acdc6d691f",
+      "status": "applied",
+      "applied_at": "2026-11-21T02:10:14.669Z"
+    },
+    {
+      "id": 68,
+      "filename": "068_p1_role_scoped_kpi_permission.sql",
+      "sha256": "e1cdab2b89a418cdcf2e5ae80345f4495c5854920e55d2897573c30929958402",
+      "status": "applied",
+      "applied_at": "2026-11-21T02:24:05.951Z"
+    },
+    {
+      "id": 69,
+      "filename": "069_p1_kpi_secure_aggregate_function.sql",
+      "sha256": "402f26bebc0016fa2fbcc3b7c661f96e07df08db4769e94d66d709206b78e349",
+      "status": "applied",
+      "applied_at": "2026-11-21T02:28:25.191Z"
+    },
+    {
+      "id": 70,
+      "filename": "070_p1_kpi_formula_role_scope.sql",
+      "sha256": "37d5aacd556271021298c57a0940e03efbd276bed2b7ac26a72530efb5bf786d",
+      "status": "applied",
+      "applied_at": "2026-11-21T03:27:16.953Z"
+    },
+    {
+      "id": 71,
+      "filename": "071_p3_financial_audit_and_ap_match_integrity.sql",
+      "sha256": "5a03b09bbd50f8c2d74cdfde1375b71adf67a31f675c4fbb9b6652101f412451",
+      "status": "applied",
+      "applied_at": "2026-11-21T05:10:49.727Z"
+    },
+    {
+      "id": 72,
+      "filename": "072_p2a_project_pks_participation.sql",
+      "sha256": "76e094238f430835fe068fd733e8eb111363d5d686507f89646e9f42c9579107",
+      "status": "applied",
+      "applied_at": "2026-11-21T06:02:36.544Z"
+    },
+    {
+      "id": 73,
+      "filename": "073_p2a_platform_admin_supplier_read.sql",
+      "sha256": "6f7e84ad7823de9f29a9545dd877ed43fb0e04b1faa7004d3afe5b736f7cb010",
+      "status": "applied",
+      "applied_at": "2026-11-21T06:05:12.196Z"
+    },
+    {
+      "id": 74,
+      "filename": "074_p2a_candidate_register_and_mill_fixture.sql",
+      "sha256": "c59e8a1f9e31215f49a5f83b42cb814f6f99d787f3d4f5a59ec2e238f227ce27",
+      "status": "applied",
+      "applied_at": "2026-11-21T08:01:49.747Z"
+    },
+    {
+      "id": 75,
+      "filename": "075_p2a_candidate_review_stamps.sql",
+      "sha256": "d8567f9e7fc09e200bed8133a36031f6f597f26a6262b044fd1173bc2b56ec23",
+      "status": "applied",
+      "applied_at": "2026-11-21T08:06:51.327Z"
+    },
+    {
+      "id": 76,
+      "filename": "076_p2a_project_product_requirements.sql",
+      "sha256": "7ee71fbb5db52fd1a561fee1ab3ebfb855c4c90db6e43d0d3bc90b63bc8abfa0",
+      "status": "applied",
+      "applied_at": "2026-11-21T08:11:52.004Z"
+    },
+    {
+      "id": 77,
+      "filename": "077_p2a_master_data_change_requests.sql",
+      "sha256": "da96283f683760f4679edb701f5b53bafc7b69ead9bf834e825b03001839e208",
+      "status": "applied",
+      "applied_at": "2026-11-21T10:34:32.168Z"
+    },
+    {
+      "id": 78,
+      "filename": "078_p2a_facility_capability_quality_provenance.sql",
+      "sha256": "757e4db6edcb995fa6bc7210dffecfa2446d82e80088c4967ee90925b4c46ac0",
+      "status": "applied",
+      "applied_at": "2026-11-21T10:35:12.957Z"
+    },
+    {
+      "id": 79,
+      "filename": "079_p2a_project_scope_guard.sql",
+      "sha256": "6d3de061226109428fa0963f7fa697cbd7c1aca929558e0529628debdcc7d968",
+      "status": "applied",
+      "applied_at": "2026-11-21T11:04:54.306Z"
+    },
+    {
+      "id": 80,
+      "filename": "080_p2a_quality_provenance_read_scope.sql",
+      "sha256": "a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150",
+      "status": "applied",
+      "applied_at": "2026-11-21T11:13:53.530Z"
+    },
+    {
+      "id": 81,
+      "filename": "081_p2a_quality_sample_read_scope.sql",
+      "sha256": "05ad71458aafcc8042da4707464686ac6f3a01474f72d16a21791e09f538100f",
+      "status": "applied",
+      "applied_at": "2026-11-21T11:15:02.498Z"
+    },
+    {
+      "id": 82,
+      "filename": "082_p2a_quality_lab_report_transition.sql",
+      "sha256": "8f768a41acfcccbe8879a296dbf1a8530f6436660712f39fe8e0aa39f2819205",
+      "status": "applied",
+      "applied_at": "2026-11-21T11:21:52.506Z"
+    },
+    {
+      "id": 83,
+      "filename": "083_p2b_port_warehouse_governance.sql",
+      "sha256": "6587ae132c376b66a48a6fa4be0dc91717b7fdd4099894572baa067fafe18500",
+      "status": "applied",
+      "applied_at": "2026-11-21T12:21:34.316Z"
+    },
+    {
+      "id": 84,
+      "filename": "084_p2b_pm_depth_vessel_permissions.sql",
+      "sha256": "5b958b73c57ff21fe7e359742478d1351708ba79f36f7ecca38a0db3ba92fd97",
+      "status": "applied",
+      "applied_at": "2026-11-21T12:26:25.720Z"
+    },
+    {
+      "id": 85,
+      "filename": "085_p2b_port_evidence_document_guard.sql",
+      "sha256": "94dd4bb66c529066ad1e008ab25529ee2fcd0e7e6ea9b4bb6b2724de3eef6160",
+      "status": "applied",
+      "applied_at": "2026-11-21T12:27:40.780Z"
+    }
+  ]
+}

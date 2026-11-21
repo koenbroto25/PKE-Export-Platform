@@ -187,7 +187,7 @@ function App() {
             <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><RoleDashboardPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/pks-sites" element={<RoleGuard allowedKeys={['pks-sites']} activeUser={workspaceUser}><PksSitesPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
-            <Route path="/port-network" element={<RoleGuard allowedKeys={['port-network']} activeUser={workspaceUser}><PortNetworkPage projectId={projectId} /></RoleGuard>} />
+            <Route path="/port-network" element={<RoleGuard allowedKeys={['port-network']} activeUser={workspaceUser}><PortNetworkPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id" element={<RoleGuard allowedKeys={['project-detail']} activeUser={workspaceUser}><ProjectDetailPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id/edit" element={<RoleGuard allowedKeys={['project-edit']} activeUser={workspaceUser}><ProjectEditPage onNotice={notify} /></RoleGuard>} />

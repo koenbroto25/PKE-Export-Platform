@@ -10396,3 +10396,30 @@ P15 engineering implementation and UAT database/security backtests are complete.
 - UAT ledger now has 87 contiguous rows (16 baselined, 71 applied); manifest `migration_history_manifest_uat_001_087.json` is the exact UAT-only ledger snapshot. No Production migration or manifest was changed.
 - Backtest read-only permission matrix: PM in Project A passes `port.depth.submit`, `route.estimate`, `vessel.port.assess`, and linked-port checks; the same PM in Project B fails cross-Project checks; Finance and Warehouse Manager do not receive P16 Project write/assessment permissions; PM is not a Platform Admin.
 - Live write/backtest remains subject to tool permission and authenticated-browser validation; do not mark P16 ALL PASS until the positive Admin write, non-Admin denial, maker-checker transition, Project evidence acceptance/denial and browser UI workflows are independently exercised. CI and all source checks must be re-run on the final branch head.
+
+
+
+### 56.54.6 — P16 Platform Admin global access and review queue (21 November 2026)
+
+**Migration 088**
+- Applied UAT-only migration `088_p2b_admin_global_read_policies.sql`; SHA-256 `7ad13edc36a9a49fe0f7eaed96a4bffdb7483fc33478a45ab058c47aaff20424`.
+- Added Platform Admin SELECT policies for 17 P16 master/review tables: global ports/terminals/berths/channels/anchorages/services/equipment/operating limits/routes, warehouses/zones/bins/equipment, depth/tide observations, vessel-port assessments and vessels.
+- Read APIs now allow Platform Admin to list/detail global master records without Project membership; Project users still require their assigned Project permission. Admin route list can show all routes when no Project filter is selected.
+- The Port & Warehouse workspace is visible to Platform Admin without Project membership. Admin can edit and independently review all master resource types, and has explicit review controls for submitted depth/tide observations.
+- Effective verification status is provenance-based across port and warehouse subresources. Verified master rows without verified timestamp, source reference, SHA-256, or official port code are downgraded to `unverified`; depth/tide rows without evidence key/hash are downgraded, and stale tide is labelled stale. Vessel screening excludes future observations and requires evidence-backed depth/tide/limits/berth/port inputs.
+- SQL smoke checks passed for all revised read queries. Platform Admin under `app_runtime_secure` successfully reads global ports, warehouses, route and review queues; PM Project A reads assigned reference data. PM cross-Project checks, Finance denial, Warehouse Manager denial and non-Admin Platform Admin check passed.
+- UAT ledger now has 88 contiguous rows (16 baseline markers, 72 applied migrations); authoritative UAT-only manifest is `migration_history_manifest_uat_001_088.json`. Neon Production ledger remains 53 rows (IDs 1–53); no Production migration or DML was performed.
+
+**CI evidence**
+- Commit `f5f735bc9927290e7eaa1054cd5efe0b59d9d322`.
+- Unit Tests workflow run `44907047850`: PASS — 44 test files, 392 tests; migration runner dry-run, backend typecheck, frontend typecheck and frontend build all PASS.
+- Dependency Audit Evidence run `44907047853`: PASS — root and frontend dependency audits and evidence upload complete.
+- PR #2 remains OPEN/DRAFT, not merged. Existing GitHub branch retained. No Vercel/deployment activity.
+
+**Acceptance still required before declaring P16 ALL PASS**
+1. Execute authenticated Admin create/update/independent-review and non-Admin denial through the running UAT API, including positive and negative maker-checker transitions.
+2. Exercise PM/Terminal Representative depth/tide submission with a real Approved, upload-verified Project evidence document, and confirm mismatch/unapproved/expired document rejection. Current UAT has no approved evidence documents; no synthetic business evidence was inserted.
+3. Complete authenticated browser acceptance of Admin/PM workflows. Deployment/browser session remains deferred under the agreed no-deploy work window.
+4. Re-run CI after any further change and retain final run IDs.
+
+**Status:** Admin global visibility and review workflows are now implemented and CI/role/read checks pass. P16 is not marked ALL PASS until live write/evidence acceptance and authenticated browser checks are completed.

@@ -770,6 +770,7 @@ app.get("/api/v1/projects/:projectId/pks-sites", requireAuth, async (req: expres
   try {
     const { rows } = await req.db.query(
       `SELECT pp.id,pp.project_id,pp.pks_site_id,pp.vendor_id,
+              pp.project_facility_label,pp.project_location_notes,
               pp.operational_contact_name,pp.operational_contact_email,pp.operational_contact_phone,
               pp.contracted_capacity_mt_month,pp.allocated_capacity_mt_month,pp.delivery_window,
               pp.project_terms,pp.notes,pp.status,pp.effective_from,pp.effective_to,
@@ -851,6 +852,8 @@ app.patch("/api/v1/projects/:projectId/pks-sites/:participationId", requireAuth,
   } else if (!(await requireProjectPermission(req, res, projectId, "pks.participation.manage"))) return;
   const b = req.body ?? {};
   const fields: Array<[string,string,(v:any)=>any]> = [
+    ["projectFacilityLabel","project_facility_label",v=>v],
+    ["projectLocationNotes","project_location_notes",v=>v],
     ["operationalContactName","operational_contact_name",v=>v],
     ["operationalContactEmail","operational_contact_email",v=>v],
     ["operationalContactPhone","operational_contact_phone",v=>v],
@@ -866,6 +869,10 @@ app.patch("/api/v1/projects/:projectId/pks-sites/:participationId", requireAuth,
   const updates:string[]=[]; const values:any[]=[]; let idx=1;
   for(const [key,column,convert] of fields) if(Object.prototype.hasOwnProperty.call(b,key)){
     const value=convert(b[key]);
+    if(column==="project_facility_label" && value!=null && (typeof value!=="string" || value.length>200))
+      return res.status(400).json({error:"Project facility label must be at most 200 characters."});
+    if(column==="project_location_notes" && value!=null && (typeof value!=="string" || value.length>500))
+      return res.status(400).json({error:"Project location notes must be at most 500 characters."});
     if(["contracted_capacity_mt_month","allocated_capacity_mt_month"].includes(column) && value!==null && (!Number.isFinite(value)||value<0))
       return res.status(400).json({error:"Capacity values must be non-negative."});
     updates.push(`${column}=${column==="delivery_window"?"$"+idx+++"::jsonb":"$"+idx++}`);

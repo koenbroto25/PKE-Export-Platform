@@ -795,7 +795,7 @@ app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, 
           ORDER BY uploaded_at DESC`,
         [projectId],
       ),
-      req.db.query("SELECT id,product_code,product_name,classification_status FROM public.product_catalog WHERE is_active=true ORDER BY product_name"),
+      req.db.query("SELECT id,product_code,product_name,classification_status,classification_project_id,classification_evidence_document_id,classification_evidence_sha256,classification_source_reference,classification_verified_by,classification_verified_at FROM public.product_catalog WHERE is_active=true ORDER BY product_name"),
       req.db.query(`SELECT fp.id,fp.facility_id,fp.product_id,pc.product_code,pc.product_name,fp.process_type,fp.capability_status,fp.source_reference,fp.evidence_document_id,fp.evidence_sha256,fp.verified_by,fp.verified_at FROM public.facility_products fp JOIN public.product_catalog pc ON pc.id=fp.product_id ORDER BY fp.created_at DESC`),
       req.db.query(`SELECT id,facility_id,process_type,capacity_kind,capacity_value,unit_code,period_type,effective_from,effective_to,source_reference,evidence_document_id,evidence_sha256,verified_by,verified_at FROM public.facility_capacity_records ORDER BY effective_from DESC`),
       req.db.query(`SELECT id,facility_id,certification_type,certificate_number,issuer,scope,valid_from,valid_to,status,source_reference,evidence_document_id,evidence_sha256,verified_by,verified_at FROM public.facility_certifications ORDER BY created_at DESC`),
@@ -980,6 +980,32 @@ app.patch("/api/v1/projects/:projectId/master-data/facilities/:facilityId/verifi
   } catch (error: any) {
     if (error?.code === "42501") return res.status(403).json({ error: "Platform Admin verification is required." });
     if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Facility verification evidence failed database validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+
+app.patch("/api/v1/projects/:projectId/master-data/products/:productId/classification", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const { projectId, productId } = req.params;
+  const evidenceDocumentId = typeof req.body?.evidenceDocumentId === "string" ? req.body.evidenceDocumentId : "";
+  const sourceReference = typeof req.body?.sourceReference === "string" ? req.body.sourceReference.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(evidenceDocumentId) || sourceReference.length < 2 || sourceReference.length > 500)
+    return res.status(400).json({ error: "Approved evidence document and source reference are required." });
+  try {
+    const doc = await req.db.query(
+      "SELECT id,sha256_checksum,original_filename,document_type_code FROM public.project_export_documents WHERE id=$1::uuid AND project_id=$2::uuid AND status='approved' AND upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL AND storage_bucket='pke-private-documents' AND legal_hold=false AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)",
+      [evidenceDocumentId,projectId],
+    );
+    if (!doc.rows.length) return res.status(422).json({ error: "Evidence document must be approved, checksum-verified and belong to this Project." });
+    const updated = await req.db.query(
+      "UPDATE public.product_catalog SET classification_status='verified',classification_project_id=$1::uuid,classification_evidence_document_id=$2::uuid,classification_source_reference=$3,classification_source_snapshot=$4::jsonb,updated_at=now() WHERE id=$5::uuid AND classification_status<>'verified' RETURNING id,product_code,product_name,classification_status,classification_verified_by,classification_verified_at,classification_evidence_document_id,classification_evidence_sha256",
+      [projectId,evidenceDocumentId,sourceReference,JSON.stringify({document_id:evidenceDocumentId,sha256:doc.rows[0].sha256_checksum,filename:doc.rows[0].original_filename,document_type:doc.rows[0].document_type_code}),productId],
+    );
+    if (!updated.rows.length) return res.status(409).json({ error: "Product not found or already verified. Reclassification requires a controlled reset and review." });
+    return res.json({ product: updated.rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Platform Admin verification is required." });
+    if (error?.code === "23514" || error?.code === "23503") return res.status(422).json({ error: "Product classification evidence failed database validation." });
     return res.status(500).json(internalServerErrorPayload());
   }
 });

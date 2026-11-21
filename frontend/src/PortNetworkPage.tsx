@@ -148,6 +148,18 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     finally { setActionBusy(false); }
   }
 
+  async function reviewWarehouse() {
+    if (!warehouseDetail?.warehouse?.id || reviewNote.trim().length < 5) return;
+    setActionBusy(true);
+    try {
+      await patch(`/p16/master/warehouses/${encodeURIComponent(warehouseDetail.warehouse.id)}/review`, { status: "verified", reviewNote });
+      setMasterMessage("Review gudang tersimpan.");
+      const refreshed = await get<Row>(`/warehouses/${encodeURIComponent(warehouseDetail.warehouse.id)}?projectId=${encodeURIComponent(projectId)}`);
+      setWarehouseDetail(refreshed);
+    } catch (e: any) { setMasterMessage(e?.message || "Verifikasi gudang gagal; pastikan reviewer berbeda dari pengaju dan bukti valid."); }
+    finally { setActionBusy(false); }
+  }
+
   async function submitDepth(event: FormEvent) {
     event.preventDefault(); if (!selectedPort?.id) return; setActionBusy(true);
     try {
@@ -254,6 +266,10 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
         {canAssessVessel && <form className="p16-workflow-form" onSubmit={assessVessel}><h4>Screening awal kompatibilitas kapal</h4><div className="p16-form-grid"><label>Kapal<select required value={selectedVesselId} onChange={e=>setSelectedVesselId(e.target.value)}><option value="">Pilih kapal</option>{vessels.map(v=><option key={v.id} value={v.id}>{v.name} · {v.imo_number || "IMO belum tersedia"} · {statusLabel(v.verification_status)}</option>)}</select></label><label>Berth (opsional)<select value={selectedBerthId} onChange={e=>setSelectedBerthId(e.target.value)}><option value="">Semua berth / tingkat port</option>{(portDetail.berths||[]).map((b:Row)=><option key={b.id} value={b.id}>{b.berth_code || b.name}</option>)}</select></label></div><button type="submit" disabled={actionBusy || !selectedVesselId}>Jalankan screening</button>
           {assessment && <div className="p16-assessment"><strong>Hasil: {statusLabel(assessment.result)}</strong><p>Mode advisory only. Tidak memberikan izin navigasi atau persetujuan sandar.</p></div>}
         </form>}
+      </section>}
+      {tab === "warehouses" && selectedWarehouse && warehouseDetail?.warehouse && platformAdmin && <section className="p16-workflows">
+        <h3>Pengelolaan master gudang · {warehouseDetail.warehouse.name}</h3>
+        <div className="p16-workflow-row"><button type="button" onClick={() => { setMasterResource("warehouses"); setMasterId(String(warehouseDetail.warehouse.id)); setMasterDraft(JSON.stringify(warehouseDetail.warehouse,null,2)); }}>Edit master gudang</button><input aria-label="Catatan verifikasi gudang" placeholder="Catatan review independen (min. 5 karakter)" value={reviewNote} onChange={e => setReviewNote(e.target.value)} /><button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={reviewWarehouse}>Verifikasi gudang</button></div>
       </section>}
       {canEstimateRoutes && <section className="p16-workflows"><h3>Referensi rute Project (advisory)</h3>{routes.length ? routes.map(r=><div className="p16-record" key={r.id}><div><strong>{r.pks_site_name} → {r.port_name}</strong><small>{r.route_mode} · {r.distance_km ?? "—"} km · {r.estimated_travel_minutes ?? "—"} menit · sumber: {r.source_reference || "belum ada"}</small></div><Status value={r.effective_verification_status}/></div>) : <p className="p16-muted">Belum ada referensi rute untuk PKS dan Project ini.</p>}<p className="p16-muted">Estimasi rute adalah referensi logistik, bukan instruksi pelayaran atau navigasi.</p></section>}
       <p className="p16-footer">Master global hanya dapat diubah Platform Admin. PM dan Terminal Representative dapat mengajukan bukti dalam Project aktif; hasil verifikasi memerlukan reviewer independen. Semua screening kapal/rute bersifat advisory.</p>

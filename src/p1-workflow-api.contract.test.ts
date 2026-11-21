@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { P1_RECORD_TYPES } from "./p1-workflow-engine.js";
 
 const api=readFileSync(new URL("./index.ts",import.meta.url),"utf8");
 const migration=readFileSync(new URL("../migrations/062_p1_owner_action_and_delegated_verification.sql",import.meta.url),"utf8");
 const roleCatalogue=readFileSync(new URL("./role-catalogue.ts",import.meta.url),"utf8");
 const ui=readFileSync(new URL("../frontend/src/P1WorkflowWorkbench.tsx",import.meta.url),"utf8");
-const { P1_RECORD_TYPES } = await import("./p1-workflow-engine.js");
 
 describe("P1 workflow API security contracts",()=>{
   it("exposes Project-scoped list, create, transition, evidence, events and KPI endpoints",()=>{

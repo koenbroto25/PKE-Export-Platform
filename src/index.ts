@@ -646,7 +646,11 @@ app.get("/api/v1/projects/:projectId/pks-sites", requireAuth, async (req: expres
         ORDER BY pp.updated_at DESC, s.name`,
       [projectId],
     );
-    return res.json({ participations: rows, canManage: req.user?.isAdmin === true || true });
+    const { rows: manageRows } = await req.db.query(
+      "SELECT public.pke_has_project_permission($1::uuid,'pks.participation.manage') AS allowed",
+      [projectId],
+    );
+    return res.json({ participations: rows, canManage: req.user?.isAdmin === true || manageRows[0]?.allowed === true });
   } catch { return res.status(500).json(internalServerErrorPayload()); }
 });
 

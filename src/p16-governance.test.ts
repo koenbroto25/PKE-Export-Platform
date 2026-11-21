@@ -101,7 +101,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(UAT_MANIFEST.ledger_row_count).toBe(89);
     expect(UAT_MANIFEST.applied_count).toBe(73);
     expect(UAT_MANIFEST.baseline_count).toBe(16);
-    expect(UAT_MANIFEST.entries).toHaveLength(88);
+    expect(UAT_MANIFEST.entries).toHaveLength(89);
     for (const [id, filename] of [
       [83, "083_p2b_port_warehouse_governance.sql"],
       [84, "084_p2b_pm_depth_vessel_permissions.sql"],

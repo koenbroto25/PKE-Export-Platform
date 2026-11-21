@@ -116,7 +116,8 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
       [89, "089_p2b_resource_read_permission_scope.sql"],
       [90, "090_p2b_resource_read_project_context.sql"],
       [91, "091_p16_selected_project_child_rls.sql"],
-      [92, "092_p16_parent_and_project_scope.sql"],\n      [93, "093_p16_admin_evidence_review_access.sql"],
+      [92, "092_p16_parent_and_project_scope.sql"],
+      [93, "093_p16_admin_evidence_review_access.sql"],
     ] as const) {
       const entry = UAT_MANIFEST.entries[id - 1];
       const actual = createHash("sha256").update(readFileSync(join(ROOT, "..", "migrations", filename))).digest("hex");

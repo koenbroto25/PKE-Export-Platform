@@ -32,6 +32,23 @@ ALTER TABLE public.p2a_master_data_change_requests
  ADD CONSTRAINT p2a_master_change_evidence_create_only
  CHECK (entity_type IN ('organization','facility') OR operation='create');
 
+ALTER TABLE public.partner_organizations
+ ADD COLUMN verification_project_id uuid NULL REFERENCES public.projects(id),
+ ADD COLUMN verification_evidence_document_id uuid NULL REFERENCES public.project_export_documents(id) ON DELETE RESTRICT,
+ ADD COLUMN verification_evidence_sha256 text NULL,
+ ADD COLUMN verification_source_reference text NULL,
+ ADD COLUMN verification_source_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE public.pks_sites
+ ADD COLUMN verification_project_id uuid NULL REFERENCES public.projects(id),
+ ADD COLUMN verification_evidence_document_id uuid NULL REFERENCES public.project_export_documents(id) ON DELETE RESTRICT,
+ ADD COLUMN verification_evidence_sha256 text NULL,
+ ADD COLUMN verification_source_reference text NULL,
+ ADD COLUMN verification_source_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE public.partner_organizations
+ ADD CONSTRAINT partner_org_verification_evidence_sha256_check CHECK (verification_evidence_sha256 IS NULL OR verification_evidence_sha256 ~ '^[0-9a-f]{64}$') NOT VALID;
+ALTER TABLE public.pks_sites
+ ADD CONSTRAINT pks_sites_verification_evidence_sha256_check CHECK (verification_evidence_sha256 IS NULL OR verification_evidence_sha256 ~ '^[0-9a-f]{64}$') NOT VALID;
+
 ALTER TABLE public.facility_products
  ADD COLUMN IF NOT EXISTS source_type text NOT NULL DEFAULT 'unknown',
  ADD COLUMN IF NOT EXISTS source_reference text NULL,
@@ -282,6 +299,11 @@ BEGIN
                THEN NULL ELSE verified_by END,
              verified_at=CASE WHEN NEW.proposed_data ?| ARRAY['legal_name','country_code','registration_number','registered_address']
                THEN NULL ELSE verified_at END,
+             verification_project_id=CASE WHEN NEW.proposed_data ?| ARRAY['legal_name','country_code','registration_number','registered_address'] THEN NULL ELSE verification_project_id END,
+             verification_evidence_document_id=CASE WHEN NEW.proposed_data ?| ARRAY['legal_name','country_code','registration_number','registered_address'] THEN NULL ELSE verification_evidence_document_id END,
+             verification_evidence_sha256=CASE WHEN NEW.proposed_data ?| ARRAY['legal_name','country_code','registration_number','registered_address'] THEN NULL ELSE verification_evidence_sha256 END,
+             verification_source_reference=CASE WHEN NEW.proposed_data ?| ARRAY['legal_name','country_code','registration_number','registered_address'] THEN NULL ELSE verification_source_reference END,
+             verification_source_snapshot=CASE WHEN NEW.proposed_data ?| ARRAY['legal_name','country_code','registration_number','registered_address'] THEN '{}'::jsonb ELSE verification_source_snapshot END,
              source_reference=NEW.source_reference,updated_at=now()
            WHERE id=NEW.target_id RETURNING id INTO v_target;
          END IF;
@@ -341,6 +363,11 @@ BEGIN
                THEN NULL ELSE verified_by END,
              verified_at=CASE WHEN NEW.proposed_data ?| ARRAY['name','address','city','province','country_code','latitude','longitude','organization_id','facility_type']
                THEN NULL ELSE verified_at END,
+             verification_project_id=CASE WHEN NEW.proposed_data ?| ARRAY['name','address','city','province','country_code','latitude','longitude','organization_id','facility_type'] THEN NULL ELSE verification_project_id END,
+             verification_evidence_document_id=CASE WHEN NEW.proposed_data ?| ARRAY['name','address','city','province','country_code','latitude','longitude','organization_id','facility_type'] THEN NULL ELSE verification_evidence_document_id END,
+             verification_evidence_sha256=CASE WHEN NEW.proposed_data ?| ARRAY['name','address','city','province','country_code','latitude','longitude','organization_id','facility_type'] THEN NULL ELSE verification_evidence_sha256 END,
+             verification_source_reference=CASE WHEN NEW.proposed_data ?| ARRAY['name','address','city','province','country_code','latitude','longitude','organization_id','facility_type'] THEN NULL ELSE verification_source_reference END,
+             verification_source_snapshot=CASE WHEN NEW.proposed_data ?| ARRAY['name','address','city','province','country_code','latitude','longitude','organization_id','facility_type'] THEN '{}'::jsonb ELSE verification_source_snapshot END,
              source_reference=NEW.source_reference,updated_at=now()
            WHERE id=NEW.target_id RETURNING id INTO v_target;
          END IF;
@@ -497,6 +524,72 @@ END
 $function$;
 
 
+CREATE OR REPLACE FUNCTION public.pke_guard_p2a_identity_verification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog','public'
+AS $function$
+DECLARE
+ v_user_id uuid;
+ v_doc record;
+ v_entity text;
+BEGIN
+ v_user_id:=NULLIF(current_setting('app.current_user_id',true),'')::uuid;
+ v_entity:=TG_TABLE_NAME;
+ IF NEW.verification_status='verified' AND
+    (TG_OP='INSERT' OR OLD.verification_status IS DISTINCT FROM NEW.verification_status) THEN
+   IF NOT public.pke_is_platform_admin() THEN
+     RAISE EXCEPTION 'Only Platform Admin may verify canonical organization or facility identities' USING ERRCODE='42501';
+   END IF;
+   IF NEW.verification_project_id IS NULL OR NEW.verification_evidence_document_id IS NULL
+      OR NULLIF(btrim(NEW.verification_source_reference),'') IS NULL THEN
+     RAISE EXCEPTION 'Identity verification requires a Project, source reference and approved evidence document' USING ERRCODE='23514';
+   END IF;
+   SELECT id,sha256_checksum,object_key,original_filename,document_type_code
+     INTO v_doc FROM public.project_export_documents
+    WHERE id=NEW.verification_evidence_document_id
+      AND project_id=NEW.verification_project_id
+      AND status='approved' AND upload_verified_at IS NOT NULL
+      AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL
+      AND storage_bucket='pke-private-documents' AND legal_hold=false
+      AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE);
+   IF NOT FOUND THEN
+     RAISE EXCEPTION 'Identity evidence must be approved, checksum-verified and from the selected Project' USING ERRCODE='23514';
+   END IF;
+   NEW.verification_evidence_sha256:=v_doc.sha256_checksum;
+   NEW.verified_by:=v_user_id;
+   NEW.verified_at:=now();
+   NEW.verification_source_snapshot:=COALESCE(NEW.verification_source_snapshot,'{}'::jsonb) || jsonb_build_object(
+     'evidence_document_id',v_doc.id,'sha256_checksum',v_doc.sha256_checksum,
+     'original_filename',v_doc.original_filename,'document_type_code',v_doc.document_type_code
+   );
+   INSERT INTO public.audit_events(actor_user_id,actor_type,actor_role,permission_code,action,target_type,target_id,
+     project_id,source,reason,after_snapshot,metadata,outcome)
+   VALUES(v_user_id,'user',NULLIF(current_setting('app.current_role',true),''),'pks.master_data.change_request.manage',
+     CASE WHEN v_entity='partner_organizations' THEN 'p2a.partner_organization.verified' ELSE 'p2a.facility.verified' END,
+     v_entity,NEW.id,NEW.verification_project_id,'p2a_identity_verification',NEW.verification_source_reference,
+     to_jsonb(NEW),jsonb_build_object('evidence_document_id',v_doc.id,'sha256_checksum',v_doc.sha256_checksum),'success');
+ ELSIF TG_OP='UPDATE' AND OLD.verification_status='verified' AND NEW.verification_status='verified'
+   AND (NEW.verification_project_id IS DISTINCT FROM OLD.verification_project_id
+     OR NEW.verification_evidence_document_id IS DISTINCT FROM OLD.verification_evidence_document_id
+     OR NEW.verification_evidence_sha256 IS DISTINCT FROM OLD.verification_evidence_sha256
+     OR NEW.verification_source_reference IS DISTINCT FROM OLD.verification_source_reference
+     OR NEW.verification_source_snapshot IS DISTINCT FROM OLD.verification_source_snapshot
+     OR NEW.verified_by IS DISTINCT FROM OLD.verified_by OR NEW.verified_at IS DISTINCT FROM OLD.verified_at) THEN
+   RAISE EXCEPTION 'Verification evidence is immutable while the canonical identity remains verified' USING ERRCODE='42501';
+ END IF;
+ RETURN NEW;
+END
+$function$;
+
+CREATE TRIGGER p2a_partner_org_verification_guard
+ BEFORE INSERT OR UPDATE ON public.partner_organizations
+ FOR EACH ROW EXECUTE FUNCTION public.pke_guard_p2a_identity_verification();
+CREATE TRIGGER p2a_pks_site_verification_guard
+ BEFORE INSERT OR UPDATE ON public.pks_sites
+ FOR EACH ROW EXECUTE FUNCTION public.pke_guard_p2a_identity_verification();
+
 CREATE OR REPLACE FUNCTION public.pke_validate_p2a_facility_evidence()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -652,8 +745,10 @@ CREATE TRIGGER p2a_quality_result_provenance_guard
  BEFORE INSERT OR UPDATE ON public.product_quality_results
  FOR EACH ROW EXECUTE FUNCTION public.pke_validate_p2a_quality_provenance();
 
+REVOKE ALL ON FUNCTION public.pke_guard_p2a_identity_verification() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_validate_p2a_facility_evidence() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pke_validate_p2a_quality_provenance() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pke_guard_p2a_identity_verification() TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_validate_p2a_facility_evidence() TO app_runtime_secure;
 GRANT EXECUTE ON FUNCTION public.pke_validate_p2a_quality_provenance() TO app_runtime_secure;
 

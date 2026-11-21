@@ -122,7 +122,7 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT CASE p_record_type
     WHEN 'purchase_requisition' THEN CASE p_action WHEN 'view' THEN 'procurement.po.view' WHEN 'create' THEN 'procurement.po.create' WHEN 'update' THEN 'procurement.po.update' ELSE 'procurement.po.manage' END
     WHEN 'purchase_order' THEN CASE p_action WHEN 'view' THEN 'procurement.po.view' WHEN 'create' THEN 'procurement.po.create' WHEN 'update' THEN 'procurement.po.update' ELSE 'procurement.po.manage' END
-    WHEN 'supplier_commitment' THEN CASE p_action WHEN 'view' THEN 'procurement.commitment.view' WHEN 'create' THEN 'procurement.commitment.manage' WHEN 'update' THEN 'procurement.commitment.manage' ELSE 'procurement.po.view' END
+    WHEN 'supplier_commitment' THEN CASE p_action WHEN 'view' THEN 'procurement.commitment.view' WHEN 'create' THEN 'procurement.commitment.manage' WHEN 'update' THEN 'procurement.commitment.manage' ELSE 'procurement.po.manage' END
     WHEN 'goods_receipt_match' THEN CASE p_action WHEN 'view' THEN 'procurement.match.view' WHEN 'create' THEN 'procurement.match.create' WHEN 'update' THEN 'procurement.match.create' ELSE 'procurement.po.view' END
     WHEN 'production_batch' THEN CASE p_action WHEN 'view' THEN 'operations.view' WHEN 'create' THEN 'operations.create' WHEN 'update' THEN 'operations.update' ELSE 'operations.update' END
     WHEN 'packing_batch' THEN CASE p_action WHEN 'view' THEN 'operations.view' WHEN 'create' THEN 'operations.create' WHEN 'update' THEN 'operations.update' ELSE 'operations.update' END
@@ -134,15 +134,15 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
     WHEN 'dispatch_assignment' THEN CASE p_action WHEN 'view' THEN 'dispatch.view' WHEN 'create' THEN 'dispatch.create' WHEN 'update' THEN 'dispatch.update' ELSE 'dispatch.manage' END
     WHEN 'vessel_call' THEN CASE p_action WHEN 'view' THEN 'vessel.view' WHEN 'create' THEN 'shipping.create' WHEN 'update' THEN 'shipping.update' ELSE 'shipping.update' END
     WHEN 'loading_plan' THEN CASE p_action WHEN 'view' THEN 'shipping.view' WHEN 'create' THEN 'shipping.update' WHEN 'update' THEN 'shipping.update' ELSE 'shipping.update' END
-    WHEN 'loading_survey' THEN CASE p_action WHEN 'view' THEN 'shipping.survey.view' WHEN 'create' THEN 'shipping.survey.submit' WHEN 'update' THEN 'shipping.survey.submit' ELSE 'shipping.survey.submit' END
-    WHEN 'ship_master_ack' THEN CASE p_action WHEN 'view' THEN 'shipping.ack.view' WHEN 'create' THEN 'shipping.acknowledge' WHEN 'update' THEN 'shipping.acknowledge' ELSE 'shipping.acknowledge' END
-    WHEN 'laytime_event' THEN CASE p_action WHEN 'view' THEN 'shipping.laytime.view' WHEN 'create' THEN 'shipping.laytime.manage' WHEN 'update' THEN 'shipping.laytime.manage' ELSE 'shipping.laytime.manage' END
-    WHEN 'lc_record' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.create' WHEN 'update' THEN 'lc.update' ELSE 'lc.update' END
-    WHEN 'lc_clause' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.create' WHEN 'update' THEN 'lc.update' ELSE 'lc.update' END
-    WHEN 'lc_discrepancy' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.discrepancy.manage' WHEN 'update' THEN 'lc.discrepancy.manage' ELSE 'lc.discrepancy.manage' END
-    WHEN 'lc_presentation' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.present' WHEN 'update' THEN 'lc.present' ELSE 'lc.present' END
+    WHEN 'loading_survey' THEN CASE p_action WHEN 'view' THEN 'shipping.survey.view' WHEN 'create' THEN 'shipping.survey.submit' WHEN 'update' THEN 'shipping.survey.submit' ELSE 'shipping.update' END
+    WHEN 'ship_master_ack' THEN CASE p_action WHEN 'view' THEN 'shipping.ack.view' WHEN 'create' THEN 'shipping.acknowledge' WHEN 'update' THEN 'shipping.acknowledge' ELSE 'shipping.update' END
+    WHEN 'laytime_event' THEN CASE p_action WHEN 'view' THEN 'shipping.laytime.view' WHEN 'create' THEN 'shipping.laytime.manage' WHEN 'update' THEN 'shipping.laytime.manage' ELSE 'shipping.update' END
+    WHEN 'lc_record' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.create' WHEN 'update' THEN 'lc.update' ELSE 'documents.manage' END
+    WHEN 'lc_clause' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.create' WHEN 'update' THEN 'lc.update' ELSE 'documents.manage' END
+    WHEN 'lc_discrepancy' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.discrepancy.manage' WHEN 'update' THEN 'lc.discrepancy.manage' ELSE 'documents.manage' END
+    WHEN 'lc_presentation' THEN CASE p_action WHEN 'view' THEN 'lc.view' WHEN 'create' THEN 'lc.present' WHEN 'update' THEN 'lc.present' ELSE 'documents.manage' END
     WHEN 'audit_finding' THEN CASE p_action WHEN 'view' THEN 'audit.finding.view' WHEN 'create' THEN 'audit.finding.create' WHEN 'update' THEN 'audit.finding.respond' ELSE 'audit.finding.close' END
-    WHEN 'audit_response' THEN CASE p_action WHEN 'view' THEN 'audit.finding.view' WHEN 'create' THEN 'audit.finding.respond' WHEN 'update' THEN 'audit.finding.respond' ELSE 'audit.finding.respond' END
+    WHEN 'audit_response' THEN CASE p_action WHEN 'view' THEN 'audit.finding.view' WHEN 'create' THEN 'audit.finding.respond' WHEN 'update' THEN 'audit.finding.respond' ELSE 'audit.finding.close' END
     WHEN 'audit_closure' THEN CASE p_action WHEN 'view' THEN 'audit.finding.view' WHEN 'create' THEN 'audit.finding.close' WHEN 'update' THEN 'audit.finding.close' ELSE 'audit.finding.close' END
     ELSE NULL
   END
@@ -223,6 +223,11 @@ USING (project_id IS NULL OR public.pke_has_project_permission(project_id,'repor
 CREATE POLICY p1_report_kpi_definitions_manage ON public.p1_report_kpi_definitions FOR ALL TO app_runtime_secure
 USING (project_id IS NOT NULL AND public.pke_has_project_permission(project_id,'reports.create'))
 WITH CHECK (project_id IS NOT NULL AND public.pke_has_project_permission(project_id,'reports.create'));
+
+GRANT SELECT, INSERT, UPDATE ON public.p1_domain_records TO app_runtime_secure;
+GRANT SELECT, INSERT ON public.p1_domain_events TO app_runtime_secure;
+GRANT SELECT, INSERT ON public.p1_domain_evidence TO app_runtime_secure;
+GRANT SELECT, INSERT, UPDATE ON public.p1_report_kpi_definitions TO app_runtime_secure;
 
 INSERT INTO public.permissions (name,code,description,is_active)
 VALUES

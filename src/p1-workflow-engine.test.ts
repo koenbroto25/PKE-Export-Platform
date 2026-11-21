@@ -27,7 +27,7 @@ describe("P1 workflow domain contracts", () => {
     expect(validateP1Create("qa_release",{decision:"release",sourceRecordId:"x",decisionReason:"Reviewed"})).toEqual([]);
   });
   it("rejects missing HSE inspection severity and observation time", () => {
-    expect(validateP1Create("hse_inspection",{category:"safety"})).toHaveLength(2);
+    expect(validateP1Create("hse_inspection",{category:"safety"})).toContain("category, severity and observedAt are required");
   });
   it("requires a positive planned dispatch window", () => {
     expect(validateP1Create("dispatch_assignment",{tripId:"t",driverUserId:"d",vehicleId:"v",plannedDepartureAt:"2026-01-02T12:00:00Z",plannedArrivalAt:"2026-01-02T11:00:00Z"})).toHaveLength(1);

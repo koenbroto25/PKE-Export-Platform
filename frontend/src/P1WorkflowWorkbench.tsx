@@ -65,7 +65,7 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
   finally{setLoading(false);}
  },[projectId,selected?.code,onNotice]);
  const loadKpis=useCallback(async()=>{
-  if(!projectId||!hasProjectPermission("reports.view",activeUser)){setKpis([]);return;}
+  if(!projectId||(!hasProjectPermission("p1.kpi.view",activeUser)&&!hasProjectPermission("reports.view",activeUser))){setKpis([]);return;}
   try{const data=await get<{kpis?:AnyRecord[]}>(`/projects/${encodeURIComponent(projectId)}/p1-kpis`);setKpis(data.kpis||[]);}catch{setKpis([]);}
  },[projectId,activeUser?.projectPermissions]);
  useEffect(()=>{if(!available.some(x=>x.code===type))setType(available[0]?.code||"");},[available,type]);
@@ -108,12 +108,14 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
   catch(err){onNotice("error",err instanceof Error?err.message:"Gagal mencatat evidence.");}finally{setBusy(false);}
  };
  if(!projectId)return <section className="page"><div className="panel"><h2>Pilih Project</h2><p>Workflow P1 membutuhkan Project aktif.</p></div></section>;
- if(!available.length)return <section className="page"><div className="panel"><h2>Workflow P1</h2><p>Role aktif belum memiliki izin untuk domain workflow P1.</p></div></section>;
+ const canViewKpis=Boolean(hasProjectPermission("p1.kpi.view",activeUser)||hasProjectPermission("reports.view",activeUser));
+ if(!available.length&&!canViewKpis)return <section className="page"><div className="panel"><h2>Workflow P1</h2><p>Role aktif belum memiliki izin untuk domain workflow P1.</p></div></section>;
  const canCreate=Boolean(selected&&hasProjectPermission(selected.create,activeUser));
  const canAttach=Boolean(selected&&hasProjectPermission(UPDATE_PERMISSION[selected.code],activeUser));
  return <section className="page">
   <div className="page-header"><div><div className="eyebrow">PROJECT EXECUTION / P1</div><h1>Workflow Operasional P1</h1><p className="muted">Procurement, produksi, QC/QA, HSE, dispatch, shipping, LC dan audit findings dalam scope Project aktif.</p></div><button className="secondary-button" onClick={()=>{void loadRecords();void loadKpis();}}><RefreshCw size={16}/> Refresh</button></div>
   {kpis.length>0&&<div className="metric-grid">{kpis.map(k=><div className="metric-card" key={k.metricKey}><span>{k.label}</span><strong>{k.value===null?"—":Number(k.value).toLocaleString("id-ID",{maximumFractionDigits:2})} {k.value===null?"":k.unit}</strong><small>{k.status==="available"?"Source tersedia":"Belum ada source data"} · {k.freshnessStatus}</small></div>)}</div>}
+  {available.length>0&&<>
   <div className="panel"><div className="panel-heading"><div><h2>Domain workflow</h2><p className="muted">Pilihan dibatasi pada permission role aktif.</p></div><Workflow size={20}/></div>
    <label className="field"><span>Jenis workflow</span><select value={selected?.code||""} onChange={e=>setType(e.target.value)}>{available.map(t=><option key={t.code} value={t.code}>{t.label}</option>)}</select></label>
    {canCreate?<form className="p1-workflow-form" onSubmit={createRecord}>
@@ -141,5 +143,6 @@ export default function P1WorkflowWorkbench({projectId,activeUser,onNotice}:{pro
     </tbody></table></div>}
    {canAttach&&<div className="p1-evidence-row"><select value={evidenceRecord} onChange={e=>setEvidenceRecord(e.target.value)}><option value="">Record untuk evidence</option>{records.map(r=><option key={r.id} value={r.id}>{r.record_code}</option>)}</select><input value={objectKey} onChange={e=>setObjectKey(e.target.value)} placeholder="Private object key (file sudah diunggah)"/><input value={sha} onChange={e=>setSha(e.target.value)} placeholder="SHA-256"/><input type="number" min="1" max="52428800" value={fileSize} onChange={e=>setFileSize(e.target.value)} placeholder="File size (bytes)"/><button className="secondary-button" disabled={busy||!evidenceRecord||!fileSize} onClick={()=>void addEvidence()}>Verifikasi & catat evidence</button></div>}
   </div>
+  </>}
  </section>;
 }

@@ -1162,3 +1162,17 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Unit Tests workflow `44901403163` PASS: offline tests, migration dry-run, backend/frontend typecheck and frontend build.
 - Dependency Audit Evidence workflow `44901403120` PASS.
 - Port fixture with missing source reference is displayed as unverified; no UAT fixture row was modified. P16 source APIs are read-only until Migration 083+ and matching write authorization/backtests are complete.
+
+
+
+### P16 governed write continuation — 2026-11-21
+
+- Implemented UAT migrations 083–086 on the existing Neon UAT branch only. Exact checksums and all 86 UAT ledger rows are recorded in `migration_history_manifest_uat_001_086.json`; this is not a Production manifest.
+- Global port/terminal/berth/channel/anchorage/service/equipment/operating-limit, PKS-port route and warehouse master writes are Platform Admin-only. Maker-checker requires a different reviewer, source reference, SHA-256 evidence and review note.
+- PM and Terminal Representative receive only Project-scoped depth/tide evidence submission; PM also receives Project route-estimate and vessel-assessment permissions. Global master writes remain Admin-only.
+- Depth/tide evidence must match an Approved, upload-verified Project document object key and SHA-256 in the private documents bucket. No synthetic measurements were inserted.
+- Added admin master CRUD/review APIs, Project-scoped depth/tide submission/review APIs, route reference listing, vessel picker and advisory vessel-port assessment API.
+- Port & Warehouse UI now contains an Admin JSON master editor, independent review actions, Project evidence forms, route references and advisory vessel screening.
+- Migration 086 fixes maker-checker change detection so automatic `updated_at` updates do not reopen verified master records.
+- P16 remains open until latest CI, real `app_runtime_secure` positive/negative permission backtests, cross-Project isolation, maker-checker/evidence denial tests and authenticated UAT browser acceptance all pass.
+- Preserve the existing GitHub branch and draft PR #2. Do not merge or deploy Vercel in this work slice; do not write Neon Production.

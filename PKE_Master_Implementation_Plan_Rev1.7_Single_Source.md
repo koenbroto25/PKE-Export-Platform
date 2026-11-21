@@ -10423,3 +10423,31 @@ P15 engineering implementation and UAT database/security backtests are complete.
 4. Re-run CI after any further change and retain final run IDs.
 
 **Status:** Admin global visibility and review workflows are now implemented and CI/role/read checks pass. P16 is not marked ALL PASS until live write/evidence acceptance and authenticated browser checks are completed.
+
+
+### 56.54.7 — P16 permission isolation and final UAT backtests (21 November 2026)
+
+**Migrations 089–090 — UAT only**
+- Migration 089 replaced broad membership-only reads on `ports`, `warehouses`, and `vessels` with explicit permission gates. Runtime backtesting then caught that `pke_has_any_project_permission` was still too broad across a selected Project context.
+- Migration 090 corrected the policy to use `pke_has_project_permission(current app.current_project_id, exact permission)` for each table. Backup of pre-090 policies is retained in `p2b_backup_089_20261121` (3 rows); Migration 089 backup is retained in `p2b_backup_088_20261121` (3 rows).
+- Migration 089 SHA-256: `392bdf42848a258e5e70b236374f982ffe88d83da903d4d8a9fd66d8e7328df9`; Migration 090 SHA-256: `07eb13d66822ee014680deb4675e8c9c0d86e52c2d5bd2f6bd7a0632789cafbd`.
+- Neon UAT branch `br-young-boat-b3re832d`: 90 contiguous migration-history rows, 16 baseline markers and 74 applied migrations; no pending rows. Production branch remains unchanged at 53 rows (IDs 1–53); no Production DDL/DML was performed.
+
+**Runtime role and write backtests**
+- `app_runtime_secure` read matrix PASS: PM Alpha in Project Beta sees zero ports/warehouses/vessels; PM Beta and PM Alpha see only resources permitted in their selected Project; Terminal Representative sees ports/vessels but not warehouses; Finance sees none; Warehouse role sees warehouse only; Platform Admin sees all three global master resources without Project context.
+- Admin master update smoke test PASS; PM, Finance and Warehouse role global master-write denials PASS. All write probes were rolled back or used nested exception subtransactions; no temporary master records remain.
+- Maker-checker backtest PASS: a different active Platform Admin can review an Admin-submitted master row; same-actor self-review is rejected. Test rows and audit rows were rolled back with the test subtransaction.
+- PM depth/tide submission permission and linked-port gate PASS. Submissions with missing/unapproved evidence are rejected by database guard. No approved, upload-verified Project evidence document exists in current UAT (count 0), so positive evidence acceptance and end-to-end uploaded-object provenance cannot be truthfully certified. No synthetic approved business document or storage object was fabricated.
+- Existing fixture port has inconsistent provenance despite a legacy `verified` status; API effective-verification rule correctly returns `unverified`.
+
+**Repository and CI**
+- Branch `f1/project-scoped-cob-20261119`, final audited commit `359b8ff2715dd7f4b66ba41d61087e81c364afbb`.
+- P16 governance contract suite is now included in primary `npm test`; final run reports `src/p16-governance.test.ts` 11/11 PASS, 45 test files and 403 tests PASS. Backend typecheck, frontend typecheck, frontend production build and migration runner dry-run PASS.
+- Unit workflow run `44913171949`: PASS. Dependency Audit Evidence run `44913171965`: PASS.
+- PR #2 remains OPEN/DRAFT and unmerged. Vercel/deployment remains intentionally untouched under the agreed freeze.
+
+**Acceptance still open — do not label P16 ALL PASS yet**
+1. Positive depth/tide submission with a real approved, upload-verified Project document and verified storage object; UAT currently has no qualifying evidence record.
+2. Authenticated HTTP/API and browser acceptance for Admin and PM workflows against the current branch build. The current freeze excludes Vercel deployment and there is no authenticated current-branch browser session in this execution context.
+
+**Status:** Database schema, RLS permission isolation, Admin write guard, maker-checker, negative evidence guards, source contracts, CI and dependency audit pass. P16 remains NOT ALL PASS solely on the two explicitly listed acceptance gates; Production remains untouched.

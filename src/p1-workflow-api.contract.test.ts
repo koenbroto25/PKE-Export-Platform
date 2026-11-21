@@ -23,6 +23,7 @@ describe("P1 workflow API security contracts",()=>{
   });
   it("verifies private object bytes before evidence registration",()=>{
     expect(api).toContain("privateStorage.verifyObject(evidenceKey,evidenceSize,evidenceSha)");
+    expect(api).toContain("SURVEY_CERTIFICATE_VERIFICATION_FAILED");
     expect(api).toContain("projects/${projectId}/");
     expect(api).toContain("pke-private-documents");
   });

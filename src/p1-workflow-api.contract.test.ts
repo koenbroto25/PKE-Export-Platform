@@ -76,7 +76,10 @@ describe("P1 workflow API security contracts",()=>{
     expect(api).toContain("accounting:[\"tpl-procurement\"]");
   });
   it("reads KPI values through the role-gated aggregate function",()=>{
-    expect(api).toContain("public.p1_get_kpi_metric($1::uuid,$2::text)");
-    expect(api).not.toContain("FROM public.p1_domain_records WHERE project_id=$1::uuid AND record_type=$2");
+    const start=api.indexOf('app.get("/api/v1/projects/:projectId/p1-kpis"');
+    const end=api.indexOf("return res.json({projectId,kpis,generatedAt",start);
+    const route=api.slice(start,end);
+    expect(route).toContain("public.p1_get_kpi_metric($1::uuid,$2::text)");
+    expect(route).not.toContain("FROM public.p1_domain_records");
   });
 });

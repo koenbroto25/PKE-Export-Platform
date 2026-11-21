@@ -767,6 +767,147 @@ app.patch("/api/v1/projects/:projectId/product-requirements/:requirementId", req
   }
 });
 
+
+/** P15: Project-scoped request + independent Platform Admin approval for canonical identities. */
+app.get("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.view"))) return;
+  try {
+    const [requests, organizations, facilities, manage] = await Promise.all([
+      req.db.query(\`SELECT id,project_id,entity_type,operation,target_id,proposed_data,base_snapshot,status,
+                request_reason,source_type,source_reference,source_url,source_snapshot,decision_note,
+                requested_by,reviewed_by,reviewed_at,applied_target_id,applied_at,created_at,updated_at
+           FROM public.p2a_master_data_change_requests
+          WHERE project_id=$1::uuid ORDER BY created_at DESC\`, [projectId]),
+      req.db.query("SELECT id,legal_name,organization_type,country_code,verification_status FROM public.partner_organizations WHERE is_active=true ORDER BY legal_name"),
+      req.db.query("SELECT id,name,facility_type,city,province,country_code,verification_status FROM public.pks_sites WHERE is_active=true ORDER BY name"),
+      req.db.query("SELECT public.pke_has_project_permission($1::uuid,'pks.master_data.change_request.manage') AS allowed", [projectId]),
+    ]);
+    return res.json({
+      requests: requests.rows, organizations: organizations.rows, facilities: facilities.rows,
+      canManage: req.user?.isAdmin === true || manage.rows[0]?.allowed === true,
+      canReview: req.user?.isAdmin === true,
+    });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.post("/api/v1/projects/:projectId/master-data-change-requests", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId } = req.params;
+  if (req.user?.isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.manage"))) return;
+  const b = req.body ?? {};
+  const entityType = b.entityType, operation = b.operation;
+  const targetId = typeof b.targetId === "string" ? b.targetId : null;
+  const proposedData = b.proposedData;
+  const requestReason = typeof b.requestReason === "string" ? b.requestReason.trim() : "";
+  const sourceType = ["manual","public_reference","official_document","buyer_confirmed"].includes(b.sourceType) ? b.sourceType : "manual";
+  const sourceReference = typeof b.sourceReference === "string" ? b.sourceReference.trim() : "";
+  const sourceUrl = typeof b.sourceUrl === "string" && b.sourceUrl.trim() ? b.sourceUrl.trim() : null;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!["organization","facility"].includes(entityType) || !["create","update"].includes(operation) ||
+      (operation === "update" && (!targetId || !uuidPattern.test(targetId))) ||
+      (operation === "create" && targetId !== null) ||
+      !proposedData || typeof proposedData !== "object" || Array.isArray(proposedData) ||
+      Object.keys(proposedData).length === 0 || requestReason.length < 10 || requestReason.length > 2000 ||
+      sourceReference.length < 2 || sourceReference.length > 500 ||
+      (sourceUrl !== null && !/^https?:\/\//i.test(sourceUrl))) {
+    return res.status(400).json({ error: "Entity, operation, non-empty proposal, reason and source reference must be valid." });
+  }
+  try {
+    const { rows } = await req.db.query(
+      \`INSERT INTO public.p2a_master_data_change_requests(
+         project_id,entity_type,operation,target_id,proposed_data,status,request_reason,
+         source_type,source_reference,source_url,source_snapshot,requested_by
+       ) VALUES ($1::uuid,$2,$3,$4::uuid,$5::jsonb,'draft',$6,$7,$8,$9,$10::jsonb,$11::uuid)
+       RETURNING *\`,
+      [projectId,entityType,operation,targetId,JSON.stringify(proposedData),requestReason,sourceType,
+       sourceReference,sourceUrl,JSON.stringify(b.sourceSnapshot ?? {}),req.user?.id ?? null],
+    );
+    return res.status(201).json({ request: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Master-data request permission or target visibility denied." });
+    if (error?.code === "P0002") return res.status(404).json({ error: "Canonical master record is not visible in this Project." });
+    if (error?.code === "23514" || error?.code === "22P02" || error?.code === "23503") return res.status(400).json({ error: "Master-data request failed validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId", requireAuth, async (req: express.Request, res: express.Response) => {
+  const { projectId, requestId } = req.params;
+  const isAdmin = req.user?.isAdmin === true;
+  if (isAdmin) {
+    const { rows } = await req.db.query("SELECT id FROM public.projects WHERE id=$1::uuid AND is_active=true", [projectId]);
+    if (!rows.length) return res.status(404).json({ error: "Project not found." });
+  } else if (!(await requireProjectPermission(req, res, projectId, "pks.master_data.change_request.manage"))) return;
+  const b = req.body ?? {}, updates: string[] = [], values: any[] = [];
+  let idx = 1;
+  const add = (column: string, value: unknown, cast = "") => { updates.push(\`\${column}=$\${idx++}\${cast}\`); values.push(value); };
+  if (isAdmin) {
+    if (b.proposedData !== undefined || b.requestReason !== undefined || b.sourceType !== undefined ||
+        b.sourceReference !== undefined || b.sourceUrl !== undefined || b.sourceSnapshot !== undefined) {
+      return res.status(403).json({ error: "Platform Admin may decide but may not rewrite the submitted proposal." });
+    }
+    if (b.status !== undefined) {
+      if (!["approved","rejected"].includes(b.status)) return res.status(400).json({ error: "Admin decision must be approved or rejected." });
+      add("status", b.status);
+    }
+    if (b.decisionNote !== undefined) {
+      if (typeof b.decisionNote !== "string" || b.decisionNote.length > 2000) return res.status(400).json({ error: "Decision note is invalid." });
+      add("decision_note", b.decisionNote.trim() || null);
+    }
+  } else {
+    if (b.status !== undefined) {
+      if (b.status !== "submitted") return res.status(403).json({ error: "PM may only submit a draft; approval is Admin-only." });
+      add("status", "submitted");
+    }
+    const editable: Array<[string,string,(v:any)=>any,string]> = [
+      ["proposedData","proposed_data",v=>JSON.stringify(v),"::jsonb"],
+      ["requestReason","request_reason",v=>typeof v==="string"?v.trim():v,""],
+      ["sourceType","source_type",v=>v,""],
+      ["sourceReference","source_reference",v=>typeof v==="string"?v.trim():v,""],
+      ["sourceUrl","source_url",v=>v===""?null:v,""],
+      ["sourceSnapshot","source_snapshot",v=>JSON.stringify(v??{}),"::jsonb"],
+    ];
+    for (const [key,column,convert,cast] of editable) {
+      if (!Object.prototype.hasOwnProperty.call(b,key)) continue;
+      const value = convert(b[key]);
+      if (key==="proposedData" && (!b[key] || typeof b[key]!=="object" || Array.isArray(b[key]) || Object.keys(b[key]).length===0))
+        return res.status(400).json({ error: "Proposal must be a non-empty JSON object." });
+      if (key==="requestReason" && (typeof value!=="string" || value.length<10 || value.length>2000))
+        return res.status(400).json({ error: "Request reason must contain 10–2000 characters." });
+      if (key==="sourceType" && !["manual","public_reference","official_document","buyer_confirmed"].includes(String(value)))
+        return res.status(400).json({ error: "Source type is invalid." });
+      if (key==="sourceReference" && (typeof value!=="string" || value.length<2 || value.length>500))
+        return res.status(400).json({ error: "Source reference must contain 2–500 characters." });
+      if (key==="sourceUrl" && value!==null && (typeof value!=="string" || !/^https?:\/\//i.test(value)))
+        return res.status(400).json({ error: "Source URL must use HTTP or HTTPS." });
+      add(column,value,cast);
+    }
+  }
+  if (!updates.length) return res.status(400).json({ error: "No permitted change fields supplied." });
+  updates.push("updated_at=now()");
+  values.push(requestId,projectId);
+  try {
+    const { rows } = await req.db.query(
+      \`UPDATE public.p2a_master_data_change_requests SET \${updates.join(",")}
+        WHERE id=$\${idx++}::uuid AND project_id=$\${idx}::uuid RETURNING *\`,
+      values,
+    );
+    if (!rows.length) return res.status(404).json({ error: "Master-data change request not found in this Project." });
+    return res.json({ request: rows[0] });
+  } catch (error: any) {
+    if (error?.code === "42501") return res.status(403).json({ error: "Request is not editable by this role or the decision is not authorized." });
+    if (error?.code === "40001") return res.status(409).json({ error: "Canonical data changed after submission. Create a fresh request against the latest record." });
+    if (error?.code === "23514" || error?.code === "22P02" || error?.code === "23503") return res.status(400).json({ error: "Master-data decision failed validation." });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.get("/api/v1/projects/:projectId/pks-candidates", requireAuth, async (req: express.Request, res: express.Response) => {
   const { projectId } = req.params;
   if (req.user?.isAdmin) {

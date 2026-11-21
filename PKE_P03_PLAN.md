@@ -1176,3 +1176,14 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Migration 086 fixes maker-checker change detection so automatic `updated_at` updates do not reopen verified master records.
 - P16 remains open until latest CI, real `app_runtime_secure` positive/negative permission backtests, cross-Project isolation, maker-checker/evidence denial tests and authenticated UAT browser acceptance all pass.
 - Preserve the existing GitHub branch and draft PR #2. Do not merge or deploy Vercel in this work slice; do not write Neon Production.
+
+
+
+### P16 admin-write RLS alignment — 2026-11-21
+
+- Migration 087 applied to Neon UAT; SHA-256 `d834e4e5b843c2a9dad45c5f66b753aaf9f7d0bfe9dc93fa3006f636f38bda3e`.
+- Admin master RLS now gates on authenticated context; a SECURITY DEFINER trigger is the authoritative guard and checks Platform Admin for every global master INSERT/UPDATE/DELETE.
+- Maker-checker diff ignores `updated_at` on both OLD and NEW snapshots.
+- UAT migration ledger/manifest advanced to 87; no Neon Production writes or Vercel deployment.
+- Read-only role matrix backtest passed for PM Project A, PM cross-Project denial, Finance denial, Warehouse Manager denial and non-Admin status.
+- P16 remains open pending final live-write positive/negative tests, evidence object/hash checks, authenticated browser workflows and latest CI all-green confirmation.

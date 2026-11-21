@@ -196,7 +196,8 @@ WITH CHECK (
   AND EXISTS (
     SELECT 1 FROM public.p1_domain_records r
     WHERE r.id=record_id AND r.project_id=p1_domain_events.project_id
-      AND public.pke_has_project_permission(project_id, public.p1_workflow_permission(r.record_type,'update'))
+      AND (public.pke_has_project_permission(project_id, public.p1_workflow_permission(r.record_type,'update'))
+           OR public.pke_has_project_permission(project_id, public.p1_workflow_permission(r.record_type,'create')))
   )
 );
 CREATE POLICY p1_domain_evidence_select ON public.p1_domain_evidence FOR SELECT TO app_runtime_secure
@@ -273,8 +274,8 @@ ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.descri
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
 SELECT r.role_code, p.code
 FROM (VALUES
- ('procurement','procurement.po.view'),('procurement','procurement.po.create'),('procurement','procurement.po.update'),('procurement','procurement.po.manage'),('procurement','procurement.po.approve'),('procurement','procurement.match.view'),('procurement','procurement.match.create'),
- ('contract_manager','procurement.po.view'),('contract_manager','procurement.po.create'),('contract_manager','procurement.po.update'),('contract_manager','procurement.po.manage'),('contract_manager','procurement.po.approve'),('contract_manager','procurement.match.view'),
+ ('procurement','procurement.po.view'),('procurement','procurement.po.create'),('procurement','procurement.po.update'),('procurement','procurement.po.manage'),('procurement','procurement.po.approve'),('procurement','procurement.commitment.view'),('procurement','procurement.commitment.manage'),('procurement','procurement.match.view'),('procurement','procurement.match.create'),
+ ('contract_manager','procurement.po.view'),('contract_manager','procurement.po.create'),('contract_manager','procurement.po.update'),('contract_manager','procurement.po.manage'),('contract_manager','procurement.po.approve'),('contract_manager','procurement.commitment.view'),('contract_manager','procurement.commitment.manage'),('contract_manager','procurement.match.view'),
  ('supplier','procurement.commitment.view'),('supplier','procurement.commitment.manage'),
  ('qc_officer','quality.sample.view'),('qc_officer','quality.sample.create'),('qc_officer','quality.result.view'),('qc_officer','quality.result.create'),
  ('laboratory_officer','quality.result.view'),('laboratory_officer','quality.result.create'),

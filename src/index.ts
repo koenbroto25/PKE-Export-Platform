@@ -5361,7 +5361,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
       if(["purchase_order","supplier_commitment","goods_receipt_match","quality_sample","quality_result","audit_response","audit_closure","lc_clause","lc_discrepancy","lc_presentation","qa_release","hse_action"].includes(type)&&!b.parentRecordId) return res.status(400).json({error:"parentRecordId is required for this workflow type."});
       let parentRecord:any=null;
       if(b.parentRecordId){
-        const parent=await req.db.query("SELECT id,record_type,status,created_by,owner_role_code FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[b.parentRecordId,projectId]);
+        const parent=await req.db.query("SELECT id,record_type,status,created_by,owner_role_code,parent_record_id,payload FROM public.p1_domain_records WHERE id=$1::uuid AND project_id=$2::uuid",[b.parentRecordId,projectId]);
         if(parent.rows.length!==1) return res.status(422).json({error:"Parent record is not in the selected Project."});
         parentRecord=parent.rows[0];
         if(type==="purchase_order"&&(parent.rows[0].record_type!=="purchase_requisition"||parent.rows[0].status!=="approved")) return res.status(409).json({error:"Purchase Order requires an approved requisition."});
@@ -5414,6 +5414,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
           ? await req.db.query("SELECT id FROM public.product_quality_samples WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sampleId,projectId])
           : await req.db.query("SELECT id FROM public.product_quality_samples WHERE sample_number=$1 AND project_id=$2::uuid",[payload.sampleNumber,projectId]);
         if(!q.rows.length) return res.status(422).json({error:"Quality sample must reference a same-Project sample."});
+        payload.sampleId=String(q.rows[0].id);
       }
       if(type==="quality_result"){
         const q=await req.db.query("SELECT id FROM public.product_quality_samples WHERE id=$1::uuid AND project_id=$2::uuid",[payload.sampleId,projectId]);
@@ -5447,7 +5448,7 @@ app.post("/api/v1/audit/privileged-actions", requireAuth, requireAdmin, async (r
         if(q.rows.length) return res.status(409).json({error:"LC number already exists in this Project.",code:"DUPLICATE_LC_NUMBER"});
       }
       if(type==="lc_clause"&&String(payload.lcRecordId)!==String(parentRecord?.id??"")) return res.status(422).json({error:"LC clause must reference its parent LC record."});
-      if(type==="lc_discrepancy"&&parentRecord?.record_type==="lc_clause"&&String(payload.clauseRecordId)!==String(parentRecord.id)) return res.status(422).json({error:"LC discrepancy clause reference must match its parent record."});
+      if(type==="lc_discrepancy"&&parentRecord?.record_type==="lc_clause"&&(String(payload.clauseRecordId)!==String(parentRecord.id)||String(payload.lcRecordId)!==String(parentRecord.parent_record_id))) return res.status(422).json({error:"LC discrepancy clause and LC references must match the parent clause."});
       if(type==="lc_discrepancy"&&parentRecord?.record_type==="lc_record"&&String(payload.lcRecordId)!==String(parentRecord.id)) return res.status(422).json({error:"LC discrepancy must reference its parent LC record."});
       if(type==="lc_presentation"){
         const lcId=String(payload.lcRecordId??"");

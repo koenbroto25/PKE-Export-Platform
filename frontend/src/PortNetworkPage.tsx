@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { get } from "./api";
 
 type Row = Record<string, any>;
-type Props = { projectId: string };
+type Props = { projectId: string; activeUser?: { projectPermissions?: string[] } };
 
 const statusLabel = (value: unknown) => {
   const key = String(value || "unverified").toLowerCase();
@@ -32,7 +32,7 @@ function Empty({ children }: { children: ReactNode }) {
   return <div className="p16-empty">{children}</div>;
 }
 
-export default function PortNetworkPage({ projectId }: Props) {
+export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [tab, setTab] = useState<"ports" | "warehouses">("ports");
   const [ports, setPorts] = useState<Row[]>([]);
   const [warehouses, setWarehouses] = useState<Row[]>([]);
@@ -43,48 +43,47 @@ export default function PortNetworkPage({ projectId }: Props) {
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
+  const permissions = activeUser?.projectPermissions || [];
+  const canViewPorts = permissions.includes("port.view");
+  const canViewWarehouses = permissions.includes("warehouse.view");
+
+  useEffect(() => {
+    if (!canViewPorts && canViewWarehouses) setTab("warehouses");
+  }, [canViewPorts, canViewWarehouses]);
 
   useEffect(() => {
     let active = true;
     if (!projectId) return;
     setLoading(true);
     setError("");
-    Promise.all([
-      get(`/ports?projectId=${encodeURIComponent(projectId)}`),
-      get(`/warehouses?projectId=${encodeURIComponent(projectId)}`),
-    ]).then(([portData, warehouseData]) => {
-      if (!active) return;
-      setPorts(Array.isArray(portData?.ports) ? portData.ports : []);
-      setWarehouses(Array.isArray(warehouseData?.warehouses) ? warehouseData.warehouses : []);
-    }).catch(() => {
-      if (active) setError("Data pelabuhan atau gudang tidak dapat dimuat. Periksa permission dan koneksi database.");
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
+    const requests: Promise<any>[] = [];
+    if (canViewPorts) requests.push(get(`/ports?projectId=${encodeURIComponent(projectId)}`).then(data => { if (active) setPorts(Array.isArray(data?.ports) ? data.ports : []); }).catch(() => { if (active) setError("Katalog pelabuhan tidak dapat dimuat."); }));
+    if (canViewWarehouses) requests.push(get(`/warehouses?projectId=${encodeURIComponent(projectId)}`).then(data => { if (active) setWarehouses(Array.isArray(data?.warehouses) ? data.warehouses : []); }).catch(() => { if (active) setError("Katalog gudang tidak dapat dimuat."); }));
+    Promise.allSettled(requests).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [projectId]);
 
   useEffect(() => {
     let active = true;
-    if (!selectedPort || !projectId) { setPortDetail(null); return; }
+    if (!selectedPort || !projectId || !canViewPorts) { setPortDetail(null); return; }
     setDetailLoading(true);
     get(`/ports/${encodeURIComponent(String(selectedPort.id))}?projectId=${encodeURIComponent(projectId)}`)
       .then(data => { if (active) setPortDetail(data); })
       .catch(() => { if (active) setError("Detail pelabuhan gagal dimuat."); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
-  }, [selectedPort?.id, projectId]);
+  }, [selectedPort?.id, projectId, canViewPorts]);
 
   useEffect(() => {
     let active = true;
-    if (!selectedWarehouse || !projectId) { setWarehouseDetail(null); return; }
+    if (!selectedWarehouse || !projectId || !canViewWarehouses) { setWarehouseDetail(null); return; }
     setDetailLoading(true);
     get(`/warehouses/${encodeURIComponent(String(selectedWarehouse.id))}?projectId=${encodeURIComponent(projectId)}`)
       .then(data => { if (active) setWarehouseDetail(data); })
       .catch(() => { if (active) setError("Detail gudang gagal dimuat."); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
-  }, [selectedWarehouse?.id, projectId]);
+  }, [selectedWarehouse?.id, projectId, canViewWarehouses]);
 
   const list = tab === "ports" ? ports : warehouses;
 
@@ -106,8 +105,8 @@ export default function PortNetworkPage({ projectId }: Props) {
       {error && <div className="p16-error" role="alert">{error}</div>}
 
       <div className="p16-tabs" role="tablist" aria-label="Jenis data jaringan">
-        <button type="button" role="tab" aria-selected={tab === "ports"} className={tab === "ports" ? "active" : ""} onClick={() => { setTab("ports"); setSelectedWarehouse(null); }}>Pelabuhan & Terminal <span>{ports.length}</span></button>
-        <button type="button" role="tab" aria-selected={tab === "warehouses"} className={tab === "warehouses" ? "active" : ""} onClick={() => { setTab("warehouses"); setSelectedPort(null); }}>Gudang & Kapabilitas <span>{warehouses.length}</span></button>
+        {canViewPorts && <button type="button" role="tab" aria-selected={tab === "ports"} className={tab === "ports" ? "active" : ""} onClick={() => { setTab("ports"); setSelectedWarehouse(null); }}>Pelabuhan & Terminal <span>{ports.length}</span></button>}
+        {canViewWarehouses && <button type="button" role="tab" aria-selected={tab === "warehouses"} className={tab === "warehouses" ? "active" : ""} onClick={() => { setTab("warehouses"); setSelectedPort(null); }}>Gudang & Kapabilitas <span>{warehouses.length}</span></button>}
       </div>
 
       {loading ? <Empty>Memuat data jaringan…</Empty> : (

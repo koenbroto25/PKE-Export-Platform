@@ -2437,7 +2437,7 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/submit-review",requireAut
     const {rows}=await req.db.query(`UPDATE public.regulatory_rule_versions SET status='under_review',updated_at=now()
       WHERE id=$1::uuid AND status='draft' RETURNING id,rule_id,status`,[req.params.versionId]);
     if(!rows.length) return res.status(409).json({error:"Only a draft rule version can be submitted for review."});
-    await req.db.query("UPDATE public.regulatory_rules SET status='under_review',updated_at=now() WHERE id=$1::uuid",[rows[0].rule_id]);
+    await req.db.query("UPDATE public.regulatory_rules SET status=CASE WHEN EXISTS(SELECT 1 FROM public.regulatory_rule_versions av WHERE av.id=active_version_id AND av.status='effective') THEN 'effective' ELSE 'under_review' END,updated_at=now() WHERE id=$1::uuid",[rows[0].rule_id]);
     await recordRegulatoryAudit(req,"rule.submitted_for_review","regulatory_rule_version",rows[0].id,null,"Rule version submitted for independent review",null,rows[0]);
     return res.json({version:rows[0]});
   }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
@@ -2457,7 +2457,7 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/approve",requireAuth,asyn
       [req.user?.id??null,req.params.versionId],
     );
     if(!rows.length) return res.status(409).json({error:"Approval denied: source must be verified and reviewer must differ from maker.",code:"REGULATORY_MAKER_CHECKER_REQUIRED"});
-    await req.db.query("UPDATE public.regulatory_rules SET status='approved',reviewed_by=$1::uuid,reviewed_at=now() WHERE id=$2::uuid",[req.user?.id??null,rows[0].rule_id]);
+    await req.db.query("UPDATE public.regulatory_rules SET status=CASE WHEN EXISTS(SELECT 1 FROM public.regulatory_rule_versions av WHERE av.id=active_version_id AND av.status='effective') THEN 'effective' ELSE 'approved' END,reviewed_by=$1::uuid,reviewed_at=now() WHERE id=$2::uuid",[req.user?.id??null,rows[0].rule_id]);
     await recordRegulatoryAudit(req,"rule.approved","regulatory_rule_version",rows[0].id,null,"Independent rule approval",null,rows[0]);
     return res.json({version:rows[0]});
   }catch(error:any){if(error?.code==="23514") return res.status(409).json({error:"Independent approval constraint failed."});return res.status(500).json(internalServerErrorPayload());}

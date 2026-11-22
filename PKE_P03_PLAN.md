@@ -1390,3 +1390,9 @@ PKE primary route designation now requires a verified processor company linked t
 
 
 Primary PKE route now requires a KCP or integrated mill facility type, not a palm-oil mill by assumption, plus a verified linked processor company and explicit verified PKE loading capability at the port. This is the conservative operating gate until the producer directory is reconciled.
+
+
+## P17-B official port-source discovery — 22 November 2026
+
+
+Leading national port master candidate: DJPL MaritimHub Data Master Pelabuhan (`dwh-djpl-port`), catalog updated 21 November 2026 with Excel/JSON resources. Official Hubdat ferry-port list and Satu Data Indonesia Kemenhub port datasets are supplements/cross-checks. No source is rights-approved or imported yet; P17-A source rights/field-purpose evidence must pass first. No paid third-party port API activated. Details and source links are recorded in P17 plan §16.8.

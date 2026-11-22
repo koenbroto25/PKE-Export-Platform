@@ -71,3 +71,17 @@ describe("P17-E Project maritime workflows",()=>{
   expect(E).not.toMatch(/automatic_clearance|auto_clearance/i);
  });
 });
+
+describe("P17-B Project master-data editing",()=>{
+ it("exposes Project-scoped PM draft, submit and Admin decision endpoints",()=>{
+  for(const route of ["/api/v1/projects/:projectId/master-data-change-requests","/api/v1/projects/:projectId/master-data-change-requests/:requestId","/api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision"])expect(API).toContain(route);
+  expect(API).toContain("pks.master_data.change_request.manage");
+  expect(API).toContain("MASTER_DATA_MAKER_CHECKER");
+ });
+ it("keeps canonical facility/organization writes behind the existing database approval trigger",()=>{
+  expect(API).toContain("public.p2a_master_data_change_requests");
+  expect(API).toContain("status='draft' AND requested_by=$6::uuid");
+  expect(API).toContain("requireAuth,requireAdmin,async(req:R,res:Response)=>");
+  expect(API).toContain("Submitted requests are immutable");
+ });
+});

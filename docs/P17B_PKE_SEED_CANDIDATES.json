@@ -117,17 +117,40 @@
       "facility_type": "kernel_crushing_plant_candidate",
       "evidence": {
         "source_class": "company_disclosure",
-        "source_name": "CBI Group official corporate disclosure",
-        "source_url": "https://www.citraborneo.co.id/",
-        "claim": "Official company website identifies PT Citra Borneo Utama and states group KCP capacity of 180,000 MT/year.",
-        "claim_scope": "Group-level KCP capacity only; do not allocate to a single site or treat as PKE output capacity. Site location, PKE output, and current operating details need independent validation."
+        "source_name": "CBUT official company profile and Sustainability Report 2023",
+        "source_url": "https://www.citraborneoutama.co.id/about/profile",
+        "claim": "Official company profile locates the factory at Tempenek, Kumai and states 600 MT kernel/hour or 219,000 MT/year KCP capacity; the 2023 Sustainability Report states 600 MT kernel/day or 192,000 MT/year and historical PKE output 101,760 MT; CBI Group site states 180,000 MT/year group KCP capacity.",
+        "claim_scope": "Capacity claims conflict in units and annual totals; do not select one as canonical. Historical PKE output is not current capacity. Require written company reconciliation and site-level confirmation."
       },
-      "status": "candidate_requires_site_identity_and_product_output_validation",
+      "status": "candidate_requires_company_capacity_reconciliation_and_current_site_output_validation",
       "confidence": "medium",
       "capacity": {
-        "value": 180000,
-        "unit": "MT/year",
-        "basis": "group-level KCP capacity reported by company; not site-specific and not PKE output",
+        "value": null,
+        "unit": "conflicting MT kernel/hour vs MT kernel/day vs group MT/year disclosures",
+        "basis": "capacity conflict pending written company clarification",
+        "claims": [
+          {
+            "source": "CBUT profile",
+            "value": 600,
+            "unit": "MT kernel/hour",
+            "annual_equivalent_mt": 219000,
+            "url": "https://www.citraborneoutama.co.id/about/profile"
+          },
+          {
+            "source": "CBUT Sustainability Report 2023",
+            "value": 600,
+            "unit": "MT kernel/day",
+            "annual_equivalent_mt": 192000,
+            "url": "https://old.ssms.co.id/uploads/2024/04/sustainability_report_cbut_20231713930890.pdf"
+          },
+          {
+            "source": "CBI Group",
+            "value": 180000,
+            "unit": "MT/year",
+            "url": "https://www.citraborneo.co.id/"
+          }
+        ],
+        "historical_company_pke_output_mt_2023": 101760,
         "pke_output_capacity": null
       },
       "rights_status": "manual_reference_only_pending_review"

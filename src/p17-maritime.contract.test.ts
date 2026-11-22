@@ -7,6 +7,7 @@ const MAIN=readFileSync(join(ROOT,"src","index.ts"),"utf8");
 const A=readFileSync(join(ROOT,"migrations","096_p17a_maritime_source_governance_ingestion.sql"),"utf8");
 const E=readFileSync(join(ROOT,"migrations","097_p17e_project_maritime_workflows.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
+const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -101,5 +102,24 @@ describe("P17-B logistics chain simulation and PM governance",()=>{
   expect(L).toContain("verification_status='unverified'");
   expect(L).toContain("PKE logistics change request permission required");
   expect(L).toContain("Only Platform Admin may decide logistics change request");
+ });
+});
+
+describe("P17-B isolated logistics simulation graph",()=>{
+ it("provides Project-scoped scenario create/read/update APIs",()=>{
+  for(const route of ["/api/v1/projects/:projectId/pke-logistics/scenarios","/api/v1/projects/:projectId/pke-logistics/simulation-scenarios","/api/v1/projects/:projectId/pke-logistics/simulation-scenarios/:scenarioId"])expect(API).toContain(route);
+  expect(API).toContain("pke.logistics.master.change_request.manage");
+  expect(API).toContain("p17b_logistics_simulation_scenarios");
+ });
+ it("validates all six logistics nodes and their relationship edges",()=>{
+  for(const node of ["pks_site","road_route","port","terminal","loading_service","warehouse"])expect(SIM).toContain("'"+node+"'");
+  for(const edge of ["pks_to_road_route","road_route_to_port","port_has_terminal","terminal_has_loading_service","terminal_has_warehouse"])expect(SIM).toContain("'"+edge+"'");
+  expect(SIM).toContain("simulation_only IS TRUE");
+  expect(SIM).toContain("verification_status");
+ });
+ it("keeps simulations non-canonical and Project-scoped with audit events",()=>{
+  expect(SIM).toContain("p17b_logistics_simulation_audit");
+  expect(SIM).toContain("pke_has_project_permission(project_id,'pke.logistics.master.view')");
+  expect(SIM).toContain("pke_has_project_permission(project_id,'pke.logistics.master.change_request.manage')");
  });
 });

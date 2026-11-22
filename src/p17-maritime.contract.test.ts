@@ -40,6 +40,7 @@ describe("P17-A maritime source governance",()=>{
   expect(API).toContain("SOURCE_QUOTA_EXHAUSTED");
   expect(API).toContain("createHash(\"sha256\")");
   expect(API).toContain("Array.isArray(payload)");
+  expect(API).toContain("JSON.stringify(canonicalize(payload))");
   expect(API).toContain("quotaLimit=b.quotaLimit==null?null:Number(b.quotaLimit)");
   expect(API).toContain("recordsRejected>recordsSeen");
   expect(API).toContain("public.maritime_provider_usage");

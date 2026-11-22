@@ -4,6 +4,8 @@ import { join } from "node:path";
 const ROOT=process.cwd();
 const API=readFileSync(join(ROOT,"src","p17-maritime.ts"),"utf8");
 const MIGRATION=readFileSync(join(ROOT,"migrations","098_p17b_port_identity_geospatial.sql"),"utf8");
+const MAIN=readFileSync(join(ROOT,"src","index.ts"),"utf8");
+const UI=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");
 describe("P17-B port identity and PKS-linked geospatial governance",()=>{
  it("exposes admin-only crosswalk and versioned geospatial review endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/port-crosswalk","/api/v1/admin/maritime/port-crosswalk/:id/review","/api/v1/admin/maritime/port-geospatial-features","/api/v1/admin/maritime/port-geospatial-features/:id/review"])expect(API).toContain(route);
@@ -38,6 +40,15 @@ describe("P17-B port identity and PKS-linked geospatial governance",()=>{
   expect(MIGRATION).toContain("route_geometry_feature_id");
   expect(MIGRATION).not.toMatch(/CREATE TABLE public\.(ports|pks_sites|pks_port_routes)/);
   expect(MIGRATION).toContain("pks_port_routes_verified_priority_idx");
+ });
+ it("prioritizes only verified road routes with verified PKE loading capability",()=>{
+  expect(MAIN).toContain("AS is_primary_reference");
+  expect(MAIN).toContain("pke_loading_service_verified");
+  expect(MAIN).toContain("verified_warehouse_count");
+  expect(MAIN).toContain("ORDER BY ps.name,(r.route_mode='road') DESC");
+  expect(UI).toContain("Rujukan utama PKE");
+  expect(UI).toContain("layanan loading PKE");
+  expect(UI).toContain("PKS operasional dan terverifikasi");
  });
  it("keeps crosswalk global-admin-only and geo visibility Project scoped",()=>{
   expect(MIGRATION).toContain("p17b_crosswalk_admin_select");

@@ -2593,8 +2593,125 @@ app.post("/api/v1/compliance-check", requireAuth, (_req: express.Request, res: e
   res.status(410).json({error:"Legacy compliance-check endpoint retired.",code:"REGULATORY_PROJECT_SCOPE_REQUIRED",replacement:"POST /api/v1/projects/:projectId/regulatory-assessments"})
 );
 
-// Country pack requirements - Admin only
-app.get("/api/v1/country-packs", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+// Export document catalog and country requirement governance.
+app.post("/api/v1/export-document-types",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
+  const b=req.body??{};
+  const code=typeof b.documentCode==="string"?b.documentCode.trim().toUpperCase():"";
+  const name=typeof b.documentName==="string"?b.documentName.trim():"";
+  const category=typeof b.documentCategory==="string"?b.documentCategory.trim():"";
+  if(!/^[A-Z0-9][A-Z0-9._-]{1,59}$/.test(code)||!name||!category) return res.status(400).json({error:"Valid documentCode, documentName and documentCategory are required."});
+  try{
+    const {rows}=await req.db.query(
+      "INSERT INTO public.export_document_types(document_code,document_name,document_category,description,is_active) VALUES($1,$2,$3,$4,true) RETURNING *",
+      [code,name,category,b.description??null],
+    );
+    await recordRegulatoryAudit(req,"document_type.created","export_document_type",rows[0].id,null,"Export document type catalog entry created",null,rows[0]);
+    return res.status(201).json({documentType:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23505") return res.status(409).json({error:"Document code already exists."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/country-document-requirements",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
+  const b=req.body??{};
+  const countryCode=typeof b.countryCode==="string"?b.countryCode.trim().toUpperCase():"";
+  const documentCode=typeof b.documentCode==="string"?b.documentCode.trim().toUpperCase():"";
+  if(!/^[A-Z]{2}$/.test(countryCode)||!documentCode||typeof b.effectiveFrom!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(b.effectiveFrom))
+    return res.status(400).json({error:"ISO country code, document code and effectiveFrom date are required."});
+  try{
+    const doc=await req.db.query("SELECT id FROM public.export_document_types WHERE document_code=$1 AND is_active=true",[documentCode]);
+    if(!doc.rows.length) return res.status(422).json({error:"Active export document type not found."});
+    const sourceId=b.regulatorySourceId??null;
+    if(sourceId){
+      const source=await req.db.query("SELECT id FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
+      if(!source.rows.length) return res.status(422).json({error:"Regulatory source not found."});
+    }
+    const {rows}=await req.db.query(
+      `INSERT INTO public.country_export_document_requirements
+        (country_code,product_id,document_type_id,regulatory_source_id,importing_authority,mandatory,
+         status,effective_from,effective_to,official_source_url,notes,condition_schema,verification_status,version_no,created_by)
+       VALUES($1,$2::uuid,$3::uuid,$4::uuid,$5,$6,'draft',$7::date,$8::date,$9,$10,$11::jsonb,'pending',1,$12::uuid)
+       RETURNING *`,
+      [countryCode,b.productId??null,doc.rows[0].id,sourceId,b.importingAuthority??null,b.mandatory!==false,b.effectiveFrom,b.effectiveTo??null,b.officialSourceUrl??null,b.notes??null,JSON.stringify(b.conditionSchema??{}),req.user?.id??null],
+    );
+    await recordRegulatoryAudit(req,"country_requirement.created","country_export_document_requirement",rows[0].id,null,"Country document requirement created in pending verification state",null,rows[0]);
+    return res.status(201).json({requirement:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23503"||error?.code==="23514") return res.status(422).json({error:"Country requirement failed database validation."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/country-document-requirements/:id/review",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
+  const decision=req.body?.decision;
+  if(!["verified","rejected"].includes(decision)) return res.status(400).json({error:"Decision must be verified or rejected."});
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.country_export_document_requirements c SET verification_status=$1,
+        status=CASE WHEN $1='verified' THEN 'active' ELSE 'draft' END,
+        verified_by=$2::uuid,last_verified_at=CASE WHEN $1='verified' THEN now() ELSE last_verified_at END,updated_at=now()
+        WHERE c.id=$3::uuid AND c.created_by IS DISTINCT FROM $2::uuid
+          AND ($1<>'verified' OR c.regulatory_source_id IS NOT NULL AND EXISTS(
+            SELECT 1 FROM public.regulatory_sources s WHERE s.id=c.regulatory_source_id AND s.verification_status='verified'))
+        RETURNING c.id,c.country_code,c.document_type_id,c.status,c.verification_status,c.verified_by,c.last_verified_at`,
+      [decision,req.user?.id??null,req.params.id],
+    );
+    if(!rows.length) return res.status(409).json({error:"Independent review failed or linked regulatory source is not verified.",code:"COUNTRY_REQUIREMENT_REVIEW_CONFLICT"});
+    await recordRegulatoryAudit(req,"country_requirement.reviewed","country_export_document_requirement",rows[0].id,null,"Independent country requirement review: "+decision,null,rows[0]);
+    return res.json({requirement:rows[0]});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.post("/api/v1/projects/:projectId/document-requirements",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId??"");
+  if(!(await requireProjectDocumentPermission(req,res,projectId,"documents.create"))) return;
+  const countryRequirementId=req.body?.countryRequirementId;
+  if(typeof countryRequirementId!=="string") return res.status(400).json({error:"countryRequirementId is required."});
+  try{
+    const country=await req.db.query(
+      "SELECT id FROM public.country_export_document_requirements WHERE id=$1::uuid AND verification_status='verified' AND status='active' AND effective_from<=CURRENT_DATE AND (effective_to IS NULL OR effective_to>=CURRENT_DATE)",
+      [countryRequirementId],
+    );
+    if(!country.rows.length) return res.status(422).json({error:"Only currently effective, independently verified country requirements can be added to a Project."});
+    const {rows}=await req.db.query(
+      `INSERT INTO public.project_export_document_requirements(project_id,country_requirement_id,is_required,status)
+       SELECT $1::uuid,$2::uuid,mandatory,'required' FROM public.country_export_document_requirements WHERE id=$2::uuid
+       RETURNING *`,
+      [projectId,countryRequirementId],
+    );
+    return res.status(201).json({documentRequirement:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23505") return res.status(409).json({error:"Requirement already exists in this Project."});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/projects/:projectId/document-requirements/:requirementId",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId??"");
+  if(!(await requireProjectDocumentPermission(req,res,projectId,"documents.update"))) return;
+  const {isRequired,overrideReason}=req.body??{};
+  if(typeof isRequired!=="boolean"||typeof overrideReason!=="string"||overrideReason.trim().length<10)
+    return res.status(400).json({error:"A boolean isRequired value and documented override reason (minimum 10 characters) are required."});
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.project_export_document_requirements SET is_required=$1,override_reason=$2,
+        overridden_by=$3::uuid,updated_at=now()
+        WHERE id=$4::uuid AND project_id=$5::uuid RETURNING *`,
+      [isRequired,overrideReason.trim(),req.user?.id??null,req.params.requirementId,projectId],
+    );
+    if(!rows.length) return res.status(404).json({error:"Project document requirement not found."});
+    await recordRegulatoryAudit(req,"project_requirement.overridden","project_export_document_requirement",rows[0].id,projectId,overrideReason,null,rows[0]);
+    return res.json({documentRequirement:rows[0]});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
+// Country pack requirements - Regulatory document view permission
+app.get("/api/v1/country-packs", requireAuth, async (req: express.Request, res: express.Response) => {
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.view"))) return;
   try {
     const { rows } = await req.db.query(
       `SELECT cdr.id, c.country_code, c.country_name, cdr.document_type_id, edt.document_code, edt.document_name,
@@ -2604,7 +2721,7 @@ app.get("/api/v1/country-packs", requireAuth, requireAdmin, async (req: express.
        FROM country_export_document_requirements cdr
        JOIN export_document_types edt ON edt.id = cdr.document_type_id
        JOIN countries c ON c.country_code = cdr.country_code
-       WHERE cdr.status IN ('verified', 'active') AND edt.is_active = true
+       WHERE cdr.status='active' AND cdr.verification_status='verified' AND cdr.effective_from<=CURRENT_DATE AND (cdr.effective_to IS NULL OR cdr.effective_to>=CURRENT_DATE) AND edt.is_active = true
        ORDER BY c.country_code, edt.document_code LIMIT 200`,
     );
     const byCountry = new Map<string, any>();

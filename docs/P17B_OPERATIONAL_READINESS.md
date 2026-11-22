@@ -182,3 +182,12 @@ UAT database checks using the Alpha Project's fixture PM account:
 - Runtime role PM successfully updated the scenario status to `draft`; owner/admin reset it to `simulation`. Both transitions are recorded by the simulation audit trigger.
 - Canonical CBU company row count remains zero; the failed canonical seed transaction did not bypass P16 Admin protection.
 - The seeded graph remains 6 nodes / 5 edges, simulation-only and unverified.
+
+
+## 17. CBU capacity-source reconciliation
+A fresh check of company sources found conflicting capacity statements:
+- CBUT official company profile locates its factory at Tempenek, Kumai and states 600 MT kernel/hour or 219,000 MT/year KCP capacity.
+- CBUT Sustainability Report 2023 states 600 MT kernel/day or 192,000 MT/year KCP capacity and historical company PKE output of 101,760 MT.
+- CBI Group website states group KCP capacity of 180,000 MT/year.
+
+These values are not reconciled and must not be silently averaged or selected. The simulation now stores all three as source claims, sets current/site-level PKE output capacity to NULL, and flags company confirmation as required. Historical PKE output is retained only as a 2023 historical disclosure.

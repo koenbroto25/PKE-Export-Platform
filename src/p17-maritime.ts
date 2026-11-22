@@ -58,6 +58,29 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   catch{return bad(res,500,"STAGING_FAILED","Unable to stage record.");}
  });
 
+ app.get("/api/v1/admin/maritime/runs",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  try{const q=await req.db.query("SELECT r.*,s.source_code,s.provider_name FROM public.maritime_ingestion_runs r JOIN public.maritime_data_sources s ON s.id=r.source_id ORDER BY r.created_at DESC LIMIT 200");return res.json({runs:q.rows});}
+  catch{return bad(res,500,"RUN_LIST_FAILED","Unable to load ingestion runs.");}
+ });
+ app.patch("/api/v1/admin/maritime/staging/:stagingId/review",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const id=String(req.params.stagingId||""),b=req.body??{},status=str(b.reviewStatus,24),normalized=b.normalizedPayload;
+  if(!uuidPattern.test(id)||!["accepted","rejected","quarantined"].includes(status)||(status==="accepted"&&(!normalized||typeof normalized!=="object"||Array.isArray(normalized))))return bad(res,400,"INVALID_STAGING_REVIEW","Review status and normalized payload are invalid.");
+  try{const q=await req.db.query("UPDATE public.maritime_ingestion_staging SET review_status=$2,normalized_payload=$3::jsonb,validation_errors=$4::jsonb,reviewed_by=$5::uuid,reviewed_at=now() WHERE id=$1::uuid AND review_status='pending' RETURNING *",[id,status,normalized?JSON.stringify(normalized):null,JSON.stringify(Array.isArray(b.validationErrors)?b.validationErrors:[]),req.user?.id]);if(!q.rows.length)return bad(res,409,"STAGING_ALREADY_REVIEWED","Staging record not found or already reviewed.");return res.json({staging:q.rows[0],promotion:"not_automatic"});}
+  catch{return bad(res,500,"STAGING_REVIEW_FAILED","Unable to review staging record.");}
+ });
+ app.patch("/api/v1/admin/maritime/runs/:runId/complete",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const id=String(req.params.runId||""),status=str(req.body?.status,24);
+  if(!uuidPattern.test(id)||!["succeeded","partial","failed","cancelled"].includes(status))return bad(res,400,"INVALID_RUN_STATUS","Valid terminal run status required.");
+  try{const q=await req.db.query("UPDATE public.maritime_ingestion_runs SET run_status=$2,completed_at=now(),records_seen=GREATEST(records_seen,$3::int),records_rejected=GREATEST(records_rejected,$4::int),error_code=$5,error_summary=$6 WHERE id=$1::uuid AND run_status IN ('queued','running') RETURNING *",[id,status,Math.max(0,Number(req.body?.recordsSeen)||0),Math.max(0,Number(req.body?.recordsRejected)||0),str(req.body?.errorCode,96)||null,str(req.body?.errorSummary,1000)||null]);if(!q.rows.length)return bad(res,409,"RUN_NOT_ACTIVE","Run is not active or not found.");return res.json({run:q.rows[0]});}
+  catch{return bad(res,500,"RUN_COMPLETE_FAILED","Unable to complete ingestion run.");}
+ });
+ app.post("/api/v1/admin/maritime/sources/:id/health",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const id=String(req.params.id||""),b=req.body??{},status=str(b.healthStatus,24),latency=Number.isInteger(b.latencyMs)?b.latencyMs:null,http=Number.isInteger(b.httpStatus)?b.httpStatus:null;
+  if(!uuidPattern.test(id)||!["unknown","healthy","degraded","unavailable","quota_exhausted","rights_blocked"].includes(status)||(latency!==null&&latency<0)||(http!==null&&(http<100||http>599)))return bad(res,400,"INVALID_PROVIDER_HEALTH","Provider health record is invalid.");
+  try{const q=await req.db.query("INSERT INTO public.maritime_provider_health(source_id,health_status,latency_ms,http_status,error_code,details,checked_by) VALUES($1::uuid,$2,$3,$4,$5,$6::jsonb,$7::uuid) RETURNING *",[id,status,latency,http,str(b.errorCode,96)||null,JSON.stringify(b.details&&typeof b.details==="object"?b.details:{}),req.user?.id]);return res.status(201).json({health:q.rows[0]});}
+  catch{return bad(res,500,"PROVIDER_HEALTH_FAILED","Unable to record provider health.");}
+ });
+
  // P17-E: voyages, nomination maker-checker and port-call planning/confirmation.
  app.get("/api/v1/projects/:projectId/voyages",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||"");if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");if(!(await requireProjectPermission(req,res,p,"voyage.view")))return;

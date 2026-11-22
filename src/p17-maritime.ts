@@ -632,6 +632,35 @@ app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(r
    return bad(res,500,"MARITIME_STAGING_FAILED","Unable to stage provider records.");
   }
  });
+ app.post("/api/v1/admin/maritime/staging/:stagingId/promote",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const id=req.params.stagingId;if(!uuidPattern.test(id))return bad(res,400,"MARITIME_STAGING_ID_INVALID","Invalid staging ID.");
+  try{
+   const q=await req.db.query("SELECT st.id,st.external_record_id,st.entity_type,st.raw_payload,st.payload_sha256,st.review_status,r.source_id,s.enabled,s.rights_status,s.internal_processing_allowed,s.rights_expires_at FROM public.maritime_ingestion_staging st JOIN public.maritime_ingestion_runs r ON r.id=st.run_id JOIN public.maritime_data_sources s ON s.id=r.source_id WHERE st.id=$1::uuid AND st.review_status='accepted'",[id]);
+   if(!q.rows.length)return bad(res,409,"MARITIME_STAGING_NOT_ACCEPTED","Only an accepted staging record can be promoted to a typed candidate.");
+   const row=q.rows[0],payload=row.raw_payload as Record<string,any>;
+   if(row.enabled!==true||row.rights_status!=="approved"||row.internal_processing_allowed!==true||!row.rights_expires_at||Date.parse(String(row.rights_expires_at))<=Date.now())return bad(res,409,"MARITIME_PROMOTION_RIGHTS_BLOCKED","Current source rights are required for candidate promotion.");
+   if(row.entity_type==="port"){
+    const port=str(payload.port_id,64),reference=str(payload.source_reference,1000),method=str(payload.match_method,30)||"manual",confidence=payload.match_confidence==null?null:Number(payload.match_confidence);
+    if(!uuidPattern.test(port)||reference.length<8||!["manual","official_code","unlocode","name_location","coordinate","fuzzy_candidate"].includes(method)||!Number.isFinite(confidence??0)||(confidence!==null&&(confidence<0||confidence>1)))return bad(res,422,"PORT_CROSSWALK_PROMOTION_INVALID","Port payload must include canonical port_id, source_reference and supported match metadata.");
+    const fp=await req.db.query("SELECT 1 FROM public.maritime_source_field_permissions WHERE source_id=$1::uuid AND field_code='port_identity' AND purpose_code='internal_operations' AND allowed IS TRUE",[row.source_id]);if(!fp.rows.length)return bad(res,409,"PORT_CROSSWALK_SOURCE_NOT_AUTHORIZED","Source lacks port_identity internal-purpose permission.");
+    const candidate=await req.db.query("INSERT INTO public.port_external_id_crosswalk(source_id,external_record_id,external_code,port_id,match_method,match_confidence,source_reference,source_snapshot,evidence_sha256,review_status,created_by) VALUES($1::uuid,$2,$3,$4::uuid,$5,$6,$7,$8::jsonb,$9,'pending',req_user_id()) RETURNING *",[row.source_id,row.external_record_id,str(payload.external_code,100)||null,port,method,confidence,reference,JSON.stringify(payload),row.payload_sha256]);
+    return res.status(201).json({candidate:candidate.rows[0],candidateType:"port_identity_crosswalk",canonicalMasterChanged:false});
+   }
+   if(row.entity_type==="port_geometry"){
+    const port=str(payload.port_id,64),pks=str(payload.pks_site_id,64),sourceFeature=str(payload.source_feature_id,200),featureType=str(payload.feature_type,40),geometry=payload.geometry_geojson,dataset=str(payload.dataset_version,80),license=str(payload.license_code,120),attribution=str(payload.attribution_text,1000),reference=str(payload.source_reference,1000);
+    if((uuidPattern.test(port)?1:0)+(uuidPattern.test(pks)?1:0)!==1||!sourceFeature||!["port_point","terminal_point","port_boundary","terminal_boundary","pks_point","pks_boundary","road_access","road_route"].includes(featureType)||!validGeoJson(featureType,geometry)||!dataset||!license||!attribution||reference.length<8)return bad(res,422,"PORT_GEO_PROMOTION_INVALID","Geometry payload must include exactly one canonical subject, valid GeoJSON and complete provenance.");
+    const fp=await req.db.query("SELECT 1 FROM public.maritime_source_field_permissions WHERE source_id=$1::uuid AND field_code='geometry_geojson' AND purpose_code='internal_operations' AND allowed IS TRUE",[row.source_id]);if(!fp.rows.length)return bad(res,409,"PORT_GEO_RIGHTS_NOT_ACTIVE","Source lacks geometry_geojson internal-purpose permission.");
+    const geometryHash=createHash("sha256").update(JSON.stringify(canonicalize(geometry))).digest("hex");
+    const candidate=await req.db.query("INSERT INTO public.port_geospatial_features(port_id,pks_site_id,source_id,source_feature_id,feature_type,geometry_geojson,geometry_sha256,dataset_version,license_code,attribution_text,source_reference,review_status,created_by) VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,'pending',req_user_id()) RETURNING *",[port||null,pks||null,row.source_id,sourceFeature,featureType,JSON.stringify(geometry),geometryHash,dataset,license,attribution,reference]);
+    return res.status(201).json({candidate:candidate.rows[0],candidateType:"port_geospatial_feature",canonicalMasterChanged:false});
+   }
+   return bad(res,422,"MARITIME_PROMOTION_TYPE_UNSUPPORTED","Only reviewed port identity and port geometry records can be promoted to typed review candidates.");
+  }catch(e:any){
+   if(e?.code==="23505")return bad(res,409,"MARITIME_PROMOTION_DUPLICATE","This source record already has a typed candidate.");
+   if(e?.code==="23503")return bad(res,422,"MARITIME_PROMOTION_REFERENCE_INVALID","Canonical subject or source reference is invalid.");
+   return bad(res,500,"MARITIME_PROMOTION_FAILED","Unable to promote accepted staging to a typed review candidate.");
+  }
+ });
  app.patch("/api/v1/admin/maritime/staging/:stagingId/review",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const id=req.params.stagingId;if(!uuidPattern.test(id))return bad(res,400,"MARITIME_STAGING_ID_INVALID","Invalid staging ID.");
   const status=str(req.body?.reviewStatus,30);

@@ -2436,7 +2436,7 @@ app.post("/api/v1/regulatory-rules/:ruleId/versions",requireAuth,async(req:expre
       if(!doc.rows.length) return res.status(422).json({error:"Unknown or inactive document code."});
       await req.db.query(
         "INSERT INTO public.regulatory_rule_documents(rule_version_id,document_type_id,requirement_kind,condition_schema) VALUES($1::uuid,$2::uuid,$3,$4::jsonb)",
-        [rows[0].id,doc.rows[0].id,document.requirementKind??"mandatory",JSON.stringify(document.conditionSchema??{})],
+        [rows[0].id,doc.rows[0].id,document.requirementKind??"mandatory",JSON.stringify({conditions:normalizeRegulatoryConditions(Array.isArray(document.conditionSchema?.conditions)?document.conditionSchema.conditions:[])} )],
       );
     }
     await recordRegulatoryAudit(req,"rule.version.created","regulatory_rule_version",rows[0].id,null,"New immutable draft rule version created",null,rows[0]);

@@ -38,6 +38,8 @@ describe("P17-A maritime source governance",()=>{
   expect(A).toContain("payload_sha256 ~ '^[0-9a-f]{64}$'");
   expect(API).toContain("STAGING_DUPLICATE");
   expect(API).toContain("SOURCE_QUOTA_EXHAUSTED");
+  expect(API).toContain("createHash(\"sha256\")");
+  expect(API).toContain("Array.isArray(payload)");
   expect(API).toContain("quotaLimit=b.quotaLimit==null?null:Number(b.quotaLimit)");
   expect(API).toContain("recordsRejected>recordsSeen");
   expect(API).toContain("public.maritime_provider_usage");
@@ -333,6 +335,9 @@ describe("P17-F Buyer identity and visibility",()=>{
   expect(M105).toContain("reviewed_by<>created_by");
   expect(M105).toContain("buyer_visibility_grants_buyer_read");
   expect(M105).toContain("shipments_buyer_summary_read");
+  expect(M105).toContain("buyer_auth_mapping_project_grant_manager_read");
+  expect(API).toContain("buyer-visibility-grant-candidates");
+  expect(readFileSync(join(ROOT,"frontend","src","RoleDashboardPage.tsx"),"utf8")).toContain("BuyerAccessControlPanel");
   expect(API).toContain("/api/v1/admin/buyer-auth-mappings");
   expect(API).toContain("/buyer-visibility-grants");
   expect(API).toContain("/api/v1/buyer/shipments");
@@ -362,6 +367,7 @@ describe("P17-D evidence-backed AIS observations",()=>{
   expect(M106).toContain("vessel_tracking_source_review_stamp_ck");
   expect(M106).toContain("reviewed_by<>created_by");
   expect(M106).toContain("vessel_tracking_accepted_project_read");
+  expect(M106).toContain("vessel_tracking_source_evidence_ck");
  });
 });
 
@@ -380,6 +386,7 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
   expect(M107).toContain("reviewed_by<>submitted_by");
   expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");
   expect(M107).toContain("loading_acceptance_admin_all");
+  expect(M107).toContain("loading_acceptance_review_ck");
   expect(M107).toContain("loading_operations_unit_guard");
   expect(M107).toContain("shipping.survey.review");
   expect(M107).toContain("shipping.laytime.verify");

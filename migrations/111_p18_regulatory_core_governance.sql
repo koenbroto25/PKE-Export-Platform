@@ -320,7 +320,7 @@ BEFORE UPDATE ON public.regulatory_rule_versions
 FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_rule_version_lifecycle();
 
 CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_assessment_review()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP='UPDATE' THEN
     IF ROW(NEW.project_id,NEW.shipment_id,NEW.product_id,NEW.product_hs_classification_id,
@@ -340,7 +340,7 @@ BEGIN
     END IF;
   END IF;
   RETURN NEW;
-END $;
+END $$;
 
 DROP TRIGGER IF EXISTS p18_regulatory_assessment_review_guard ON public.regulatory_assessments;
 CREATE TRIGGER p18_regulatory_assessment_review_guard
@@ -348,7 +348,7 @@ BEFORE UPDATE ON public.regulatory_assessments
 FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_assessment_review();
 
 CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_assessment_result_review()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE assessment_maker uuid;
 BEGIN
   IF TG_OP='UPDATE' THEN
@@ -371,7 +371,7 @@ BEGIN
     NEW.reviewed_at=COALESCE(NEW.reviewed_at,now());
   END IF;
   RETURN NEW;
-END $;
+END $$;
 
 DROP TRIGGER IF EXISTS p18_regulatory_assessment_result_review_guard ON public.regulatory_assessment_results;
 CREATE TRIGGER p18_regulatory_assessment_result_review_guard

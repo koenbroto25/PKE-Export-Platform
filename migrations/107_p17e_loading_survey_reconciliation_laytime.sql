@@ -40,7 +40,7 @@ ALTER TABLE public.loading_operations
     (acceptance_type IN ('survey','quantity_reconciliation') AND quantity IS NOT NULL AND quantity>0
       AND NULLIF(btrim(COALESCE(unit_code,'')),'') IS NOT NULL
       AND NULLIF(btrim(COALESCE(evidence_object_key,'')),'') IS NOT NULL
-      AND evidence_object_key !~* '^https?://' AND evidence_object_key !~ '(^/|(^|/)\\.\\.(/|$))'
+      AND evidence_object_key !~* '^https?://' AND evidence_object_key !~ '(^/|(^|/)\.\.(/|$))'
       AND evidence_sha256 ~ '^[0-9a-f]{64}$')
     OR
     (acceptance_type='laytime' AND notice_of_readiness_at IS NOT NULL

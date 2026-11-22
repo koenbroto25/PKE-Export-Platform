@@ -8355,3 +8355,51 @@ Read-only inspection of canonical Production confirmed:
 - Existing `buyer-projects` API is not accepted as a buyer identity boundary because it joins Project membership and accepts an optional client-supplied `buyerId`. Do not use it for buyer-facing export data.
 - No Project role or permission was expanded as part of this UI guard. Project role assignments and permission grants remain unchanged.
 - Static contract assertions were added. They are not yet executed because the deferred `npm test`/frontend validation is intentionally sequenced after the remaining P17 feature tranche.
+
+
+
+## 55.23–55.27 P17 operational blocker reconciliation — 22 November 2026 (supersedes prior unverified P17 status summaries)
+
+### Canonical Production schema audit (FACT — READ ONLY)
+
+- Canonical target: Neon project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr` (`production`), database `neondb`.
+- `public.migration_history` contains 53 rows; highest applied ID is 53, `053_project_admin_accounting_reports_read_only.sql`. Migrations 096–103 are not applied.
+- The P17 source branch contains eight migrations: `096_p17a_maritime_source_governance_ingestion.sql`, `097_p17e_project_maritime_workflows.sql`, `098_p17b_port_identity_geospatial.sql`, `099_p17b_logistics_scenario_and_pm_change_requests.sql`, `100_p17b_logistics_change_audit.sql`, `101_p17b_logistics_simulation_graph.sql`, `102_p17b_logistics_request_scope_guard.sql`, and `103_p17b_logistics_simulation_edge_semantics.sql`.
+- Production does not contain the P17 source governance, identity crosswalk/geospatial, workflow event or logistics simulation tables. Existing voyages, vessel nominations and port calls have not yet been extended to the version/idempotency/event schema assumed by P17 write routes.
+- Production does contain the read projection basis `shipment_events`, `loading_operations`, and `loading_tickets`; however `buyer_visibility_grants` contains zero rows. `users.neon_auth_user_id` is present but no verified Neon Auth→buyer master mapping was found. Do not match by email and do not infer grants from Project membership.
+- No SQL, schema, role grant, RLS policy, seed/business record, or provider configuration was changed on Production during this audit.
+
+### Application source safety revision
+
+- `.vercelignore` no longer blanket-ignores `*.sql`; SQL migrations are required source artifacts for contract tests and migration release verifiers. Backup folders, dumps and compressed SQL dumps remain excluded.
+- `src/p17-maritime.ts` now installs a scoped pre-route middleware. It returns HTTP 503 `P17_SCHEMA_RELEASE_BLOCKED` for P17 Admin maritime mutations and Project workflow mutation routes (master-data change requests, PKE logistics simulation/change requests, voyages, vessel nominations and vessel port calls) until the exact P17 schema/security release is approved. It only gates POST/PUT/PATCH/DELETE; GET projections continue under their existing permission predicates. It does not block unrelated P1–P16 Project routes.
+- `src/p17-maritime.contract.test.ts` now contains static contract assertions for the scoped write gate. These assertions are included in the root `npm test` script.
+- This gate is a temporary release safety control, not a statement that the blocked workflows are accepted or complete.
+
+### Deployment constraint (OWNER INSTRUCTION)
+
+- Vercel deployment/build activity is intentionally skipped at this stage. The prior Vercel Preview failure is retained as historical evidence only; no new deploy was triggered after the owner instruction.
+- The previously observed Preview error was caused in part by the blanket `*.sql` ignore excluding migration files needed by contract tests. Full non-Vercel validation remains outstanding and must be performed separately.
+
+### Acceptance status — truthful state
+
+| Workstream | Status | Remaining evidence/blocker |
+|---|---|---|
+| P17-A Source governance | PARTIAL / RELEASE BLOCKED | Schema migrations 096 absent on Production; rights/licence approval and provider evidence not supplied |
+| P17-B Port identity, geospatial, logistics chain | PARTIAL / RELEASE BLOCKED | Schema migrations 098–103 absent; canonical crosswalks/geometry and source rights not reviewed |
+| P17-C Vessel compatibility | PARTIAL | Technical screening is advisory only; verified vessel/terminal restrictions and evidence not fully reconciled |
+| P17-D AIS | BLOCKED_EXTERNAL | No approved provider contract, allowed fields/retention/redistribution rights, credentials or freshness evidence |
+| P17-E Voyage, nomination, port-call, loading/shipment | PARTIAL / RELEASE BLOCKED | Migration 097 absent; existing Production columns differ from branch write contract; loading/survey/quantity/laytime actual sign-off acceptance not complete |
+| P17-F Buyer Shipment 360 | FAIL-CLOSED | Zero grants; verified Auth→buyer identity mapping absent; no buyer data projection may be exposed |
+| P17-G Export Control Tower | INCOMPLETE | Must consolidate only real Project-scoped, evidence-backed KPI sources and represent unknown as unavailable, never zero |
+
+### Work order under the existing Production-only policy
+
+1. Complete source-level schema reconciliation and contract/static tests without creating any Neon branch or writing any synthetic business data.
+2. Validate all eight exact SQL migrations against the canonical Production schema by read-only preflight and dependency/constraint review; do not execute them until owner approval explicitly identifies the target and migration set.
+3. Complete Project-scoped read API and UI mapping for the current Production schema, retaining fail-closed handling for missing tables/fields.
+4. Implement server-managed Auth→buyer mapping and Admin grant/revoke APIs as source code only, with no buyer grants created until a legitimate buyer user identity is verified.
+5. Complete loading/survey/quantity/laytime and Control Tower API/UI contracts; where actual evidence or external rights are unavailable, show a transparent blocked/unavailable state.
+6. Run unit/contract, backend compile, frontend typecheck/build and API read-only acceptance without invoking Vercel. No browser UAT is implied by this addendum.
+
+**Overall P17 status: IN PROGRESS — NOT ALL PASS.** The application release, external-data/legal gates, buyer identity/grants and operational end-to-end acceptance have not passed. No Production mutation, migration execution, PR merge or deployment was performed.

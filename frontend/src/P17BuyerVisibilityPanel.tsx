@@ -7,7 +7,7 @@ export default function P17BuyerVisibilityPanel({projectId,platformAdmin,permiss
  const [userId,setUserId]=useState(""),[buyerId,setBuyerId]=useState(""),[mappingNotes,setMappingNotes]=useState<Record<string,string>>({});
  const [grantBuyer,setGrantBuyer]=useState(""),[shipmentId,setShipmentId]=useState(""),[scope,setScope]=useState("summary"),[reason,setReason]=useState(""),[expiresAt,setExpiresAt]=useState("");
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const canManage=permissions.includes("buyer.visibility.manage");
+ const canManage=platformAdmin||permissions.includes("buyer.visibility.manage");
  const refresh=async()=>{
   setError("");
   const tasks:Promise<unknown>[]=[];

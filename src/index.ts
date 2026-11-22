@@ -18,6 +18,7 @@ import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePaylo
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 import { registerP17MaritimeRoutes } from "./p17-maritime.js";
 import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
+import { evaluateRegulatoryRule, summarizeRegulatoryAssessment, type RegulatoryRuleInput } from "./regulatory-engine.js";
 import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
 import { isValidCashAdvanceRequest, canDecideCashAdvance } from "./f1-cash-advance-rules.js";
 import { listCashAdvances, createCashAdvance, decideCashAdvance } from "./cash-advance-service.js";
@@ -2192,31 +2193,88 @@ app.get("/api/v1/regulatory-knowledge", requireAuth, requireAdmin, async (req: e
 });
 
 
-// Compliance engine - Admin only
-app.post("/api/v1/compliance-check", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { entityType, entityId, targetCountry, checkType } = req.body;
-
-  if (!entityType || !entityId || !targetCountry || !checkType) {
-    return res.status(400).json({ error: "Required fields: entityType, entityId, targetCountry, checkType" });
-  }
-
-  try {
-    // In production, this would run compliance checks against regulatory knowledge base
-    const complianceResult = {
-      entityType,
-      entityId,
-      targetCountry,
-      checkType,
-       compliant: null, // Requires human review - no verified rules configured
-       issues: [],
-       status: "requires_human_review",
-       message: "Compliance result requires human review. No verified regulatory rules have been configured yet.",
-    };
-    res.json({ complianceResult });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+// Deterministic Regulatory Core assessment. No RAG or conversational AI is used here.
+app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId=String(req.params.projectId??"");
+  const {entityType,entityId,targetCountry,inputSnapshot,shipmentId=null,productId=null}=req.body??{};
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId))
+    return res.status(400).json({error:"Valid projectId is required."});
+  if(typeof entityType!=="string"||!["shipment","product","project"].includes(entityType)||typeof entityId!=="string"||entityId.length>100||typeof targetCountry!=="string"||!/^[A-Z]{2}$/.test(targetCountry)||!inputSnapshot||typeof inputSnapshot!=="object"||Array.isArray(inputSnapshot))
+    return res.status(400).json({error:"Valid entityType, entityId, ISO-3166-1 alpha-2 targetCountry and object inputSnapshot are required."});
+  if(!(await requireProjectPermission(req,res,projectId,"compliance.assess"))) return;
+  try{
+    if(shipmentId){
+      const shipment=await req.db.query("SELECT id FROM public.shipments WHERE id=$1::uuid AND project_id=$2::uuid",[shipmentId,projectId]);
+      if(!shipment.rows.length) return res.status(404).json({error:"Shipment not found in this Project.",code:"REGULATORY_SHIPMENT_SCOPE_MISMATCH"});
+    }
+    const ruleRows=await req.db.query(
+      `SELECT r.id AS rule_id,r.rule_code,r.title,r.jurisdiction,r.subject_type,
+              v.id AS version_id,v.version_number,v.regulatory_source_id,v.source_locator,
+              v.source_url_snapshot,v.source_checksum,v.rule_summary,v.outcome,v.risk_category,
+              v.effective_from,v.effective_to,v.status AS version_status,
+              c.field_path,c.operator,c.comparison_value,c.is_mandatory,c.condition_group,
+              edt.document_code,rd.requirement_kind
+         FROM public.regulatory_rules r
+         JOIN public.regulatory_rule_versions v ON v.id=r.active_version_id AND v.rule_id=r.id
+         JOIN public.regulatory_sources s ON s.id=v.regulatory_source_id
+         LEFT JOIN public.regulatory_rule_conditions c ON c.rule_version_id=v.id
+         LEFT JOIN public.regulatory_rule_documents rd ON rd.rule_version_id=v.id
+         LEFT JOIN public.export_document_types edt ON edt.id=rd.document_type_id
+        WHERE r.status='effective' AND v.status='effective'
+          AND s.verification_status='verified'
+          AND r.jurisdiction=$1 AND r.subject_type IN ($2,'all')
+          AND v.effective_from<=CURRENT_DATE AND (v.effective_to IS NULL OR v.effective_to>=CURRENT_DATE)
+        ORDER BY r.rule_code,v.version_number,c.condition_group,c.field_path,edt.document_code`,
+      [targetCountry,entityType],
+    );
+    const grouped=new Map<string,any>();
+    for(const row of ruleRows.rows){
+      if(!grouped.has(row.version_id)) grouped.set(row.version_id,{ruleVersionId:row.version_id,ruleCode:row.rule_code,title:row.title,outcome:row.outcome,conditions:[],requiredDocuments:[],source:{id:row.regulatory_source_id,locator:row.source_locator,url:row.source_url_snapshot,checksum:row.source_checksum},versionNumber:row.version_number,summary:row.rule_summary});
+      const rule=grouped.get(row.version_id);
+      if(row.field_path) rule.conditions.push({field_path:row.field_path,operator:row.operator,comparison_value:row.comparison_value,is_mandatory:row.is_mandatory,condition_group:row.condition_group});
+      if(row.document_code&&!rule.requiredDocuments.some((d:any)=>d.documentCode===row.document_code)) rule.requiredDocuments.push({documentCode:row.document_code,requirementKind:row.requirement_kind});
+    }
+    const docs=await req.db.query(
+      `SELECT DISTINCT document_type_code FROM public.project_export_documents
+        WHERE project_id=$1::uuid AND status='approved' AND upload_verified_at IS NOT NULL
+          AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL
+          AND storage_bucket='pke-private-documents' AND legal_hold=false
+          AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)`,
+      [projectId],
+    );
+    const available=new Set<string>(docs.rows.map((d:any)=>String(d.document_type_code)).filter(Boolean));
+    const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,productId,assessedAt:new Date().toISOString()}};
+    const rules=Array.from(grouped.values()) as RegulatoryRuleInput[];
+    const results=rules.map(rule=>evaluateRegulatoryRule(rule,snapshot,available));
+    const summary=summarizeRegulatoryAssessment(results);
+    const inserted=await req.db.query(
+      `INSERT INTO public.regulatory_assessments
+        (project_id,shipment_id,product_id,origin_country,destination_country,assessment_date,input_snapshot,ruleset_version_snapshot,overall_status,failed_count,pending_count,assessed_by)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,CURRENT_DATE,$6::jsonb,$7::jsonb,$8,$9,$10,$11::uuid)
+       RETURNING id,project_id,shipment_id,product_id,assessment_date,overall_status,failed_count,pending_count,created_at`,
+      [projectId,shipmentId,productId,typeof inputSnapshot.originCountry==="string"?inputSnapshot.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify(rules.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode}))),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
+    );
+    const assessment=inserted.rows[0];
+    for(const result of results){
+      await req.db.query(
+        `INSERT INTO public.regulatory_assessment_results
+          (assessment_id,rule_version_id,result_status,reason,required_documents,missing_documents,evidence)
+         VALUES ($1::uuid,$2::uuid,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb)`,
+        [assessment.id,result.ruleVersionId,result.resultStatus,result.reason,JSON.stringify(result.requiredDocuments),JSON.stringify(result.missingDocuments),JSON.stringify(result.evidence)],
+      );
+    }
+    return res.status(201).json({assessment,results,ruleCount:rules.length,disclaimer:"Deterministic evaluation only. A missing effective/verified rule set is reported as pending; this result is not a legal opinion or government clearance."});
+  }catch(error:any){
+    req.logger?.error?.("Regulatory assessment failed",error);
+    if(error?.code==="42501") return res.status(403).json({error:"Regulatory assessment permission or database scope denied.",code:"REGULATORY_PERMISSION_DENIED"});
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
+
+// Retired legacy endpoint: callers must use the Project-scoped assessment contract.
+app.post("/api/v1/compliance-check", requireAuth, (_req: express.Request, res: express.Response) =>
+  res.status(410).json({error:"Legacy compliance-check endpoint retired.",code:"REGULATORY_PROJECT_SCOPE_REQUIRED",replacement:"POST /api/v1/projects/:projectId/regulatory-assessments"})
+);
 
 // Country pack requirements - Admin only
 app.get("/api/v1/country-packs", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {

@@ -127,6 +127,11 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
  // P17-A: provider/source governance. Secret values never enter application rows.
  // P17-E: loading quantity, survey and laytime evidence are versioned and independently reviewed.
+ app.get("/api/v1/projects/:projectId/loading-operations",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"shipping.view"))return;
+  try{const q=await req.db.query("SELECT lo.id,lo.project_id,lo.vessel_id,v.name AS vessel_name,lo.port_id,pt.name AS port_name,lo.quantity,lo.unit_code,lo.status,lo.started_at,lo.completed_at,(SELECT COUNT(*)::int FROM public.loading_tickets t WHERE t.loading_operation_id=lo.id AND t.project_id=lo.project_id) AS ticket_count,(SELECT COUNT(*)::int FROM public.loading_tickets t WHERE t.loading_operation_id=lo.id AND t.project_id=lo.project_id AND t.status='verified') AS verified_ticket_count FROM public.loading_operations lo LEFT JOIN public.vessels v ON v.id=lo.vessel_id LEFT JOIN public.ports pt ON pt.id=lo.port_id WHERE lo.project_id=$1::uuid ORDER BY lo.started_at DESC NULLS LAST,lo.id",[p]);return res.json({loadingOperations:q.rows});}
+  catch{return bad(res,500,"LOADING_OPERATIONS_READ_FAILED","Unable to read Project loading operations.");}
+ });
  app.patch("/api/v1/projects/:projectId/loading-operations/:operationId/unit",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId,id=req.params.operationId,unit=str(req.body?.unitCode,12).toUpperCase();
   if(!uuidPattern.test(p)||!uuidPattern.test(id)||!/^[A-Z0-9._-]{2,12}$/.test(unit))return bad(res,400,"LOADING_UNIT_INVALID","Valid Project, loading operation and unit code are required.");

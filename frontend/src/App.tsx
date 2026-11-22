@@ -1513,8 +1513,9 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
   const canCreateDocuments = can('documents.create') && canViewDocuments;
   const canUpdateDocuments = can('documents.update') && canViewDocuments;
   const canAdminRegulatory = activeUser?.platformAdmin === true;
+  const canViewRegulatorySources = can('regulatory.source.view') || canAdminRegulatory;
   const canAssessRegulatory = can("compliance.assess") && Boolean(projectId);
-  const knowledge = useLoad<{ regulatoryKnowledge?: AnyRecord[] }>(() => canAdminRegulatory ? get('/regulatory-knowledge') : Promise.resolve({ regulatoryKnowledge: [] }), [canAdminRegulatory]);
+  const knowledge = useLoad<{ sources?: AnyRecord[] }>(() => canViewRegulatorySources ? get('/regulatory-sources') : Promise.resolve({ sources: [] }), [canViewRegulatorySources]);
   const packs = useLoad<{ countryPacks?: AnyRecord[] }>(() => canAdminRegulatory ? get('/country-packs') : Promise.resolve({ countryPacks: [] }), [canAdminRegulatory]);
   const requirements = useLoad<{ documentRequirements?: AnyRecord[] }>(() => projectId && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/document-requirements`) : Promise.resolve({ documentRequirements: [] }), [projectId, canViewDocuments]);
   const docs = useLoad<{ documents?: AnyRecord[] }>(() => projectId && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/documents`) : Promise.resolve({ documents: [] }), [projectId, canViewDocuments]);
@@ -1523,7 +1524,7 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
   const [doc, setDoc] = useState({ projectRequirementId: '', originalFilename: '', mimeType: '', sha256Checksum: '', expiryDate: '', notes: '', objectKey: '', contentLength: 0 });
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
-  const [check, setCheck] = useState({ entityType: 'project', entityId: '', targetCountry: 'CN', checkType: 'document_readiness' });
+  const [check, setCheck] = useState({ entityType: 'shipment', entityId: '', targetCountry: 'CN', checkType: 'document_readiness' });
   const [checkResult, setCheckResult] = useState<AnyRecord | null>(null);
   const [editDocId, setEditDocId] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState('');
@@ -1580,18 +1581,7 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
     if (!check.entityId.trim()) return onNotice('error', 'ID entitas wajib diisi.');
     setBusy(true);
     try {
-      const body = {
-        ...check,
-        shipmentId: check.entityType === 'shipment' ? check.entityId.trim() : undefined,
-        productId: check.entityType === 'product' ? check.entityId.trim() : undefined,
-        inputSnapshot: {
-          project: { id: projectId },
-          shipment: { destinationCountry: check.targetCountry },
-          product: { destinationCountry: check.targetCountry },
-          destinationCountry: check.targetCountry,
-          checkType: check.checkType,
-        },
-      };
+      const body = { entityType: 'shipment', entityId: check.entityId.trim(), checkType: check.checkType };
       const result = await post<{ assessment: AnyRecord; results: AnyRecord[]; ruleCount: number; disclaimer: string }>(
         `/projects/${encodeURIComponent(projectId)}/regulatory-assessments`, body,
       );
@@ -1639,7 +1629,7 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
       <div className="form-actions"><ActionButton variant="secondary" onClick={() => setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy || !storage.data?.available || !doc.objectKey}>{busy ? 'Menyimpan…' : 'Verifikasi & simpan dokumen'}</button>{!storage.data?.available && <span style={{ marginLeft: 8, fontSize: '12px', color: '#dc2626' }}>Tidak tersedia</span>}</div>
     </form></Card>}
     {canAdminRegulatory && <div className="content-two"><Card><PanelHeading title="Paket negara tujuan" description="Persyaratan dokumen per negara tujuan dari katalog regulasi." />{packs.loading ? <Loading /> : packs.error ? <ErrorState message={packs.error} retry={packs.refresh} /> : <div className="country-list">{(packs.data?.countryPacks || []).map((pack, i) => <div className="country-card" key={pack.countryCode || i}><div className="country-flag">{pack.countryCode === 'CN' ? 'CN' : pack.countryCode === 'PK' ? 'PK' : 'ID'}</div><div className="country-copy"><strong>{pack.country}</strong><span>{pack.packName}</span><small>{(pack.requirements || []).map((r: AnyRecord) => r.documentName || r.documentCode).join(' · ')}</small></div><div className="country-tax">{number(Number(pack.taxRate || 0) * 100, 1)}%<small>indikatif</small></div></div>)}</div>}</Card>
-      <Card><PanelHeading title="Referensi regulasi" description="Sumber regulasi terverifikasi dari regulatory_sources." />{knowledge.loading ? <Loading /> : knowledge.error ? <ErrorState message={knowledge.error} retry={knowledge.refresh} /> : <div className="activity-list">{(knowledge.data?.regulatoryKnowledge || []).map((item, i) => <div className="activity-item" key={item.id || i}><div className="activity-icon"><Globe2 size={16} /></div><div className="activity-copy"><strong>{item.title}</strong><span>{item.issuingAuthority} · {item.jurisdiction}</span><small><StatusPill value={item.verificationStatus || item.status} /></small></div></div>)}</div>}</Card></div>}
+      <Card><PanelHeading title="Referensi regulasi" description="Metadata sumber regulasi, status verifikasi, dan jejak reviewer dari regulatory_sources." />{knowledge.loading ? <Loading /> : knowledge.error ? <ErrorState message={knowledge.error} retry={knowledge.refresh} /> : <div className="activity-list">{(knowledge.data?.sources || []).map((item, i) => <div className="activity-item" key={item.id || i}><div className="activity-icon"><Globe2 size={16} /></div><div className="activity-copy"><strong>{item.title}</strong><span>{item.issuingAuthority} · {item.jurisdiction}</span><small><StatusPill value={item.verificationStatus || item.status} /></small></div></div>)}</div>}</Card></div>}
     {canViewDocuments && <Card><PanelHeading title="Persyaratan dokumen proyek" description="Setiap baris menunjukkan dokumen yang diwajibkan untuk proyek ini dan status berkas terkait." action={<button className="icon-button" onClick={() => { requirements.refresh(); docs.refresh(); }}><RefreshCw size={16} /></button>} />
       {requirements.loading ? <Loading /> : requirements.error ? <ErrorState message={requirements.error} retry={requirements.refresh} /> : <div className="document-lifecycle">
         {requirementRows.length === 0 && <EmptyState title="Belum ada persyaratan dokumen" desc="Persyaratan dokumen akan muncul setelah negara tujuan dan produk proyek ditetapkan." />}
@@ -1661,7 +1651,7 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
         })}
       </div>}
     </Card>}
-    {canAssessRegulatory && <Card><PanelHeading title="Regulatory assessment" description="Evaluasi deterministik atas rule yang sudah effective dan source yang sudah verified. Hasil tidak menggantikan keputusan legal atau clearance otoritas." /><form className="form-grid" onSubmit={runCheck}><FormField label="Jenis entitas"><select value={check.entityType} onChange={e => setCheck(v => ({ ...v, entityType: e.target.value }))}><option value="project">Project</option><option value="shipment">Shipment</option><option value="product">Product</option></select></FormField><FormField label="ID entitas"><input value={check.entityId} onChange={e => setCheck(v => ({ ...v, entityId: e.target.value }))} required placeholder="UUID Project / Shipment / Product" /></FormField><FormField label="Negara tujuan"><select value={check.targetCountry} onChange={e => setCheck(v => ({ ...v, targetCountry: e.target.value }))}><option value="CN">China</option><option value="PK">Pakistan</option></select></FormField><FormField label="Jenis pemeriksaan"><select value={check.checkType} onChange={e => setCheck(v => ({ ...v, checkType: e.target.value }))}><option value="document_readiness">Document readiness</option><option value="shipment_compliance">Shipment compliance</option><option value="contract_compliance">Contract compliance</option></select></FormField><div className="form-actions"><button className="primary-button" disabled={busy || !projectId}>{busy ? 'Memproses…' : 'Jalankan assessment'}</button></div></form>{checkResult && <div className="review-result"><div className="review-result-head"><CircleAlert size={18} /><strong>Status: {checkResult.overall_status || checkResult.overallStatus || 'pending'}</strong></div><p>{checkResult.message}</p><small>Target: {check.targetCountry} · Entitas: {shortId(check.entityId)} · Rules: {checkResult.ruleCount ?? 0}</small>{(checkResult.results || []).map((item: AnyRecord) => <div key={item.ruleVersionId} className="document-requirement-meta">{item.ruleCode}: {item.resultStatus} — {item.reason}</div>)}</div>}</Card>}
+    {canAssessRegulatory && <Card><PanelHeading title="Regulatory assessment" description="Evaluasi deterministik atas rule yang sudah effective dan source yang sudah verified. Hasil tidak menggantikan keputusan legal atau clearance otoritas." /><form className="form-grid" onSubmit={runCheck}><FormField label="Jenis entitas"><select value={check.entityType} onChange={e => setCheck(v => ({ ...v, entityType: e.target.value }))}><option value="shipment">Shipment</option></select></FormField><FormField label="ID entitas"><input value={check.entityId} onChange={e => setCheck(v => ({ ...v, entityId: e.target.value }))} required placeholder="UUID Project / Shipment / Product" /></FormField><FormField label="Negara tujuan"><select value={check.targetCountry} onChange={e => setCheck(v => ({ ...v, targetCountry: e.target.value }))}><option value="CN">China</option><option value="PK">Pakistan</option></select></FormField><FormField label="Jenis pemeriksaan"><select value={check.checkType} onChange={e => setCheck(v => ({ ...v, checkType: e.target.value }))}><option value="document_readiness">Document readiness</option><option value="shipment_compliance">Shipment compliance</option><option value="contract_compliance">Contract compliance</option></select></FormField><div className="form-actions"><button className="primary-button" disabled={busy || !projectId}>{busy ? 'Memproses…' : 'Jalankan assessment'}</button></div></form>{checkResult && <div className="review-result"><div className="review-result-head"><CircleAlert size={18} /><strong>Status: {checkResult.overall_status || checkResult.overallStatus || 'pending'}</strong></div><p>{checkResult.message}</p><small>Target: {check.targetCountry} · Entitas: {shortId(check.entityId)} · Rules: {checkResult.ruleCount ?? 0}</small>{(checkResult.results || []).map((item: AnyRecord) => <div key={item.ruleVersionId} className="document-requirement-meta">{item.ruleCode}: {item.resultStatus} — {item.reason}</div>)}</div>}</Card>}
   </>;
 }
 

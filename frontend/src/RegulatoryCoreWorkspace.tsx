@@ -16,6 +16,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
   const canRuleManage=can("regulatory.rule.manage");
   const canDocView=can("regulatory.document.view")||can("regulatory.document.manage");
   const canDocManage=can("regulatory.document.manage");
+  const canManageDocumentTypes=activeUser?.platformAdmin===true;
   const canAddProjectRequirement=can("documents.create")&&Boolean(projectId);
   const canAssess=can("compliance.assess")&&Boolean(projectId);
   const [sources,setSources]=useState<AnyRecord[]>([]);
@@ -134,13 +135,14 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
     </section>}
     {canDocView&&<section className="card">
       <h3>Export Document Catalog & Country Requirements</h3>
-      {canDocManage&&<><form className="form-grid" onSubmit={submitDocType}>
+      {canManageDocumentTypes&&<form className="form-grid" onSubmit={submitDocType}>
         <label>Document code<input required value={docForm.documentCode} onChange={e=>setDocForm(v=>({...v,documentCode:e.target.value.toUpperCase()}))}/></label>
         <label>Nama dokumen<input required value={docForm.documentName} onChange={e=>setDocForm(v=>({...v,documentName:e.target.value}))}/></label>
         <label>Kategori<input required value={docForm.documentCategory} onChange={e=>setDocForm(v=>({...v,documentCategory:e.target.value}))}/></label>
         <label>Deskripsi<input value={docForm.description} onChange={e=>setDocForm(v=>({...v,description:e.target.value}))}/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Tambah document type</button></div>
-      </form><form className="form-grid" onSubmit={submitCountryRequirement}>
+      </form>}
+      {canDocManage&&<form className="form-grid" onSubmit={submitCountryRequirement}>
         <label>Negara tujuan<select value={countryForm.countryCode} onChange={e=>setCountryForm(v=>({...v,countryCode:e.target.value}))}><option value="CN">China</option><option value="PK">Pakistan</option><option value="ID">Indonesia</option></select></label>
         <label>Document code<select required value={countryForm.documentCode} onChange={e=>setCountryForm(v=>({...v,documentCode:e.target.value}))}><option value="">Pilih dokumen</option>{docTypes.filter(d=>d.is_active).map(d=><option key={d.id} value={d.document_code}>{d.document_code} · {d.document_name}</option>)}</select></label>
         <label>Verified source<select required value={countryForm.regulatorySourceId} onChange={e=>setCountryForm(v=>({...v,regulatorySourceId:e.target.value}))}><option value="">Pilih sumber terverifikasi</option>{sources.filter(s=>s.verificationStatus==="verified").map(s=><option key={s.id} value={s.id}>{s.sourceId} · {s.title}</option>)}</select></label>
@@ -150,7 +152,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label><input type="checkbox" checked={countryForm.mandatory} onChange={e=>setCountryForm(v=>({...v,mandatory:e.target.checked}))}/> Mandatory</label>
         <label>Notes<input value={countryForm.notes} onChange={e=>setCountryForm(v=>({...v,notes:e.target.value}))}/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Tambah country requirement draft</button></div>
-      </form></>}
+      </form>}/>}
       <div className="activity-list">{countryReqs.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.country_code} · {r.document_code} · {r.document_name}</strong><span>{r.status} / {r.verification_status} · v{r.version_no}</span><small>Source: {r.source_id||"—"} · berlaku {String(r.effective_from||"").slice(0,10)}</small></div>{canDocManage&&["pending","reviewed"].includes(r.verification_status)&&<button className="secondary-button" disabled={busy||r.created_by===activeUser?.id||!r.regulatory_source_id} onClick={()=>void reviewCountryRequirement(r.id)}>Verify (independent)</button>}{canAddProjectRequirement&&r.status==="active"&&r.verification_status==="verified"&&<button className="secondary-button" disabled={busy} onClick={()=>void addCountryRequirement(r.id)}>Add to active Project</button>}</div>)}{!countryReqs.length&&<p className="muted">Belum ada country requirement.</p>}</div>
       <p className="muted">{docTypes.length} document types · {countryReqs.length} country requirements</p>
     </section>}

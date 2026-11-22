@@ -12,6 +12,7 @@ const historyBase = readJson("migration_history_manifest_001_056.json");
 const historyCurrent = readJson("migration_history_manifest_001_070.json");
 const uat = readJson("migration_history_manifest_uat_001_110.json");
 const release = readJson("migration_release_manifest_p17_096_109.json");
+const p17d110 = readJson("migration_release_manifest_p17d_110.json");
 const runner = fs.readFileSync(path.join(root, "scripts/apply-p17-migrations.mjs"), "utf8");
 
 if (historyBase.project_id !== "purple-base-63944903" || historyBase.branch_id !== "br-damp-shape-b3xlh4nr" ||
@@ -35,6 +36,17 @@ if (release.purpose !== "production_p17_release_package_exact_sql_hashes_owner_a
     release.expected_last_ledger_id !== 70 || release.migrations?.length !== 14) {
   fail("P17 Production release manifest target/scope mismatch.");
 }
+
+if (p17d110.purpose !== "production_p17d_runtime_rls_correction_owner_approval_required" ||
+    p17d110.project_id !== "purple-base-63944903" || p17d110.branch_id !== "br-damp-shape-b3xlh4nr" ||
+    p17d110.starting_history_count !== 70 || p17d110.expected_first_ledger_id !== 71 ||
+    p17d110.expected_last_ledger_id !== 71 || p17d110.owner_approval?.status !== "pending" ||
+    p17d110.migrations?.length !== 1 || p17d110.migrations[0]?.status !== "pending" ||
+    p17d110.migrations[0]?.requires_owner_approval !== true ||
+    hashFile("110_p17d_vessel_position_runtime_rls_fix.sql") !== p17d110.migrations[0]?.sha256) {
+  fail("P17-D migration 110 must remain exactly pinned and owner-gated for Production.");
+}
+
 for (let i = 0; i < 56; i++) {
   const a=historyBase.entries[i], b=historyCurrent.entries[i];
   if (!a || !b || a.id!==i+1 || b.id!==i+1 || a.filename!==b.filename || a.sha256!==b.sha256 || a.status!==b.status) {

@@ -414,6 +414,9 @@ describe("P17-D AIS evidence and freshness hardening",()=>{
  it("derives fresh or stale from the approved source SLA, never calls unknown live",()=>{
   expect(API).toContain("metadata?.freshness_sla_seconds");
   expect(API).toContain("freshness_delayed_grace_seconds");
+  expect(API).toContain("AIS_PAYLOAD_HASH_MISMATCH");
+  expect(API).toContain("AIS_PAYLOAD_FIELDS_MISMATCH");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8")).toContain("freshnessDelayedGraceSeconds");
   expect(API).toContain("AIS_OBSERVATION_TIME_FUTURE");
   expect(API).toContain(':"unknown"');
   expect(API).toContain("freshness_status");

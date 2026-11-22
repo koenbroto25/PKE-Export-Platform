@@ -64,6 +64,9 @@ CREATE TABLE public.loading_operation_acceptances (
 );
 CREATE INDEX loading_acceptance_project_type_idx
   ON public.loading_operation_acceptances(project_id,loading_operation_id,acceptance_type,review_status,version_no DESC);
+CREATE UNIQUE INDEX loading_acceptance_one_pending_uq
+  ON public.loading_operation_acceptances(project_id,loading_operation_id,acceptance_type)
+  WHERE review_status='pending';
 
 INSERT INTO public.permissions(name,code,description,is_active)
 VALUES

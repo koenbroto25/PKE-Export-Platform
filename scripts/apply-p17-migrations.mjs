@@ -20,7 +20,8 @@ const EXPECTED = Object.freeze({
   host: "ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech",
   port: 5432,
   firstLedgerId: 57,
-  lastLedgerId: 71,
+  lastLedgerId: 70,
+  productionLedgerLastId: 71,
 });
 const fail = (message) => { throw new Error("BLOCKED: " + message); };
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");

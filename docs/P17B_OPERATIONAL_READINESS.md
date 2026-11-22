@@ -119,3 +119,52 @@ A PM with `pks.master_data.change_request.view/manage` can create and edit their
 - No UAT data was inserted or updated during this API implementation.
 - No source registry rights were approved, no source data imported, no Production mutation and no Vercel deployment.
 - Runtime build/test execution remains pending; this branch was not deployed and no Vercel quota was consumed.
+
+
+## 11. P17-B Kumai logistics simulation — UAT only
+A non-canonical simulation has been seeded in `public.p17b_logistics_simulation_scenarios` for Project `[TEST FIXTURE] PKE Alpha Export Project`:
+- Scenario code: `SIM-PKE-KUMAI-001`
+- Scenario ID: `a394ace9-02ef-452f-862a-70b514f8568f`
+- Graph: 6 nodes and 5 directed edges.
+- Chain: CBU KCP candidate at Tempenek/Kumai → candidate road leg → Pelabuhan Bumiharjo → terminal candidate → PKE loose-bulk loading candidate → port warehouse.
+- All nodes are `simulation_only=true` and `verification_status=unverified`.
+- The graph is stored separately from canonical `ports`, `pks_sites`, `pks_port_routes`, `port_terminals`, `port_loading_services`, and `warehouses`. It does not pollute master data.
+
+Research anchors:
+- CBI Group public disclosure: PT Citra Borneo Utama and group KCP capacity of 180,000 MT/year. This is group-level KCP capacity, not a site-level PKE output capacity: https://www.citraborneo.co.id/
+- Pelindo Multi Terminal public profile: Bumiharjo, Kumai; terminal category metadata includes dry bulk; published berth 392.9 m, stacking yard 1,560 m² and warehouse 2,616 m²: https://pelindomultiterminal.com/portfolio/bumiharjo-bagendang
+
+Unverified/unknown values deliberately remain null:
+- KCP and port coordinates.
+- Actual road geometry, road distance and travel time.
+- PKE-specific terminal acceptance, equipment, loading rate and berth suitability.
+- Warehouse PKE suitability and storage capacity.
+- Truck restrictions, operating windows and current service availability.
+
+**No live dispatch, route ranking or export commitment may use this scenario.** It is explicitly ineligible until the PKS site, route survey, port/terminal PKE acceptance, loading service and warehouse capacity are independently validated.
+
+## 12. PM/Admin editing and governance
+Migration 099 adds Project-scoped change requests for canonical port, road route, terminal, loading service and warehouse records. PM drafts are submitted and only an independent Platform Admin may approve/reject. Migration 100 adds audit events. Migration 102 adds Project-parent scope checks and stale-snapshot protection before submit/approval.
+
+Migration 101 adds the isolated simulation graph. PMs with `pke.logistics.master.change_request.manage` can create/update simulation scenarios directly within their Project; this only changes non-canonical simulation data. Admins retain global review authority. The graph validator requires all six node types, five edge relationships, simulation-only flags and unverified status.
+
+## 13. UAT migration ledger through 102
+- 099 `099_p17b_logistics_scenario_and_pm_change_requests.sql`: applied.
+- 100 `100_p17b_logistics_change_audit.sql`: applied.
+- 101 `101_p17b_logistics_simulation_graph.sql`: applied.
+- 102 `102_p17b_logistics_request_scope_guard.sql`: applied.
+- UAT manifest: `migration_history_manifest_uat_001_102.json`.
+- The attempted insert into canonical global master tables was rejected by the existing P16 Admin guard. The transaction rolled back; no CBU organization or real port/PKS master row was created. The separate simulation graph is the only seeded scenario data.
+
+## 14. Updated acceptance
+| Gate | Result |
+|---|---|
+| Project-scoped PM change-request API for port/route/terminal/loading/warehouse | IMPLEMENTED; runtime acceptance pending |
+| Admin decision workflow and audit events | IMPLEMENTED; runtime acceptance pending |
+| Cross-Project target and stale snapshot guard | IMPLEMENTED; runtime acceptance pending |
+| Isolated logistics simulation schema and graph validation | APPLIED |
+| Kumai evidence-based simulation seed | SEEDED: 6 nodes / 5 edges |
+| Simulation node status and no-canonical-pollution check | PASS |
+| Road distance/time and PKE loading acceptance | UNKNOWN / NOT VERIFIED |
+| PM authenticated HTTP test and full test suite | NOT EXECUTED |
+| Production / Vercel | NOT TOUCHED |

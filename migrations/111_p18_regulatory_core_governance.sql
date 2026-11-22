@@ -35,9 +35,9 @@ WHERE p.code IN ('project.view','documents.view','shipment.view','shipping.view'
 ON CONFLICT(role_code,permission_code) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.p18_has_regulatory_permission(permission_code text)
-RETURNS boolean LANGUAGE sql STABLE AS $
-  SELECT public.pke_is_platform_admin() OR public.p18_has_regulatory_permission(permission_code)
-$;
+RETURNS boolean LANGUAGE sql STABLE AS $$
+  SELECT public.pke_is_platform_admin() OR public.pke_has_any_project_permission(permission_code)
+$$;
 
 DROP POLICY IF EXISTS pke_regulatory_sources_read ON public.regulatory_sources;
 CREATE POLICY pke_regulatory_sources_read ON public.regulatory_sources

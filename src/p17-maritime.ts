@@ -17,6 +17,18 @@ const validGeoJson=(featureType:string,g:any):boolean=>{
  if(["road_access","road_route"].includes(featureType))return (g.type==="LineString"&&geoLine(g.coordinates))||(g.type==="MultiLineString"&&Array.isArray(g.coordinates)&&g.coordinates.length>0&&g.coordinates.every(geoLine));
  return false;
 };
+const validateSimulationGraph=(g:any):boolean=>{
+ if(!g||typeof g!=="object"||Array.isArray(g)||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length<6||g.edges.length<5)return false;
+ const required=["pks_site","road_route","port","terminal","loading_service","warehouse"],types=new Set<string>(),ids=new Set<string>();
+ for(const node of g.nodes){
+  if(!node||typeof node!=="object"||typeof node.id!=="string"||!node.id.trim()||typeof node.name!=="string"||!node.name.trim()||!required.includes(node.type)||node.simulation_only!==true||node.verification_status!=="unverified"||ids.has(node.id))return false;
+  ids.add(node.id);types.add(node.type);
+ }
+ if(required.some(type=>!types.has(type)))return false;
+ const relationships=["pks_to_road_route","road_route_to_port","port_has_terminal","terminal_has_loading_service","terminal_has_warehouse"],seen=new Set<string>();
+ for(const edge of g.edges){if(!edge||!ids.has(edge.from_id)||!ids.has(edge.to_id)||!relationships.includes(edge.relationship_type)||edge.from_id===edge.to_id)return false;seen.add(edge.relationship_type);}
+ return relationships.every(type=>seen.has(type));
+};
 
 export function registerP17MaritimeRoutes(app:Express,d:D){
  // Production schema is still at migration 053. Block P17 mutations until 096-107

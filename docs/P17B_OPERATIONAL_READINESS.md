@@ -97,3 +97,25 @@ A Vercel Preview on branch `f1/project-scoped-cob-20261119`, commit `daafdb010a4
 - No fabricated routes, coordinates, road distance, travel time, cargo capabilities, warehouse capacity, or facility output.
 - Do not mark unexecuted API/browser/deployment tests as PASS.
 - Do not merge PR #2 or trigger Vercel deployment in this checkpoint.
+
+
+## 8. Project Manager master-data workflow implementation
+P17-B now exposes Project-scoped API endpoints backed by the existing P2A change-request table:
+- `GET /api/v1/projects/:projectId/master-data-change-requests`
+- `POST /api/v1/projects/:projectId/master-data-change-requests`
+- `PATCH /api/v1/projects/:projectId/master-data-change-requests/:requestId`
+- `PATCH /api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision`
+
+A PM with `pks.master_data.change_request.view/manage` can create and edit their own draft proposals for organization/facility master data, then submit them. Submitted proposals are immutable to the requester. Only an independent Platform Admin can approve/reject; the existing database trigger applies approved organization/facility proposals, enforces field allowlists, stale-snapshot checks and audit events. This is a controlled change-request workflow, not direct PM write access to canonical rows.
+
+**Not yet implemented:** PM proposals for global port master records, port crosswalk identities, route records, terminal/loading services, warehouse/port geospatial features, and source-rights registry. Those remain Admin-only until a separate Project-scoped proposal model is added. The current PM workflow must not be described as full port/route edit capability.
+
+## 9. Machine-readable PKE candidate staging
+`docs/P17B_PKE_SEED_CANDIDATES.json` records sourced candidates and shipment evidence separately from canonical facility records. All candidate entries are non-importable until rights, identity, facility classification, current operating status, and evidence review are complete. Company capacity disclosures are explicitly labelled kernel-input capacity, never PKE output capacity. Government shipment records are shipment evidence, not proof of ownership of a KCP.
+
+## 10. Validation status after API addition
+- Static contract coverage added for Project-scoped PM request/list/submit and independent Admin decision endpoints.
+- Existing database migration 077 already provides the RLS table, PM permission grants, maker-checker trigger, field allowlists and canonical write restrictions.
+- No UAT data was inserted or updated during this API implementation.
+- No source registry rights were approved, no source data imported, no Production mutation and no Vercel deployment.
+- Runtime build/test execution remains pending; this branch was not deployed and no Vercel quota was consumed.

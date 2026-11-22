@@ -20,6 +20,7 @@ const SCENARIO_UI=readFileSync(join(ROOT,"frontend","src","PkeLogisticsScenarioW
 const IDENTITY_UI=readFileSync(join(ROOT,"frontend","src","MaritimeIdentityReview.tsx"),"utf8");
 const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
 const WORKSPACE=readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8");
+const WORKFLOW_ACTIONS=readFileSync(join(ROOT,"frontend","src","P17WorkflowActions.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -558,5 +559,19 @@ describe("P17 admin workspace reachability",()=>{
   expect(WORKSPACE).toContain("MaritimeIdentityReview");
   expect(WORKSPACE).toContain("activeUser?.platformAdmin===true");
   expect(WORKSPACE).toContain("platformAdmin={true}");
+ });
+});
+
+
+describe("P17 operational workflow UI",()=>{
+ it("exposes voyage, nomination and port-call actions only behind Project permissions",()=>{
+  expect(WORKSPACE).toContain("P17WorkflowActions");
+  expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"voyage.create\")");
+  expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.nominate\")");
+  expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.nomination.review\")");
+  expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.port_call.manage\")");
+  expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.port_call.confirm\")");
+  expect(WORKFLOW_ACTIONS).toContain("expectedVersion");
+  expect(WORKFLOW_ACTIONS).toContain("crypto.randomUUID()");
  });
 });

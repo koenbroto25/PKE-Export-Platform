@@ -72,7 +72,7 @@ ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.descript
 
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
 VALUES
- ('pm','voyage.create'),('pm','voyage.update'),('pm','vessel.nomination.review'),
+ ('pm','voyage.view'),('pm','voyage.create'),('pm','voyage.update'),('pm','vessel.nomination.review'),
  ('pm','vessel.port_call.manage'),
  ('shipping_agent','voyage.create'),('shipping_agent','vessel.nominate'),('shipping_agent','vessel.port_call.manage'),
  ('master_of_loading','vessel.port_call.confirm'),
@@ -82,10 +82,10 @@ ON CONFLICT(role_code,permission_code) DO NOTHING;
 INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id)
 SELECT pr.project_id,pr.id,p.id
 FROM public.project_roles pr
-JOIN public.permissions p ON p.code IN ('voyage.create','voyage.update','vessel.nomination.review','vessel.port_call.manage','vessel.port_call.confirm','vessel.nominate')
+JOIN public.permissions p ON p.code IN ('voyage.view','voyage.create','voyage.update','vessel.nomination.review','vessel.port_call.manage','vessel.port_call.confirm','vessel.nominate')
 WHERE pr.is_active=true
   AND (
-    (pr.role_code='pm' AND p.code IN ('voyage.create','voyage.update','vessel.nomination.review','vessel.port_call.manage'))
+    (pr.role_code='pm' AND p.code IN ('voyage.view','voyage.create','voyage.update','vessel.nomination.review','vessel.port_call.manage'))
     OR (pr.role_code='shipping_agent' AND p.code IN ('voyage.create','vessel.nominate','vessel.port_call.manage'))
     OR (pr.role_code IN ('master_of_loading','terminal_representative') AND p.code='vessel.port_call.confirm')
   )

@@ -49,6 +49,15 @@ CREATE POLICY buyer_auth_mapping_self_read
   USING (user_id=public.pke_current_user_id() AND mapping_status='active');
 
 ALTER TABLE public.buyer_visibility_grant_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY buyer_visibility_grant_events_project_insert
+  ON public.buyer_visibility_grant_events FOR INSERT TO app_runtime_secure
+  WITH CHECK (
+    project_id=NULLIF(current_setting('app.current_project_id',true),'')::uuid
+    AND actor_id=public.pke_current_user_id()
+    AND public.pke_has_project_permission(project_id,'buyer.visibility.manage')
+  );
+
+
 ALTER TABLE public.buyer_visibility_grant_events FORCE ROW LEVEL SECURITY;
 CREATE POLICY buyer_visibility_grant_events_admin_read
   ON public.buyer_visibility_grant_events FOR SELECT TO app_runtime_secure

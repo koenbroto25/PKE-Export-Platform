@@ -2669,7 +2669,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       let result:any;
       if(rule.subjectType==="product"){
         if(!productFacts.length||productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||p.qualityStatus!=="passed"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode)){
-          result={ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"pending",reason:"Product rule cannot be evaluated until all allocated products have approved, current destination-country HS classifications.",requiredDocuments:rule.requiredDocuments??[],missingDocuments:[],evidence:[]};
+          result={ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"pending",reasonCode:"PRODUCT_HS_CLASSIFICATION_REQUIRED",reason:"Product rule cannot be evaluated until all allocated products have approved, current destination-country HS classifications.",requiredDocuments:rule.requiredDocuments??[],missingDocuments:[],evidence:[]};
         }else{
           const perProduct=productFacts.map(product=>evaluateRegulatoryRule(rule,{...snapshot,product},available));
           const statuses=perProduct.map(r=>r.resultStatus);
@@ -2697,13 +2697,13 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       [projectId,shipmentId,productId,productHsClassificationId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify({rules:rules.map((r:any)=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,source:r.source,versionNumber:r.versionNumber,summary:r.summary})),coverageWarnings}),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
     );
     const assessment=inserted.rows[0];
-    await recordRegulatoryAudit(req,"assessment.created","regulatory_assessment",assessment.id,projectId,"Deterministic assessment created from Project-owned shipment snapshot",null,{overallStatus:summary.overallStatus,ruleCount:rules.length,coverageWarnings,results:results.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,resultStatus:r.resultStatus,reason:r.reason}))});
+    await recordRegulatoryAudit(req,"assessment.created","regulatory_assessment",assessment.id,projectId,"Deterministic assessment created from Project-owned shipment snapshot",null,{overallStatus:summary.overallStatus,ruleCount:rules.length,coverageWarnings,results:results.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,resultStatus:r.resultStatus,reasonCode:r.reasonCode,reason:r.reason}))});
     for(const result of results){
       await req.db.query(
         `INSERT INTO public.regulatory_assessment_results
-          (assessment_id,rule_version_id,result_status,reason,required_documents,missing_documents,evidence)
-         VALUES ($1::uuid,$2::uuid,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb)`,
-        [assessment.id,result.ruleVersionId,result.resultStatus,result.reason,JSON.stringify(result.requiredDocuments),JSON.stringify(result.missingDocuments),JSON.stringify(result.evidence)],
+          (assessment_id,rule_version_id,result_status,reason_code,reason,required_documents,missing_documents,evidence)
+         VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)`,
+        [assessment.id,result.ruleVersionId,result.resultStatus,result.reasonCode,result.reason,JSON.stringify(result.requiredDocuments),JSON.stringify(result.missingDocuments),JSON.stringify(result.evidence)],
       );
     }
     return res.status(201).json({assessment,results,ruleCount:rules.length,coverageWarnings,disclaimer:"Deterministic evaluation only. A missing effective/verified rule set is reported as pending; this result is not a legal opinion or government clearance."});
@@ -2766,10 +2766,10 @@ app.patch("/api/v1/projects/:projectId/regulatory-assessments/:assessmentId/revi
       if(typeof decision?.resultId!=="string"||!["pass","fail","not_applicable"].includes(decision.decision)||typeof decision.reason!=="string"||decision.reason.trim().length<5)
         return res.status(400).json({error:"Each decision requires resultId, pass/fail/not_applicable and a reason."});
       const updated=await req.db.query(
-        `UPDATE public.regulatory_assessment_results SET result_status=$1,reason=$2,reviewer_id=$3::uuid,reviewed_at=now()
+        `UPDATE public.regulatory_assessment_results SET result_status=$1,reason_code=$4,reason=$2,reviewer_id=$3::uuid,reviewed_at=now()
           WHERE id=$4::uuid AND assessment_id=$5::uuid AND result_status IN ('pending','manual_review')
           RETURNING id`,
-        [decision.decision,decision.reason.trim(),req.user?.id??null,decision.resultId,req.params.assessmentId],
+        [decision.decision,decision.reason.trim(),req.user?.id??null,decision.decision==="pass"?"HUMAN_REVIEW_PASS":decision.decision==="fail"?"HUMAN_REVIEW_FAIL":"HUMAN_REVIEW_NOT_APPLICABLE",decision.resultId,req.params.assessmentId],
       );
       if(!updated.rows.length) return res.status(409).json({error:"Result is not pending review or does not belong to this assessment.",code:"REGULATORY_REVIEW_CONFLICT"});
     }

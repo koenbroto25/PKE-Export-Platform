@@ -27,6 +27,7 @@ CREATE TABLE public.maritime_data_sources (
   enabled boolean NOT NULL DEFAULT false,
   quota_limit integer CHECK (quota_limit IS NULL OR quota_limit > 0),
   quota_window_seconds integer CHECK (quota_window_seconds IS NULL OR quota_window_seconds > 0),
+  CONSTRAINT maritime_source_quota_pair_ck CHECK ((quota_limit IS NULL AND quota_window_seconds IS NULL) OR (quota_limit IS NOT NULL AND quota_window_seconds IS NOT NULL)),
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata)='object'),
   created_by uuid REFERENCES public.users(id),
   updated_by uuid REFERENCES public.users(id),
@@ -79,13 +80,14 @@ CREATE TABLE public.maritime_ingestion_runs (
   triggered_by uuid REFERENCES public.users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(source_id,idempotency_key),
-  CHECK (completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at)
+  CHECK (completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at),
+  CHECK (records_staged <= records_seen AND records_rejected <= records_seen)
 );
 
 CREATE TABLE public.maritime_ingestion_staging (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id uuid NOT NULL REFERENCES public.maritime_ingestion_runs(id) ON DELETE CASCADE,
-  external_record_id text NOT NULL,
+  external_record_id text NOT NULL CHECK (length(btrim(external_record_id)) BETWEEN 1 AND 240),
   entity_type text NOT NULL CHECK (entity_type IN ('port','port_geometry','marine_forecast','marine_warning','vessel_identity','vessel_position','navigation_notice','other')),
   raw_payload jsonb NOT NULL CHECK (jsonb_typeof(raw_payload) IN ('object','array')),
   normalized_payload jsonb CHECK (normalized_payload IS NULL OR jsonb_typeof(normalized_payload)='object'),

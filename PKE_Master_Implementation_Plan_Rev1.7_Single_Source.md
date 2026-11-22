@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.30 — P17 technical completion track and owner handoff
+# Master Implementation Plan Rev2.31 — P17 technical completion revisions and owner handoff
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.30 (23 November 2026 — Production ledger 001–071 reconciled; migration runner/verifier corrected; owner actions separated from technical completion)  
+**Revision:** 2.31 (23 November 2026 — P17 Admin and Project workflow UI expanded; AIS review queue added; owner actions remain separate from technical work)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8628,3 +8628,16 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Keep Vercel deployment and browser UAT skipped per owner instruction. No Production business fixtures, no extra Neon branches, no destructive cleanup, and no new Production migration without exact owner approval.
 
 **Status semantics:** P17 database migrations 096–110 are applied and the known database/RLS correction is closed. This does NOT mean all application/API/UI acceptance has passed. External owner inputs above are operational activation gates only; they must not be used to defer or stop technical implementation. Overall P17 remains in technical completion until all code/API/UI/test gates that can be completed without those inputs pass. Business Production Ready remains a later owner/legal/operational sign-off.
+
+
+**Additional technical revisions — same session, 23 November 2026**
+- P17 Admin workspace now mounts the existing maritime source rights registry and port identity/geospatial review workspace only for Platform Admin. This makes P17-A/P17-B administration reachable from the existing Voyage & Kapal page rather than leaving the components orphaned.
+- Added Project-scoped voyage creation, vessel nomination draft/submit/independent decision, and port-call event forms. Every action is displayed only when the current Project permission exists; requests use idempotency keys and expected-version checks; actual port-call events are offered only with `vessel.port_call.confirm`, predicted events only with `vessel.port_call.manage`. Server/database maker-checker and scope guards remain authoritative.
+- Removed stale UI text claiming all maritime panels are read-only and that migration 097 was not yet released. Runtime 503 release-gate errors are now distinguished from ordinary API errors.
+- Added an authenticated Platform Admin AIS observation review-queue GET route and an Admin UI for hash-verified AIS observation submission and independent pending-observation review. It requires source ID, vessel ID, matching MMSI, provider observation time, coordinates, source/provider references and attribution. The server continues to enforce active approved source rights, field-purpose permissions, freshness and immutable payload hash; no AIS source was enabled and no position was created.
+- Added P17 contract assertions for admin workspace reachability, Project permission-gated maritime actions, AIS queue and hash-intake UI.
+- Corrected the P17 migration runner's stale diagnostic from ledger 001–070 to 001–071 and strengthened the release verifier to assert the corrected boundary.
+- Re-read the changed GitHub files after commit. The active branch contains the revised API, frontend components and contract test. Current commit's visible combined status still shows only the Vercel build-rate-limit failure; Vercel is intentionally not retried. No new GitHub Actions result for the latest commits was available through the workflow-run lookup, so the previous 479-test PASS remains historical evidence, not proof for these latest changes. A fresh non-deployment CI run is still required to claim compile/test PASS.
+- Read-only Production query reconfirmed migration ledger count 71 / max ID 71; enabled maritime sources 0; source-linked vessel positions 0; Buyer Auth mappings 0; Buyer visibility grants 0; Project PKS participation links 0. These zero counts are intentional until genuine owner/provider inputs exist.
+
+**Remaining technical work is still active and is not to be paused for owner inputs:** authenticated API runtime contract/backtests, complete P17-A/B/C/D/E/F route-to-screen acceptance, remaining AIS ingestion-run/staging UI, full Buyer visibility admin workflow UI, and any uncovered service/schema/frontend mismatches. Do not claim overall P17 application completion until those are actually tested and closed. Owner actions listed above are external activation/evidence gates only.

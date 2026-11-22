@@ -1,6 +1,6 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.36 — P17 Production reconciliation and validation run
+# Master Implementation Plan Rev2.37 — P17 Production reconciliation and validation run
 
 
 
@@ -8753,3 +8753,70 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 7. Add API contract, RLS isolation, workflow and frontend acceptance; run full regression/build/typecheck before phase close.
 
 **Audit status:** P18 Regulatory Core is NOT COMPLETE. The source registry has a partial legacy API, deterministic compliance evaluation is not implemented, rule lifecycle write path is not implemented, and Regulatory Workspace is incomplete. These are active engineering tasks, not external stakeholder blockers.
+
+---
+
+## P18 execution update — Rev2.37 (2026-11-23)
+
+**Implementation branch:** `p18/regulatory-core-20261123`  
+**Base:** `p17b/operational-readiness-20261122`  
+**Scope:** Regulatory Core excluding RAG ingestion and chatbot, per approved scope reduction.
+
+### Implemented in the P18 branch
+
+1. **Regulatory Source Registry**
+   - Permission-aware source list/create/update/review APIs.
+   - HTTPS official-source provenance and required SHA-256 checksum.
+   - Independent source verification; verified source metadata is immutable.
+   - Source checksum and URL snapshots are carried into rule versions.
+
+2. **Rules and immutable version lifecycle**
+   - Rule create and new-version APIs.
+   - Draft → under-review → approved → effective lifecycle, plus explicit rejection, supersession and repeal states.
+   - Independent maker-checker checks at API and database trigger layers.
+   - Activation supersedes the prior effective version without disabling the currently effective version while a replacement is under review.
+   - Only rules backed by a verified source and matching URL/checksum snapshot can be approved/activated.
+
+3. **Deterministic Compliance Rule Engine**
+   - Evaluates effective rules against server-derived Project shipment facts.
+   - Reads destination/origin port provenance, allocated lots, product master, quality status and current approved destination-country HS classifications.
+   - Evaluates shipment- and product-scope rules, mandatory/conditional documents and condition groups.
+   - Fails closed to pending when source coverage, product linkage, quality, HS classification or verified location mapping is incomplete.
+   - Persists stable reason codes, immutable input snapshots, rule-version snapshots and matched document evidence.
+   - No legal clearance is inferred from an empty or incomplete ruleset.
+
+4. **Assessments and human review**
+   - Project-scoped assessment create/list/detail/review APIs.
+   - Reviewer cannot be the assessment maker; pending result evidence and ruleset snapshots are immutable.
+   - Review outcomes and reasons are audited.
+
+5. **Export document catalog and requirements**
+   - Permission-aware document-type read surface; global document-type writes remain Platform Admin-only.
+   - Country requirement create/update/independent verification lifecycle.
+   - Verified country requirements can be attached to a Project as document requirements.
+   - Project requirement override uses allowed schema status values and retains reason/audit trail.
+
+6. **Security and workspace**
+   - Added least-privilege `regulatory_compliance_officer` canonical role and read-only shipment/product/inventory permissions needed for assessment context.
+   - Migration 111 adds the registry/RLS policies, audit read scope, maker-checker and immutability triggers, status/reason-code metadata.
+   - New permission-aware Regulatory Core workspace covers sources, rules, catalog, country requirements, assessment review and audit history.
+   - Legacy Platform Admin-only knowledge/country-pack projections remain separate.
+
+### Release and validation state
+
+- Candidate migration: `migrations/111_p18_regulatory_core_governance.sql`.
+- Exact SHA-256 is pinned in `migration_release_manifest_p18_111.json`; release verifier is `scripts/verify-p18-release-package.mjs`.
+- Production target is the verified branch `br-damp-shape-b3xlh4nr`, database `neondb`, with expected ledger entry 72 after the current 001–071 baseline.
+- **Migration 111 has not been applied to Production or UAT.** It is explicitly gated on owner approval naming the exact SHA-256. No database writes were made for P18 in this session.
+- Latest full Vitest run before the release-gate adjustment: 49 test files / 506 tests passed. The workflow then exposed a stale Migration 054 verifier expectation (38 canonical roles); it was updated to 39 and a new workflow run was started. Final green CI is still required.
+- Runtime RLS/project-isolation backtests against the post-111 schema remain pending until the migration is explicitly approved and applied to the intended validation branch.
+- P18 is **not marked complete** until the latest CI is green, migration 111 is applied under exact-hash approval, and API/RLS/maker-checker/regression backtests all pass.
+
+### Explicitly deferred and non-blocking for this P18 scope
+
+- Regulatory document corpus ingestion, OCR, chunking and normalization for RAG.
+- Embeddings, vector indexes, semantic/hybrid retrieval and citation-grounded RAG.
+- Regulatory chatbot and Gemini conversational interface.
+- Any legal-source content or rule seeded as verified/effective without authorized human/legal confirmation.
+
+P19 remains unopened. It is to be specified only after the reduced-scope P18 acceptance is complete.

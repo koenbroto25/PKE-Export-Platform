@@ -168,7 +168,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ], ["Assigned trip/checkpoint scope only."], { classification: "external" }),
   role("master_of_loading", "Master of Loading", "shipping_loading", [
     "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create",
-    "inventory.view", "documents.view", "workflow.view", "voyage.view", "vessel.view", "vessel.port_call.confirm", "port.view", "shipping.survey.view", "shipping.ack.view", "shipping.laytime.view", "shipping.laytime.manage", "audit.finding.respond",
+    "inventory.view", "documents.view", "workflow.view", "voyage.view", "vessel.view", "vessel.port_call.confirm", "port.view", "shipping.survey.view", "shipping.ack.view", "shipping.laytime.view", "shipping.laytime.manage", "loading.quantity.reconcile", "audit.finding.respond",
     "hse.action.respond",
   ], [
     "Coordinates shore-side readiness and loading evidence.",

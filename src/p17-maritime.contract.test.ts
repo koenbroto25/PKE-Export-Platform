@@ -153,3 +153,12 @@ describe("P17-B Project Manager role catalogue",()=>{
   expect(pm).toContain('"pke.logistics.master.change_request.manage"');
  });
 });
+
+describe("P17-B Platform Admin and Project PM workbench access",()=>{
+ it("allows Platform Admin to enter Project-scoped logistics routes while PM remains permission-scoped",()=>{
+  expect(API).toContain("const requireProjectAccess=async");
+  expect(API).toContain("public.pke_is_platform_admin() AS is_admin");
+  expect(API).toContain("return requireProjectPermission(req,res,projectId,permission)");
+  expect(API).toContain("set_config('app.current_project_id',$1,true)");
+ });
+});

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { get,post,patch } from "./api";
-type Row=Record<string,any>; type Props={projectId:string;activeUser?:{projectPermissions?:string[]}};
+import MaritimeSourceRegistry from "./MaritimeSourceRegistry";
+import MaritimeIdentityReview from "./MaritimeIdentityReview";
+type Row=Record<string,any>; type Props={projectId:string;activeUser?:{projectPermissions?:string[];platformAdmin?:boolean}};
 type State={rows:Row[];loading:boolean;error:string}; const blank:State={rows:[],loading:false,error:""};
 const show=(r:Row,...keys:string[])=>{for(const k of keys)if(r[k]!==null&&r[k]!==undefined&&r[k]!=="")return String(r[k]);return "—";};
 const date=(v:unknown)=>{const d=v?new Date(String(v)):null;return d&&!Number.isNaN(d.getTime())?d.toLocaleString("id-ID"):"—";};
@@ -75,6 +77,7 @@ export default function MaritimeOperationsWorkspace({projectId,activeUser}:Props
  },[projectId,perms.join("|")]);
  const blocked=[voyages,nominations,calls,vessels,positions,workflowEvents].some(s=>Boolean(s.error));
  return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">P17 · MARITIME & EXPORT CONTROL</span><h1>Voyage & Kapal</h1><p>Ringkasan maritim per Project. Seluruh panel bersifat read-only.</p></div></div>
+ {activeUser?.platformAdmin===true&&<><MaritimeSourceRegistry platformAdmin={true}/><MaritimeIdentityReview platformAdmin={true}/></>}
  {!projectId&&<div className="inline-warning">Pilih Project untuk memuat data.</div>}
  <div className="metric-grid four"><div className="metric-card"><span>Vessel master reference</span><strong>{vessels.loading?"…":vessels.rows.length}</strong><small>Master global; bukan daftar kapal Project.</small></div><div className="metric-card"><span>Voyage</span><strong>{voyages.loading?"…":voyages.rows.length}</strong><small>Jadwal Project.</small></div><div className="metric-card"><span>Nomination</span><strong>{nominations.loading?"…":nominations.rows.length}</strong><small>Pengajuan kapal.</small></div><div className="metric-card"><span>Port call</span><strong>{calls.loading?"…":calls.rows.length}</strong><small>ETA dan actual terpisah.</small></div></div>
  {blocked&&<div className="inline-warning">Sebagian data belum tersedia. Aksi tulis sengaja tidak diaktifkan karena skema P17-E 097 belum tersedia pada Production.</div>}

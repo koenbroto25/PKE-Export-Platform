@@ -107,6 +107,16 @@ FOR EACH ROW EXECUTE FUNCTION public.pke_guard_buyer_auth_mapping();
 
 -- Buyer-facing RLS is additive: visibility requires an active identity mapping and an active,
 -- unexpired grant scoped to the exact Project and (when present) shipment.
+CREATE POLICY buyers_verified_mapping_self_read
+  ON public.buyers FOR SELECT TO app_runtime_secure
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.buyer_auth_user_mappings m
+      WHERE m.buyer_id=buyers.id AND m.user_id=public.pke_current_user_id()
+        AND m.mapping_status='active'
+    )
+  );
+
 CREATE POLICY buyer_visibility_grants_buyer_read
   ON public.buyer_visibility_grants FOR SELECT TO app_runtime_secure
   USING (

@@ -530,7 +530,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   for(const item of records){
    const external=str(item?.externalRecordId,240),payload=item?.payload,hash=str(item?.payloadSha256,64),entity=str(item?.entityType,40)||"other";
    if(!external||!payload||typeof payload!=="object"||Array.isArray(payload)||Object.keys(payload).length===0||!/^[a-f0-9]{64}$/.test(hash)||
-     createHash("sha256").update(JSON.stringify(payload) || "").digest("hex")!==hash||
+     createHash("sha256").update(JSON.stringify(canonicalize(payload))).digest("hex")!==hash||
      !["port","port_geometry","marine_forecast","marine_warning","vessel_identity","vessel_position","navigation_notice","other"].includes(entity))
      return bad(res,400,"MARITIME_STAGING_RECORD_INVALID","Each record needs external ID, supported entity type, JSON payload and SHA-256.");
   }

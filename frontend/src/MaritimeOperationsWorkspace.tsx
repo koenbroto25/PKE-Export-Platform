@@ -9,7 +9,7 @@ function Panel({title,caption,state,render}:{title:string;caption:string;state:S
 }
 function LoadingAcceptancePanel({projectId,permissions}:{projectId:string;permissions:string[]}){
  const [operations,setOperations]=useState<Row[]>([]),[selected,setSelected]=useState(""),[data,setData]=useState<Row|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
- const [unit,setUnit]=useState(""),[type,setType]=useState("survey"),[quantity,setQuantity]=useState(""),[unitCode,setUnitCode]=useState(""),[evidence,setEvidence]=useState(""),[hash,setHash]=useState("");
+ const [unit,setUnit]=useState(""),[type,setType]=useState("survey"),[quantity,setQuantity]=useState(""),[unitCode,setUnitCode]=useState(""),[selectedFile,setSelectedFile]=useState<File|null>(null);
  const [nor,setNor]=useState(""),[start,setStart]=useState(""),[end,setEnd]=useState(""),[allowed,setAllowed]=useState(""),[excluded,setExcluded]=useState("0"),[reviewNote,setReviewNote]=useState("");
  const base="/projects/"+encodeURIComponent(projectId)+"/loading-operations";
  const reload=async()=>{setError("");try{const r=await get<{loadingOperations:Row[]}>(base);const next=r.loadingOperations||[];setOperations(next);if(!next.some(o=>o.id===selected))setSelected(next[0]?.id||"");}catch(e){setError(e instanceof Error?e.message:"Loading operation tidak tersedia.");}};
@@ -20,9 +20,20 @@ function LoadingAcceptancePanel({projectId,permissions}:{projectId:string;permis
  useEffect(()=>{if(type==="survey"&&!canSurvey)setType(canQty?"quantity_reconciliation":canLaytime?"laytime":"survey");if(current?.unit_code)setUnitCode(current.unit_code);},[type,canSurvey,canQty,canLaytime,current?.unit_code]);
  const canSubmit=type==="survey"?canSurvey:type==="quantity_reconciliation"?canQty:canLaytime;
  async function assignUnit(){if(!selected||!unit.trim())return;setBusy(true);setMessage("");try{await patch(base+"/"+encodeURIComponent(selected)+"/unit",{unitCode:unit.trim().toUpperCase()});setMessage("Unit loading ditetapkan.");await reload();}catch(e){setMessage(e instanceof Error?e.message:"Unit tidak dapat ditetapkan.");}finally{setBusy(false);}}
- async function submit(){if(!selected)return;setBusy(true);setMessage("");const body:Row={acceptanceType:type,evidenceObjectKey:evidence.trim(),evidenceSha256:hash.trim().toLowerCase(),unitCode:unitCode.trim().toUpperCase(),quantity:Number(quantity)};
- if(type==="laytime")Object.assign(body,{noticeOfReadinessAt:new Date(nor).toISOString(),laytimeStartAt:new Date(start).toISOString(),laytimeEndAt:new Date(end).toISOString(),allowedHours:Number(allowed),excludedHours:Number(excluded)});
- try{await post(base+"/"+encodeURIComponent(selected)+"/acceptances",body);setMessage("Evidence berhasil dikirim untuk review independen.");setEvidence("");setHash("");await reload();const r=await get<Row>(base+"/"+encodeURIComponent(selected)+"/acceptances");setData(r);}catch(e){setMessage(e instanceof Error?e.message:"Evidence tidak dapat dikirim.");}finally{setBusy(false);}}
+ async function submit(){if(!selected||!selectedFile)return;setBusy(true);setMessage("Memverifikasi upload private evidence…");
+ try{
+  const safeName=selectedFile.name.replace(/[^A-Za-z0-9._-]/g,"_").slice(-120)||"loading-evidence";
+  const objectKey=`projects/${projectId}/loading-operations/${selected}/${type}/${crypto.randomUUID()}-${safeName}`;
+  const presigned=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>}}>(base+"/"+encodeURIComponent(selected)+"/acceptances/presign",{acceptanceType:type,objectKey,mimeType:selectedFile.type,filename:selectedFile.name,contentLength:selectedFile.size});
+  const uploadResponse=await fetch(presigned.upload.uploadUrl,{method:"PUT",headers:presigned.upload.requiredHeaders,body:selectedFile});
+  if(!uploadResponse.ok)throw new Error("Private evidence upload gagal ("+uploadResponse.status+").");
+  const digest=await crypto.subtle.digest("SHA-256",await selectedFile.arrayBuffer());
+  const evidenceSha256=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
+  const body:Row={acceptanceType:type,evidenceObjectKey:objectKey,evidenceSha256,evidenceSizeBytes:selectedFile.size,unitCode:unitCode.trim().toUpperCase(),quantity:Number(quantity)};
+  if(type==="laytime")Object.assign(body,{noticeOfReadinessAt:new Date(nor).toISOString(),laytimeStartAt:new Date(start).toISOString(),laytimeEndAt:new Date(end).toISOString(),allowedHours:Number(allowed),excludedHours:Number(excluded)});
+  await post(base+"/"+encodeURIComponent(selected)+"/acceptances",body);
+  setMessage("Evidence private berhasil diverifikasi checksum dan dikirim untuk review independen.");setSelectedFile(null);await reload();const r=await get<Row>(base+"/"+encodeURIComponent(selected)+"/acceptances");setData(r);
+ }catch(e){setMessage(e instanceof Error?e.message:"Evidence tidak dapat diunggah atau diverifikasi.");}finally{setBusy(false);}}
  async function review(id:string,status:"accepted"|"rejected"){if(!selected)return;setBusy(true);try{await patch(base+"/"+encodeURIComponent(selected)+"/acceptances/"+encodeURIComponent(id)+"/review",{reviewStatus:status,reviewNote:reviewNote.trim()});setReviewNote("");setMessage("Keputusan review tersimpan.");const r=await get<Row>(base+"/"+encodeURIComponent(selected)+"/acceptances");setData(r);}catch(e){setMessage(e instanceof Error?e.message:"Review ditolak.");}finally{setBusy(false);}}
  return <section className="card"><div className="panel-heading"><div><h3>Loading evidence & acceptance</h3><p>Survey, verified ticket quantity reconciliation dan laytime; seluruh keputusan memerlukan reviewer independen.</p></div><span>{operations.length} operation</span></div>
   {error&&<div className="inline-warning">{error}</div>}
@@ -38,8 +49,9 @@ function LoadingAcceptancePanel({projectId,permissions}:{projectId:string;permis
   </>}
   {current&&canSubmit&&current.unit_code&&<div className="form-grid"><label>Evidence type<select value={type} onChange={e=>{setType(e.target.value);if(e.target.value==="quantity_reconciliation"&&data?.quantityReconciliation?.verifiedTicketQuantity!=null)setQuantity(String(data.quantityReconciliation.verifiedTicketQuantity));}}>{canSurvey&&<option value="survey">Survey</option>}{canQty&&<option value="quantity_reconciliation">Quantity reconciliation</option>}{canLaytime&&<option value="laytime">Laytime</option>}</select></label>
    {type!=="laytime"?<><label>Quantity<input value={quantity} onChange={e=>setQuantity(e.target.value)} type="number" min="0.001" /></label><label>Unit code<input value={unitCode||current.unit_code} onChange={e=>setUnitCode(e.target.value)} /></label></>:<><label>NOR at<input type="datetime-local" value={nor} onChange={e=>setNor(e.target.value)} /></label><label>Laytime start<input type="datetime-local" value={start} onChange={e=>setStart(e.target.value)} /></label><label>Laytime end<input type="datetime-local" value={end} onChange={e=>setEnd(e.target.value)} /></label><label>Allowed hours<input type="number" min="0" value={allowed} onChange={e=>setAllowed(e.target.value)} /></label><label>Excluded hours<input type="number" min="0" value={excluded} onChange={e=>setExcluded(e.target.value)} /></label></>}
-   <label>Evidence object key<input value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="private bucket object key" /></label><label>Evidence SHA-256<input value={hash} onChange={e=>setHash(e.target.value)} maxLength={64} /></label>
-   <button type="button" disabled={busy||!evidence.trim()||!/^[a-f0-9]{64}$/i.test(hash)||(!quantity&&type!=="laytime")} onClick={submit}>Submit evidence</button>
+   <label>Private evidence file (PDF / image / supported document)<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" onChange={e=>setSelectedFile(e.target.files?.[0]||null)} /></label>
+   {selectedFile&&<small>{selectedFile.name} · {selectedFile.size.toLocaleString("id-ID")} bytes · SHA-256 dihitung dan diverifikasi server</small>}
+   <button type="button" disabled={busy||!selectedFile||(type!=="laytime"&&(!quantity||Number(quantity)<=0))} onClick={submit}>Upload & submit evidence</button>
   </div>}
   {message&&<p className="inline-warning">{message}</p>}
  </section>;

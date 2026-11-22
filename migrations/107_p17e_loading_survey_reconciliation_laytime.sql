@@ -80,6 +80,9 @@ ON CONFLICT(project_role_id,permission_id) DO NOTHING;
 
 ALTER TABLE public.loading_operation_acceptances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.loading_operation_acceptances FORCE ROW LEVEL SECURITY;
+CREATE POLICY loading_acceptance_admin_all
+  ON public.loading_operation_acceptances FOR ALL TO app_runtime_secure
+  USING(public.pke_is_platform_admin()) WITH CHECK(public.pke_is_platform_admin());
 CREATE POLICY loading_acceptance_project_read
   ON public.loading_operation_acceptances FOR SELECT TO app_runtime_secure
   USING (
@@ -138,6 +141,12 @@ BEGIN
     RAISE EXCEPTION 'Loading acceptance submission is immutable; create a new version'
       USING ERRCODE='23514';
   END IF;
+  IF TG_OP='UPDATE' AND NEW.review_status IS DISTINCT FROM OLD.review_status THEN
+    IF NOT ((OLD.review_status='pending' AND NEW.review_status IN ('accepted','rejected'))
+      OR (OLD.review_status='accepted' AND NEW.review_status='superseded')) THEN
+      RAISE EXCEPTION 'Invalid loading acceptance review transition' USING ERRCODE='23514';
+    END IF;
+  END IF;
   IF NEW.review_status<>'pending' THEN
     IF NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL
        OR NEW.reviewed_by=NEW.submitted_by
@@ -145,11 +154,14 @@ BEGIN
       RAISE EXCEPTION 'Independent loading acceptance review is required'
         USING ERRCODE='42501';
     END IF;
-    IF NEW.acceptance_type='survey' AND NOT public.pke_has_project_permission(NEW.project_id,'shipping.survey.review') THEN
+    IF NEW.acceptance_type='quantity_reconciliation' AND COALESCE(NEW.quantity_variance,0)<>0 THEN
+      RAISE EXCEPTION 'Quantity reconciliation with variance cannot be accepted' USING ERRCODE='23514';
+    END IF;
+    IF NOT public.pke_is_platform_admin() AND NEW.acceptance_type='survey' AND NOT public.pke_has_project_permission(NEW.project_id,'shipping.survey.review') THEN
       RAISE EXCEPTION 'Survey reviewer permission required' USING ERRCODE='42501';
-    ELSIF NEW.acceptance_type='quantity_reconciliation' AND NOT public.pke_has_project_permission(NEW.project_id,'loading.quantity.reconcile') THEN
+    ELSIF NOT public.pke_is_platform_admin() AND NEW.acceptance_type='quantity_reconciliation' AND NOT public.pke_has_project_permission(NEW.project_id,'loading.quantity.reconcile') THEN
       RAISE EXCEPTION 'Quantity reconciliation permission required' USING ERRCODE='42501';
-    ELSIF NEW.acceptance_type='laytime' AND NOT public.pke_has_project_permission(NEW.project_id,'shipping.laytime.verify') THEN
+    ELSIF NOT public.pke_is_platform_admin() AND NEW.acceptance_type='laytime' AND NOT public.pke_has_project_permission(NEW.project_id,'shipping.laytime.verify') THEN
       RAISE EXCEPTION 'Laytime verifier permission required' USING ERRCODE='42501';
     END IF;
   END IF;

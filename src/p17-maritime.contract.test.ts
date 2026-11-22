@@ -398,8 +398,8 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
 
 describe("P17-D AIS evidence and freshness hardening",()=>{
  it("uses one atomic extension of the canonical tracking table and preserves legacy-only global reads",()=>{
-  expect((M106.match(/\\bBEGIN;/g)||[])).toHaveLength(1);
-  expect((M106.match(/\\bCOMMIT;/g)||[])).toHaveLength(1);
+  expect((M106.match(/\bBEGIN;/g)||[])).toHaveLength(1);
+  expect((M106.match(/\bCOMMIT;/g)||[])).toHaveLength(1);
   expect((M106.match(/CREATE OR REPLACE FUNCTION/g)||[])).toHaveLength(1);
   expect(M106).toContain("source_id IS NULL AND public.pke_has_any_project_permission");
   expect(M106).toContain("review_status='accepted'");
@@ -415,8 +415,8 @@ describe("P17-D AIS evidence and freshness hardening",()=>{
 
 describe("P17-E loading acceptance database invariants",()=>{
  it("has one atomic table/trigger definition with declared reconciliation variables",()=>{
-  expect((M107.match(/\\bBEGIN;/g)||[])).toHaveLength(1);
-  expect((M107.match(/\\bCOMMIT;/g)||[])).toHaveLength(1);
+  expect((M107.match(/\bBEGIN;/g)||[])).toHaveLength(1);
+  expect((M107.match(/\bCOMMIT;/g)||[])).toHaveLength(1);
   expect((M107.match(/CREATE TABLE/g)||[])).toHaveLength(1);
   expect(M107).toContain("DECLARE\\n  operation_quantity numeric;");
   expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");

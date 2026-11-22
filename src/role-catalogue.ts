@@ -215,7 +215,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   role("external_provider", "External Provider", "procurement", ["project.view","document.view","document.download","documents.view","documents.create","documents.upload","view_published_docs"], ["External assigned-document scope only."], { classification: "external" }),
   role("field_manager", "Field Manager", "warehouse_logistics", ["project.view","logistics.view","logistics.create","logistics.update","operations.view","operations.update","record_truck_trips","verify_checkpoints","shipment.event.create"], ["Field execution and logistics scope only."]),
   role("regulatory_compliance_officer", "Regulatory & Compliance Officer", "governance", [
-    "project.view", "documents.view", "compliance.view", "compliance.assess",
+    "project.view", "documents.view", "shipment.view", "shipping.view", "inventory.view", "product.view", "compliance.view", "compliance.assess",
     "regulatory.source.view", "regulatory.source.manage", "regulatory.rule.view",
     "regulatory.rule.manage", "regulatory.rule.version.create", "regulatory.document.view", "regulatory.document.manage",
   ], ["May draft and maintain source/rule records. Approval must be performed by a different authenticated reviewer; verified legal sources remain subject to external legal confirmation."]),

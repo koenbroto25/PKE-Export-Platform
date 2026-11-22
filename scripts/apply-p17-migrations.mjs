@@ -49,7 +49,7 @@ function validateManifest() {
       current.database !== EXPECTED.database || current.applied_count !== 71 ||
       current.entries?.length !== 71 || current.entries[70]?.id !== 71 ||
       current.entries[70]?.filename !== "110_p17d_vessel_position_runtime_rls_fix.sql") {
-    fail("Current Production ledger manifest 001-070 is missing or invalid.");
+    fail("Current Production ledger manifest 001-071 is missing or invalid.");
   }
   if (release.purpose !== "production_p17_release_package_exact_sql_hashes_owner_approval_required" ||
       release.project_id !== EXPECTED.projectId || release.branch_id !== EXPECTED.branchId ||

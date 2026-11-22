@@ -2767,7 +2767,7 @@ app.patch("/api/v1/projects/:projectId/regulatory-assessments/:assessmentId/revi
         return res.status(400).json({error:"Each decision requires resultId, pass/fail/not_applicable and a reason."});
       const updated=await req.db.query(
         `UPDATE public.regulatory_assessment_results SET result_status=$1,reason_code=$4,reason=$2,reviewer_id=$3::uuid,reviewed_at=now()
-          WHERE id=$4::uuid AND assessment_id=$5::uuid AND result_status IN ('pending','manual_review')
+          WHERE id=$5::uuid AND assessment_id=$6::uuid AND result_status IN ('pending','manual_review')
           RETURNING id`,
         [decision.decision,decision.reason.trim(),req.user?.id??null,decision.decision==="pass"?"HUMAN_REVIEW_PASS":decision.decision==="fail"?"HUMAN_REVIEW_FAIL":"HUMAN_REVIEW_NOT_APPLICABLE",decision.resultId,req.params.assessmentId],
       );

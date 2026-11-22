@@ -297,6 +297,16 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
     finally { setActionBusy(false); }
   }
 
+  async function runP17Advisory() {
+    if (!selectedPort?.id || !selectedVesselId || !selectedTerminalId) return;
+    setActionBusy(true); setP17Advisory(null); setMasterMessage("");
+    try {
+      const result = await get<Row>(`/projects/${encodeURIComponent(projectId)}/vessels/${encodeURIComponent(selectedVesselId)}/advisory-screening?portId=${encodeURIComponent(String(selectedPort.id))}&terminalId=${encodeURIComponent(selectedTerminalId)}`);
+      setP17Advisory(result);
+    } catch (e: any) { setMasterMessage(e?.message || "Advisory vessel/terminal screening P17 gagal."); }
+    finally { setActionBusy(false); }
+  }
+
   const detail = tab === "ports" ? portDetail : warehouseDetail;
   const list = tab === "ports" ? ports : warehouses;
 
@@ -404,6 +414,15 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
         {canAssessVessel && <form className="p16-workflow-form" onSubmit={assessVessel}><h4>Screening awal kompatibilitas kapal</h4><div className="p16-form-grid"><label>Kapal<select required value={selectedVesselId} onChange={e=>setSelectedVesselId(e.target.value)}><option value="">Pilih kapal</option>{vessels.map(v=><option key={v.id} value={v.id}>{v.name} · {v.imo_number || "IMO belum tersedia"} · {statusLabel(v.verification_status)}</option>)}</select></label><label>Berth (opsional)<select value={selectedBerthId} onChange={e=>setSelectedBerthId(e.target.value)}><option value="">Semua berth / tingkat port</option>{(portDetail.berths||[]).map((b:Row)=><option key={b.id} value={b.id}>{b.berth_code || b.name}</option>)}</select></label></div><button type="submit" disabled={actionBusy || !selectedVesselId}>Jalankan screening</button>
           {assessment && <div className="p16-assessment"><strong>Hasil: {statusLabel(assessment.result)}</strong><p>Mode advisory only. Tidak memberikan izin navigasi atau persetujuan sandar.</p></div>}
         </form>}
+        <form className="p16-workflow-form" onSubmit={e=>{e.preventDefault();void runP17Advisory();}}>
+          <h4>P17-C · Advisory kompatibilitas kapal–terminal PKE</h4>
+          <p>Perbandingan dimensi kapal dengan batas terminal yang diketahui. Hasil tidak merupakan izin sandar atau clearance operasional.</p>
+          <label>Terminal tujuan<select required value={selectedTerminalId} onChange={e=>{setSelectedTerminalId(e.target.value);setP17Advisory(null);}}>
+            <option value="">Pilih terminal</option>{(portDetail?.terminals||[]).map((t:Row)=><option key={t.id} value={t.id}>{t.name} · {t.status||"status unknown"}</option>)}
+          </select></label>
+          <button type="submit" disabled={actionBusy||!selectedVesselId||!selectedTerminalId}>Jalankan advisory P17-C</button>
+          {p17Advisory&&<div className="p16-assessment"><strong>Hasil advisory: {p17Advisory.advisoryStatus}</strong><p>Operational clearance: {String(p17Advisory.operationalClearance===true)}</p>{(p17Advisory.checks||[]).map((x:Row)=><p key={x.code}>{x.code}: {x.status}</p>)}<small>{p17Advisory.disclaimer}</small></div>}
+        </form>
       </section>}
       {tab === "warehouses" && selectedWarehouse && warehouseDetail?.warehouse && platformAdmin && <section className="p16-workflows">
         <h3>Pengelolaan master gudang · {warehouseDetail.warehouse.name}</h3>

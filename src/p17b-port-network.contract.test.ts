@@ -54,7 +54,7 @@ describe("P17-B port identity and PKS-linked geospatial governance",()=>{
   expect(MAIN).toContain("ps.verification_evidence_sha256 ~ '^[0-9a-f]{64}$'");
   expect(MAIN).toContain("ls.evidence_sha256 ~ '^[0-9a-f]{64}$'");
   expect(MAIN).toContain("verified_warehouse_count");
-  expect(MAIN).toContain("ORDER BY ps.name,(r.route_mode='road') DESC");
+  expect(MAIN).toContain("ORDER BY ps.name,is_primary_reference DESC,(r.route_mode='road') DESC");
   expect(UI).toContain("Rujukan utama PKE");
   expect(UI).toContain("layanan loading PKE");
   expect(UI).toContain("PKS operasional dan terverifikasi");

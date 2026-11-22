@@ -446,6 +446,7 @@ describe("P17-F Buyer identity lifecycle hardening",()=>{
  it("exposes Buyer Portal only after the server confirms a mapped identity and active grant",()=>{
   expect(MAIN).toContain("buyerPortalEnabled");
   expect(MAIN).toContain("m.mapping_status='active'");
+  expect(readFileSync(join(ROOT,"frontend","src","App.tsx"),"utf8")).toContain("Lihat milestone");
   expect(PAGE).toContain("if (pageKey === 'buyer') return user.buyerPortalEnabled === true");
  });
  it("records mapping lifecycle events and permits only independent state transitions",()=>{

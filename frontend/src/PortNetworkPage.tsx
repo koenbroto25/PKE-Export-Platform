@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode, type FormEvent } from "react";
 import { get, post, patch, del } from "./api";
+import PkeLogisticsScenarioWorkbench from "./PkeLogisticsScenarioWorkbench";
 
 type Row = Record<string, any>;
 type Props = { projectId: string; activeUser?: { id?: string; projectPermissions?: string[]; platformAdmin?: boolean } };
@@ -311,6 +312,8 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       <div className="p16-notice" role="status">
         <strong>Status provenance harus eksplisit.</strong> Data yang belum memiliki sumber, datum, tanggal pengukuran, checksum atau reviewer tetap ditampilkan sebagai belum diverifikasi. Penilaian kapal bersifat awal dan bukan izin navigasi.
       </div>
+
+      <PkeLogisticsScenarioWorkbench projectId={projectId} activeUser={activeUser} />
 
       {masterResource && platformAdmin && masterDraft && <form className="p16-editor" onSubmit={saveMaster}>
         <div className="p16-editor__heading"><strong>{masterId ? "Edit master P16" : "Tambah master P16"}</strong><button type="button" onClick={() => { setMasterDraft(""); setMasterId(null); }}>Tutup</button></div>

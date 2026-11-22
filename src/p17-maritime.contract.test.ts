@@ -461,5 +461,6 @@ describe("P17-B PKS to PKE port prioritization",()=>{
   expect(API).toContain("is_shipment_destination");
   expect(API).toContain("pr.verified_at IS NOT NULL");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("nearby alternative");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("capacity unknown");
  });
 });

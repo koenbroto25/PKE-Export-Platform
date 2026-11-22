@@ -3,7 +3,7 @@ import { api, get, post, patch } from "./api";
 
 type Source = Record<string, any>;
 type RightsDraft = {
- rightsStatus:string; commercialUseAllowed:boolean; internalProcessingAllowed:boolean;
+ rightsStatus:string; reviewNote:string; commercialUseAllowed:boolean; internalProcessingAllowed:boolean;
  customerDisplayAllowed:boolean; redistributionAllowed:boolean; derivativeUseAllowed:boolean;
  cachingAllowed:boolean; retentionDays:string; termsUrl:string; rightsEvidenceUrl:string;
  attributionText:string; rightsExpiresAt:string;
@@ -11,6 +11,7 @@ type RightsDraft = {
 const blankSource={sourceCode:"",providerName:"",sourceClass:"other",datasetCode:"",endpointUrl:"",termsUrl:"",licenseCode:"",accessMethod:"manual"};
 const makeRights=(s:Source):RightsDraft=>({
  rightsStatus:String(s.rights_status||"pending_review"),
+ reviewNote:String(s.metadata?.rights_review_note||""),
  commercialUseAllowed:s.commercial_use_allowed===true,
  internalProcessingAllowed:s.internal_processing_allowed===true,
  customerDisplayAllowed:s.customer_display_allowed===true,
@@ -44,11 +45,12 @@ export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:bo
  }
  async function saveRights(e:FormEvent,id:string){
   e.preventDefault();const r=rights[id];if(!r)return;
+  if(!r.reviewNote.trim()){setError("Catatan review wajib diisi.");return;}
   if(r.rightsStatus==="approved"&&(!r.internalProcessingAllowed||!r.termsUrl.trim()||!r.rightsEvidenceUrl.trim()||!r.attributionText.trim()||!r.rightsExpiresAt)){setError("Persetujuan membutuhkan hak pemrosesan internal, terms, bukti, atribusi, dan masa berlaku.");return;}
   setBusy(true);setError("");setNotice("");
   try{
    await patch(`/admin/maritime/sources/${encodeURIComponent(id)}/rights`,{
-    rightsStatus:r.rightsStatus,commercialUseAllowed:r.commercialUseAllowed,
+    rightsStatus:r.rightsStatus,reviewNote:r.reviewNote,commercialUseAllowed:r.commercialUseAllowed,
     internalProcessingAllowed:r.internalProcessingAllowed,customerDisplayAllowed:r.customerDisplayAllowed,
     redistributionAllowed:r.redistributionAllowed,derivativeUseAllowed:r.derivativeUseAllowed,
     cachingAllowed:r.cachingAllowed,retentionDays:r.retentionDays===""?null:Number(r.retentionDays),
@@ -72,7 +74,7 @@ export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:bo
  async function enableSource(id:string){
   if(!window.confirm("Aktifkan sumber ini? Pastikan hak internal dan field-purpose sudah disetujui secara sah."))return;
   setBusy(true);setError("");setNotice("");
-  try{await patch(`/admin/maritime/sources/${encodeURIComponent(id)}/enable`,{});setNotice("Sumber berhasil diaktifkan.");await refresh();}
+  try{await patch(`/admin/maritime/sources/${encodeURIComponent(id)}/enable`,{enabled:true});setNotice("Sumber berhasil diaktifkan.");await refresh();}
   catch(e:any){setError(e?.message||"Sumber belum memenuhi syarat aktivasi.");}
   finally{setBusy(false);}
  }
@@ -90,6 +92,7 @@ export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:bo
       <div className="p17-source-checks">
        {([["commercialUseAllowed","Penggunaan komersial"],["internalProcessingAllowed","Pemrosesan internal"],["customerDisplayAllowed","Tampilan ke customer"],["redistributionAllowed","Redistribusi"],["derivativeUseAllowed","Produk turunan"],["cachingAllowed","Caching"]] as const).map(([key,label])=><label key={key}><input type="checkbox" checked={r[key]} onChange={e=>setRights(v=>({...v,[s.id]:{...r,[key]:e.target.checked}}))}/>{label}</label>)}
       </div>
+      <label>Catatan review<input required value={r.reviewNote} onChange={e=>setRights(v=>({...v,[s.id]:{...r,reviewNote:e.target.value}}))}/></label>
       <label>URL terms<input type="url" value={r.termsUrl} onChange={e=>setRights(v=>({...v,[s.id]:{...r,termsUrl:e.target.value}}))}/></label>
       <label>Bukti hak / keputusan<input type="url" value={r.rightsEvidenceUrl} onChange={e=>setRights(v=>({...v,[s.id]:{...r,rightsEvidenceUrl:e.target.value}}))}/></label>
       <label>Teks atribusi<input value={r.attributionText} onChange={e=>setRights(v=>({...v,[s.id]:{...r,attributionText:e.target.value}}))}/></label>

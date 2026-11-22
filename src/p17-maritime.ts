@@ -63,6 +63,11 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     const permissions=await req.db.query("SELECT COUNT(*)::int AS permission_count FROM public.permissions WHERE code=ANY($1::text[]) AND is_active IS TRUE",[requiredPermissions]);
     if(Number(permissions.rows[0]?.permission_count)!==requiredPermissions.length)
       return bad(res,503,"P17_PERMISSION_RELEASE_BLOCKED","P17 role permissions are incomplete; protected APIs remain unavailable.");
+    const roleCodes=["pm","buyer","pm","pm","pm","pm","pm","loading_supervisor","loading_supervisor","loading_supervisor","loading_manager","loading_manager","loading_manager","marine_surveyor","marine_surveyor","shipping_agent","shipping_agent","master_of_loading","master_of_loading"];
+    const permissionCodes=["buyer.visibility.manage","buyer.shipment.view","shipping.survey.view","shipping.survey.review","shipping.laytime.view","shipping.laytime.verify","loading.quantity.reconcile","shipping.laytime.view","shipping.laytime.manage","loading.quantity.reconcile","shipping.laytime.view","shipping.laytime.manage","loading.quantity.reconcile","shipping.survey.view","shipping.survey.submit","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.view","shipping.laytime.manage"];
+    const roleAllowlist=await req.db.query("SELECT COUNT(*)::int AS allowed_count FROM public.pke_project_role_permission_allowlist WHERE (role_code,permission_code) IN (SELECT * FROM unnest($1::text[],$2::text[]))",[roleCodes,permissionCodes]);
+    if(Number(roleAllowlist.rows[0]?.allowed_count)!==roleCodes.length)
+      return bad(res,503,"P17_ROLE_PERMISSION_RELEASE_BLOCKED","P17 operational role allowlist is incomplete; protected APIs remain unavailable.");
     return next();
   }catch{
     return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema/RLS release state could not be verified; protected APIs remain fail-closed.");

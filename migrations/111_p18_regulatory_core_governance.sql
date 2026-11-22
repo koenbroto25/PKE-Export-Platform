@@ -25,7 +25,7 @@ ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.descript
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
 SELECT 'regulatory_compliance_officer',p.code
 FROM public.permissions p
-WHERE p.code IN ('project.view','documents.view','compliance.view','compliance.assess',
+WHERE p.code IN ('project.view','documents.view','shipment.view','shipping.view','inventory.view','product.view','compliance.view','compliance.assess',
  'regulatory.source.view','regulatory.source.manage','regulatory.rule.view',
  'regulatory.rule.manage','regulatory.rule.version.create','regulatory.document.view','regulatory.document.manage')
 ON CONFLICT(role_code,permission_code) DO NOTHING;

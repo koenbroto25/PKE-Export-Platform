@@ -10673,3 +10673,9 @@ Final code head `d0fa87b8611ceae2d6fb82e6aa2bf0d2378edad3`: GitHub Unit Tests PA
 
 
 The primary PKE route gate now requires a verified processor organization linked by `pks_sites.organization_id` to the PKS/KCP site. API output includes producer legal name and `producer_company_verified`; an unlinked/unverified organization cannot be shown as a primary PKE route. This reuses `partner_organizations.organization_type='processor'`, `pks_sites.facility_type` (including KCP/integrated mill), and the existing route relationship. No duplicate producer master is created. Full SQL query executed against UAT without error and returned zero rows, as expected for empty verified route data. CI for the final code head remains in progress at this checkpoint.
+
+
+## 56.62 — P17-B PKE facility-type eligibility gate (22 November 2026)
+
+
+Primary route eligibility additionally requires `pks_sites.facility_type` to be `kernel_crushing_plant` or `integrated_mill_kcp`; a palm-oil mill alone is not assumed to make PKE. PKE loading-service matching supports normalized PKE / Palm Kernel Expeller and explicit material synonyms/codes. This conservative gate avoids promoting a nearby port/PKS pair without proof that the facility produces and the port can load PKE.

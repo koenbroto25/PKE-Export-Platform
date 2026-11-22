@@ -122,6 +122,16 @@ WITH CHECK (
 CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_source_verification()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP='UPDATE' AND OLD.verification_status='verified' AND
+     ROW(NEW.source_id,NEW.title,NEW.issuing_authority,NEW.jurisdiction,NEW.document_type,
+         NEW.regulation_number,NEW.article_annex_section,NEW.publication_date,NEW.effective_date,
+         NEW.expiry_repeal_date,NEW.official_url,NEW.source_checksum,NEW.source_checksum_sha256)
+     IS DISTINCT FROM
+     ROW(OLD.source_id,OLD.title,OLD.issuing_authority,OLD.jurisdiction,OLD.document_type,
+         OLD.regulation_number,OLD.article_annex_section,OLD.publication_date,OLD.effective_date,
+         OLD.expiry_repeal_date,OLD.official_url,OLD.source_checksum,OLD.source_checksum_sha256) THEN
+    RAISE EXCEPTION 'Verified regulatory source metadata is immutable; create a new source version' USING ERRCODE='23514';
+  END IF;
   IF NEW.verification_status='verified' THEN
     IF NEW.reviewer_id IS NULL OR NEW.reviewer_id=NEW.created_by THEN
       RAISE EXCEPTION 'Independent reviewer required to verify a regulatory source' USING ERRCODE='23514';
@@ -147,12 +157,15 @@ BEGIN
   IF TG_OP='UPDATE' THEN
     IF ROW(NEW.rule_id,NEW.version_number,NEW.regulatory_source_id,NEW.source_locator,
       NEW.source_url_snapshot,NEW.source_checksum,NEW.rule_summary,NEW.condition_schema,
-      NEW.outcome,NEW.risk_category,NEW.effective_from,NEW.effective_to)
+      NEW.outcome,NEW.risk_category,NEW.effective_from,NEW.effective_to,NEW.created_by)
       IS DISTINCT FROM
       ROW(OLD.rule_id,OLD.version_number,OLD.regulatory_source_id,OLD.source_locator,
       OLD.source_url_snapshot,OLD.source_checksum,OLD.rule_summary,OLD.condition_schema,
-      OLD.outcome,OLD.risk_category,OLD.effective_from,OLD.effective_to) THEN
+      OLD.outcome,OLD.risk_category,OLD.effective_from,OLD.effective_to,OLD.created_by) THEN
       RAISE EXCEPTION 'Regulatory rule version content is immutable; create a new version' USING ERRCODE='23514';
+    END IF;
+    IF OLD.approved_by IS NOT NULL AND NEW.approved_by IS DISTINCT FROM OLD.approved_by THEN
+      RAISE EXCEPTION 'Regulatory rule approval identity is immutable' USING ERRCODE='23514';
     END IF;
     IF NEW.status='approved' AND OLD.status='under_review' THEN
       IF NEW.approved_by IS NULL OR NEW.approved_by=OLD.created_by THEN

@@ -254,12 +254,16 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   const p=String(req.params.projectId||""),id=String(req.params.requestId||""),b=req.body??{},submit=b.submit===true;
   if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"INVALID_PKE_LOGISTICS_REQUEST","Valid Project and request ids are required.");
   if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
-  const reason=b.requestReason===undefined?null:str(b.requestReason,2000),proposal=b.proposedData;
-  if(!submit&&((reason!==null&&reason.length<10)||(proposal!==undefined&&(!proposal||typeof proposal!=="object"||Array.isArray(proposal)||!Object.keys(proposal).length))))
-   return bad(res,400,"INVALID_PKE_LOGISTICS_DRAFT","Draft reason or proposed data is invalid.");
+  const reason=b.requestReason===undefined?null:str(b.requestReason,2000),proposal=b.proposedData,
+   sourceRef=b.sourceReference===undefined?null:str(b.sourceReference,1000),sourceUrl=b.sourceUrl===undefined?null:str(b.sourceUrl,1000),
+   sourceSnapshot=b.sourceSnapshot===undefined?null:(b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:null);
+  if((!submit&&((reason!==null&&reason.length<10)||(proposal!==undefined&&(!proposal||typeof proposal!=="object"||Array.isArray(proposal)||!Object.keys(proposal).length))))||
+    (sourceRef!==null&&sourceRef.length<8)||(sourceUrl!==null&&sourceUrl!==""&&!/^https?:\\/\\//i.test(sourceUrl))||
+    (b.sourceSnapshot!==undefined&&sourceSnapshot===null))
+   return bad(res,400,"INVALID_PKE_LOGISTICS_DRAFT","Draft reason, source provenance or proposed data is invalid.");
   try{
-   const q=await req.db.query("UPDATE public.p17b_logistics_change_requests SET proposed_data=COALESCE($3::jsonb,proposed_data),request_reason=COALESCE($4,request_reason),status=CASE WHEN $5 THEN 'submitted' ELSE status END,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND status='draft' AND requested_by=$6::uuid RETURNING *",
-    [id,p,proposal===undefined?null:JSON.stringify(proposal),reason,submit,req.user?.id]);
+   const q=await req.db.query("UPDATE public.p17b_logistics_change_requests SET proposed_data=COALESCE($3::jsonb,proposed_data),request_reason=COALESCE($4,request_reason),source_reference=COALESCE($7,source_reference),source_url=COALESCE($8,source_url),source_snapshot=COALESCE($9::jsonb,source_snapshot),status=CASE WHEN $5 THEN 'submitted' ELSE status END,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND status='draft' AND requested_by=$6::uuid RETURNING *",
+    [id,p,proposal===undefined?null:JSON.stringify(proposal),reason,submit,req.user?.id,sourceRef,sourceUrl===null?null:(sourceUrl||null),sourceSnapshot===null?null:JSON.stringify(sourceSnapshot)]);
    if(!q.rows.length)return bad(res,404,"PKE_LOGISTICS_DRAFT_NOT_FOUND","Editable draft not found; submitted proposals are immutable.");
    return res.json({request:q.rows[0]});
   }catch(e:any){if(e?.code==="42501")return bad(res,403,"PKE_LOGISTICS_DRAFT_FORBIDDEN","Only the requester may edit or submit their own draft.");return bad(res,500,"PKE_LOGISTICS_DRAFT_UPDATE_FAILED","Unable to update logistics draft.");}

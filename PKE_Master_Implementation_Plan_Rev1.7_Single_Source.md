@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.21 — P17 Production reconciliation and safe release gates
+# Master Implementation Plan Rev2.22 — P17 operational workflows and evidence gates
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.21 (22 November 2026 — P17 Production schema reconciliation, source safety gate and blocker status)  
+**Revision:** 2.22 (22 November 2026 — P17 source workflows, Buyer access, AIS evidence, loading acceptance and Control Tower)  
 
 **Tanggal dokumen:** 22 November 2026  
 
@@ -8206,55 +8206,58 @@ Target used for read-only inspection: Neon project `purple-base-63944903`, branc
 
 ### P17-A source rights and data ingestion
 
-- Ten source candidates were previously registered as metadata candidates on a historical validation/UAT branch only. They were disabled and pending rights review. No candidate payload was imported; there were no live ingestion runs, source field-purpose grants or enabled source.
-- Official DJPL DWH port catalogue availability does not itself prove commercial/internal reuse or redistribution rights. BMKG endpoint/service entitlements must be checked against the exact product and use. AIS access must respect provider subscription, display/caching and redistribution terms. These are legal/provider gates, not implementation defaults.
-- No paid AIS provider account was activated, no AIS provider token configured, no raw AIS payload retrieved, and no external data copied to Production.
-- **Status:** source governance UI and candidate registry are implemented on the working branch; source entitlement, rights approval, field-purpose authorization and live ingestion remain **BLOCKED_PENDING_EVIDENCE**.
+- Source registry, rights/evidence review, field-purpose permissions, source health, quota-aware ingestion runs, staging review and payload SHA-256 validation are implemented on the working branch.
+- Source payloads remain disabled until approved rights, evidence, field-purpose permissions and current expiry are present. Provider credentials are referenced only by secret reference and never returned by API.
+- DJPL, BMKG and AIS entitlements must be checked against the exact product and intended internal/customer use. No legal reuse, caching, display or redistribution right is inferred from a public endpoint.
+- No provider token, paid AIS subscription, raw provider payload or external business data has been added to Production.
+- **Status:** source governance code implemented; legal/source entitlement and provider evidence remain **BLOCKED_PENDING_EVIDENCE**. Production schema release is blocked by owner approval.
 
 ### P17-B port identity and PKE logistics graph
 
-- Working-branch UI includes a Platform Admin source registry, rights/evidence and field-purpose review, port external identity crosswalk/GeoJSON review, and PM/Admin simulation scenario workbench.
-- The simulation graph is explicitly non-canonical: six typed nodes and five directed relations; coordinates, routes, travel time, terminal acceptance, loading rate and warehouse capacity remain unknown/unverified unless supported by evidence. Simulation nodes cannot dispatch or feed Production selection/ranking.
-- Existing Production data includes only its current canonical master/Project relations. The historical validation-branch seed candidates and migration ledger are not Production truth.
-- National port-master ingestion, external ID reconciliation, producer/company-to-KCP evidence, port proximity/road network survey, port terminal acceptance of PKE, loading services and verified port warehouse capacity remain **NOT VERIFIED**. Do not promote a candidate record to an operational master without source evidence and independent review.
-- **Status:** governance and simulation UI implemented on working branch; external identity and logistics-data reconciliation remain **BLOCKED_PENDING_EVIDENCE**.
+- Port external-ID crosswalk and geospatial feature APIs/UI use source IDs, source rights, field-purpose permissions, evidence hashes and independent review. Field permissions are additive UPSERTs; no destructive replacement of approved permissions.
+- The simulation graph remains non-canonical and cannot dispatch or feed Production selection/ranking. Unknown coordinates, routes, travel time, terminal acceptance, loading rate and warehouse capacity remain unknown.
+- Project Control Tower resolves only the actual shipment destination port and direct PKS-to-port route relation; available routes are ordered by shortest verified distance. The national port master may contain all ports, but operational routing must prefer the nearest evidenced PKE-capable loading port.
+- National port-master ingestion, external identity reconciliation, PKS-to-producer/company evidence, road network survey, PKE terminal acceptance, loading services and verified port warehouse capacity remain **NOT VERIFIED**.
+- **Status:** source-level APIs/UI and graph constraints implemented; canonical data reconciliation and source rights remain **BLOCKED_PENDING_EVIDENCE**.
 
 ### P17-C vessel identity and compatibility
 
-- Existing Production has vessel master and supporting identifier/name-history/certificate structures; vessel attributes must remain nullable until provenance is verified. IMO is preferred identity; vessel name alone is not sufficient. MMSI is a time-bounded identifier.
-- The existing API `POST /api/v1/vessel-port-assessments` screens verified vessel particulars, port master, berth, current verified operating limits, recent observed tide and verified depth survey. Its possible result is preliminary/advisory only; it does not issue navigation or berthing clearance.
-- The existing Port Network UI includes a vessel assessment form. A stale PortDetail sentence claiming compatibility had not been assessed in the workspace was found and is noted for UI correction in the working branch; the corrected sentence must continue to state the advisory boundary.
-- Missing vessel dimensions, IMO/verified provenance, berth/port evidence, operating limits, depth survey or fresh observed tide must remain insufficient/manual-review; no default values may be invented.
-- **Status:** advisory compatibility API/form exists; end-to-end screen/backtest and evidence completeness remain **NOT VALIDATED**.
+- Existing POST /api/v1/vessel-port-assessments and Port Network UI remain the persisted assessment workflow. The additional Project-scoped /api/v1/projects/:projectId/vessels/:vesselId/advisory-screening endpoint compares only known vessel dimensions and terminal operating limits and explicitly returns operationalClearance=false.
+- Missing dimensions, unverified vessel/terminal masters, absent terminal cargo capability or missing limits produce unknown/insufficient_verified_data; exceeding a known limit produces an adverse advisory, never a clearance.
+- No navigation, pilotage, berth allocation, statutory approval or terminal acceptance is implied. Actual vessel/terminal evidence and a full API acceptance run remain outstanding.
+- **Status:** advisory API/form implemented on source branch; operational evidence and end-to-end validation remain **NOT VALIDATED**.
 
 ### P17-D AIS adapter and freshness
 
-- Production tracking table exists, but no verified paid provider/subscription/entitlement or active adapter has been established. A table row does not mean it is a live or current vessel position.
-- The UI must distinguish `fresh`, `delayed`, `stale`, `unknown` and `provider_unavailable`, show provider and original position timestamp separately from received time, and never call a cached/stale position live.
-- Existing vessel listing API checks `vessel.view` but selects all active vessel master records rather than filtering to a specific Project association. It must be treated as a master reference list, not as proof that every row belongs to the selected Project. Do not expose global vessel positions from that listing.
-- **Status:** schema exists; provider adapter, rights, per-Project position projection, freshness computation and provider failure tests are **NOT IMPLEMENTED/NOT VERIFIED**.
+- Migration 106 extends the existing canonical vessel_tracking_positions table rather than creating a parallel position master. It adds source identity, MMSI, evidence, pending/accepted/rejected review and independent reviewer controls.
+- AIS ingest requires an enabled AIS-class source, current approved internal-processing rights, field-purpose permissions, canonical active vessel MMSI match, provider reference and payload hash. Project reads expose accepted observations only and apply the source freshness SLA.
+- UI/API distinguish fresh, delayed, stale, unknown and provider_unavailable; original observation time and received time are separate. Unknown freshness is never called live.
+- No paid provider contract, token, live feed, allowed-field/retention/display/redistribution evidence or provider failure test is available.
+- **Status:** source-level schema/API/UI implemented; live provider adapter and legal/contract evidence remain **BLOCKED_EXTERNAL**.
 
 ### P17-E voyage, nomination, port call, loading and shipment timeline
 
-- Production has pre-existing voyage, nomination, port-call, loading-operation, loading-ticket and shipment-event tables. However, current branch P17-E handlers use additional schema objects/fields not present in Production. Do not expose their create/update/review/actual-port-call actions until the exact migration, permissions and maker-checker rules have been reviewed and applied under the approved Production migration release process.
-- New Project-scoped read-only timeline/ticket endpoints may use the currently existing `shipment_events`, `loading_operations` and `loading_tickets` schemas only if each lookup and each child-row query includes the same explicit `project_id` predicate and calls server-side Project permission checks. API/UI changes are still pending commit and validation; do not treat a design/code draft as shipped.
-- P17-E required lifecycle still includes shipment nomination, reviewer independence, voyage optimistic concurrency/idempotency, predicted-versus-actual port call, loading ticket evidence and quantity reconciliation. No loading ticket is a sign-off by itself. No actual event may be inferred from ETA.
-- **Status:** core tables exist; current write route module is **SCHEMA-BLOCKED_ON_PRODUCTION**; shipment timeline/loading evidence acceptance remains **NOT COMPLETE**.
+- Migration 104 adds a versioned nomination submission/withdrawal/review guard. Voyage create/update, nomination submit/review/withdraw and predicted/actual port-call APIs write maritime_workflow_events in the same request transaction and enforce Project scope, idempotency, optimistic version and maker-checker.
+- Migration 107 adds loading-operation unit locking and versioned survey, quantity reconciliation and laytime evidence with private object keys, SHA-256, Project RLS, independent review and no acceptance when verified ticket/segment quantities differ.
+- The loading workspace lists Project loading operations, assigns a unit once, shows ticket/segment reconciliation, accepts survey/quantity/laytime evidence and exposes independent review actions.
+- Read-only shipment timeline and loading-ticket projections retain explicit Project predicates. Planned ETA is never represented as actual arrival; actual port calls require confirmed event evidence.
+- All writes depending on migrations 096–107 remain schema-gated. No surveyor/terminal evidence, real ticket reconciliation or laytime sign-off has been accepted on Production.
+- **Status:** source-level APIs/UI/migrations implemented; canonical Production schema release and real operational acceptance remain **BLOCKED**.
 
 ### P17-F Buyer Export Shipment 360 and visibility grants
 
-- Production `buyer_visibility_grants` table exists and its relevant permissions/policies are present, but current count is zero. It therefore authorizes no Buyer shipment projection by itself.
-- Production PKE `users` has no verified `buyer_id` identity mapping. The current `/buyer-projects` route is based on Project membership and may accept a client-supplied buyer identifier; this is not sufficient to establish the authenticated buyer identity for an external projection.
-- Do not implement buyer projection by matching email, allowing a URL/query buyer ID, or treating project membership as a buyer grant. Required sequence: server-managed identity-to-buyer mapping, Admin grant/revoke, query that requires authenticated buyer mapping + active non-expired non-revoked Project/shipment scope, no sensitive document by default, explicit download scope, IDOR/cross-project tests.
-- Tracking access may remain active after payment if grant/contract allows. Payment status must not automatically revoke shipment tracking.
-- **Status:** Buyer Portal placeholder only; data visibility **FAIL-CLOSED/BLOCKED** pending identity mapping, grant management and acceptance.
+- Migration 105 adds explicit users.neon_auth_user_id → Buyer master mapping, independent Admin review, active/suspended/revoked lifecycle, Buyer RLS, Project grant-manager visibility and append-only grant audit events.
+- Platform Admin UI manages mapping candidates and review; Project Manager UI creates/revokes shipment-scoped summary/milestone grants and records expiry. An Admin action records expired grants. No mapping is inferred from email.
+- Buyer shipment and milestone projections require the authenticated mapped user plus active, unexpired, non-revoked Project/shipment grant. Summary grants do not authorize milestone events; unsupported document, vessel-tracking and financial scopes are not exposed.
+- Buyer Portal now reads the server-side shipment projection and requires explicit buyer.shipment.view; no buyer identity or scope is accepted from URL/query/body. The portal remains unavailable until migration 105 is released and a real Buyer identity/grant is independently verified.
+- **Status:** source-level schema/API/UI implemented; Production has no verified Buyer mapping or grants and remains **FAIL-CLOSED**.
 
 ### P17-G Export Control Tower
 
-- Project Control Tower must combine shipment milestones, loading and document readiness only from permission-filtered Project data and source evidence. Admin cross-Project oversight must be permission-filtered and audited.
-- Do not treat the existing Role Dashboard tile or the P17 simulation board as an operational Control Tower.
-- Required KPI cards: shipment stages/quantity reconciliation, nomination and compatibility exception, port-call/berth window, loading queue/tickets, documents, last-known vessel positions/freshness, overdue tasks and exceptions. Every metric must report unavailable rather than defaulting to zero when its source endpoint is unavailable; unknown must not be rendered as zero.
-- **Status:** comprehensive shipment/voyage Control Tower is **NOT COMPLETE**.
+- Project Control Tower API/UI combines real shipment stages, voyage/nomination/port-call, loading tickets/segments, quantity reconciliation, documents, work items, exceptions, nearest PKS-to-port routes, vessel assessment and last-known AIS position/freshness.
+- Platform Admin portfolio API/UI provides cross-Project shipment, voyage, nomination, port-call, loading, allocation, document and work-item summaries.
+- Each source reports available, permission-unavailable or schema-not-released; missing source data is not fabricated as zero. Planned quantity is not loaded quantity; AIS is last-known, not live; no Control Tower metric grants operational clearance.
+- **Status:** source-level Project and Admin Control Tower implemented; permission/API/runtime regression and real-data acceptance remain **NOT VALIDATED**.
 
 ### P17 work branch and safe change inventory
 

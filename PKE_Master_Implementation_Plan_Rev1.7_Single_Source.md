@@ -8565,6 +8565,8 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - P17-E loading: a temporary pending quantity-reconciliation acceptance was created in a rollback-only transaction. Self-review was rejected; a distinct reviewer acceptance was rejected because there are no verified loading tickets/completed segments to substantiate quantity. No acceptance persisted.
 - After all backtests, the existing Production nomination remains `submitted`, version 1; the legacy tracking position remains pending with `source_id=NULL`; no test request, scenario, source, mapping, grant, acceptance, or port candidate persisted.
 
+- GitHub Actions run `45044036241` on commit `1b72726e3e3730d5b53be60e7d24a032159bc503` PASS: 476 unit/security tests, Production ledger/release checks, P17 manifest/source hash verification, migration runner dry-run, backend build/typecheck and frontend typecheck/build.
+
 **P17-D corrective finding and current gate**
 
 - Production backtest found migration 106 created the AIS provenance/acceptance trigger and grants but did not create runtime INSERT/UPDATE RLS policies on `vessel_tracking_positions`. Runtime reads were fail-closed, but the intended licensed-AIS ingestion and independent review path could not execute under `app_runtime_secure`.

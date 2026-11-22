@@ -620,3 +620,15 @@ describe("P17-A provider ingestion staging UI",()=>{
   expect(INGESTION_UI).toContain("belum dipromosikan menjadi master data");
  });
 });
+
+
+describe("P17-B port identity and geospatial candidate forms",()=>{
+ it("creates source-rights-gated crosswalk and GeoJSON candidates with recursive canonical SHA-256",()=>{
+  expect(IDENTITY_UI).toContain("/admin/maritime/port-crosswalk");
+  expect(IDENTITY_UI).toContain("/admin/maritime/port-geospatial-features");
+  expect(IDENTITY_UI).toContain("crypto.subtle.digest(\"SHA-256\"");
+  expect(IDENTITY_UI).toContain("Object.keys(v).sort()");
+  expect(IDENTITY_UI).toContain("sourceSnapshot");
+  expect(IDENTITY_UI).toContain("geometryGeojson");
+ });
+});

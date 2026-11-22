@@ -390,6 +390,7 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
   expect(M107).toContain("loading_operation_acceptances");
   expect(M107).toContain("evidence_size_bytes bigint NOT NULL");
   expect(API).toContain("privateStorage.verifyObject(evidence,evidenceSize,hash)");
+  expect(readFileSync(join(ROOT,"src","index.ts"),"utf8")).toContain("privateStorage });");
   expect(API).toContain("/acceptances/presign");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Upload & submit evidence");
   expect(M107).toContain("reviewed_by<>submitted_by");

@@ -365,6 +365,8 @@ describe("P17-D evidence-backed AIS observations",()=>{
   expect(API).toContain("/api/v1/admin/maritime/vessel-positions");
   expect(API).toContain("/api/v1/projects/:projectId/vessel-positions");
   expect(API).toContain("AIS_SOURCE_RIGHTS_BLOCKED");
+  expect(API).toContain("AIS_PAYLOAD_HASH_MISMATCH");
+  expect(API).toContain("AIS_PAYLOAD_FIELDS_MISMATCH");
   expect(API).toContain("AIS_VESSEL_IDENTITY_MISMATCH");
   expect(API).toContain("freshness_sla_seconds");
   expect(M106).toContain("vessel_tracking_source_review_stamp_ck");
@@ -388,6 +390,9 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
   expect(M107).toContain("loading_operation_acceptances");
   expect(M107).toContain("reviewed_by<>submitted_by");
   expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");
+  expect(M107).toContain("loading_acceptance_one_pending_uq");
+  expect(API).toContain("latest_version_no");
+  expect(API).toContain("is_latest");
   expect(M107).toContain("loading_acceptance_admin_all");
   expect(M107).toContain("loading_acceptance_review_ck");
   expect(M107).toContain("loading_operations_unit_guard");

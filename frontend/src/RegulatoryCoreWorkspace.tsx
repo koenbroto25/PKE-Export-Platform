@@ -26,6 +26,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
   const [selectedAssessment,setSelectedAssessment]=useState<string>("");
   const [assessmentDetail,setAssessmentDetail]=useState<AnyRecord|null>(null);
   const [reviewReason,setReviewReason]=useState("Reviewed against verified source and attached Project evidence.");
+  const [ruleReviewReason,setRuleReviewReason]=useState("Rule source or interpretation requires revision before approval.");
   const [loading,setLoading]=useState(false);
   const [busy,setBusy]=useState(false);
   const [sourceForm,setSourceForm]=useState({sourceId:"",title:"",issuingAuthority:"",jurisdiction:"ID",effectiveDate:today,officialUrl:"",sha256Checksum:""});
@@ -68,9 +69,9 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
       await post("/regulatory-rules",payload);onNotice("success","Rule dan draft version berhasil dibuat.");setRuleForm(v=>({...v,ruleCode:"",title:"",summary:""}));await refresh();
     }catch(e){onNotice("error",e instanceof Error?e.message:"Rule gagal dibuat.");}finally{setBusy(false);}
   };
-  const transitionRule=async(versionId:string,action:"submit-review"|"approve"|"activate")=>{
+  const transitionRule=async(versionId:string,action:"submit-review"|"approve"|"reject"|"activate")=>{
     setBusy(true);
-    try{await patch(`/regulatory-rule-versions/${encodeURIComponent(versionId)}/${action}`,{});onNotice("success",`Transisi rule ${action} berhasil.`);await refresh();}
+    try{await patch(`/regulatory-rule-versions/${encodeURIComponent(versionId)}/${action}`,action==="reject"?{reason:ruleReviewReason}:{});onNotice("success",`Transisi rule ${action} berhasil.`);await refresh();}
     catch(e){onNotice("error",e instanceof Error?e.message:"Transisi rule gagal.");}finally{setBusy(false);}
   };
   const submitDocType=async(e:FormEvent)=>{
@@ -108,7 +109,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label>SHA-256 sumber<input value={sourceForm.sha256Checksum} onChange={e=>setSourceForm(v=>({...v,sha256Checksum:e.target.value}))} placeholder="64 karakter hex"/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Tambah sumber sebagai draft</button></div>
       </form>}
-      <div className="activity-list">{sources.map(s=><div className="activity-item" key={s.id}><div className="activity-copy"><strong>{s.title}</strong><span>{s.sourceId} · {s.issuingAuthority} · {s.jurisdiction}</span><small>{s.verificationStatus} · {s.officialUrl||"URL belum tersedia"}</small></div>{canSourceManage&&s.verificationStatus!=="verified"&&<button className="secondary-button" disabled={busy||s.createdBy===activeUser?.id} onClick={()=>void reviewSource(s)}>Verify (independent)</button>}</div>)}{!sources.length&&<p className="muted">Belum ada sumber yang dapat ditampilkan.</p>}</div>
+      <div className="activity-list">{sources.map(s=><div className="activity-item" key={s.id}><div className="activity-copy"><strong>{s.title}</strong><span>{s.sourceId} · {s.issuingAuthority} · {s.jurisdiction}</span><small>{s.verificationStatus} · {s.officialUrl||"URL belum tersedia"}</small></div>{canSourceManage&&["pending","reviewed"].includes(s.verificationStatus)&&<button className="secondary-button" disabled={busy||s.createdBy===activeUser?.id} onClick={()=>void reviewSource(s)}>Verify (independent)</button>}</div>)}{!sources.length&&<p className="muted">Belum ada sumber yang dapat ditampilkan.</p>}</div>
     </section>}
     {canRuleView&&<section className="card">
       <h3>Regulatory Rules & Version Lifecycle</h3>
@@ -125,7 +126,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label>Required documents JSON<textarea rows={4} value={ruleForm.documents} onChange={e=>setRuleForm(v=>({...v,documents:e.target.value}))}/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Create draft rule version</button></div>
       </form>}
-      <div className="activity-list">{rules.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.rule_code} · {r.title}</strong><span>{r.jurisdiction} · {r.subject_type} · {r.status}</span><small>v{r.version_number||"—"} · {r.version_status||"no active version"} · Source: {r.source_id||"—"}</small></div>{canRuleManage&&r.active_version_id&&<div className="form-actions"><button className="secondary-button" disabled={busy||r.version_status!=="draft"} onClick={()=>void transitionRule(r.active_version_id,"submit-review")}>Submit review</button><button className="secondary-button" disabled={busy||r.version_status!=="under_review"||r.version_created_by===activeUser?.id} onClick={()=>void transitionRule(r.active_version_id,"approve")}>Approve</button><button className="secondary-button" disabled={busy||r.version_status!=="approved"} onClick={()=>void transitionRule(r.active_version_id,"activate")}>Activate</button></div>}</div>)}{!rules.length&&<p className="muted">Belum ada rule yang dapat ditampilkan.</p>}</div>
+      {canRuleManage&&<label>Alasan penolakan versi rule<input value={ruleReviewReason} onChange={e=>setRuleReviewReason(e.target.value)}/></label>}<div className="activity-list">{rules.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.rule_code} · {r.title}</strong><span>{r.jurisdiction} · {r.subject_type} · {r.status}</span><small>v{r.version_number||"—"} · {r.version_status||"no active version"} · Source: {r.source_id||"—"}</small></div>{canRuleManage&&r.active_version_id&&<div className="form-actions"><button className="secondary-button" disabled={busy||r.version_status!=="draft"} onClick={()=>void transitionRule(r.active_version_id,"submit-review")}>Submit review</button><button className="secondary-button" disabled={busy||r.version_status!=="under_review"||r.version_created_by===activeUser?.id} onClick={()=>void transitionRule(r.active_version_id,"approve")}>Approve</button><button className="secondary-button" disabled={busy||r.version_status!=="under_review"||r.version_created_by===activeUser?.id} onClick={()=>void transitionRule(r.active_version_id,"reject")}>Reject</button><button className="secondary-button" disabled={busy||r.version_status!=="approved"} onClick={()=>void transitionRule(r.active_version_id,"activate")}>Activate</button></div>}</div>)}{!rules.length&&<p className="muted">Belum ada rule yang dapat ditampilkan.</p>}</div>
     </section>}
     {canDocView&&<section className="card">
       <h3>Export Document Catalog & Country Requirements</h3>
@@ -146,7 +147,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label>Notes<input value={countryForm.notes} onChange={e=>setCountryForm(v=>({...v,notes:e.target.value}))}/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Tambah country requirement draft</button></div>
       </form></>}
-      <div className="activity-list">{countryReqs.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.country_code} · {r.document_code} · {r.document_name}</strong><span>{r.status} / {r.verification_status} · v{r.version_no}</span><small>Source: {r.source_id||"—"} · berlaku {String(r.effective_from||"").slice(0,10)}</small></div>{canDocManage&&r.verification_status==="pending"&&<button className="secondary-button" disabled={busy||r.created_by===activeUser?.id||!r.regulatory_source_id} onClick={()=>void reviewCountryRequirement(r.id)}>Verify (independent)</button>}</div>)}{!countryReqs.length&&<p className="muted">Belum ada country requirement.</p>}</div>
+      <div className="activity-list">{countryReqs.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.country_code} · {r.document_code} · {r.document_name}</strong><span>{r.status} / {r.verification_status} · v{r.version_no}</span><small>Source: {r.source_id||"—"} · berlaku {String(r.effective_from||"").slice(0,10)}</small></div>{canDocManage&&["pending","reviewed"].includes(r.verification_status)&&<button className="secondary-button" disabled={busy||r.created_by===activeUser?.id||!r.regulatory_source_id} onClick={()=>void reviewCountryRequirement(r.id)}>Verify (independent)</button>}</div>)}{!countryReqs.length&&<p className="muted">Belum ada country requirement.</p>}</div>
       <p className="muted">{docTypes.length} document types · {countryReqs.length} country requirements</p>
     </section>}
     {canSourceView&&<section className="card"><h3>Regulatory Audit Trail</h3><div className="activity-list">{auditEvents.map(a=><div className="activity-item" key={a.id}><div className="activity-copy"><strong>{a.action} · {a.target_type}</strong><span>{a.reason}</span><small>{a.actor_user_id} · {new Date(a.occurred_at).toLocaleString()}</small></div></div>)}{!auditEvents.length&&<p className="muted">Belum ada aktivitas Regulatory Core.</p>}</div></section>}

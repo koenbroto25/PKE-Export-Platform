@@ -32,9 +32,11 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
  app.post("/api/v1/admin/maritime/sources/:id/runs",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const id=String(req.params.id||""),key=str(req.get("Idempotency-Key")||req.body?.idempotencyKey,200);if(!uuidPattern.test(id)||key.length<8)return bad(res,400,"INVALID_RUN","Source and idempotency key are required.");
-  try{const s=await req.db.query("SELECT id,dataset_code,enabled,rights_status,internal_processing_allowed,rights_expires_at,quota_limit,quota_window_seconds FROM public.maritime_data_sources WHERE id=$1::uuid",[id]);
+  try{const s=await req.db.query("SELECT id,dataset_code,enabled,rights_status,internal_processing_allowed,rights_expires_at,quota_limit,quota_window_seconds FROM public.maritime_data_sources WHERE id=$1::uuid FOR UPDATE",[id]);
    if(!s.rows.length)return bad(res,404,"SOURCE_NOT_FOUND","Source not found.");
    const x=s.rows[0];
+   const prior=await req.db.query("SELECT * FROM public.maritime_ingestion_runs WHERE source_id=$1::uuid AND idempotency_key=$2",[id,key]);
+   if(prior.rows.length)return res.json({run:prior.rows[0],replayed:true});
    const blockedRights=!x.enabled||x.rights_status!=="approved"||x.internal_processing_allowed!==true||!x.rights_expires_at||Date.parse(x.rights_expires_at)<=Date.now();
    let blockedQuota=false;
    if(!blockedRights&&x.quota_limit&&x.quota_window_seconds){

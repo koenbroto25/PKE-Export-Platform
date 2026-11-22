@@ -14,8 +14,8 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   const mutating=["POST","PUT","PATCH","DELETE"].includes(req.method);
   const schemaAdmin=path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings");
   const buyerProjection=path.startsWith("/api/v1/buyer/");
-  const p17ProjectWorkflow=/^\\/api\\/v1\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/(?:simulation-scenarios|change-requests)(?:\\/|$)|voyages(?:\\/|$)|vessel-nominations(?:\\/|$)|vessel-port-calls(?:\\/|$)|buyer-visibility-grants(?:\\/|$)|loading-operations(?:\\/|$))/.test(path);
-  const p17AdminProjectWorkflow=/^\\/api\\/v1\\/admin\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/change-requests(?:\\/|$))/.test(path);
+  const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|buyer-visibility-grants(?:\/|$)|loading-operations(?:\/|$))/.test(path);
+  const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);
   if(schemaAdmin||buyerProjection||((p17ProjectWorkflow||p17AdminProjectWorkflow)&&mutating)){
    return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema-backed workflow is unavailable until migrations 096-107 and their RLS/permission acceptance are released to canonical Production.");
   }

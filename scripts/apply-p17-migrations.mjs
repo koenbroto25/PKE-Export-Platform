@@ -10,8 +10,9 @@ dotenv.config({ path: ".env.migrate", override: false });
 const mode = process.argv[2] || "dry-run";
 const ROOT = process.cwd();
 const HISTORY_BASELINE_PATH = path.join(ROOT, "migration_history_manifest_001_056.json");
-const HISTORY_CURRENT_PATH = path.join(ROOT, "migration_history_manifest_001_070.json");
+const HISTORY_CURRENT_PATH = path.join(ROOT, "migration_history_manifest_001_071.json");
 const RELEASE_PATH = path.join(ROOT, "migration_release_manifest_p17_096_109.json");
+const P17D_RELEASE_PATH = path.join(ROOT, "migration_release_manifest_p17d_110.json");
 const EXPECTED = Object.freeze({
   projectId: "purple-base-63944903",
   branchId: "br-damp-shape-b3xlh4nr",
@@ -19,7 +20,7 @@ const EXPECTED = Object.freeze({
   host: "ep-odd-resonance-b3zb42fw.c-4.ap-southeast-1.aws.neon.tech",
   port: 5432,
   firstLedgerId: 57,
-  lastLedgerId: 70,
+  lastLedgerId: 71,
 });
 const fail = (message) => { throw new Error("BLOCKED: " + message); };
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
@@ -35,6 +36,7 @@ function validateManifest() {
   const baseline = readJson(HISTORY_BASELINE_PATH);
   const current = readJson(HISTORY_CURRENT_PATH);
   const release = readJson(RELEASE_PATH);
+  const p17d = readJson(P17D_RELEASE_PATH);
   if (baseline.purpose !== "verified_production_history_only_not_sql_source" ||
       baseline.project_id !== EXPECTED.projectId || baseline.branch_id !== EXPECTED.branchId ||
       baseline.database !== EXPECTED.database || baseline.applied_count !== 56 ||
@@ -43,9 +45,9 @@ function validateManifest() {
     fail("Production baseline manifest 001-056 is missing or does not match the prerequisite release.");
   }
   if (current.project_id !== EXPECTED.projectId || current.branch_id !== EXPECTED.branchId ||
-      current.database !== EXPECTED.database || current.applied_count !== 70 ||
-      current.entries?.length !== 70 || current.entries[69]?.id !== 70 ||
-      current.entries[69]?.filename !== "109_p17f_buyer_self_read_rls_recursion_fix.sql") {
+      current.database !== EXPECTED.database || current.applied_count !== 71 ||
+      current.entries?.length !== 71 || current.entries[70]?.id !== 71 ||
+      current.entries[70]?.filename !== "110_p17d_vessel_position_runtime_rls_fix.sql") {
     fail("Current Production ledger manifest 001-070 is missing or invalid.");
   }
   if (release.purpose !== "production_p17_release_package_exact_sql_hashes_owner_approval_required" ||
@@ -55,6 +57,17 @@ function validateManifest() {
       release.expected_last_ledger_id !== EXPECTED.lastLedgerId ||
       release.migrations?.length !== 14) {
     fail("P17 release manifest must pin exactly migrations 096-109 at ledger IDs 57-70.");
+  }
+  if (p17d.purpose !== "production_p17d_runtime_rls_correction_applied" ||
+      p17d.owner_approval?.status !== "approved" || p17d.production_application?.ledger_id !== 71 ||
+      p17d.migrations?.length !== 1 || p17d.migrations[0]?.status !== "applied" ||
+      p17d.migrations[0]?.sha256 !== "f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46") {
+    fail("P17-D migration 110 must be owner-approved and applied at ledger ID 71.");
+  }
+  const p17dSql = fs.readFileSync(path.join(ROOT, "migrations", p17d.migrations[0].filename));
+  if (sha256(p17dSql) !== p17d.migrations[0].sha256 ||
+      current.entries[70]?.sha256 !== p17d.migrations[0].sha256 || current.entries[70]?.status !== "applied") {
+    fail("Production migration 110 source/hash/ledger mismatch.");
   }
   for (let i = 0; i < 56; i++) {
     if (!sameEntry(current.entries[i], baseline.entries[i], i)) fail("Current ledger diverges from pre-P17 baseline at ID " + (i + 1));
@@ -103,10 +116,10 @@ async function main() {
   const { baseline, current, release } = validateManifest();
   const packageHash = sha256(fs.readFileSync(RELEASE_PATH));
   console.log("Target: " + EXPECTED.projectId + " / " + EXPECTED.branchId + " / " + EXPECTED.database);
-  console.log("Production ledger: 001-070; P17 096-109 applied at IDs 57-70.");
+  console.log("Production ledger: 001-071; P17 096-109 applied at IDs 57-70; P17-D 110 applied at ID 71.");
   console.log("Release manifest SHA-256: " + packageHash);
   if (mode === "dry-run") {
-    console.log("DRY-RUN PASS: all 14 P17 source files match pinned hashes and the reconciled Production ledger manifest.");
+    console.log("DRY-RUN PASS: P17 096-109 and corrective migration 110 match pinned source hashes and the reconciled Production ledger manifest.");
     return;
   }
   if (mode === "apply") fail("P17 096-109 are already applied. Replay is disabled; use verify.");
@@ -127,7 +140,7 @@ async function main() {
     await client.query("SELECT pg_advisory_lock(424242)");
     locked = true;
     const count = await verifyLiveLedger(client, current);
-    console.log("LIVE VERIFY PASS: " + count + " ledger rows match 001-070, including all 14 P17 hashes.");
+    console.log("LIVE VERIFY PASS: " + count + " ledger rows match 001-071, including all P17 and corrective migration hashes.");
   } finally {
     if (locked) await client.query("SELECT pg_advisory_unlock(424242)").catch(() => {});
     await client.end();

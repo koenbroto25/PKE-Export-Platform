@@ -10667,3 +10667,9 @@ P17-B migration 098 is applied to UAT and the exact 001–098 manifest reconcile
 Final code head `d0fa87b8611ceae2d6fb82e6aa2bf0d2378edad3`: GitHub Unit Tests PASS (46 files, 416 tests), migration dry-run PASS, backend API typecheck PASS, frontend typecheck/build PASS, Dependency Audit Evidence PASS. Route-priority SQL executed successfully against UAT and returned zero rows because there is no verified route data yet.
 
 **P17-B database, API contract and CI gates: PASS.** Live authenticated HTTP/browser UAT, Project-positive geo visibility with a real approved port relationship, external source-rights approval, national port import/reconciliation, and producer-company onboarding remain pending. Do not claim a verified national port or producer directory. Vercel/Production/PR merge and external provider activation remain unchanged.
+
+
+## 56.61 — P17-B producer-company linkage hardening (22 November 2026)
+
+
+The primary PKE route gate now requires a verified processor organization linked by `pks_sites.organization_id` to the PKS/KCP site. API output includes producer legal name and `producer_company_verified`; an unlinked/unverified organization cannot be shown as a primary PKE route. This reuses `partner_organizations.organization_type='processor'`, `pks_sites.facility_type` (including KCP/integrated mill), and the existing route relationship. No duplicate producer master is created. Full SQL query executed against UAT without error and returned zero rows, as expected for empty verified route data. CI for the final code head remains in progress at this checkpoint.

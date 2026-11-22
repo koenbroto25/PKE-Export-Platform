@@ -1,6 +1,6 @@
 export type RegulatoryOperator = "eq"|"ne"|"in"|"not_in"|"gt"|"gte"|"lt"|"lte"|"between"|"contains"|"exists";
 export interface RegulatoryCondition { field_path:string; operator:RegulatoryOperator; comparison_value:unknown; is_mandatory?:boolean; condition_group?:number; }
-export interface RegulatoryRuleInput { ruleVersionId:string; ruleCode:string; title:string; outcome:"require"|"prohibit"|"allow"|"manual_review"|"informational"; conditions:RegulatoryCondition[]; requiredDocuments?:unknown[]; }
+export interface RegulatoryRuleInput { ruleVersionId:string; ruleCode:string; title:string; subjectType?:string; outcome:"require"|"prohibit"|"allow"|"manual_review"|"informational"; conditions:RegulatoryCondition[]; requiredDocuments?:unknown[]; }
 export interface RegulatoryEvaluation { ruleVersionId:string; ruleCode:string; resultStatus:"pass"|"fail"|"pending"|"manual_review"|"not_applicable"; reason:string; requiredDocuments:unknown[]; missingDocuments:unknown[]; evidence:unknown[]; }
 const getPath=(value:unknown,path:string):unknown=>{
   if(!/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(path)) return undefined;

@@ -10679,3 +10679,9 @@ The primary PKE route gate now requires a verified processor organization linked
 
 
 Primary route eligibility additionally requires `pks_sites.facility_type` to be `kernel_crushing_plant` or `integrated_mill_kcp`; a palm-oil mill alone is not assumed to make PKE. PKE loading-service matching supports normalized PKE / Palm Kernel Expeller and explicit material synonyms/codes. This conservative gate avoids promoting a nearby port/PKS pair without proof that the facility produces and the port can load PKE.
+
+
+## 56.63 — P17-B official port-source discovery (22 November 2026)
+
+
+Official source discovery identifies DJPL MaritimHub Data Master Pelabuhan (`dwh-djpl-port`) as the leading national master candidate; its catalog metadata shows an update on 21 November 2026 and Excel/JSON resources. The official Hubdat ferry-port list (12 August 2026) is a distinct supplemental class. Satu Data Indonesia Kemenhub port statistics (modified 8 November 2026) and port-area map (modified 10 October 2026) are secondary metadata/geometry candidates; one resource is reported problematic and the map is still undergoing SDI-principle compliance. None is rights-approved or imported. The third-party metered RIPN API is not activated. Before ingesting any source, P17-A terms, attribution, internal-processing rights, field-purpose permissions and review evidence must pass. See P17 plan §16.8.

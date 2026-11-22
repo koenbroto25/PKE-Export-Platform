@@ -5,6 +5,7 @@ on:
     branches:
       - phase0/reconcile-source-20261117
       - f1/project-scoped-cob-20261119
+      - p17b/operational-readiness-20261122
   pull_request:
     branches:
       - main
@@ -39,6 +40,8 @@ jobs:
         run: npm run verify:migration-055
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
+      - name: Build backend application
+        run: npm run build
       - name: Typecheck backend API
         run: npx tsc -p api/tsconfig.json --noEmit
       - name: Install frontend dependencies

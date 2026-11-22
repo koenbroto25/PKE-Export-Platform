@@ -2261,6 +2261,26 @@ app.post("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:
   }
 });
 
+app.patch("/api/v1/regulatory-sources/:id",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.source.manage"))) return;
+  const b=req.body??{};
+  if(typeof b.title!=="string"||!b.title.trim()||typeof b.issuingAuthority!=="string"||!b.issuingAuthority.trim()||typeof b.jurisdiction!=="string"||!/^([A-Z]{2}|GLOBAL)$/.test(b.jurisdiction.toUpperCase())||typeof b.effectiveDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(b.effectiveDate))
+    return res.status(400).json({error:"Title, issuing authority, jurisdiction and effective date are required."});
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.regulatory_sources SET title=$1,issuing_authority=$2,jurisdiction=$3,
+        document_type=$4,regulation_number=$5,article_annex_section=$6,effective_date=$7::timestamptz,
+        expiry_repeal_date=$8::timestamptz,official_url=$9,source_checksum=$10,source_checksum_sha256=$10,
+        verification_status='pending',reviewer_id=NULL,last_reviewed=NULL,status='draft',updated_at=now()
+        WHERE id=$11::uuid AND verification_status<>'verified' RETURNING id,source_id,title,jurisdiction,status,verification_status`,
+      [b.title.trim(),b.issuingAuthority.trim(),b.jurisdiction.toUpperCase(),b.documentType??null,b.regulationNumber??null,b.articleAnnexSection??null,b.effectiveDate,b.expiryDate??null,b.officialUrl??null,b.sha256Checksum??null,req.params.id],
+    );
+    if(!rows.length) return res.status(409).json({error:"Verified source is immutable or source was not found.",code:"REGULATORY_SOURCE_IMMUTABLE"});
+    await recordRegulatoryAudit(req,"source.updated","regulatory_source",rows[0].id,null,"Draft source metadata revised and returned to pending verification",null,rows[0]);
+    return res.json({source:rows[0]});
+  }catch(error:any){if(error?.code==="23514") return res.status(409).json({error:"Verified source metadata is immutable."});return res.status(500).json(internalServerErrorPayload());}
+});
+
 app.patch("/api/v1/regulatory-sources/:id/review",requireAuth,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.source.manage"))) return;
   const decision=req.body?.decision;
@@ -2359,6 +2379,54 @@ app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:ex
     if(error?.code==="23505") return res.status(409).json({error:"Rule code or version already exists.",code:"REGULATORY_RULE_DUPLICATE"});
     if(error?.code==="23514"||error?.code==="23503") return res.status(422).json({error:"Rule version failed schema validation."});
     req.logger?.error?.("Regulatory rule create failed",error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/regulatory-rules/:ruleId/versions",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.version.create"))) return;
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
+  const b=req.body??{};
+  const sourceId=typeof b.sourceId==="string"?b.sourceId:"";
+  const conditions=Array.isArray(b.conditions)?b.conditions:[];
+  const documents=Array.isArray(b.documents)?b.documents:[];
+  if(!sourceId||typeof b.effectiveFrom!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(b.effectiveFrom)||!["require","prohibit","allow","manual_review","informational"].includes(b.outcome)||conditions.length>100||documents.length>100)
+    return res.status(400).json({error:"Source, effective date, outcome and bounded condition/document arrays are required."});
+  try{
+    const rule=await req.db.query("SELECT id,rule_code FROM public.regulatory_rules WHERE id=$1::uuid",[req.params.ruleId]);
+    if(!rule.rows.length) return res.status(404).json({error:"Regulatory rule not found."});
+    const source=await req.db.query("SELECT id,official_url,source_checksum,source_checksum_sha256 FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
+    if(!source.rows.length) return res.status(422).json({error:"Regulatory source not found."});
+    for(const condition of conditions){
+      if(typeof condition?.fieldPath!=="string"||!/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(condition.fieldPath)||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(condition.operator)||condition.value===undefined)
+        return res.status(400).json({error:"Invalid rule condition."});
+    }
+    const max=await req.db.query("SELECT COALESCE(MAX(version_number),0)+1 AS next_version FROM public.regulatory_rule_versions WHERE rule_id=$1::uuid",[req.params.ruleId]);
+    const {rows}=await req.db.query(
+      `INSERT INTO public.regulatory_rule_versions
+       (rule_id,version_number,regulatory_source_id,source_locator,source_url_snapshot,source_checksum,
+        rule_summary,condition_schema,outcome,risk_category,effective_from,status,created_by)
+       VALUES($1::uuid,$2,$3::uuid,$4,$5,$6,$7,$8::jsonb,$9,$10,$11::date,'draft',$12::uuid)
+       RETURNING id,rule_id,version_number,status`,
+      [req.params.ruleId,max.rows[0].next_version,sourceId,b.sourceLocator??null,source.rows[0].official_url,source.rows[0].source_checksum_sha256??source.rows[0].source_checksum??null,String(b.summary??rule.rows[0].rule_code),JSON.stringify({conditions}),b.outcome,b.riskCategory??null,b.effectiveFrom,req.user?.id??null],
+    );
+    for(const condition of conditions) await req.db.query(
+      "INSERT INTO public.regulatory_rule_conditions(rule_version_id,field_path,operator,comparison_value,is_mandatory,condition_group) VALUES($1::uuid,$2,$3,$4::jsonb,$5,$6)",
+      [rows[0].id,condition.fieldPath,condition.operator,JSON.stringify(condition.value),condition.isMandatory!==false,Number.isInteger(condition.conditionGroup)?condition.conditionGroup:1],
+    );
+    for(const document of documents){
+      const doc=await req.db.query("SELECT id FROM public.export_document_types WHERE document_code=$1 AND is_active=true",[document?.documentCode]);
+      if(!doc.rows.length) return res.status(422).json({error:"Unknown or inactive document code."});
+      await req.db.query(
+        "INSERT INTO public.regulatory_rule_documents(rule_version_id,document_type_id,requirement_kind,condition_schema) VALUES($1::uuid,$2::uuid,$3,$4::jsonb)",
+        [rows[0].id,doc.rows[0].id,document.requirementKind??"mandatory",JSON.stringify(document.conditionSchema??{})],
+      );
+    }
+    await recordRegulatoryAudit(req,"rule.version.created","regulatory_rule_version",rows[0].id,null,"New immutable draft rule version created",null,rows[0]);
+    return res.status(201).json({version:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23505") return res.status(409).json({error:"Rule version already exists."});
+    if(error?.code==="23514"||error?.code==="23503") return res.status(422).json({error:"Rule version failed database validation."});
     return res.status(500).json(internalServerErrorPayload());
   }
 });
@@ -2614,6 +2682,22 @@ app.post("/api/v1/export-document-types",requireAuth,async(req:express.Request,r
   }
 });
 
+app.patch("/api/v1/export-document-types/:id",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
+  const b=req.body??{};
+  if(typeof b.documentName!=="string"||!b.documentName.trim()||typeof b.documentCategory!=="string"||!b.documentCategory.trim()||typeof b.isActive!=="boolean")
+    return res.status(400).json({error:"documentName, documentCategory and isActive are required."});
+  try{
+    const {rows}=await req.db.query(
+      "UPDATE public.export_document_types SET document_name=$1,document_category=$2,description=$3,is_active=$4,updated_at=now() WHERE id=$5::uuid RETURNING *",
+      [b.documentName.trim(),b.documentCategory.trim(),b.description??null,b.isActive,req.params.id],
+    );
+    if(!rows.length) return res.status(404).json({error:"Export document type not found."});
+    await recordRegulatoryAudit(req,"document_type.updated","export_document_type",rows[0].id,null,"Export document catalog entry updated",null,rows[0]);
+    return res.json({documentType:rows[0]});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
 app.post("/api/v1/country-document-requirements",requireAuth,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
   const b=req.body??{};
@@ -2643,6 +2727,25 @@ app.post("/api/v1/country-document-requirements",requireAuth,async(req:express.R
     if(error?.code==="23503"||error?.code==="23514") return res.status(422).json({error:"Country requirement failed database validation."});
     return res.status(500).json(internalServerErrorPayload());
   }
+});
+
+app.patch("/api/v1/country-document-requirements/:id",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
+  const b=req.body??{};
+  if(typeof b.effectiveFrom!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(b.effectiveFrom)||typeof b.mandatory!=="boolean")
+    return res.status(400).json({error:"effectiveFrom and mandatory are required."});
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.country_export_document_requirements SET importing_authority=$1,mandatory=$2,
+        effective_from=$3::date,effective_to=$4::date,official_source_url=$5,notes=$6,condition_schema=$7::jsonb,
+        verification_status='pending',verified_by=NULL,last_verified_at=NULL,status='draft',version_no=version_no+1,updated_at=now()
+        WHERE id=$8::uuid AND verification_status<>'verified' RETURNING *`,
+      [b.importingAuthority??null,b.mandatory,b.effectiveFrom,b.effectiveTo??null,b.officialSourceUrl??null,b.notes??null,JSON.stringify(b.conditionSchema??{}),req.params.id],
+    );
+    if(!rows.length) return res.status(409).json({error:"Verified country requirement is immutable or record not found."});
+    await recordRegulatoryAudit(req,"country_requirement.updated","country_export_document_requirement",rows[0].id,null,"Draft country requirement revised and returned to pending verification",null,rows[0]);
+    return res.json({requirement:rows[0]});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
 });
 
 app.patch("/api/v1/country-document-requirements/:id/review",requireAuth,async(req:express.Request,res:express.Response)=>{

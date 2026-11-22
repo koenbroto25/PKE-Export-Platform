@@ -16,6 +16,7 @@ import { registerDemoApiRoutes } from "./demo/routes.js";
 import { isPositiveQuantity } from "./f1-contract-rules.js";
 import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
+import { registerP17MaritimeRoutes } from "./p17-maritime.js";
 import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
 import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
 import { isValidCashAdvanceRequest, canDecideCashAdvance } from "./f1-cash-advance-rules.js";
@@ -4205,6 +4206,8 @@ app.get("/api/v1/vessels",requireAuth,async(req:express.Request,res:express.Resp
  try{const r=await req.db.query("SELECT id,name,imo_number,vessel_type,loa_m,beam_m,max_draft_m,summer_draft_m,verification_status,verified_at,source_reference FROM public.vessels WHERE is_active=true ORDER BY name LIMIT 250");return res.json({vessels:r.rows,projectId});}
  catch{return res.status(500).json(internalServerErrorPayload());}
 });
+registerP17MaritimeRoutes(app, { requireAuth, requireAdmin, requireProjectPermission, uuidPattern: p16UuidPattern });
+
 app.get("/api/v1/port-routes",requireAuth,async(req:express.Request,res:express.Response)=>{
  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";if(!(await requireP16ReadAccess(req,res,projectId,"route.estimate")))return;
  try{const r=await req.db.query("SELECT r.*,ps.name AS pks_site_name,p.name AS port_name,CASE WHEN r.verification_status='verified' AND r.verified_at IS NOT NULL AND NULLIF(btrim(r.source_reference),'') IS NOT NULL AND r.evidence_sha256 ~ '^[0-9a-f]{64}$' THEN 'verified' ELSE 'unverified' END AS effective_verification_status FROM public.pks_port_routes r JOIN public.pks_sites ps ON ps.id=r.pks_site_id JOIN public.ports p ON p.id=r.port_id WHERE r.is_active=true AND ($1::uuid IS NULL OR EXISTS(SELECT 1 FROM public.project_operating_profiles op WHERE op.project_id=$1::uuid AND op.primary_pks_site_id=r.pks_site_id) OR EXISTS(SELECT 1 FROM public.project_pks_site_participation part WHERE part.project_id=$1::uuid AND part.pks_site_id=r.pks_site_id AND part.status='active')) ORDER BY ps.name,p.name,r.route_mode",[projectId||null]);return res.json({routes:r.rows,projectId,estimateMode:"advisory_only"});}catch{return res.status(500).json(internalServerErrorPayload());}

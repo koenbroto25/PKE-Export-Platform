@@ -423,6 +423,7 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
  it("provides Project-scoped acceptance and evidence APIs",()=>{
   expect(API).toContain("/loading-operations/:operationId/unit");
   expect(API).toContain("/loading-operations/:operationId/acceptances");
+  expect(API).toContain('["shipping.view","shipping.survey.view","shipping.laytime.view","loading.quantity.reconcile"]');
   expect(API).toContain("LOADING_TICKETS_NOT_VERIFIED");
   expect(API).toContain("verifiedTicketUnits.length!==1");
   expect(API).toContain("completedSegmentUnits.length!==1");

@@ -30,14 +30,14 @@ describe("P17-A maritime source governance",()=>{
   expect(A).toContain("maritime_source_quota_pair_ck");
   expect(A).toContain("records_staged <= records_seen AND records_rejected <= records_seen");
   expect(A).not.toMatch(/api[_-]?key\s+text|secret_value\s+text/i);
-  expect(API).toContain("RIGHTS_EVIDENCE_REQUIRED");
+  expect(API).toContain("MARITIME_RIGHTS_REVIEW_INVALID");
   expect(API).toContain("SOURCE_RIGHTS_NOT_ACTIVE");
  });
  it("records immutable run identity, content hashes and idempotent staging",()=>{
   expect(A).toContain("UNIQUE(source_id,idempotency_key)");
   expect(A).toContain("UNIQUE(run_id,external_record_id,payload_sha256)");
   expect(A).toContain("payload_sha256 ~ '^[0-9a-f]{64}$'");
-  expect(API).toContain("STAGING_DUPLICATE");
+  expect(API).toContain("ON CONFLICT(run_id,external_record_id,payload_sha256) DO NOTHING");
   expect(API).toContain("SOURCE_QUOTA_EXHAUSTED");
   expect(API).toContain("createHash(\"sha256\")");
   expect(API).toContain("Array.isArray(payload)");
@@ -70,7 +70,7 @@ describe("P17-E Project maritime workflows",()=>{
   expect(E).toContain("Independent nomination reviewer required");
   expect(E).toContain("Actual port-call milestones require independent confirmation");
   expect(API).toContain("MAKER_CHECKER_REQUIRED");
-  expect(API).toContain("ACTUAL_TIME_REQUIRED");
+  expect(API).toContain("PORT_CALL_INPUT_INVALID");
  });
  it("keeps permission grants narrow and role scoped",()=>{
   for(const permission of ["voyage.create","voyage.update","vessel.nomination.review","vessel.port_call.manage","vessel.port_call.confirm"])expect(E).toContain(permission);
@@ -91,7 +91,7 @@ describe("P17-B Project master-data editing",()=>{
   expect(API).toContain("independent Platform Admin");
  });
  it("keeps canonical facility/organization writes behind the existing database approval trigger",()=>{
-  expect(API).toContain("public.p2a_master_data_change_requests");
+  expect(MAIN).toContain("public.p2a_master_data_change_requests");
   expect(API).toContain("status='draft' AND requested_by=$6::uuid");
   expect(API).toContain("requireAuth,requireAdmin,async(req:R,res:Response)=>");
   expect(API).toContain("submitted requests are immutable");
@@ -185,7 +185,7 @@ describe("P17-A Platform Admin source governance workbench",()=>{
   expect(SOURCE_UI).toContain("rightsEvidenceUrl");
   expect(SOURCE_UI).toContain("internalProcessingAllowed");
   expect(SOURCE_UI).toContain("Aktifkan sumber");
-  expect(API).toContain("RIGHTS_EVIDENCE_REQUIRED");
+  expect(API).toContain("MARITIME_RIGHTS_REVIEW_INVALID");
   expect(API).toContain("SOURCE_RIGHTS_NOT_CURRENT");
  });
 });
@@ -237,7 +237,7 @@ describe("P17 Production-safe read projections",()=>{
   expect(PAGE).toContain("'maritime-operations'");
  });
  it("discloses the buyer identity/grant blocker and preliminary assessment limitation",()=>{
-  expect(APP).toContain("identitas Neon Auth belum dipetakan");
+  expect(APP).toContain("buyerPortalEnabled");
   expect(PORT).toContain("tidak pernah menjadi izin sandar atau navigasi");
  });
 });

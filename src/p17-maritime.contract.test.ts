@@ -241,8 +241,8 @@ describe("P17 role dashboard linkage",()=>{
 });
 describe("P17 buyer portal navigation fail-closed",()=>{
  const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
- it("keeps buyer portal hidden until server-side identity mapping and grants are ready",()=>{
-  expect(PAGE).toContain("if (pageKey === 'buyer') return false");
+ it("requires explicit buyer shipment permission and leaves identity/grant enforcement to server-side APIs",()=>{
+  expect(PAGE).toContain("permissions.has('buyer.shipment.view')");
   expect(PAGE).toContain("verified Neon Auth");
  });
 });
@@ -340,6 +340,8 @@ describe("P17-G Project export control tower",()=>{
   expect(API).toContain("public.loading_tickets");
   expect(API).toContain("public.pks_port_routes");
   expect(API).toContain("aisLivePosition");
+  expect(API).toContain("/advisory-screening");
+  expect(API).toContain("operationalClearance:false");
   expect(API).toContain("plannedQuantityIsNotLoadedQuantity:true");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Project Export Control Tower");
  });

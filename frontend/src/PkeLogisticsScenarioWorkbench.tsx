@@ -12,6 +12,25 @@ const edgeLabels: Record<string,string> = {
  port_has_terminal:"Port memiliki terminal",terminal_has_loading_service:"Terminal memiliki layanan loading",
  terminal_has_warehouse:"Terminal memiliki gudang"
 };
+const blankSimulationGraph = {
+ nodes:[
+  {id:"node-pks",type:"pks_site",name:"PKS / KCP candidate",simulation_only:true,verification_status:"unverified",attributes:{location:null,coordinates:null,facility_type:null}},
+  {id:"node-road",type:"road_route",name:"Rute darat candidate",simulation_only:true,verification_status:"unverified",attributes:{mode:"road",distance_km:null,estimated_travel_minutes:null,geometry:null,distance_method:null}},
+  {id:"node-port",type:"port",name:"Pelabuhan candidate",simulation_only:true,verification_status:"unverified",attributes:{location:null,coordinates:null,pke_acceptance_confirmed:false}},
+  {id:"node-terminal",type:"terminal",name:"Terminal candidate",simulation_only:true,verification_status:"unverified",attributes:{cargo_types:[],pke_acceptance_confirmed:false}},
+  {id:"node-loading",type:"loading_service",name:"Layanan loading PKE candidate",simulation_only:true,verification_status:"unverified",attributes:{cargo_type:"PKE",handling_mode:null,loading_rate_mt_hour:null}},
+  {id:"node-warehouse",type:"warehouse",name:"Gudang candidate",simulation_only:true,verification_status:"unverified",attributes:{storage_capacity_mt:null,storage_mode:null,pke_suitability_confirmed:false}}
+ ],
+ edges:[
+  {id:"edge-pks-road",from_id:"node-pks",to_id:"node-road",relationship_type:"pks_to_road_route"},
+  {id:"edge-road-port",from_id:"node-road",to_id:"node-port",relationship_type:"road_route_to_port"},
+  {id:"edge-port-terminal",from_id:"node-port",to_id:"node-terminal",relationship_type:"port_has_terminal"},
+  {id:"edge-terminal-loading",from_id:"node-terminal",to_id:"node-loading",relationship_type:"terminal_has_loading_service"},
+  {id:"edge-terminal-warehouse",from_id:"node-terminal",to_id:"node-warehouse",relationship_type:"terminal_has_warehouse"}
+ ]
+};
+const blankSimulationAssumptions = {simulation_only:true,dispatch_allowed:false,production_use_allowed:false,ranking_eligibility:"ineligible_until_independent_validation",road_distance_km:null,road_travel_minutes:null,road_geometry:null,pke_acceptance_confirmed:false,terminal_loading_rate_mt_hour:null,warehouse_storage_capacity_mt:null,warehouse_pke_suitability_confirmed:false};
+
 const requestTemplates: Record<string,string> = {
  port: JSON.stringify({name:"",code:"",city:"",province:"Kalimantan Tengah",country_code:"ID",operator_name:"",address:""},null,2),
  route: JSON.stringify({pks_site_id:"",port_id:"",route_mode:"road",distance_km:null,estimated_travel_minutes:null,distance_method:null,route_notes:""},null,2),
@@ -28,6 +47,9 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
  const [scenarios,setScenarios]=useState<Row[]>([]);
  const [requests,setRequests]=useState<Row[]>([]);
  const [selectedId,setSelectedId]=useState("");
+ const [newScenarioOpen,setNewScenarioOpen]=useState(false);
+ const [newScenarioCode,setNewScenarioCode]=useState("");
+ const [newScenarioName,setNewScenarioName]=useState("");
  const [graphDraft,setGraphDraft]=useState("");
  const [evidenceDraft,setEvidenceDraft]=useState("");
  const [assumptionsDraft,setAssumptionsDraft]=useState("");
@@ -76,6 +98,20 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
  const edges=Array.isArray(graph.edges)?graph.edges:[];
  const parseJson=(value:string,label:string)=>{try{return JSON.parse(value);}catch{throw new Error(label+" harus berupa JSON yang valid.");}};
 
+ async function createScenario(e:FormEvent){
+  e.preventDefault();if(!canManage)return;setBusy(true);setNotice("");setError("");
+  try{
+   const code=newScenarioCode.trim(),name=newScenarioName.trim();
+   const result=await post<{scenario:Row}>(`/projects/${encodeURIComponent(projectId)}/pke-logistics/simulation-scenarios`,{
+    scenarioCode:code,scenarioName:name,graph:blankSimulationGraph,sourceEvidence:[],assumptions:blankSimulationAssumptions
+   });
+   setNewScenarioOpen(false);setNewScenarioCode("");setNewScenarioName("");
+   if(result.scenario?.id)setSelectedId(String(result.scenario.id));
+   setNotice("Skenario simulasi baru dibuat. Seluruh node tetap non-kanonis dan belum diverifikasi.");
+   await refresh();
+  }catch(e:any){setError(e?.message||"Skenario simulasi baru gagal dibuat.");}
+  finally{setBusy(false);}
+ }
  async function saveScenario(e:FormEvent){
   e.preventDefault();if(!selected||!canManage)return;setBusy(true);setNotice("");setError("");
   try{
@@ -147,8 +183,16 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
     {scenarios.map(s=><option key={s.id} value={s.id}>{s.scenario_code} · {s.scenario_name}</option>)}
    </select>
    <button type="button" onClick={()=>void refresh()} disabled={busy}>Muat ulang</button>
+   {canManage&&<button type="button" onClick={()=>setNewScenarioOpen(v=>!v)} disabled={busy}>Buat simulasi</button>}
   </div>
-  {!selected?<div className="p17b-empty">Belum ada simulasi logistik untuk Project ini.</div>:<>
+  {!selected?<div className="p17b-empty">Belum ada simulasi logistik untuk Project ini.</div>
+   {canManage&&newScenarioOpen&&<form className="p17b-editor" onSubmit={createScenario}>
+    <h3>Buat simulasi rantai PKE</h3>
+    <p>Graph awal berisi enam node dan lima relasi wajib. Semua nilai operasional tetap kosong, unverified dan tidak dapat dipakai untuk dispatch.</p>
+    <label>Kode skenario<input required maxLength={80} value={newScenarioCode} onChange={e=>setNewScenarioCode(e.target.value)} placeholder="SIM-PKE-PROJECT-001"/></label>
+    <label>Nama skenario<input required maxLength={200} value={newScenarioName} onChange={e=>setNewScenarioName(e.target.value)} placeholder="Simulasi rantai PKS ke pelabuhan"/></label>
+    <button type="submit" disabled={busy||!newScenarioCode.trim()||!newScenarioName.trim()}>{busy?"Membuat…":"Buat skenario simulasi"}</button>
+   </form>}:<>
    <div className="p17b-chain">
     {nodes.map((node:Row,i:number)=><div className="p17b-node" key={node.id}>
      <div className="p17b-node__type">{nodeLabels[node.type]||node.type}</div>

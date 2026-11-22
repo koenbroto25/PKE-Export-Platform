@@ -10580,3 +10580,44 @@ P15 engineering implementation and UAT database/security backtests are complete.
 - Full P0–P16 regression, cleanup and evidence matrix complete. External rights/coverage dependencies remain explicitly BLOCKED_EXTERNAL rather than being falsely marked PASS.
 
 **Next action:** P17-1 read-only inventory and gap matrix. No Migration 096 or provider activation until that evidence exists. Vercel/deployment work remains excluded.
+
+
+---
+
+## 56.56 — P17 full audit and final revision baseline (2026-11-22)
+
+**Status: FULL AUDIT COMPLETE / DOCUMENTATION REVISION BASELINE / IMPLEMENTATION NOT STARTED.** This section is normative for P17 and supersedes the P17-1 read-only-audit next-action wording in §56.55. Detailed findings and acceptance criteria are maintained in `docs/P17_MARITIME_OPEN_DATA_INTEGRATION_PLAN.md` §13.
+
+### A. Verified baseline
+- Audited GitHub branch: `f1/project-scoped-cob-20261119`; HEAD at audit start: `5a556518691ca0d680f227d05a4e007a5945a717`.
+- Neon UAT project `purple-base-63944903`, branch `br-young-boat-b3re832d`, database `neondb`: migration ledger 95 rows, 79 applied, 16 baseline, 0 pending. All 95 ID/filename/SHA-256/status values matched `migration_history_manifest_uat_001_095.json`; latest is migration 095. Migration 096 is not created, approved or applied.
+- Existing P16 port/vessel/voyage/port-call/nomination/assessment/shipment/buyer tables are reusable. Do not duplicate them. UAT record counts are sparse and are not acceptance evidence.
+- Unit Tests and Dependency Audit Evidence workflows passed at the audited HEAD; these are not P17 acceptance results.
+
+### B. Confirmed gaps and decisions
+1. Dedicated maritime source rights/provider registry, ingestion audit, provider health/quota, marine forecast model and versioned geospatial/crosswalk layer were not found in the inspected UAT catalog. Do not repurpose regulatory document ingestion or truck GPS tracking for these domains. PostGIS was not installed; prefer separately versioned GeoJSON initially unless a separately approved spatial-extension change is justified.
+2. Existing P16 read surfaces do not amount to complete voyage, vessel nomination, port-call confirmation, AIS ingestion/provider-health, BMKG forecast or grant-driven Buyer visibility workflows. Add server-side APIs and narrowly scoped permissions. The inspected role allowlist lacked `vessel.nominate`; selected maritime tables had RLS but incomplete controlled write paths.
+3. Buyer portal is a placeholder. No verified user-to-buyer membership binding was identified. Browser-supplied `buyerId` is not authorization. Implement authenticated principal → PKE user → verified Buyer membership → Buyer → Project/Shipment → active scoped unexpired non-revoked grant. Enforce in both API and RLS, including document scope and immediate expiry/revocation.
+4. MaritimHub is a port-master candidate requiring resource-level schema, currency, data-quality and reuse-right validation; imports must stage/reconcile and never silently overwrite PKE master data.
+5. BMKG is the preferred first marine forecast adapter, only for documented fields and area/horizon; preserve UTC timestamps, units, freshness and forecast/observation separation.
+6. HOTOSM/HDX is a separate ODbL community geometry layer with attribution/share-alike review, not an authority for operational port facts.
+7. AIS remains provider-neutral and conditional. VesselAPI customer display requires provider approval; AISHub requires compliant receiver contribution and has raw-data redistribution restrictions. No provider, subscription, hardware or contract is authorized.
+
+### C. Final P17 workstreams
+- P17-A (P0): source governance, rights registry, ingestion audit, staging, idempotency, quota/health and secret management.
+- P17-B (P0): MaritimHub port reconciliation, external-ID crosswalk and separately versioned geospatial layer.
+- P17-C (P1): BMKG forecast/warning adapter, units/UTC/freshness and stale-state handling.
+- P17-D (P1): provider-neutral AIS, vessel identity validation, freshness/outage/quota and manual fallback.
+- P17-E (P1): Project-scoped voyage, nomination, port-call and loading workflows, permissions and maker-checker.
+- P17-F (P0): verified Buyer identity, scoped visibility grants, API/RLS enforcement and functioning Buyer workspace.
+- P17-G (P2): Maritime Control Tower with source/time/freshness/confidence transparency.
+- P17-H (release gate): security, provider resilience, data quality, API, workflow and full P0–P16 regression acceptance.
+
+### D. Candidate migration order (not authorization)
+Candidate 096 source/provider registry and ingestion audit; 097 port-source crosswalk/geospatial layer; 098 marine forecast/warning; 099 AIS adapter/write path; 100 voyage/nomination/port-call support; 101 Buyer identity/grant RLS; 102+ only if tests prove additional schema is needed. Revalidate exact migration boundaries and numbering against live ledger before authoring. Every migration requires SQL review, SHA-256, dry-run, recovery plan, UAT-only application, RLS/runtime-role tests and manifest update.
+
+### E. Mandatory acceptance
+Source rights fail closed; ingestion is idempotent and auditable; provider rate limits/outages/staleness are handled; port conflicts are reviewed; BMKG units/time/freshness are correct; AIS duplicates/out-of-order/identity mismatch are quarantined; manual workflow works with AIS disabled; wrong-Project/role requests are denied; Buyer IDOR/cross-buyer/cross-Project, expiry/revocation and private-document tests pass; maker-checker and shipment/loading reconciliation pass; all P0–P16 regression tests pass. AIS never authorizes arrival, clearance, berth assignment or loading. External licensing/coverage blockers must be labelled `BLOCKED_EXTERNAL`.
+
+### F. Boundaries and next action
+Documentation changes only. UAT was read-only; Production untouched; Vercel deployment frozen; PR #2 remains OPEN/DRAFT and unmerged; browser UAT/JWT remains deferred; no provider activation or paid service. P17 status is **FULL AUDIT COMPLETE / DOCUMENTATION REVISION BASELINE / IMPLEMENTATION NOT STARTED**. Next engineering action is detailed P17-A source registry/ingestion and P17-F Buyer identity/grant design review; do not create Migration 096 or activate providers without separate evidence-based approval.

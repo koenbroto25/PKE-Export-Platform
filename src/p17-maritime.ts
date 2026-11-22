@@ -283,6 +283,19 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
 
  // P17-F: Buyer access is resolved by verified Neon Auth identity mapping plus active scoped grants.
+ app.get("/api/v1/admin/buyer-auth-mappings",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  try{
+   const mappings=await req.db.query("SELECT m.id,m.user_id,u.name AS user_name,u.email AS user_email,(u.neon_auth_user_id IS NOT NULL) AS auth_identity_linked,m.buyer_id,b.name AS buyer_name,m.mapping_status,m.created_by,m.reviewed_by,m.reviewed_at,m.review_note,m.created_at,m.updated_at FROM public.buyer_auth_user_mappings m JOIN public.users u ON u.id=m.user_id JOIN public.buyers b ON b.id=m.buyer_id ORDER BY m.created_at DESC");
+   const users=await req.db.query("SELECT u.id,u.name,u.email FROM public.users u WHERE u.is_active IS TRUE AND u.neon_auth_user_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.buyer_auth_user_mappings m WHERE m.user_id=u.id) ORDER BY u.name,u.email");
+   const buyers=await req.db.query("SELECT b.id,b.name,b.code FROM public.buyers b WHERE b.is_active IS TRUE AND NOT EXISTS(SELECT 1 FROM public.buyer_auth_user_mappings m WHERE m.buyer_id=b.id AND m.mapping_status='active') ORDER BY b.name");
+   return res.json({mappings:mappings.rows,eligibleUsers:users.rows,eligibleBuyers:buyers.rows,identityMatching:"explicit_user_id_only"});
+  }catch{return bad(res,503,"BUYER_MAPPING_SCHEMA_NOT_RELEASED","Buyer mapping schema is not released on this database.");}
+ });
+ app.get("/api/v1/projects/:projectId/buyer-visibility-grants",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"buyer.visibility.manage"))return;
+  try{const q=await req.db.query("SELECT g.id,g.project_id,g.buyer_id,b.name AS buyer_name,g.shipment_id,s.shipment_code,g.scope,g.status,g.granted_by,g.granted_at,g.expires_at,g.revoked_by,g.revoked_at,g.reason FROM public.buyer_visibility_grants g JOIN public.buyers b ON b.id=g.buyer_id LEFT JOIN public.shipments s ON s.id=g.shipment_id AND s.project_id=g.project_id WHERE g.project_id=$1::uuid ORDER BY g.created_at DESC",[p]);return res.json({grants:q.rows});}
+  catch{return bad(res,500,"BUYER_GRANTS_READ_FAILED","Unable to read Project Buyer grants.");}
+ });
  app.post("/api/v1/admin/buyer-auth-mappings",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const userId=str(req.body?.userId,64),buyerId=str(req.body?.buyerId,64);
   if(!uuidPattern.test(userId)||!uuidPattern.test(buyerId))return bad(res,400,"BUYER_MAPPING_INPUT_INVALID","Valid canonical user and Buyer IDs are required.");

@@ -1419,7 +1419,12 @@ function BuyerWorkspacePage({ projectId, onNotice }: { projectId: string; onNoti
   const [shipments,setShipments]=useState<AnyRecord[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
-  useEffect(()=>{let active=true;setLoading(true);setError('');
+  const [selectedShipment,setSelectedShipment]=useState<string|null>(null);
+  const [milestones,setMilestones]=useState<AnyRecord[]>([]);
+  const [milestoneLoading,setMilestoneLoading]=useState(false);
+  const [milestoneError,setMilestoneError]=useState('');
+  async function viewMilestones(id:string){setSelectedShipment(id);setMilestones([]);setMilestoneError('');setMilestoneLoading(true);try{const r=await get<{milestones?:AnyRecord[]}>('/buyer/shipments/'+encodeURIComponent(id)+'/milestones');setMilestones(Array.isArray(r.milestones)?r.milestones:[]);}catch(e){setMilestoneError(e instanceof Error?e.message:'Milestone belum tersedia untuk grant ini.');}finally{setMilestoneLoading(false);}}
+  useEffect(()=>{let active=true;setLoading(true);setError('');setSelectedShipment(null);setMilestones([]);
     get<{shipments?:AnyRecord[]}>('/buyer/shipments').then(result=>{if(active)setShipments(Array.isArray(result.shipments)?result.shipments:[]);})
       .catch(e=>{if(active)setError(e instanceof Error?e.message:'Buyer access belum tersedia.');})
       .finally(()=>{if(active)setLoading(false);});
@@ -1430,8 +1435,11 @@ function BuyerWorkspacePage({ projectId, onNotice }: { projectId: string; onNoti
     {error&&<div className="inline-warning"><CircleAlert size={17} /> Akses Buyer belum tersedia: {error}. Identitas tidak pernah ditentukan dari email, URL, atau BuyerId yang dikirim client.</div>}
     <div className="metric-grid three"><Metric label="Pengiriman dibagikan" value={loading?'…':shipments.length} foot="Dari grant aktif server-side" icon={Truck} tone="blue" /><Metric label="Kontrak" value="—" foot="Belum termasuk proyeksi kontrak" icon={BriefcaseBusiness} tone="navy" /><Metric label="Dokumen" value="—" foot="Dokumen tetap ditahan sampai scope dokumen tersedia" icon={FileCheck2} tone="green" /></div>
     <Card><PanelHeading title="Pengiriman Saya" description="Ringkasan shipment yang secara eksplisit dibagikan untuk Buyer." />
-      {loading?<div className="empty-state">Memuat shipment…</div>:error?<div className="empty-state">Data tidak ditampilkan karena otorisasi belum tersedia.</div>:shipments.length?<div className="stack-list">{shipments.map(s=><div className="list-row" key={s.id}><strong>{s.shipment_code||shortId(s.id)}</strong><p>{s.status} · {number(s.quantity)} {s.unit_code||''}</p><small>Port tujuan: {s.destination_port||'Belum ditentukan'} · ETA {dateTime(s.planned_arrival_at)}</small></div>)}</div>:<div className="empty-state"><CircleAlert size={24}/><div className="empty-title">Belum ada shipment yang dibagikan</div><div className="empty-desc">Tidak ada grant aktif untuk identitas Buyer yang terverifikasi.</div></div>}
+      {loading?<div className="empty-state">Memuat shipment…</div>:error?<div className="empty-state">Data tidak ditampilkan karena otorisasi belum tersedia.</div>:shipments.length?<div className="stack-list">{shipments.map(s=><div className="list-row" key={s.id}><strong>{s.shipment_code||shortId(s.id)}</strong><p>{s.status} · {number(s.quantity)} {s.unit_code||''}</p><small>Port tujuan: {s.destination_port||'Belum ditentukan'} · ETA {dateTime(s.planned_arrival_at)}</small><button type="button" className="secondary" onClick={()=>void viewMilestones(s.id)}>Lihat milestone</button></div>)}</div>:<div className="empty-state"><CircleAlert size={24}/><div className="empty-title">Belum ada shipment yang dibagikan</div><div className="empty-desc">Tidak ada grant aktif untuk identitas Buyer yang terverifikasi.</div></div>}
     </Card>
+    {selectedShipment&&<Card><PanelHeading title="Shipment milestones" description={shipments.find(s=>s.id===selectedShipment)?.shipment_code||shortId(selectedShipment)} />
+      {milestoneLoading?<div className="empty-state">Memuat milestone…</div>:milestoneError?<div className="inline-warning">{milestoneError}</div>:milestones.length?<div className="stack-list">{milestones.map(m=><div className="list-row" key={m.id}><strong>{m.event_type} · {m.status}</strong><p>{dateTime(m.event_timestamp)}</p>{m.quantity_delta!=null&&<small>Quantity change: {number(m.quantity_delta)} {m.unit_code||""}</small>}</div>)}</div>:<div className="empty-state">Belum ada milestone yang dibagikan untuk shipment ini.</div>}
+    </Card>}
     <Card><PanelHeading title="Kontrak & Dokumen" description="Ditampilkan hanya setelah endpoint dan grant khusus dokumen diterapkan." /><div className="empty-state">Belum ada proyeksi kontrak atau dokumen yang diizinkan untuk ditampilkan.</div></Card>
   </>;
 }

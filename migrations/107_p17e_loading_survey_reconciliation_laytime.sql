@@ -65,12 +65,7 @@ VALUES
  ('Reconcile loading quantity','loading.quantity.reconcile','Reconcile verified tickets, segments and loading quantity',true)
 ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=true,updated_at=now();
 
-INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
-VALUES
- ('pm','shipping.survey.review'),('pm','shipping.laytime.verify'),('pm','loading.quantity.reconcile'),
- ('loading_supervisor','loading.quantity.reconcile')
-ON CONFLICT(role_code,permission_code) DO NOTHING;
-
+-- Role permission assignment is also reflected in src/role-catalogue.ts.
 INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id)
 SELECT pr.project_id,pr.id,p.id
 FROM public.project_roles pr

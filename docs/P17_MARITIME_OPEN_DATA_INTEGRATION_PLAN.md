@@ -703,3 +703,23 @@ The existing organization taxonomy already supports `processor`; the PKS taxonom
 
 
 The primary route also requires `pks_sites.facility_type` to be `kernel_crushing_plant` or `integrated_mill_kcp`; a standalone `palm_oil_mill` is not assumed to produce PKE. The loading-service material classifier accepts normalized PKE / Palm Kernel Expeller and recorded cake/meal synonyms, including underscore-form codes. The primary reference therefore requires the linked verified processor company, actual KCP/integrated facility type, verified road route, verified port and explicit verified PKE loading service together. This is intentionally conservative until the producer directory and product records are reconciled.
+
+
+### 16.8 Official Indonesian port-data source discovery (22 November 2026)
+
+
+Initial source discovery identifies the following candidates; none is yet rights-approved or imported:
+- **Primary candidate — DJPL MaritimHub, Data Master Pelabuhan (identifier `dwh-djpl-port`)**: official Kemenhub/DJPL catalog describes a national port master with port codes/names, work-area status, satker, regional grouping and operational periods; catalog metadata says created 1 May 2026, last updated **21 November 2026**, with Excel and JSON resources. Candidate source class: `port_master`. Rights/terms and permitted internal processing still require explicit P17-A evidence/reviewer approval before ingestion.
+- **Ferry-port supplement — Ditjen Perhubungan Darat**: official 2026 ferry-port directory page describes port name, location and count, dated 12 August 2026; file is offered as soft copy. Keep ferry port category distinct and never infer PKE loading capability from ferry-port inclusion.
+- **Satu Data Indonesia cross-check**: Kemenhub “Data Jenis dan Jumlah Pelabuhan di Indonesia” is marked open and modified 8 November 2026, but the resource URL is reported problematic; use its metadata for provenance/discovery only until the actual file and integrity can be verified.
+- **Port-area geospatial supplement**: data.go.id lists a Kemenhub map of port working/interest areas, modified 10 October 2026, but states it is still undergoing SDI-principle compliance. It is a candidate for later boundary evidence, not an approved geometry source.
+- **Not selected for automated import**: a third-party RIPN port API advertises 1,082 sea/ferry ports and mixed OSM/World Port Index/UNLOCODE coordinates but uses metered API credits and combines sources with different terms. No paid API is activated; use only as a manual cross-check if separately authorized and rights-reviewed.
+
+Source links:
+- https://maritimhub.kemenhub.go.id/splt/data/catalog/34
+- https://hubdat.kemenhub.go.id/id/informasi-berkala/daftar-pelabuhan-penyeberangan-di-indonesia-ringkasan-data-statistik-2026/
+- https://data.go.id/dataset/dataset/data-jenis-dan-jumlah-pelabuhan-di-indonesia2
+- https://data.go.id/dataset/dataset/peta-daerah-lingkungan-kerja-dan-lingkungan-kepentingan-pelabuhan2
+- https://apiindonesia.id/produk/pelabuhan/
+
+**Import rule:** ingest all eligible national port identities to the master only after source rights are evidenced; preserve source identifiers and category. A record becomes a PKE export candidate only after independent verification of producer-linked KCP, road route, port status, loading service and any relevant port warehouse. Nearby distance alone is never enough.

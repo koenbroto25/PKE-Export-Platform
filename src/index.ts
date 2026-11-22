@@ -2553,6 +2553,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     const shipmentRecord=shipmentResult.rows[0];
     const targetCountry=String(shipmentRecord.destination_country??"").trim().toUpperCase();
     if(!/^[A-Z]{2}$/.test(targetCountry)||shipmentRecord.destination_port_verification_status!=="verified") return res.status(422).json({error:"Shipment destination port must have a verified country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
+    const originCountry=shipmentRecord.origin_port_verification_status==="verified"?shipmentRecord.origin_country:(shipmentRecord.pks_site?.verification_status==="verified"?shipmentRecord.pks_site.country_code:null);
     const allocationRows=await req.db.query(
       `SELECT sa.id AS allocation_id,sa.allocated_quantity,sa.unit,l.product_id,l.product_variant_id,
               pc.product_code,pc.product_name,pc.category,pc.description,pc.classification_status,l.quality_status,
@@ -2634,10 +2635,11 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     const productRules=rules.filter(rule=>rule.subjectType==="product");
     const coverageWarnings:string[]=[];
     if(!productRules.length) coverageWarnings.push("No effective product-scope rules are configured for this destination; legal coverage is unverified.");
+    if(!originCountry) coverageWarnings.push("Origin country cannot be resolved from a verified loading port or PKS site.");
     if(!productFacts.length) coverageWarnings.push("No allocated product lots are linked to this shipment.");
     if(productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||p.qualityStatus!=="passed"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode))
       coverageWarnings.push("One or more allocated products lack a verified product master and currently approved destination-country HS classification.");
-    const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry:shipmentRecord.origin_country},voyage:shipmentRecord.voyage,destinationPort:shipmentRecord.destination_port,pksSite:shipmentRecord.pks_site,products:productFacts,regulatoryCoverageWarnings:coverageWarnings};
+    const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry},voyage:shipmentRecord.voyage,destinationPort:shipmentRecord.destination_port,originPort:shipmentRecord.origin_port,pksSite:shipmentRecord.pks_site,products:productFacts,regulatoryCoverageWarnings:coverageWarnings};
     const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,assessedAt:new Date().toISOString()}};
     const results=rules.map(rule=>{
       let result:any;

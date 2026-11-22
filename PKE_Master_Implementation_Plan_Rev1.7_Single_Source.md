@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.33 — P17 permission-path corrections and technical handoff
+# Master Implementation Plan Rev2.34 — P17 typed source promotion and technical handoff
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.33 (23 November 2026 — P17 loading role access corrected; Admin overrides and owner handoff reconciled)  
+**Revision:** 2.34 (23 November 2026 — P17 accepted port staging promotes to typed pending candidates; technical work remains active)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8670,3 +8670,13 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Latest visible commit status continues to show only the Vercel build-rate-limit failure; Vercel deployment is skipped by instruction. No fresh GitHub Actions result is visible for the current source commits, so the new API/frontend changes are not yet certified by a full test/build run.
 
 **Next technical actions (continue independently of owner inputs):** complete typed staging promotion into canonical candidate/change-request workflows; add runtime API auth/IDOR and project-scope acceptance for P17-A–G; validate Project and Admin Control Tower query semantics; run root unit/security suite, P17 release verifier, backend build/typecheck and frontend typecheck/build through a non-deployment CI path. Do not mark all-pass until actual test output exists.
+
+
+**P17 source-to-candidate promotion implemented — 23 November 2026**
+- Added an authenticated Platform Admin endpoint to promote only accepted P17-A staging records of entity type port or port_geometry into typed P17-B review candidates. Port identity candidates require current source rights, internal-purpose port_identity permission, canonical port UUID, source reference and match metadata; geometry candidates require current source rights, geometry_geojson permission, exactly one canonical port/PKS subject, valid GeoJSON, dataset/license/attribution/source provenance and a server-computed geometry SHA-256.
+- Promotion creates a pending crosswalk or geospatial candidate and explicitly returns canonicalMasterChanged=false. It does not mutate the canonical port/PKS master. The independent crosswalk/geospatial review UI remains the separate acceptance step. Unsupported entity types are rejected rather than guessed.
+- Added the promotion action to the source ingestion staging UI only after a staging record is accepted. Added regression contract assertions for accepted-only state, rights gates, typed candidate targets and no canonical mutation.
+- Added Platform Admin forms to create port identity crosswalk and GeoJSON candidates directly from evidence-backed source references. Client hashes are recursively canonicalized to match the server's canonical JSON hashing; server rechecks hashes and rights.
+- These changes are source-level only. No new Production migration, data row, source enablement or business master mutation was performed. No current Actions run certifies these edits; the Vercel build-rate-limit status remains skipped.
+
+**Remaining technical closure:** add typed promotion for additional supported entity types only where schema and governance are explicit; ensure accepted staging cannot be self-reviewed; add authenticated runtime API/IDOR and Project-scope tests; run the complete root tests, backend build/typecheck and frontend typecheck/build through a non-deployment CI path. Owner/provider evidence remains separate and is not a reason to pause this work.

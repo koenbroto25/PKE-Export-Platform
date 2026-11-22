@@ -9,12 +9,15 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  // Production schema is still at migration 053. Block P17 mutations until 096-107
  // and their RLS/policy acceptance are explicitly released on canonical Production.
  const p17WriteReleaseGate:RequestHandler=(req,res,next)=>{
-  if(!["POST","PUT","PATCH","DELETE"].includes(req.method)&&!((req.path||"").startsWith("/api/v1/buyer/"))) return next();
   const path=req.path||"";
-  const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|buyer-visibility-grants(?:\/|$)|loading-operations(?:\/|$))/.test(path);
-  const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);
-  if(path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings")||path.startsWith("/api/v1/buyer/")||p17ProjectWorkflow||p17AdminProjectWorkflow){
-   return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 write workflow is disabled until migrations 096-107 and their RLS/permission acceptance are released to canonical Production.");
+  const mutating=["POST","PUT","PATCH","DELETE"].includes(req.method);
+  const schemaAdmin=path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings");
+  const buyerProjection=path.startsWith("/api/v1/buyer/");
+  const p17ProjectWorkflow=/^\\/api\\/v1\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/(?:simulation-scenarios|change-requests)(?:\\/|$)|voyages(?:\\/|$)|vessel-nominations(?:\\/|$)|vessel-port-calls(?:\\/|$)|buyer-visibility-grants(?:\\/|$)|loading-operations(?:\\/|$))/.test(path);
+  const p17AdminProjectWorkflow=/^\\/api\\/v1\\/admin\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/change-requests(?:\\/|$))/.test(path);
+  if((schemaAdmin||buyerProjection||p17ProjectWorkflow||p17AdminProjectWorkflow)&&
+     (mutating||schemaAdmin||buyerProjection||p17ProjectWorkflow||p17AdminProjectWorkflow)){
+   return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema-backed workflow is unavailable until migrations 096-107 and their RLS/permission acceptance are released to canonical Production.");
   }
   return next();
  };

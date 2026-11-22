@@ -827,7 +827,7 @@ AI-extracted, partner-submitted, public-directory, estimated, and verified value
 
 | P17 | Maritime, Vessel Intelligence & Export Control Tower | Vessel master, AIS, vessel-port checks, loading, buyer shipment visibility, partner workspace | New scope |
 
-| P18 | Regulatory Knowledge Graph, RAG & AI Intelligence | Official source registry, rules, document knowledge, grounded RAG, AI reports | New scope |
+| P18 | Regulatory Knowledge Graph, RAG & AI Intelligence | Regulatory source registry, versioned rules, deterministic compliance, document requirements, human review and audit; RAG ingestion/chatbot deferred by owner | Active — Regulatory Core only |
 
 
 
@@ -2448,31 +2448,38 @@ Prompt injection in PDF/web pages must be treated as untrusted source text. RAG 
 
 
 
-## 8.9 Acceptance criteria P18
+## 8.9 Acceptance criteria P18 — Regulatory Core (active scope)
 
+- Regulatory source registry supports create/read/update, immutable provenance, URL/identifier, authority, jurisdiction, publication/effective/expiry dates, access rights, verification state and reviewer stamps.
+- Source and rule lifecycle transitions are validated; no unreviewed source can be represented as verified/approved.
+- Regulatory rules and versions support jurisdiction, product/HS, origin/destination, intended use, facility/importer scope, effective intervals, conditions, outcomes and source references.
+- Rule activation requires independent human approval; creator cannot approve their own rule/version.
+- Deterministic compliance assessments store input snapshots, exact rule-version references, pass/fail/pending outcomes, evidence, reason codes and timestamps.
+- Uncertain HS/product scope, missing source, stale source or ambiguous legal scope returns pending/legal-review-required; never a fabricated compliant/blocked result.
+- Export document catalog and country/project requirements support conditionality, effective dates, source links, override reason and independent review.
+- Project document upload/review lifecycle validates Project ownership, file metadata, checksum/version, expiry, reviewer independence and audit history.
+- All routes enforce authentication, least-privilege permissions, Project scope and tenant/buyer isolation; unauthorized cross-Project reads/writes are rejected or return no rows.
+- Regulatory workspace exposes source registry, rule/version review, document requirements, assessment evidence and audit history with permission-aware controls.
+- API contract, RLS, maker-checker, lifecycle, stale/effective-date, wrong-jurisdiction, uncertain-classification, document expiry, IDOR and regression tests pass.
+- No unverified research seed may be silently promoted to an active legal rule.
 
+## 8.10 Explicitly deferred by owner — not P18 completion blockers
 
-- Every active rule has a source authority, official URL/document, source version/checksum, effective interval, product/jurisdiction scope and human reviewer.
+The following items are excluded from the active P18 completion gate and must remain disabled/not represented as implemented:
 
-- Superseded/repealed source cannot be silently used for a shipment date after its validity interval.
+1. RAG source-document collection, OCR/extraction, chunking and normalized RAG data.
+2. Embedding generation, vector indexing and Neon knowledge-document/chunk ingestion.
+3. Semantic/hybrid knowledge retrieval and citation-grounded answer generation.
+4. Regulatory chatbot and Gemini conversational interface/integration.
+5. RAG retrieval acceptance, embedding quality and chatbot acceptance tests.
 
-- Assessments store input snapshot and exact rule version IDs.
+The previously created experimental GitHub source/RAG seed branch p18/regulatory-rag-corpus-20261123 is archival research only. It is not the active implementation branch and must not be merged into the Regulatory Core branch as a source of approved legal rules. No RAG/knowledge data is to be written to Neon Production under this scope.
 
-- RAG retrieval filters by user/tenant/project/buyer scope before context is sent to LLM.
+Deferred items may be resumed only as a separately approved work package after business/legal stakeholders confirm document applicability, source rights, product/HS scope and implementation requirements. Their deferral must not block the active Regulatory Core.
 
-- Every material regulatory answer includes source title, provision/page locator, effective date, retrieved date and uncertainty.
+## 8.11 P18 completion gate — active scope
 
-- If no official source supports an answer, system responds “not verified / source not found” rather than inventing a rule.
-
-- AI extraction produces draft data; a human must validate before any master/transaction update.
-
-- Regulatory rules and AI outputs are separately versioned/audited.
-
-- Prompt injection test documents cannot override system authorization or cause tool execution.
-
-- Test cover amended law, repealed law, uncertain HS, missing importer permit, source retrieval failure, wrong jurisdiction, cross-buyer retrieval and hallucination guardrail.
-
-
+P18 Regulatory Core is complete only when all active criteria in 8.9 pass with code, migration/schema reconciliation where necessary, API/UI implementation, security tests and regression evidence. External legal confirmation is not a blocker to implementing the review workflow, versioning, fail-closed behavior or test fixtures; it is a blocker only to activating the specific legal rule as approved/effective. Do not create fabricated production rules or business fixtures.
 
 ---
 
@@ -8707,3 +8714,13 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Control Tower KPI/query semantics still require a test against controlled fixtures or a safe rollback-only test surface. Production has no business records to validate live KPI totals; keep missing data as unknown/not available rather than numeric zero where the source is absent.
 - External owner/company activation items remain separate: AIS provider license/contract and API credentials; verified PKS–port–terminal–warehouse–road source evidence; real Buyer Neon Auth identity and approved visibility scope; genuine survey/tally/tickets/NOR/laytime evidence; legal/compliance approval. None blocks further code, contract tests, admin UX, fail-closed behavior or non-production validation.
 - Continue to skip Vercel deployment and browser UAT until the owner explicitly changes that instruction.
+
+## Owner scope decision — P18 Regulatory Core only — 23 November 2026
+
+- Owner directed: skip Neon database ingestion and RAG data; complete P18 excluding RAG documents and chatbot; do not jump to P19 at this stage.
+- Decision applied: continue on dedicated branch p18/regulatory-core-20261123, based directly on p17b/operational-readiness-20261122. The prior branch p18/regulatory-rag-corpus-20261123 is archival research output only and is not the active code branch.
+- P18 active deliverables: regulatory source registry/provenance, regulatory rules and immutable versions, deterministic compliance assessments, export-document requirements, human review/maker-checker, auditability, Project-scoped API/RLS, Regulatory Workspace, and full API/UI/security/regression acceptance.
+- Explicit exclusions: RAG document collection/processing, embeddings, vector search, knowledge-document/chunk ingestion, semantic retrieval, citation-grounded RAG, chatbot and Gemini conversational integration. No writes of RAG or knowledge data to Neon Production.
+- The existing source records and RAG chunks from the archival branch are not approved legal content and must not be used to seed or activate regulatory rules. Human confirmation remains required before any source/rule is marked verified/approved/effective.
+- P19 has not been defined in the active Master Plan or located in the repository at this inspection. Therefore P19 will not be started speculatively. Finish and validate the reduced P18 scope first, then define P19 from the remaining approved roadmap and actual system gaps.
+- Initial repo inspection identified existing legacy regulatory-sources and country-packs routes, an admin-only regulatory-knowledge read route, and a placeholder compliance-check that explicitly does not evaluate verified rules. Existing schema migrations 015 and 034 create the source registry and export-document requirement/document tables. These are starting points, not proof of P18 completion.

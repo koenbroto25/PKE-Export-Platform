@@ -252,3 +252,11 @@ describe("P17 role dashboard linkage",()=>{
   expect(DASH).toContain("actual sign-off belum lulus");
  });
 });
+
+describe("P17 buyer portal navigation fail-closed",()=>{
+ const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
+ it("keeps buyer portal hidden until server-side identity mapping and grants are ready",()=>{
+  expect(PAGE).toContain("if (pageKey === 'buyer') return false");
+  expect(PAGE).toContain("verified Neon Auth");
+ });
+});

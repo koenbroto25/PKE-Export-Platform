@@ -76,7 +76,7 @@ describe("P17-B Project master-data editing",()=>{
  it("exposes Project-scoped PM draft, submit and Admin decision endpoints",()=>{
   for(const route of ["/api/v1/projects/:projectId/master-data-change-requests","/api/v1/projects/:projectId/master-data-change-requests/:requestId","/api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision"])expect(API).toContain(route);
   expect(API).toContain("pks.master_data.change_request.manage");
-  expect(API).toContain("MASTER_DATA_MAKER_CHECKER");
+  expect(API).toContain("independent Platform Admin");
  });
  it("keeps canonical facility/organization writes behind the existing database approval trigger",()=>{
   expect(API).toContain("public.p2a_master_data_change_requests");

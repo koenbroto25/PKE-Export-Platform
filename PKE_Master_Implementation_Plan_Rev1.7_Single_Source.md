@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.31 — P17 technical completion revisions and owner handoff
+# Master Implementation Plan Rev2.32 — P17 workflow coverage expansion and owner handoff
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.31 (23 November 2026 — P17 Admin and Project workflow UI expanded; AIS review queue added; owner actions remain separate from technical work)  
+**Revision:** 2.32 (23 November 2026 — P17 provider staging, AIS, Buyer mapping/grants and Project workflow UIs expanded; owner actions remain separate from technical work)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8641,3 +8641,22 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Read-only Production query reconfirmed migration ledger count 71 / max ID 71; enabled maritime sources 0; source-linked vessel positions 0; Buyer Auth mappings 0; Buyer visibility grants 0; Project PKS participation links 0. These zero counts are intentional until genuine owner/provider inputs exist.
 
 **Remaining technical work is still active and is not to be paused for owner inputs:** authenticated API runtime contract/backtests, complete P17-A/B/C/D/E/F route-to-screen acceptance, remaining AIS ingestion-run/staging UI, full Buyer visibility admin workflow UI, and any uncovered service/schema/frontend mismatches. Do not claim overall P17 application completion until those are actually tested and closed. Owner actions listed above are external activation/evidence gates only.
+
+
+**P17 continuation — ingestion, Buyer and Admin permissions — 23 November 2026**
+- Added a source-scoped provider ingestion run/staging UI to P17-A. It creates idempotent run IDs, canonicalizes JSON and computes SHA-256 before staging, supports accept/reject/quarantine review, and closes run counters. The UI explicitly states staged data is not promoted to canonical master data; no silent port/vessel master write is performed.
+- Added P17-F Buyer identity and visibility governance UI. Platform Admin can select only users with an explicitly linked active Neon Auth identity and active Buyer records, create pending mappings, and independently review mappings. Project Managers with buyer.visibility.manage (and Platform Admin) can create summary/milestone grants scoped to Project and optional shipment, expiry and reason, and revoke active grants.
+- Extended Platform Admin UI authorization handling: Platform Admin can access the Project workflow actions and loading evidence controls through the same server-side admin bypass, while non-admin users remain permission-gated. Actual port-call events still require the confirm capability; database independent-review guards are unchanged.
+- Added contract assertions for provider staging, Buyer mapping/grant lifecycle, Platform Admin permission overrides, AIS admin review queue and Project maritime actions.
+- The new P17 provider staging pipeline is intentionally not described as complete canonical ingestion: the current backend has staging review but no generalized promote-to-canonical endpoint for all entity types. Approved source rows still require a safe, typed promotion workflow before port/geometry/vessel masters change. Continue that implementation without waiting for external licenses; keep it disabled until source rights are verified.
+
+**Current application implementation status:** P17-A source registry/rights/field permissions, run/staging and AIS intake/review UI are reachable; P17-B port crosswalk/geospatial review and logistics scenario/change-request workflows are reachable; P17-C advisory compatibility is available; P17-D AIS observation intake/review and Project accepted-position projection are reachable; P17-E voyage/nomination/port-call and loading evidence workflows are reachable; P17-F Buyer identity mapping and visibility grants are reachable; P17-G Control Tower projection is present. These are source-level implementation claims only. The current commit series has not yet received a new complete CI test/build result; do not infer typecheck or API acceptance from source inspection.
+
+**Remaining executable technical closure items**
+1. Build typed, audited staging-to-canonical promotion workflows for each supported source entity; enforce evidence hash, field-purpose, duplicate/external-ID resolution, source rights, independent approval and immutable provenance.
+2. Complete runtime authenticated API/IDOR/Project-context tests across P17-A–G, including positive/negative paths and rollback-only writes. Use existing Production only within the owner-mandated safe read/rollback policy; do not create another Neon branch or synthetic persistent business rows.
+3. Reconcile any remaining P17 frontend/backend contract gaps, then run the full root test suite, release verifiers, backend build/typecheck and frontend typecheck/build. Current Vercel rate-limit status is intentionally not retried and does not replace application CI.
+4. Recheck Control Tower KPI semantics and source availability flags against each actual query; keep unknown/missing data distinct from zero and prevent advisory metrics from becoming operational clearance.
+5. Keep deployment/browser UAT skipped until the owner changes that instruction.
+
+**Owner actions remain separate from this technical backlog:** provider contracts/rights/credentials, verified port/PKS/terminal/warehouse/road evidence, real Buyer Neon Auth identity and visibility decisions, genuine loading survey/ticket/NOR/laytime evidence, and legal/compliance sign-off are required only to activate and accept those real-world integrations. They do not block source code, schemas on approved non-production surfaces, mock/contract tests, UI, admin workflows, or fail-closed guards.

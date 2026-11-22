@@ -6,6 +6,8 @@ const API=readFileSync(join(ROOT,"src","p17-maritime.ts"),"utf8");
 const MAIN=readFileSync(join(ROOT,"src","index.ts"),"utf8");
 const A=readFileSync(join(ROOT,"migrations","096_p17a_maritime_source_governance_ingestion.sql"),"utf8");
 const E=readFileSync(join(ROOT,"migrations","097_p17e_project_maritime_workflows.sql"),"utf8");
+const M104=readFileSync(join(ROOT,"migrations","104_p17e_nomination_submission_guard.sql"),"utf8");
+const M105=readFileSync(join(ROOT,"migrations","105_p17f_buyer_identity_and_grant_audit.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
@@ -269,7 +271,9 @@ describe("P17 migration atomicity",()=>{
   ["100",readFileSync(join(ROOT,"migrations","100_p17b_logistics_change_audit.sql"),"utf8")],
   ["101",SIM],
   ["102",readFileSync(join(ROOT,"migrations","102_p17b_logistics_request_scope_guard.sql"),"utf8")],
-  ["103",readFileSync(join(ROOT,"migrations","103_p17b_logistics_simulation_edge_semantics.sql"),"utf8")]
+  ["103",readFileSync(join(ROOT,"migrations","103_p17b_logistics_simulation_edge_semantics.sql"),"utf8")],
+  ["104",M104],
+  ["105",M105]
  ])("wraps migration %s in a single transaction",(_id,sql)=>{
   expect(sql.trimStart()).toMatch(/^--[\s\S]*?BEGIN;/);
   expect(sql.trimEnd()).toMatch(/COMMIT;$/);
@@ -297,5 +301,46 @@ describe("P17-A/B API/database schema alignment",()=>{
   expect(API).not.toContain("req.db.connect()");
   expect(API).not.toContain('req.db.query("BEGIN")');
   expect(API).not.toContain('req.db.query("COMMIT")');
+ });
+});
+
+describe("P17-E nomination lifecycle completion",()=>{
+ it("supports nominator submission, independent versioned review and withdrawal",()=>{
+  expect(API).toContain("/vessel-nominations/:id/submit");
+  expect(API).toContain("/vessel-nominations/:id/withdraw");
+  expect(API).toContain("decision_note=$4");
+  expect(API).toContain("expectedVersion");
+  expect(M104).toContain("OLD.nomination_status='draft' AND NEW.nomination_status='submitted'");
+  expect(M104).toContain("NEW.version<>OLD.version+1");
+  expect(M104).toContain("Independent nomination reviewer and decision note required");
+ });
+ it("persists voyage, nomination and port-call workflow events",()=>{
+  expect(API).toContain("nomination_submitted");
+  expect(API).toContain("nomination_reviewed");
+  expect(API).toContain("nomination_withdrawn");
+  expect(API).toContain("port_call_created");
+  expect(E).toContain("maritime_workflow_events");
+ });
+});
+describe("P17-F Buyer identity and visibility",()=>{
+ it("requires verified Neon Auth identity, independent mapping review and scoped grants",()=>{
+  expect(M105).toContain("neon_auth_user_id IS NOT NULL");
+  expect(M105).toContain("reviewed_by<>created_by");
+  expect(M105).toContain("buyer_visibility_grants_buyer_read");
+  expect(M105).toContain("shipments_buyer_summary_read");
+  expect(API).toContain("/api/v1/admin/buyer-auth-mappings");
+  expect(API).toContain("/buyer-visibility-grants");
+  expect(API).toContain("/api/v1/buyer/shipments");
+  expect(API).toContain("g.status='active'");
+ });
+});
+describe("P17-G Project export control tower",()=>{
+ it("uses actual Project-scoped shipment, loading, voyage and PKS-port route data",()=>{
+  expect(API).toContain("/api/v1/projects/:projectId/p17-control-tower");
+  expect(API).toContain("public.loading_tickets");
+  expect(API).toContain("public.pks_port_routes");
+  expect(API).toContain("ais_live_position");
+  expect(API).toContain("plannedQuantityIsNotLoadedQuantity:true");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Project Export Control Tower");
  });
 });

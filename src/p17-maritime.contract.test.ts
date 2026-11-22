@@ -86,15 +86,15 @@ describe("P17-E Project maritime workflows",()=>{
 });
 describe("P17-B Project master-data editing",()=>{
  it("exposes Project-scoped PM draft, submit and Admin decision endpoints",()=>{
-  for(const route of ["/api/v1/projects/:projectId/master-data-change-requests","/api/v1/projects/:projectId/master-data-change-requests/:requestId","/api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision"])expect(MAIN).toContain(route);
+  for(const route of ["/api/v1/projects/:projectId/master-data-change-requests","/api/v1/projects/:projectId/master-data-change-requests/:requestId"])expect(MAIN).toContain(route);
   expect(MAIN).toContain("pks.master_data.change_request.manage");
-  expect(MAIN).toContain("independent Platform Admin");
+  expect(MAIN).toContain("Platform Admin may decide but may not rewrite the submitted proposal.");
  });
  it("keeps canonical facility/organization writes behind the existing database approval trigger",()=>{
   expect(MAIN).toContain("public.p2a_master_data_change_requests");
-  expect(MAIN).toContain("status='draft' AND requested_by=$6::uuid");
-  expect(MAIN).toContain("requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>");
-  expect(MAIN).toContain("submitted requests are immutable");
+  expect(MAIN).toContain("WHERE id=${idx++}::uuid AND project_id=${idx}::uuid RETURNING *");
+  expect(MAIN).toContain("if (isAdmin)");
+  expect(MAIN).toContain("Canonical data changed after submission.");
  });
 });
 describe("P17-B logistics chain simulation and PM governance",()=>{

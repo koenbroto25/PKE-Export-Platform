@@ -9,7 +9,7 @@ const E=readFileSync(join(ROOT,"migrations","097_p17e_project_maritime_workflows
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
-  for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging"])expect(API).toContain(route);
+  for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
   expect(MAIN).toContain("registerP17MaritimeRoutes(app");
  });
  it("fails closed on rights and expiry, stores secret references only",()=>{
@@ -26,6 +26,9 @@ describe("P17-A maritime source governance",()=>{
   expect(A).toContain("UNIQUE(run_id,external_record_id,payload_sha256)");
   expect(A).toContain("payload_sha256 ~ '^[0-9a-f]{64}$'");
   expect(API).toContain("STAGING_DUPLICATE");
+  expect(API).toContain("SOURCE_QUOTA_EXHAUSTED");
+  expect(API).toContain("public.maritime_provider_usage");
+  expect(API).toContain("maritime_provider_health");
  });
  it("keeps source governance and ingestion private to Platform Admin",()=>{
   for(const table of ["maritime_data_sources","maritime_source_field_permissions","maritime_ingestion_runs","maritime_ingestion_staging","maritime_provider_usage","maritime_provider_health"])expect(A).toContain("maritime_sources_admin_all");

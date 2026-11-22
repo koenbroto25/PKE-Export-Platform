@@ -238,3 +238,17 @@ describe("P17 Production-safe read projections",()=>{
   expect(PORT).toContain("tidak pernah menjadi izin sandar atau navigasi");
  });
 });
+
+describe("P17 role dashboard linkage",()=>{
+ const DASH=readFileSync(join(ROOT,"frontend","src","RoleDashboardPage.tsx"),"utf8");
+ it("provides maritime navigation for Project roles with vessel/shipping responsibilities",()=>{
+  expect(DASH).toContain("Voyage & kapal");
+  expect(DASH).toContain("Parsial / read-only");
+  expect(DASH).toContain("Project Manager");
+ });
+ it("does not claim AIS, buyer visibility or loading completion acceptance",()=>{
+  expect(DASH).toContain("AIS provider");
+  expect(DASH).toContain("buyer shipment projection");
+  expect(DASH).toContain("actual sign-off belum lulus");
+ });
+});

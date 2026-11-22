@@ -269,6 +269,8 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("status='applied'");
   expect(gate).toContain("relrowsecurity");
   expect(gate).toContain("policy_count");
+  expect(gate).toContain('"buyer_auth_mapping_events"');
+  expect(gate).toContain('"buyer_visibility_grant_events"');
   expect(gate).toContain("requiredPermissions");
   expect(gate).toContain("if(!protectedPath)return next()");
  });

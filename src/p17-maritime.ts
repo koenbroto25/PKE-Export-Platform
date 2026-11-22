@@ -192,6 +192,80 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   }catch(e:any){if(e?.code==="42501")return bad(res,403,"MASTER_DATA_DECISION_FORBIDDEN","Only an independent Platform Admin may decide a submitted request.");if(e?.code==="23514"||e?.code==="40001")return bad(res,409,"MASTER_DATA_DECISION_CONFLICT","Request could not be applied; refresh the canonical record and resubmit.");return bad(res,500,"MASTER_DATA_DECISION_FAILED","Unable to decide master-data request.");}
  });
 
+
+ // P17-B Project-scoped logistics graph and change requests.
+ app.get("/api/v1/projects/:projectId/pke-logistics/scenarios",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||"");
+  if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");
+  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.view")))return;
+  try{
+   const q=await req.db.query(`SELECT sc.*,k.name AS pks_name,k.facility_type,k.operating_status AS pks_operating_status,
+    r.distance_km,r.distance_method,r.estimated_travel_minutes,r.route_notes,
+    po.name AS port_name,po.city AS port_city,po.province AS port_province,
+    t.name AS terminal_name,t.cargo_types AS terminal_cargo_types,
+    s.service_type,s.cargo_type,s.handling_mode,s.status AS loading_status,
+    w.name AS warehouse_name,w.floor_area_m2,w.storage_capacity_mt,w.storage_mode
+    FROM public.p17b_logistics_scenarios sc
+    JOIN public.pks_sites k ON k.id=sc.pks_site_id
+    JOIN public.pks_port_routes r ON r.id=sc.route_id
+    JOIN public.ports po ON po.id=sc.port_id
+    JOIN public.port_terminals t ON t.id=sc.terminal_id
+    JOIN public.port_loading_services s ON s.id=sc.loading_service_id
+    JOIN public.warehouses w ON w.id=sc.warehouse_id
+    WHERE sc.project_id=$1::uuid ORDER BY sc.created_at DESC LIMIT 100`,[p]);
+   return res.json({scenarios:q.rows});
+  }catch{return bad(res,500,"PKE_LOGISTICS_SCENARIO_LIST_FAILED","Unable to load PKE logistics scenarios.");}
+ });
+ app.get("/api/v1/projects/:projectId/pke-logistics/change-requests",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||"");
+  if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");
+  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.view")))return;
+  try{const q=await req.db.query("SELECT * FROM public.p17b_logistics_change_requests WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 200",[p]);return res.json({requests:q.rows});}
+  catch{return bad(res,500,"PKE_LOGISTICS_REQUEST_LIST_FAILED","Unable to load logistics change requests.");}
+ });
+ app.post("/api/v1/projects/:projectId/pke-logistics/change-requests",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),b=req.body??{},entity=str(b.entityType,32),operation=str(b.operation,16),
+   target=str(b.targetId,36),reason=str(b.requestReason,2000),sourceRef=str(b.sourceReference,1000),
+   sourceUrl=str(b.sourceUrl,1000),proposal=b.proposedData;
+  if(!uuidPattern.test(p)||!["port","route","terminal","loading_service","warehouse"].includes(entity)||
+   !["create","update"].includes(operation)||(operation==="update"&&!uuidPattern.test(target))||
+   (operation==="create"&&target)||reason.length<10||sourceRef.length<8||
+   (sourceUrl&&!/^https?:\/\//i.test(sourceUrl))||!proposal||typeof proposal!=="object"||
+   Array.isArray(proposal)||!Object.keys(proposal).length)
+   return bad(res,400,"INVALID_PKE_LOGISTICS_REQUEST","Entity, operation, target, proposal, reason and source evidence are invalid.");
+  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  try{
+   const q=await req.db.query("INSERT INTO public.p17b_logistics_change_requests(project_id,entity_type,operation,target_id,proposed_data,request_reason,source_reference,source_url,source_snapshot,requested_by) VALUES($1::uuid,$2,$3,$4::uuid,$5::jsonb,$6,$7,$8,$9::jsonb,$10::uuid) RETURNING *",
+    [p,entity,operation,target||null,JSON.stringify(proposal),reason,sourceRef,sourceUrl||null,
+     JSON.stringify(b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:{}),req.user?.id]);
+   return res.status(201).json({request:q.rows[0]});
+  }catch(e:any){if(e?.code==="42501")return bad(res,403,"PKE_LOGISTICS_REQUEST_FORBIDDEN","Project-scoped logistics change permission is required.");if(e?.code==="23503")return bad(res,422,"PKE_LOGISTICS_REFERENCE_INVALID","Project or target reference is invalid.");return bad(res,500,"PKE_LOGISTICS_REQUEST_CREATE_FAILED","Unable to create logistics change request.");}
+ });
+ app.patch("/api/v1/projects/:projectId/pke-logistics/change-requests/:requestId",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),id=String(req.params.requestId||""),b=req.body??{},submit=b.submit===true;
+  if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"INVALID_PKE_LOGISTICS_REQUEST","Valid Project and request ids are required.");
+  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  const reason=b.requestReason===undefined?null:str(b.requestReason,2000),proposal=b.proposedData;
+  if(!submit&&((reason!==null&&reason.length<10)||(proposal!==undefined&&(!proposal||typeof proposal!=="object"||Array.isArray(proposal)||!Object.keys(proposal).length))))
+   return bad(res,400,"INVALID_PKE_LOGISTICS_DRAFT","Draft reason or proposed data is invalid.");
+  try{
+   const q=await req.db.query("UPDATE public.p17b_logistics_change_requests SET proposed_data=COALESCE($3::jsonb,proposed_data),request_reason=COALESCE($4,request_reason),status=CASE WHEN $5 THEN 'submitted' ELSE status END,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND status='draft' AND requested_by=$6::uuid RETURNING *",
+    [id,p,proposal===undefined?null:JSON.stringify(proposal),reason,submit,req.user?.id]);
+   if(!q.rows.length)return bad(res,404,"PKE_LOGISTICS_DRAFT_NOT_FOUND","Editable draft not found; submitted proposals are immutable.");
+   return res.json({request:q.rows[0]});
+  }catch(e:any){if(e?.code==="42501")return bad(res,403,"PKE_LOGISTICS_DRAFT_FORBIDDEN","Only the requester may edit or submit their own draft.");return bad(res,500,"PKE_LOGISTICS_DRAFT_UPDATE_FAILED","Unable to update logistics draft.");}
+ });
+ app.patch("/api/v1/admin/projects/:projectId/pke-logistics/change-requests/:requestId/decision",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),id=String(req.params.requestId||""),status=str(req.body?.status,16),note=str(req.body?.decisionNote,2000);
+  if(!uuidPattern.test(p)||!uuidPattern.test(id)||!["approved","rejected"].includes(status)||(status==="rejected"&&note.length<5))
+   return bad(res,400,"INVALID_PKE_LOGISTICS_DECISION","Valid decision and substantive rejection note are required.");
+  try{
+   const q=await req.db.query("UPDATE public.p17b_logistics_change_requests SET status=$3,decision_note=$4,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND status='submitted' RETURNING *",[id,p,status,note||null]);
+   if(!q.rows.length)return bad(res,404,"PKE_LOGISTICS_SUBMITTED_REQUEST_NOT_FOUND","Submitted logistics request not found.");
+   return res.json({request:q.rows[0]});
+  }catch(e:any){if(e?.code==="42501")return bad(res,403,"PKE_LOGISTICS_DECISION_FORBIDDEN","Only an independent Platform Admin may decide a submitted request.");if(e?.code==="23514"||e?.code==="40001")return bad(res,409,"PKE_LOGISTICS_DECISION_CONFLICT","Decision failed validation; refresh the linked master data.");return bad(res,500,"PKE_LOGISTICS_DECISION_FAILED","Unable to decide logistics change request.");}
+ });
+
 // P17-E: voyages, nomination maker-checker and port-call planning/confirmation.
  app.get("/api/v1/projects/:projectId/voyages",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||"");if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");if(!(await requireProjectPermission(req,res,p,"voyage.view")))return;

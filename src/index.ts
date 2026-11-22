@@ -2273,7 +2273,7 @@ app.post("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:
          verification_status,access_rights,source_type,created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9::timestamptz,$10::timestamptz,'draft',$11,$12,$12,'pending',$13,$14,$15::uuid)
        RETURNING id,source_id,title,jurisdiction,status,verification_status,created_by,created_at`,
-      [sourceId,title,issuingAuthority,jurisdiction,b.documentType??null,b.regulationNumber??null,b.articleAnnexSection??null,b.publicationDate??null,effectiveDate,b.expiryDate??null,officialUrl,b.sha256Checksum??null,b.accessRights??"unknown",b.sourceType??"regulation",req.user?.id??null],
+      [sourceId,title,issuingAuthority,jurisdiction,b.documentType??null,b.regulationNumber??null,b.articleAnnexSection??null,b.publicationDate??null,effectiveDate,b.expiryDate??null,officialUrl,checksum,b.accessRights??"unknown",b.sourceType??"regulation",req.user?.id??null],
     );
     await recordRegulatoryAudit(req,"source.created","regulatory_source",rows[0].id,null,"Source metadata created in pending verification state",null,rows[0]);
     return res.status(201).json({source:rows[0]});
@@ -2886,7 +2886,7 @@ app.post("/api/v1/country-document-requirements",requireAuth,async(req:express.R
          status,effective_from,effective_to,official_source_url,notes,condition_schema,verification_status,version_no,created_by)
        VALUES($1,$2::uuid,$3::uuid,$4::uuid,$5,$6,'draft',$7::date,$8::date,$9,$10,$11::jsonb,'pending',1,$12::uuid)
        RETURNING *`,
-      [countryCode,b.productId??null,doc.rows[0].id,sourceId,b.importingAuthority??null,b.mandatory!==false,b.effectiveFrom,b.effectiveTo??null,b.officialSourceUrl??null,b.notes??null,JSON.stringify(b.conditionSchema??{}),req.user?.id??null],
+      [countryCode,b.productId??null,doc.rows[0].id,sourceId,b.importingAuthority??null,b.mandatory!==false,b.effectiveFrom,b.effectiveTo??null,source.rows[0].official_url,b.notes??null,JSON.stringify(b.conditionSchema??{}),req.user?.id??null],
     );
     await recordRegulatoryAudit(req,"country_requirement.created","country_export_document_requirement",rows[0].id,null,"Country document requirement created in pending verification state",null,rows[0]);
     return res.status(201).json({requirement:rows[0]});
@@ -2953,6 +2953,7 @@ app.post("/api/v1/projects/:projectId/document-requirements",requireAuth,async(r
        RETURNING *`,
       [projectId,countryRequirementId],
     );
+    await recordRegulatoryAudit(req,"project_requirement.created","project_export_document_requirement",rows[0].id,projectId,"Verified country requirement attached to Project",null,rows[0]);
     return res.status(201).json({documentRequirement:rows[0]});
   }catch(error:any){
     if(error?.code==="23505") return res.status(409).json({error:"Requirement already exists in this Project."});

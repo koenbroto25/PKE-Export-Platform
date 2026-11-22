@@ -75,8 +75,8 @@ RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog
 AS $function$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM public.users u
-    WHERE u.id=NEW.user_id AND u.neon_auth_user_id IS NOT NULL AND u.is_active IS TRUE
+    SELECT 1 FROM public.users u JOIN public.buyers b ON b.id=NEW.buyer_id
+    WHERE u.id=NEW.user_id AND u.neon_auth_user_id IS NOT NULL AND u.is_active IS TRUE AND b.is_active IS TRUE
   ) THEN
     RAISE EXCEPTION 'Buyer mapping requires an active user with explicitly linked Neon Auth identity'
       USING ERRCODE='23514';

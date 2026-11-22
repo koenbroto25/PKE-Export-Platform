@@ -371,13 +371,13 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
   expect(API).toContain("LOADING_TICKETS_NOT_VERIFIED");
   expect(API).toContain("LOADING_ACCEPTANCE_MAKER_CHECKER");
   expect(API).toContain("LAYTIME_EVIDENCE_INVALID");
-  expect(API).toContain("quantity_variance");
+  expect(API).toContain("quantity_variance");\n  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("LoadingAcceptancePanel");
  });
  it("enforces immutable evidence, independent reviewers and no acceptance with quantity variance",()=>{
   expect(M107).toContain("loading_operation_acceptances");
   expect(M107).toContain("reviewed_by<>submitted_by");
   expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");
   expect(M107).toContain("loading_acceptance_admin_all");
-  expect(M107).toContain("loading_operations_unit_guard");
+  expect(M107).toContain("loading_operations_unit_guard");\n  expect(M107).toContain("shipping.survey.review");\n  expect(M107).toContain("shipping.laytime.verify");
  });
 });

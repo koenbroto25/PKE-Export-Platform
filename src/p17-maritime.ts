@@ -11,7 +11,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  const p17WriteReleaseGate:RequestHandler=(req,res,next)=>{
   if(!["POST","PUT","PATCH","DELETE"].includes(req.method)&&!((req.path||"").startsWith("/api/v1/buyer/"))) return next();
   const path=req.path||"";
-  const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$))/.test(path);
+  const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|buyer-visibility-grants(?:\/|$))/.test(path);
   const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);
   if(path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings")||path.startsWith("/api/v1/buyer/")||p17ProjectWorkflow||p17AdminProjectWorkflow){
    return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 write workflow is disabled until migrations 096-105 and their RLS/permission acceptance are released to canonical Production.");

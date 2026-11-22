@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.22 — P17 operational workflows and evidence gates
+# Master Implementation Plan Rev2.23 — P17 evidence integrity, Buyer portal and logistics prioritization
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.22 (22 November 2026 — P17 source workflows, Buyer access, AIS evidence, loading acceptance and Control Tower)  
+**Revision:** 2.23 (22 November 2026 — P17 private evidence verification, Buyer portal visibility, AIS freshness and PKS-port capability ranking)  
 
 **Tanggal dokumen:** 22 November 2026  
 
@@ -8216,7 +8216,8 @@ Target used for read-only inspection: Neon project `purple-base-63944903`, branc
 
 - Port external-ID crosswalk and geospatial feature APIs/UI use source IDs, source rights, field-purpose permissions, evidence hashes and independent review. Field permissions are additive UPSERTs; no destructive replacement of approved permissions.
 - The simulation graph remains non-canonical and cannot dispatch or feed Production selection/ranking. Unknown coordinates, routes, travel time, terminal acceptance, loading rate and warehouse capacity remain unknown.
-- Project Control Tower resolves only the actual shipment destination port and direct PKS-to-port route relation; available routes are ordered by shortest verified distance. The national port master may contain all ports, but operational routing must prefer the nearest evidenced PKE-capable loading port.
+- Project Control Tower lists all verified active PKS-to-port route candidates for Project-linked operating palm-oil mills/kernel-crushing sites, flags the shipment destination versus nearby alternatives, and ranks evidenced PKE-capable candidates before other routes, then by verified distance.
+- A PKE capability candidate is explicitly non-clearance evidence: it requires a verified active port, an operational verified terminal listing PKE/palm-kernel-expeller cargo, verified operational loading equipment, and verified warehouse evidence. Warehouse capacity remains unknown when source capacity is absent; no port is called operationally cleared.
 - National port-master ingestion, external identity reconciliation, PKS-to-producer/company evidence, road network survey, PKE terminal acceptance, loading services and verified port warehouse capacity remain **NOT VERIFIED**.
 - **Status:** source-level APIs/UI and graph constraints implemented; canonical data reconciliation and source rights remain **BLOCKED_PENDING_EVIDENCE**.
 
@@ -8230,7 +8231,8 @@ Target used for read-only inspection: Neon project `purple-base-63944903`, branc
 ### P17-D AIS adapter and freshness
 
 - Migration 106 extends the existing canonical vessel_tracking_positions table rather than creating a parallel position master. It adds source identity, MMSI, evidence, pending/accepted/rejected review and independent reviewer controls.
-- AIS ingest requires an enabled AIS-class source, current approved internal-processing rights, field-purpose permissions, canonical active vessel MMSI match, provider reference and payload hash. Project reads expose accepted observations only and apply the source freshness SLA.
+- AIS ingest requires an enabled AIS-class source, current approved internal-processing rights, field-purpose permissions, canonical active vessel MMSI match, provider reference and a server-recomputed canonical raw-payload SHA-256 bound to the normalized permitted fields. Project reads expose accepted observations only.
+- Platform Admin configures per-source freshness SLA and optional delayed grace in source metadata. API/UI distinguish fresh, delayed, stale, unknown and provider_unavailable; missing SLA remains unknown and never means live.
 - UI/API distinguish fresh, delayed, stale, unknown and provider_unavailable; original observation time and received time are separate. Unknown freshness is never called live.
 - No paid provider contract, token, live feed, allowed-field/retention/display/redistribution evidence or provider failure test is available.
 - **Status:** source-level schema/API/UI implemented; live provider adapter and legal/contract evidence remain **BLOCKED_EXTERNAL**.
@@ -8238,8 +8240,9 @@ Target used for read-only inspection: Neon project `purple-base-63944903`, branc
 ### P17-E voyage, nomination, port call, loading and shipment timeline
 
 - Migration 104 adds a versioned nomination submission/withdrawal/review guard. Voyage create/update, nomination submit/review/withdraw and predicted/actual port-call APIs write maritime_workflow_events in the same request transaction and enforce Project scope, idempotency, optimistic version and maker-checker.
-- Migration 107 adds loading-operation unit locking and versioned survey, quantity reconciliation and laytime evidence with private object keys, SHA-256, Project RLS, independent review and no acceptance when verified ticket/segment quantities differ.
-- The loading workspace lists Project loading operations, assigns a unit once, shows ticket/segment reconciliation, accepts survey/quantity/laytime evidence and exposes independent review actions.
+- Migration 107 adds loading-operation unit locking and versioned survey, quantity reconciliation and laytime evidence with private object keys, SHA-256, verified file size, Project RLS, independent review and no acceptance when operation/ticket/completed-segment quantities differ.
+- The loading workspace requests a Project/operation/type-scoped private upload URL, uploads to the private PKE bucket, computes the file SHA-256, and the server downloads/recomputes size and checksum before storing acceptance evidence. No client-supplied hash alone is trusted.
+- Loading operation reads remain compatible before migration 107; unit assignment and acceptance are unavailable until the schema is released.
 - Read-only shipment timeline and loading-ticket projections retain explicit Project predicates. Planned ETA is never represented as actual arrival; actual port calls require confirmed event evidence.
 - All writes depending on migrations 096–107 remain schema-gated. No surveyor/terminal evidence, real ticket reconciliation or laytime sign-off has been accepted on Production.
 - **Status:** source-level APIs/UI/migrations implemented; canonical Production schema release and real operational acceptance remain **BLOCKED**.
@@ -8247,7 +8250,8 @@ Target used for read-only inspection: Neon project `purple-base-63944903`, branc
 ### P17-F Buyer Export Shipment 360 and visibility grants
 
 - Migration 105 adds explicit users.neon_auth_user_id → Buyer master mapping, independent Admin review, active/suspended/revoked lifecycle, Buyer RLS, Project grant-manager visibility and append-only grant audit events.
-- Platform Admin UI manages mapping candidates and review; Project Manager UI creates/revokes shipment-scoped summary/milestone grants and records expiry. An Admin action records expired grants. No mapping is inferred from email.
+- Platform Admin UI manages mapping candidates and independent review; Project Manager UI creates/revokes shipment-scoped summary/milestone grants and records expiry. Mapping lifecycle events are append-only audited.
+- The /me response enables Buyer Portal navigation only when the authenticated user has an active explicit Neon Auth-to-Buyer mapping and at least one active supported summary/milestone grant. Buyer Portal is cross-Project and does not require a Project membership; shipment milestones are displayed from the safe server projection. No mapping is inferred from email.
 - Buyer shipment and milestone projections require the authenticated mapped user plus active, unexpired, non-revoked Project/shipment grant. Summary grants do not authorize milestone events; unsupported document, vessel-tracking and financial scopes are not exposed.
 - Buyer Portal now reads the server-side shipment projection and requires explicit buyer.shipment.view; no buyer identity or scope is accepted from URL/query/body. The portal remains unavailable until migration 105 is released and a real Buyer identity/grant is independently verified.
 - **Status:** source-level schema/API/UI implemented; Production has no verified Buyer mapping or grants and remains **FAIL-CLOSED**.

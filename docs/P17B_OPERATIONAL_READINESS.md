@@ -191,3 +191,12 @@ A fresh check of company sources found conflicting capacity statements:
 - CBI Group website states group KCP capacity of 180,000 MT/year.
 
 These values are not reconciled and must not be silently averaged or selected. The simulation now stores all three as source claims, sets current/site-level PKE output capacity to NULL, and flags company confirmation as required. Historical PKE output is retained only as a 2023 historical disclosure.
+
+
+## 18. Frontend workbench integration
+The PKE logistics workbench is now embedded in the existing **Pelabuhan & Gudang** page:
+- PM/Admin can view the Project simulation chain, evidence sources, assumptions and unverified gaps.
+- PM/Admin with the new permission can edit the non-canonical simulation graph, source evidence and assumptions.
+- PM can create, edit own draft, and submit canonical port/route/terminal/loading-service/warehouse change requests.
+- Platform Admin can approve/reject submitted canonical proposals. The backend scope/stale-snapshot guards and audit triggers remain authoritative.
+- Frontend role-page access includes the new logistics permissions.

@@ -139,10 +139,10 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    const checks=[
     {code:"vessel_master_verified",status:vesselRow.verification_status==="verified"&&!!vesselRow.verified_at?"evidenced":"unknown"},
     {code:"terminal_master_verified",status:terminalRow.status==="verified"&&!!terminalRow.verified_at?"evidenced":"unknown"},
-    {code:"loa_limit",status:Number.isFinite(Number(vesselRow.loa_m))&&Number.isFinite(Number(limits.max_loa_m))?(Number(vesselRow.loa_m)<=Number(limits.max_loa_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
-    {code:"beam_limit",status:Number.isFinite(Number(vesselRow.beam_m))&&Number.isFinite(Number(limits.max_beam_m))?(Number(vesselRow.beam_m)<=Number(limits.max_beam_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
-    {code:"draft_limit",status:Number.isFinite(Number(vesselRow.summer_draft_m??vesselRow.max_draft_m))&&Number.isFinite(Number(limits.max_draft_m))?(Number(vesselRow.summer_draft_m??vesselRow.max_draft_m)<=Number(limits.max_draft_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
-    {code:"pke_cargo_compatibility",status:Array.isArray(terminalRow.cargo_types)&&terminalRow.cargo_types.some((x:string)=>/pke|palm kernel expeller|bulk/i.test(x))?"candidate_match":"unknown"}
+    {code:"loa_limit",status:known(vesselRow.loa_m)&&known(limits.max_loa_m)?(Number(vesselRow.loa_m)<=Number(limits.max_loa_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
+    {code:"beam_limit",status:known(vesselRow.beam_m)&&known(limits.max_beam_m)?(Number(vesselRow.beam_m)<=Number(limits.max_beam_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
+    {code:"draft_limit",status:known(vesselRow.summer_draft_m??vesselRow.max_draft_m)&&known(limits.max_draft_m)?(Number(vesselRow.summer_draft_m??vesselRow.max_draft_m)<=Number(limits.max_draft_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
+    {code:"pke_cargo_compatibility",status:/pke|palm kernel expeller/i.test(terminalCargo)&&/pke|palm kernel expeller/i.test(vesselCargo)?"candidate_match":"unknown"}
    ];
    const advisoryStatus=checks.some(x=>x.status==="exceeds_advisory_limit")?"adverse_advisory":checks.every(x=>x.status!=="unknown")?"candidate_only":"insufficient_verified_data";
    return res.json({projectId:p,vessel:vesselRow,terminal:terminalRow,checks,advisoryStatus,operationalClearance:false,disclaimer:"Advisory screening only. It is not port acceptance, pilotage, navigation, berth allocation, statutory clearance or master/terminal sign-off."});

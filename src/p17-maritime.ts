@@ -208,6 +208,20 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   }catch(e:any){return bad(res,500,"P17_CONTROL_TOWER_READ_FAILED","Project control tower source query failed; metrics are not substituted with zero.");}
  });
 
+ // Platform Admin portfolio Control Tower; aggregate only persisted Project sources.
+ app.get("/api/v1/admin/p17-control-tower",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  try{
+   const projects=await req.db.query("SELECT id,name,status,created_at FROM public.projects ORDER BY created_at DESC");
+   const shipments=await req.db.query("SELECT project_id,COUNT(*)::int AS shipment_count,COALESCE(SUM(quantity),0)::numeric AS planned_quantity,COUNT(DISTINCT pks_site_id)::int AS linked_pks_count,COUNT(DISTINCT destination_port_id)::int AS destination_port_count FROM public.shipments GROUP BY project_id");
+   const loading=await req.db.query("SELECT project_id,COUNT(*)::int AS loading_operations,COUNT(*) FILTER(WHERE status IN ('completed','closed'))::int AS completed_operations FROM public.loading_operations GROUP BY project_id");
+   const docs=await req.db.query("SELECT project_id,COUNT(*)::int AS document_count,COUNT(*) FILTER(WHERE status='approved')::int AS approved_documents,COUNT(*) FILTER(WHERE status IN ('uploaded','under_review'))::int AS pending_documents FROM public.project_export_documents GROUP BY project_id");
+   const tasks=await req.db.query("SELECT project_id,COUNT(*) FILTER(WHERE status NOT IN ('resolved','closed','cancelled'))::int AS unresolved_work_items,COUNT(*) FILTER(WHERE due_at<now() AND status NOT IN ('resolved','closed','cancelled'))::int AS overdue_work_items,COUNT(*) FILTER(WHERE work_item_type='exception' AND status NOT IN ('resolved','closed','cancelled'))::int AS open_exceptions FROM public.project_work_items GROUP BY project_id");
+   const index=new Map<string,any>();for(const p of projects.rows)index.set(String(p.id),{...p,shipments:null,loading:null,documents:null,workItems:null});
+   for(const [key,rows] of [["shipments",shipments.rows],["loading",loading.rows],["documents",docs.rows],["workItems",tasks.rows]] as const)for(const row of rows){const item=index.get(String(row.project_id));if(item)item[key]=row;}
+   return res.json({projects:[...index.values()],sourceStatus:{projects:"available",shipments:"available",loadingOperations:"available",documents:"available",workItems:"available"},quality:{unavailableSourcesAreNull:true,plannedQuantityIsNotLoadedQuantity:true,adminScope:"platform_admin_only"}});
+  }catch{return bad(res,500,"P17_ADMIN_CONTROL_TOWER_FAILED","Unable to read Platform Admin portfolio projection.");}
+ });
+
  // P17-F: Buyer access is resolved by verified Neon Auth identity mapping plus active scoped grants.
  app.post("/api/v1/admin/buyer-auth-mappings",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const userId=str(req.body?.userId,64),buyerId=str(req.body?.buyerId,64);

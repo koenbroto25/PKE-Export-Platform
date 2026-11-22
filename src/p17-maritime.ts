@@ -124,6 +124,57 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   }
  });
  // P17-A: provider/source governance. Secret values never enter application rows.
+ // P17-E: loading quantity, survey and laytime evidence are versioned and independently reviewed.
+ app.patch("/api/v1/projects/:projectId/loading-operations/:operationId/unit",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,id=req.params.operationId,unit=str(req.body?.unitCode,12).toUpperCase();
+  if(!uuidPattern.test(p)||!uuidPattern.test(id)||!/^[A-Z0-9._-]{2,12}$/.test(unit))return bad(res,400,"LOADING_UNIT_INVALID","Valid Project, loading operation and unit code are required.");
+  if(!await requireProjectAccess(req,res,p,"shipping.update"))return;
+  try{const q=await req.db.query("UPDATE public.loading_operations SET unit_code=$3 WHERE id=$1::uuid AND project_id=$2::uuid AND unit_code IS NULL AND status NOT IN ('completed','closed') RETURNING id,project_id,quantity,unit_code,status",[id,p,unit]);if(q.rows.length)return res.json({operation:q.rows[0]});const current=await req.db.query("SELECT id,project_id,quantity,unit_code,status FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid",[id,p]);if(!current.rows.length)return bad(res,404,"LOADING_OPERATION_NOT_FOUND","Loading operation not found in this Project.");if(current.rows[0].unit_code===unit)return res.json({operation:current.rows[0],idempotent:true});return bad(res,409,"LOADING_UNIT_IMMUTABLE","Loading operation unit is already assigned or operation is closed.");}
+  catch(e:any){if(e?.code==="23514")return bad(res,409,"LOADING_UNIT_GUARD","Loading operation unit guard rejected the change.");return bad(res,500,"LOADING_UNIT_UPDATE_FAILED","Unable to assign loading operation unit.");}
+ });
+ app.get("/api/v1/projects/:projectId/loading-operations/:operationId/acceptances",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,id=req.params.operationId;if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"LOADING_OPERATION_ID_INVALID","Invalid Project or loading operation ID.");
+  if(!await requireProjectAnyAccess(req,res,p,["shipping.view","shipping.survey.view","shipping.laytime.view","loading.quantity.reconcile"]))return;
+  try{const op=await req.db.query("SELECT id,project_id,quantity,unit_code,status,started_at,completed_at FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid",[id,p]);if(!op.rows.length)return bad(res,404,"LOADING_OPERATION_NOT_FOUND","Loading operation not found in this Project.");
+   const tickets=await req.db.query("SELECT unit_code,COUNT(*)::int AS ticket_count,COUNT(*) FILTER(WHERE status='verified')::int AS verified_count,COALESCE(SUM(quantity) FILTER(WHERE status='verified'),0)::numeric AS verified_quantity FROM public.loading_tickets WHERE loading_operation_id=$1::uuid AND project_id=$2::uuid GROUP BY unit_code ORDER BY unit_code",[id,p]);
+   const segments=await req.db.query("SELECT unit_code,COUNT(*)::int AS segment_count,COALESCE(SUM(quantity),0)::numeric AS segment_quantity,COUNT(*) FILTER(WHERE status='completed')::int AS completed_segments FROM public.loading_segments WHERE loading_operation_id=$1::uuid AND project_id=$2::uuid GROUP BY unit_code ORDER BY unit_code",[id,p]);
+   const acceptances=await req.db.query("SELECT id,acceptance_type,version_no,quantity,unit_code,quantity_variance,notice_of_readiness_at,laytime_start_at,laytime_end_at,allowed_hours,excluded_hours,evidence_object_key,evidence_sha256,submitted_by,submitted_at,review_status,reviewed_by,reviewed_at,review_note FROM public.loading_operation_acceptances WHERE loading_operation_id=$1::uuid AND project_id=$2::uuid ORDER BY acceptance_type,version_no DESC",[id,p]);
+   const unit=op.rows[0].unit_code;const ticket=tickets.rows.find((x:R)=>x.unit_code===unit);const expected=Number(op.rows[0].quantity);const verified=ticket?Number(ticket.verified_quantity):null;
+   const quantityReconciliation={unitCode:unit||null,expectedQuantity:unit?expected:null,verifiedTicketQuantity:verified,variance:unit&&verified!==null?expected-verified:null,status:!unit?"unit_unassigned":!ticket||Number(ticket.verified_count)===0?"no_verified_tickets":expected===verified?"matched":"variance"};
+   return res.json({projectId:p,operation:op.rows[0],tickets:tickets.rows,segments:segments.rows,acceptances:acceptances.rows,quantityReconciliation,readOnly:false,operationalClearance:false});
+  }catch{return bad(res,500,"LOADING_ACCEPTANCE_READ_FAILED","Unable to read Project loading acceptance evidence.");}
+ });
+ app.post("/api/v1/projects/:projectId/loading-operations/:operationId/acceptances",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,id=req.params.operationId,b=req.body||{},type=str(b.acceptanceType,32);
+  if(!uuidPattern.test(p)||!uuidPattern.test(id)||!["survey","quantity_reconciliation","laytime"].includes(type))return bad(res,400,"LOADING_ACCEPTANCE_INPUT_INVALID","Valid Project, loading operation and acceptance type are required.");
+  const permission=type==="survey"?"shipping.survey.submit":type==="quantity_reconciliation"?"loading.quantity.reconcile":"shipping.laytime.manage";
+  if(!await requireProjectAccess(req,res,p,permission))return;
+  try{
+   const op=await req.db.query("SELECT id,quantity,unit_code,status FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid",[id,p]);if(!op.rows.length)return bad(res,404,"LOADING_OPERATION_NOT_FOUND","Loading operation not found in this Project.");
+   const evidence=str(b.evidenceObjectKey,1000),hash=str(b.evidenceSha256,64);if(!evidence||!/^[a-f0-9]{64}$/.test(hash))return bad(res,400,"LOADING_EVIDENCE_REQUIRED","Evidence object key and SHA-256 are required.");
+   let quantity:number|null=null,unit=str(b.unitCode,12).toUpperCase()||null,variance:number|null=null,nor:string|null=null,start:string|null=null,end:string|null=null,allowed:number|null=null,excluded=0,laytimeHours:number|null=null;
+   if(type==="survey"||type==="quantity_reconciliation"){
+    quantity=Number(b.quantity);if(!Number.isFinite(quantity)||quantity<=0||!unit||!op.rows[0].unit_code||unit!==op.rows[0].unit_code)return bad(res,400,"LOADING_QUANTITY_UNIT_INVALID","Positive quantity must use the loading operation's assigned unit.");
+    if(type==="quantity_reconciliation"){const q=await req.db.query("SELECT COALESCE(SUM(quantity),0)::numeric AS verified_quantity,COUNT(*)::int AS verified_count FROM public.loading_tickets WHERE loading_operation_id=$1::uuid AND project_id=$2::uuid AND unit_code=$3 AND status='verified'",[id,p,unit]);if(Number(q.rows[0].verified_count)===0)return bad(res,409,"LOADING_TICKETS_NOT_VERIFIED","At least one verified loading ticket is required before quantity reconciliation.");const verified=Number(q.rows[0].verified_quantity);if(quantity!==verified)return bad(res,409,"LOADING_QUANTITY_SOURCE_MISMATCH","Submitted quantity must exactly match verified ticket total.");variance=Number(op.rows[0].quantity)-verified;}
+   }else{
+    nor=time(b.noticeOfReadinessAt);start=time(b.laytimeStartAt);end=time(b.laytimeEndAt);allowed=Number(b.allowedHours);excluded=Number(b.excludedHours||0);
+    if(!nor||!start||!end||Date.parse(start)<Date.parse(nor)||Date.parse(end)<Date.parse(start)||!Number.isFinite(allowed)||allowed<0||!Number.isFinite(excluded)||excluded<0)return bad(res,400,"LAYTIME_EVIDENCE_INVALID","NOR, laytime start/end, non-negative allowed hours and exclusions are required.");
+    laytimeHours=(Date.parse(end)-Date.parse(start))/3600000-excluded;if(laytimeHours<0)return bad(res,400,"LAYTIME_EXCLUSIONS_INVALID","Excluded hours cannot exceed elapsed laytime.");
+   }
+   const version=await req.db.query("SELECT COALESCE(MAX(version_no),0)+1 AS next_version FROM public.loading_operation_acceptances WHERE loading_operation_id=$1::uuid AND acceptance_type=$2",[id,type]);
+   const q=await req.db.query("INSERT INTO public.loading_operation_acceptances(project_id,loading_operation_id,acceptance_type,version_no,quantity,unit_code,quantity_variance,notice_of_readiness_at,laytime_start_at,laytime_end_at,allowed_hours,excluded_hours,evidence_object_key,evidence_sha256,submitted_by,review_status) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8::timestamptz,$9::timestamptz,$10::timestamptz,$11,$12,$13,$14,req_user_id(),'pending') RETURNING *",[p,id,type,version.rows[0].next_version,quantity,unit,variance,nor,start,end,allowed,excluded,evidence,hash]);
+   return res.status(201).json({acceptance:q.rows[0],calculatedLaytimeHours:laytimeHours,operationalClearance:false});
+  }catch(e:any){if(e?.code==="23505")return bad(res,409,"LOADING_ACCEPTANCE_DUPLICATE","Loading acceptance version already exists.");if(e?.code==="23514"||e?.code==="42501")return bad(res,409,"LOADING_ACCEPTANCE_GUARD","Project permission or evidence guard rejected this submission.");return bad(res,500,"LOADING_ACCEPTANCE_CREATE_FAILED","Unable to submit loading acceptance.");}
+ });
+ app.patch("/api/v1/projects/:projectId/loading-operations/:operationId/acceptances/:acceptanceId/review",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,operationId=req.params.operationId,id=req.params.acceptanceId,status=str(req.body?.reviewStatus,24),note=str(req.body?.reviewNote,2000);
+  if(!uuidPattern.test(p)||!uuidPattern.test(operationId)||!uuidPattern.test(id)||!["accepted","rejected","superseded"].includes(status)||note.length<5)return bad(res,400,"LOADING_ACCEPTANCE_REVIEW_INVALID","Valid IDs, review status and substantive independent note are required.");
+  if(!await requireProjectAccess(req,res,p,"shipping.view"))return;
+  try{const existing=await req.db.query("SELECT acceptance_type,submitted_by,review_status FROM public.loading_operation_acceptances WHERE id=$1::uuid AND loading_operation_id=$2::uuid AND project_id=$3::uuid",[id,operationId,p]);if(!existing.rows.length)return bad(res,404,"LOADING_ACCEPTANCE_NOT_FOUND","Acceptance not found in this Project.");const type=existing.rows[0].acceptance_type,permission=type==="survey"?"shipping.survey.review":type==="quantity_reconciliation"?"loading.quantity.reconcile":"shipping.laytime.verify";if(!await requireProjectAccess(req,res,p,permission))return;
+   const q=await req.db.query("UPDATE public.loading_operation_acceptances SET review_status=$4,reviewed_by=req_user_id(),reviewed_at=now(),review_note=$5 WHERE id=$1::uuid AND loading_operation_id=$2::uuid AND project_id=$3::uuid AND review_status='pending' AND submitted_by<>req_user_id() RETURNING *",[id,operationId,p,status,note]);if(!q.rows.length)return bad(res,409,"LOADING_ACCEPTANCE_MAKER_CHECKER","Pending acceptance requires an independent reviewer.");return res.json({acceptance:q.rows[0]});
+  }catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"LOADING_ACCEPTANCE_REVIEW_REJECTED","Review permission or maker-checker guard rejected the decision.");return bad(res,500,"LOADING_ACCEPTANCE_REVIEW_FAILED","Unable to review loading acceptance.");}
+ });
+
  // P17-D: AIS positions are provider observations, never invented coordinates or navigational clearance.
  app.post("/api/v1/admin/maritime/vessel-positions",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const b=req.body||{},sourceId=str(b.sourceId,64),vesselId=str(b.vesselId,64),mmsi=str(b.mmsi,20),reference=str(b.sourceReference,1000),providerReference=str(b.providerReference,240),attribution=str(b.attributionText,1000),hash=str(b.payloadSha256,64),observed=time(b.observedAt);

@@ -2450,6 +2450,8 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/approve",requireAuth,asyn
       `UPDATE public.regulatory_rule_versions v SET status='approved',approved_by=$1::uuid,approved_at=now(),updated_at=now()
         FROM public.regulatory_sources s WHERE v.id=$2::uuid AND v.status='under_review'
           AND s.id=v.regulatory_source_id AND s.verification_status='verified'
+          AND v.source_url_snapshot IS NOT DISTINCT FROM s.official_url
+          AND v.source_checksum IS NOT DISTINCT FROM COALESCE(s.source_checksum_sha256,s.source_checksum)
           AND v.created_by IS DISTINCT FROM $1::uuid
         RETURNING v.id,v.rule_id,v.status,v.approved_by,v.approved_at`,
       [req.user?.id??null,req.params.versionId],
@@ -2468,7 +2470,10 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/activate",requireAuth,asy
       `SELECT v.id,v.rule_id FROM public.regulatory_rule_versions v
         JOIN public.regulatory_sources s ON s.id=v.regulatory_source_id
         WHERE v.id=$1::uuid AND v.status='approved' AND v.approved_by IS NOT NULL
-          AND s.verification_status='verified' AND v.effective_from<=CURRENT_DATE
+          AND s.verification_status='verified'
+          AND v.source_url_snapshot IS NOT DISTINCT FROM s.official_url
+          AND v.source_checksum IS NOT DISTINCT FROM COALESCE(s.source_checksum_sha256,s.source_checksum)
+          AND v.effective_from<=CURRENT_DATE
           AND (v.effective_to IS NULL OR v.effective_to>=CURRENT_DATE)`,
       [req.params.versionId],
     );

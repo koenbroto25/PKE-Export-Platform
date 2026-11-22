@@ -32,6 +32,8 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
  const [evidenceDraft,setEvidenceDraft]=useState("");
  const [assumptionsDraft,setAssumptionsDraft]=useState("");
  const [scenarioStatus,setScenarioStatus]=useState("simulation");
+ const [editingRequestId,setEditingRequestId]=useState("");
+ const [requestFormOpen,setRequestFormOpen]=useState(false);
  const [entityType,setEntityType]=useState("route");
  const [operation,setOperation]=useState("create");
  const [targetId,setTargetId]=useState("");
@@ -66,7 +68,7 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
   setAssumptionsDraft(JSON.stringify(selected.assumptions||{},null,2));
   setScenarioStatus(String(selected.scenario_status||"simulation"));
  },[selected?.id]);
- useEffect(()=>{setProposalDraft(requestTemplates[entityType]||"{}");setTargetId("");},[entityType,operation]);
+ useEffect(()=>{if(!editingRequestId){setProposalDraft(requestTemplates[entityType]||"{}");setTargetId("");}},[entityType,operation,editingRequestId]);
 
  if(!canView)return null;
  const graph=selected?.graph||{};
@@ -92,15 +94,27 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
   e.preventDefault();if(!canManage)return;setBusy(true);setNotice("");setError("");
   try{
    const proposedData=parseJson(proposalDraft,"Proposal");
-   const result=await post<{request:Row}>(`/projects/${encodeURIComponent(projectId)}/pke-logistics/change-requests`,{
-    entityType,operation,targetId:operation==="update"?targetId:null,proposedData,requestReason:reason,
-    sourceReference,sourceUrl:sourceUrl||null,sourceSnapshot:{simulationContext:"P17-B Kumai logistics scenario"}
-   });
-   setNotice("Draft perubahan tersimpan. Kirim setelah target, data, dan bukti sumber diperiksa.");
-   setReason("");setSourceReference("");setSourceUrl("");setTargetId("");
+   const body={entityType,operation,targetId:operation==="update"?targetId:null,proposedData,requestReason:reason,
+    sourceReference,sourceUrl:sourceUrl||null,sourceSnapshot:{simulationContext:"P17-B Kumai logistics scenario"}};
+   if(editingRequestId){
+    await patch(`/projects/${encodeURIComponent(projectId)}/pke-logistics/change-requests/${encodeURIComponent(editingRequestId)}`,body);
+    setNotice("Draft perubahan master diperbarui.");
+   }else{
+    await post(`/projects/${encodeURIComponent(projectId)}/pke-logistics/change-requests`,body);
+    setNotice("Draft perubahan tersimpan. Kirim setelah target, data, dan bukti sumber diperiksa.");
+   }
+   setEditingRequestId("");setRequestFormOpen(false);setReason("");setSourceReference("");setSourceUrl("");setTargetId("");
    await refresh();
   }catch(e:any){setError(e?.message||"Draft perubahan master tidak dapat dibuat.");}
   finally{setBusy(false);}
+ }
+ async function editRequest(row:Row){
+  if(row.status!=="draft"||row.requested_by!==activeUser?.id||!canManage)return;
+  setEditingRequestId(String(row.id));setRequestFormOpen(true);
+  setEntityType(String(row.entity_type));setOperation(String(row.operation));
+  setTargetId(String(row.target_id||""));setProposalDraft(JSON.stringify(row.proposed_data||{},null,2));
+  setReason(String(row.request_reason||""));setSourceReference(String(row.source_reference||""));
+  setSourceUrl(String(row.source_url||""));
  }
  async function submitRequest(id:string){
   setBusy(true);setNotice("");setError("");
@@ -171,15 +185,15 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
    <summary>Ajukan perubahan master kanonis (PM draft / Admin approval)</summary>
    <form onSubmit={createRequest}>
     <div className="p17b-form-grid">
-     <label>Jenis data<select value={entityType} onChange={e=>setEntityType(e.target.value)}>{["port","route","terminal","loading_service","warehouse"].map(v=><option key={v} value={v}>{nodeLabels[v]||v}</option>)}</select></label>
-     <label>Operasi<select value={operation} onChange={e=>setOperation(e.target.value)}><option value="create">Buat kandidat</option><option value="update">Usulkan perubahan</option></select></label>
+     <label>Jenis data<select disabled={!!editingRequestId} value={entityType} onChange={e=>setEntityType(e.target.value)}>{["port","route","terminal","loading_service","warehouse"].map(v=><option key={v} value={v}>{nodeLabels[v]||v}</option>)}</select></label>
+     <label>Operasi<select disabled={!!editingRequestId} value={operation} onChange={e=>setOperation(e.target.value)}><option value="create">Buat kandidat</option><option value="update">Usulkan perubahan</option></select></label>
     </div>
     {operation==="update"&&<label>Target record UUID<input value={targetId} onChange={e=>setTargetId(e.target.value)} placeholder="UUID master record"/></label>}
     <label>Proposed data JSON<textarea rows={8} value={proposalDraft} onChange={e=>setProposalDraft(e.target.value)} spellCheck={false}/></label>
     <label>Alasan perubahan<input value={reason} onChange={e=>setReason(e.target.value)} minLength={10} required/></label>
     <label>Referensi sumber<input value={sourceReference} onChange={e=>setSourceReference(e.target.value)} minLength={8} required placeholder="Nama dokumen / klaim / sumber"/></label>
     <label>URL sumber<input type="url" value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} placeholder="https://…"/></label>
-    <button type="submit" disabled={busy}>{busy?"Menyimpan…":"Simpan draft perubahan"}</button>
+    <div className="p17b-form-actions"><button type="submit" disabled={busy}>{busy?"Menyimpan…":editingRequestId?"Perbarui draft":"Simpan draft perubahan"}</button>{editingRequestId&&<button type="button" disabled={busy} onClick={()=>{setEditingRequestId("");setRequestFormOpen(false);setReason("");setSourceReference("");setSourceUrl("");setTargetId("");}}>Batal edit</button>}</div>
    </form>
   </details>}
   <div className="p17b-requests">
@@ -187,7 +201,7 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
    {!requests.length?<div className="p17b-empty">Belum ada permintaan perubahan untuk Project ini.</div>:requests.map((r:Row)=><article key={r.id}>
     <div><strong>{nodeLabels[r.entity_type]||r.entity_type} · {r.operation}</strong><span className={"p17b-request-status p17b-request-status--"+r.status}>{r.status}</span></div>
     <p>{r.request_reason}</p><small>{r.source_reference} · {r.created_at?new Date(r.created_at).toLocaleString("id-ID"):""}</small>
-    {r.status==="draft"&&r.requested_by===activeUser?.id&&<button type="button" disabled={busy} onClick={()=>void submitRequest(r.id)}>Kirim untuk review</button>}
+    {r.status==="draft"&&r.requested_by===activeUser?.id&&<div className="p17b-request-actions"><button type="button" disabled={busy} onClick={()=>editRequest(r)}>Edit draft</button><button type="button" disabled={busy} onClick={()=>void submitRequest(r.id)}>Kirim untuk review</button></div>}
     {canReview&&r.status==="submitted"&&<div className="p17b-admin-decision">
      <input value={decisionNotes[r.id]||""} onChange={e=>setDecisionNotes(v=>({...v,[r.id]:e.target.value}))} placeholder="Catatan keputusan / alasan penolakan"/>
      <button type="button" disabled={busy} onClick={()=>void decideRequest(r.id,"approved")}>Setujui</button>

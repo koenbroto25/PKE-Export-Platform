@@ -632,3 +632,15 @@ describe("P17-B port identity and geospatial candidate forms",()=>{
   expect(IDENTITY_UI).toContain("geometryGeojson");
  });
 });
+
+
+describe("P17-A to P17-B typed staging promotion",()=>{
+ it("promotes only accepted port and geometry staging into pending evidence-reviewed candidates",()=>{
+  expect(API).toContain('/admin/maritime/staging/:stagingId/promote');
+  expect(API).toContain("MARITIME_STAGING_NOT_ACCEPTED");
+  expect(API).toContain("MARITIME_PROMOTION_RIGHTS_BLOCKED");
+  expect(API).toContain("canonicalMasterChanged:false");
+  expect(INGESTION_UI).toContain("/promote");
+  expect(INGESTION_UI).toContain("Promote to typed review candidate");
+ });
+});

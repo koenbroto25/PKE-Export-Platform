@@ -1940,7 +1940,7 @@ async function recordRegulatoryAudit(req: express.Request,action: string,targetT
 }
 
 async function requireAnyProjectPermission(req: express.Request,res: express.Response,permissionCode: string): Promise<boolean> {
-  const {rows}=await req.db.query("SELECT public.pke_has_any_project_permission($1::text) AS allowed",[permissionCode]);
+  const {rows}=await req.db.query("SELECT (public.pke_is_platform_admin() OR public.pke_has_any_project_permission($1::text)) AS allowed",[permissionCode]);
   if(rows[0]?.allowed!==true){
     res.status(403).json({error:"Regulatory permission required.",code:"REGULATORY_PERMISSION_REQUIRED",permission:permissionCode});
     return false;

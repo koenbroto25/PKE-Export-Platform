@@ -22,7 +22,7 @@ type DashboardData = {
   arInvoices?: RecordData[];
   cashAdvances?: RecordData[];
   journalEntries?: RecordData[];
-  projectReport?: RecordData;
+  projectReport?: RecordData;\n  p17AdminControlTower?: RecordData;
 };
 type LoadState = { data: DashboardData; loading: boolean; errors: string[] };
 
@@ -100,7 +100,7 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   const load = useCallback(async () => {
     setState(current => ({ ...current, loading: true, errors: [] }));
     const requests: Array<[keyof DashboardData, string, boolean]> = [
-      ['projects', '/projects', true],
+      ['projects', '/projects', true],\n      ['p17AdminControlTower', '/admin/p17-control-tower', activeUser?.platformAdmin === true],
       ['portfolio', '/reports/portfolio', false],
       ['workItems', `/projects/${encodeURIComponent(projectId)}/work-items`, Boolean(projectId && canViewTasks)],
       ['contracts', `/contracts?projectId=${encodeURIComponent(projectId)}`, Boolean(projectId && canViewContracts)],
@@ -163,6 +163,7 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   return <div className="role-dashboard">
     <div className="page-heading"><div><div className="eyebrow">ROLE WORKSPACE · PROJECT SCOPED</div><h1>Dashboard Kerja</h1><p>Ringkasan, antrean dan hand-off mengikuti role aktif serta permission pada Project terpilih.</p></div><button className="secondary-button" onClick={() => setRevision(v => v + 1)}><RefreshCw size={16} /> Segarkan</button></div>
     <section className="panel role-identity"><div><div className="eyebrow">PROJECT / ROLE AKTIF</div><h2>{projectId ? 'Project terpilih' : activeUser?.platformAdmin ? 'Platform workspace' : 'Project belum dipilih'}</h2><p>{projectId || 'Pilih Project dari bagian atas untuk membuka data kerja.'}</p></div><div className="role-chip-list">{roles.map((r: string) => <span className="role-chip" key={r}>{ROLE_META[r]?.label || labelRole(r)}</span>)}</div></section>
+    {activeUser?.platformAdmin===true&&<section className="panel"><div className="eyebrow">P17 · ADMIN EXPORT CONTROL TOWER</div><h3>Portfolio Project Export</h3><p>Ringkasan lintas Project dari shipment, loading, dokumen dan work item aktual. Planned quantity bukan loaded quantity.</p>{sourceFailed('p17AdminControlTower')?<div className="inline-warning">Control Tower Admin tidak tersedia dari sumber database.</div>:<div className="role-readiness-list">{(((data.p17AdminControlTower as RecordData|undefined)?.projects)||[]).map((p:RecordData)=><div className="role-readiness-row" key={p.id}><div><strong>{p.name||p.id}</strong><small>Shipment {p.shipments?.shipment_count??0} · Planned {p.shipments?.planned_quantity??0} · Loading {p.loading?.loading_operations??0} · Docs approved {p.documents?.approved_documents??0} · Overdue {p.workItems?.overdue_work_items??0} · Exceptions {p.workItems?.open_exceptions??0}</small></div><span>{p.status||'Project'}</span></div>)}</div>}</section>}
     <section className="role-focus-grid">{roleCards.map((role: RecordData, i: number) => <article className="panel role-focus-card" key={roles[i]}><div className="eyebrow">FOKUS ROLE</div><h3>{role.label}</h3><p>{role.focus}</p><small>{role.outputs}</small><div className="role-link-row">{role.links.map((link: RecordData) => <Link key={link.to} to={link.to}>{link.label} <ArrowRight size={13} /></Link>)}</div></article>)}</section>
     <section className="role-metric-grid">{metrics.map((metric, i) => { const Icon = metric.icon; return <Link className="panel role-metric" to={metric.href} key={metric.label}><Icon size={19} /><span>{metric.label}</span><strong>{state.loading ? '…' : metric.value}</strong><small>{metric.note}</small></Link>; })}</section>
     {state.errors.length > 0 && <div className="inline-warning"><AlertCircle size={17} /><div><strong>Sumber belum seluruhnya berhasil dimuat</strong>{state.errors.map(error => <small key={error}>{error}</small>)}</div></div>}

@@ -18,10 +18,11 @@ ALTER TABLE public.vessel_tracking_positions
     CHECK(review_status IN ('pending','accepted','rejected','superseded')),
   ADD CONSTRAINT vessel_tracking_source_review_stamp_ck
     CHECK (
-      (review_status='accepted' AND source_id IS NOT NULL AND created_by IS NOT NULL
-        AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL
+      (review_status='pending' AND reviewed_by IS NULL AND reviewed_at IS NULL)
+      OR
+      (review_status IN ('accepted','rejected','superseded') AND source_id IS NOT NULL
+        AND created_by IS NOT NULL AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL
         AND reviewed_by<>created_by AND length(btrim(COALESCE(review_note,'')))>=5)
-      OR review_status<>'accepted'
     ),
   ADD CONSTRAINT vessel_tracking_source_evidence_ck
     CHECK(source_id IS NULL OR (mmsi ~ '^[0-9]{9}

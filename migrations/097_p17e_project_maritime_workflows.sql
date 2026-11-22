@@ -1,4 +1,6 @@
 -- P17-E: Project-scoped voyage, nomination and port-call lifecycle controls.
+BEGIN;
+
 -- Uses P16 maritime master entities; does not recreate port/vessel/shipment tables.
 ALTER TABLE public.voyages
   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id),
@@ -234,3 +236,4 @@ FOR EACH ROW EXECUTE FUNCTION public.pke_guard_vessel_port_call_write();
 
 REVOKE ALL ON public.maritime_workflow_events FROM PUBLIC;
 GRANT SELECT,INSERT ON public.maritime_workflow_events TO app_runtime_secure;
+COMMIT;

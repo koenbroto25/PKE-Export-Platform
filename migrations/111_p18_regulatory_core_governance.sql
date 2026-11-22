@@ -182,6 +182,19 @@ FOR UPDATE TO app_runtime_secure
 USING (public.pke_has_any_project_permission('regulatory.document.manage'))
 WITH CHECK (public.pke_has_any_project_permission('regulatory.document.manage'));
 
+DROP POLICY IF EXISTS p18_regulatory_audit_read ON public.audit_events;
+CREATE POLICY p18_regulatory_audit_read ON public.audit_events
+FOR SELECT TO app_runtime_secure
+USING (
+  source='p18_regulatory_core'
+  AND (
+    public.pke_has_any_project_permission('regulatory.source.view')
+    OR public.pke_has_any_project_permission('regulatory.rule.view')
+    OR public.pke_has_any_project_permission('regulatory.document.view')
+    OR public.pke_has_any_project_permission('compliance.view')
+  )
+);
+
 CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_source_verification()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -300,6 +313,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_rule_versions' AND policyname='p18_regulatory_rule_versions_insert') THEN RAISE EXCEPTION 'P18 version insert policy missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_regulatory_rule_version_lifecycle_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 immutable version trigger missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_country_requirement_verification_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 country requirement verification trigger missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='audit_events' AND policyname='p18_regulatory_audit_read') THEN RAISE EXCEPTION 'P18 regulatory audit read policy missing'; END IF;
 END
 $verify$;
 

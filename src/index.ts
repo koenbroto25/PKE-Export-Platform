@@ -2287,7 +2287,7 @@ app.patch("/api/v1/regulatory-sources/:id/review",requireAuth,async(req:express.
   if(!["reviewed","verified","rejected"].includes(decision)) return res.status(400).json({error:"Decision must be reviewed, verified, or rejected."});
   try{
     const {rows}=await req.db.query(
-      `UPDATE public.regulatory_sources SET verification_status=$1,reviewer_id=$2::uuid,
+      `UPDATE public.regulatory_sources SET verification_status=$1,status=CASE WHEN $1='verified' THEN 'active' ELSE 'draft' END,reviewer_id=$2::uuid,
               last_reviewed=now(),updated_at=now()
         WHERE id=$3::uuid AND (created_by IS NULL OR created_by<>$2::uuid)
         RETURNING id,source_id,verification_status,reviewer_id,last_reviewed`,

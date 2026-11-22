@@ -51,6 +51,16 @@ CREATE POLICY buyer_auth_mapping_admin_all
   ON public.buyer_auth_user_mappings FOR ALL TO app_runtime_secure
   USING (public.pke_is_platform_admin())
   WITH CHECK (public.pke_is_platform_admin());
+CREATE POLICY buyer_auth_mapping_project_grant_manager_read
+  ON public.buyer_auth_user_mappings FOR SELECT TO app_runtime_secure
+  USING (
+    mapping_status='active'
+    AND public.pke_has_project_permission(
+      NULLIF(current_setting('app.current_project_id',true),'')::uuid,
+      'buyer.visibility.manage'
+    )
+  );
+
 CREATE POLICY buyer_auth_mapping_self_read
   ON public.buyer_auth_user_mappings FOR SELECT TO app_runtime_secure
   USING (user_id=public.pke_current_user_id() AND mapping_status='active');
@@ -114,6 +124,15 @@ FOR EACH ROW EXECUTE FUNCTION public.pke_guard_buyer_auth_mapping();
 
 -- Buyer-facing RLS is additive: visibility requires an active identity mapping and an active,
 -- unexpired grant scoped to the exact Project and (when present) shipment.
+CREATE POLICY buyers_project_visibility_manager_read
+  ON public.buyers FOR SELECT TO app_runtime_secure
+  USING (
+    public.pke_has_project_permission(
+      NULLIF(current_setting('app.current_project_id',true),'')::uuid,
+      'buyer.visibility.manage'
+    )
+  );
+
 CREATE POLICY buyers_verified_mapping_self_read
   ON public.buyers FOR SELECT TO app_runtime_secure
   USING (

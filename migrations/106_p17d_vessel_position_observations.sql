@@ -92,7 +92,7 @@ BEGIN
       OR NEW.reviewed_by=NEW.created_by OR NEW.reviewed_by IS DISTINCT FROM public.pke_current_user_id()
       OR length(btrim(COALESCE(NEW.review_note,'')))<5
     THEN RAISE EXCEPTION 'AIS acceptance requires independent authenticated review' USING ERRCODE='42501'; END IF;
-    IF NOT EXISTS (SELECT 1 FROM public.maritime_data_sources s WHERE s.id=NEW.source_id
+    IF NEW.review_status='accepted' AND NOT EXISTS (SELECT 1 FROM public.maritime_data_sources s WHERE s.id=NEW.source_id
       AND s.enabled IS TRUE AND s.source_class='ais' AND s.rights_status='approved'
       AND s.internal_processing_allowed IS TRUE AND s.rights_reviewed_by IS NOT NULL
       AND s.rights_reviewed_at IS NOT NULL AND s.rights_expires_at>now())

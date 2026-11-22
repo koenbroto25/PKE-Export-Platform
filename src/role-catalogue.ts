@@ -64,7 +64,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "contract.view", "manage_contract_programs", "port.view", "port.depth.view", "port.depth.submit", "route.estimate", "vessel.view", "vessel.port.assess", "voyage.view", "voyage.create", "voyage.update", "vessel.nomination.review", "vessel.port_call.manage", "pks.site.view", "pks.participation.manage", "pks.master_data.change_request.view", "pks.master_data.change_request.manage", "pke.logistics.master.view", "pke.logistics.master.change_request.manage", "facility.view", "facility.product.view", "facility.capacity.view", "product.view", "supplier.view", "product.requirement.view", "product.requirement.manage", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
     "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view", "shipping.survey.review", "shipping.laytime.verify", "loading.quantity.reconcile",
-    "project.tasks.view", "project.tasks.create", "project.tasks.assign", "project.tasks.update", "project.tasks.resolve", "project.tasks.escalate",
+    "project.tasks.view", "project.tasks.create", "project.tasks.assign", "project.tasks.update", "project.tasks.resolve", "project.tasks.escalate", "buyer.visibility.manage",
   ], [
     "PM is appointed per Project by Platform Admin; one PM may serve multiple Projects.",
     "Read-all is SELECT-only; no QA release, warehouse verification, Finance approval, payment, loading sign-off or delete authority.",

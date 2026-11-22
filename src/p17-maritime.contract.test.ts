@@ -17,6 +17,8 @@ describe("P17-A maritime source governance",()=>{
   expect(A).toContain("internal_processing_allowed IS TRUE");
   expect(A).toContain("rights_expires_at > rights_reviewed_at");
   expect(A).toContain("credential_secret_ref");
+  expect(A).toContain("maritime_source_quota_pair_ck");
+  expect(A).toContain("records_staged <= records_seen AND records_rejected <= records_seen");
   expect(A).not.toMatch(/api[_-]?key\s+text|secret_value\s+text/i);
   expect(API).toContain("RIGHTS_EVIDENCE_REQUIRED");
   expect(API).toContain("SOURCE_RIGHTS_NOT_ACTIVE");
@@ -27,6 +29,8 @@ describe("P17-A maritime source governance",()=>{
   expect(A).toContain("payload_sha256 ~ '^[0-9a-f]{64}$'");
   expect(API).toContain("STAGING_DUPLICATE");
   expect(API).toContain("SOURCE_QUOTA_EXHAUSTED");
+  expect(API).toContain("quotaLimit=b.quotaLimit==null?null:Number(b.quotaLimit)");
+  expect(API).toContain("recordsRejected>recordsSeen");
   expect(API).toContain("public.maritime_provider_usage");
   expect(API).toContain("maritime_provider_health");
  });

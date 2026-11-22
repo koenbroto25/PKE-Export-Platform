@@ -200,3 +200,42 @@ The PKE logistics workbench is now embedded in the existing **Pelabuhan & Gudang
 - PM can create, edit own draft, and submit canonical port/route/terminal/loading-service/warehouse change requests.
 - Platform Admin can approve/reject submitted canonical proposals. The backend scope/stale-snapshot guards and audit triggers remain authoritative.
 - Frontend role-page access includes the new logistics permissions.
+
+## 19. P17-A source registry onboarding and Admin workbench (22 November 2026)
+
+The UAT source registry now contains ten source candidates, registered as metadata only:
+- `kemenhub_djpl_port` — primary national port-master candidate (`dwh-djpl-port`).
+- `hubdat_ferry_ports` — supplementary ferry-port directory.
+- `hotosm_id_sea_ports` — supplementary ODbL geometry, separate from official port facts.
+- `unece_unlocode` — external identifier crosswalk.
+- `bmkg_marine_data` — marine forecast candidate.
+- `pelindo_bumiharjo_profile` — manual terminal reference.
+- `cbu_company_profile` — company facility reference.
+- `adm_pke_traceability` — downstream supply-chain discovery only.
+- `telkomsat_ais` — Indonesia-only paid AIS evaluation candidate.
+- `open_ais_contributor` — conditional contributor-network candidate.
+
+**Fail-closed UAT verification:** 10/10 sources remain `pending_review` and `enabled=false`; field-purpose permissions = 0 (including allowed fields = 0); ingestion runs = 0; staging records = 0. No source was approved, no provider called, and no source payload was imported. The registry is a controlled source inventory, not an approval decision.
+
+A Platform Admin-only source governance workbench is now integrated into the Pelabuhan & Gudang page. It supports source registration, source-right review, field-purpose permissions and explicit enablement. The UI calls the existing P17-A API; database constraints and API checks remain authoritative. Rights approval requires evidence URL, terms URL, attribution, expiry and explicit internal-processing permission. Activation remains blocked until those requirements are met.
+
+### 19.1 Fresh source-rights findings
+
+- MaritimHub's official catalogue identifies `dwh-djpl-port` as the DJPL national port master and lists Excel/JSON resources, with catalogue metadata updated 21 November 2026. This establishes a strong source candidate, not an unrestricted commercial-use license.
+- BMKG's current marine API documentation describes public GET endpoints and UTC forecast timestamps. BMKG Regulation 1/2025 separately classifies certain special marine information/API services as fee-based. The exact entitlement and use rights for the documented endpoint must be confirmed before provider calls or customer display.
+- Telkomsat's AIS FAQ describes monthly paid API subscriptions and a limit of 150 calls per day. It is not a free production feed and no subscription is authorized.
+- Open AIS publishes a separate data-use license. Access depends on qualifying receiver contribution; a restricted raw AIS/tracking service requires written Open AIS permission and opt-in from affected data providers. It is not treated as a no-condition feed.
+
+### 19.2 Acceptance after source-registry work
+
+| Gate | Result |
+|---|---|
+| Ten candidate source records in UAT registry | PASS — metadata only |
+| Rights fail-closed state | PASS — 10 pending / 0 enabled |
+| Field-purpose permissions | PASS — 0 rows / 0 allowed |
+| Ingestion runs and staging | PASS — 0 / 0 |
+| Platform Admin source registry UI | IMPLEMENTED — runtime/browser acceptance pending |
+| National port dataset rights | BLOCKED_EXTERNAL — explicit approval required |
+| BMKG endpoint entitlement and commercial/display rights | BLOCKED_EXTERNAL — confirmation required |
+| AIS provider access/rights | BLOCKED_EXTERNAL — no subscription/contribution activated |
+| Real port, producer/KCP, route, terminal/loading and warehouse data | BLOCKED_EXTERNAL — source and operational evidence pending |

@@ -574,6 +574,7 @@ describe("P17 operational workflow UI",()=>{
   expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.nomination.review\")");
   expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.port_call.manage\")");
   expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.port_call.confirm\")");
+  expect(WORKFLOW_ACTIONS).toContain("platformAdmin||permissions.includes");
   expect(WORKFLOW_ACTIONS).toContain("expectedVersion");
   expect(WORKFLOW_ACTIONS).toContain("crypto.randomUUID()");
  });
@@ -601,6 +602,7 @@ describe("P17-F Buyer identity and visibility UI",()=>{
   expect(BUYER_UI).toContain("Approve mapping");
   expect(BUYER_UI).toContain("/buyer-visibility-grants");
   expect(BUYER_UI).toContain("buyer.visibility.manage");
+  expect(BUYER_UI).toContain("platformAdmin||permissions.includes");
   expect(BUYER_UI).toContain("Revoke grant");
  });
 });

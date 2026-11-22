@@ -16,6 +16,7 @@ const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.
 const PORT_UI=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");
 const SCENARIO_UI=readFileSync(join(ROOT,"frontend","src","PkeLogisticsScenarioWorkbench.tsx"),"utf8");
 const IDENTITY_UI=readFileSync(join(ROOT,"frontend","src","MaritimeIdentityReview.tsx"),"utf8");
+const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -387,7 +388,7 @@ describe("P17-G Project export control tower",()=>{
   expect(API).toContain("/api/v1/projects/:projectId/p17-control-tower");
   expect(API).toContain("public.loading_tickets");
   expect(API).toContain("public.pks_port_routes");
-  expect(API).toContain("aisLivePosition");
+  expect(API).toContain("lastKnownVesselPositions");
   expect(API).toContain("/advisory-screening");
   expect(API).toContain("operationalClearance:false");
   expect(API).toContain("plannedQuantityIsNotLoadedQuantity:true");
@@ -440,7 +441,8 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
   expect(API).toContain("is_latest");
   expect(M107).toContain("loading_acceptance_admin_all");
   expect(M107).toContain("loading_acceptance_review_ck");
-  expect(M107).toContain("loading_operations_unit_guard");
+  expect(M107).toContain("CREATE TRIGGER loading_operation_unit_guard");
+  expect(M107).toContain("pke_guard_loading_operation_unit");
   expect(M107).toContain("shipping.survey.review");
   expect(M107).toContain("shipping.laytime.verify");
  });

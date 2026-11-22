@@ -6,6 +6,7 @@ ALTER TABLE public.regulatory_sources
   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id);
 ALTER TABLE public.regulatory_rule_versions
   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id);
+ALTER TABLE public.regulatory_assessment_results ADD COLUMN IF NOT EXISTS reason_code text;
 ALTER TABLE public.country_export_document_requirements
   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id);
 

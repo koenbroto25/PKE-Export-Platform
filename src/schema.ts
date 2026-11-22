@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, numeric, integer, timestamp, boolean, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, numeric, integer, timestamp, boolean, jsonb, pgEnum, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 // Enums
 export const userRoleEnum = pgEnum("user_role", [
@@ -67,7 +67,7 @@ export const role_permissions = pgTable("role_permissions", {
 
 export const projects = pgTable("projects", {
   id: uuid("id").defaultRandom().primaryKey(),
-  contract_program_id: uuid("contract_program_id").references(() => contract_programs.id, { onDelete: "cascade" }),
+  contract_program_id: uuid("contract_program_id").references((): AnyPgColumn => contract_programs.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").notNull().default("draft"),
@@ -170,7 +170,7 @@ export const pks_sites = pgTable("pks_sites", {
 
 export const contracts = pgTable("contracts", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  project_id: uuid("project_id").references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
   buyer_id: uuid("buyer_id").notNull().references(() => buyers.id, { onDelete: "cascade" }),
   code: text("code").notNull(),
   name: text("name").notNull(),
@@ -187,7 +187,7 @@ export const contract_programs = pgTable("contract_programs", {
   name: text("name").notNull(),
   description: text("description"),
   buyer_id: uuid("buyer_id").references(() => buyers.id, { onDelete: "set null" }),
-  contract_id: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
+  contract_id: uuid("contract_id").references((): AnyPgColumn => contracts.id, { onDelete: "set null" }),
   settlement_unit: text("settlement_unit").notNull(),
   target_quantity: numeric("target_quantity", { precision: 15, scale: 2 }).notNull(),
   cadence: text("cadence").notNull(),

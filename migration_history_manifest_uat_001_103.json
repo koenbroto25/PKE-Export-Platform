@@ -4,12 +4,12 @@
   "project_id": "purple-base-63944903",
   "branch_id": "br-young-boat-b3re832d",
   "database": "neondb",
-  "verified_at": "2026-11-22T02:58:41.036Z",
-  "ledger_row_count": 103,
-  "applied_count": 87,
+  "verified_at": "2026-11-22T15:07:29.557Z",
+  "ledger_row_count": 109,
+  "applied_count": 93,
   "baseline_count": 16,
   "pending_migrations": [],
-  "source_recovery_note": "Read directly from Neon UAT branch after P17-B migrations 099-103 were applied and their SHA-256 values reconciled. 16 rows are baseline markers; 87 migrations (IDs 017-103) are applied. This UAT-only evidence must never be used as Production migration history.",
+  "source_recovery_note": "Read directly from Neon UAT branch br-young-boat-b3re832d after P17-E/F migrations 104-109 were applied and SHA-256 values reconciled. 16 rows are baseline markers; 93 migrations (IDs 017-109) are applied. UAT history rows 096-098 retain earlier SQL hashes that differ from current branch source; do not treat this UAT-only evidence as Production history or as proof that current 096-098 source files were applied.",
   "entries": [
     {
       "id": 1,
@@ -731,6 +731,48 @@
       "sha256": "635b9f4b955a41e436af934dd88a23b9dc0d034063e4e368ee89d29a0ce413a4",
       "status": "applied",
       "applied_at": "2026-11-22T02:58:41.036Z"
+    },
+    {
+      "id": 104,
+      "filename": "104_p17e_nomination_submission_guard.sql",
+      "sha256": "e101b4d03ee81fe833136658c651978ee0267026d90de6cca2489e16618b7ab7",
+      "status": "applied",
+      "applied_at": "2026-11-22T15:03:49.185Z"
+    },
+    {
+      "id": 105,
+      "filename": "105_p17f_buyer_identity_and_grant_audit.sql",
+      "sha256": "3ec980792916ed0733e0a0fd2e7d15cfc665a684e3d83988934573526f2af383",
+      "status": "applied",
+      "applied_at": "2026-11-22T15:04:01.659Z"
+    },
+    {
+      "id": 106,
+      "filename": "106_p17d_vessel_position_observations.sql",
+      "sha256": "db77e1bde251158faa9cf99cdadcbcce8582945203f0f4fd9416370ab00a7fee",
+      "status": "applied",
+      "applied_at": "2026-11-22T15:04:13.531Z"
+    },
+    {
+      "id": 107,
+      "filename": "107_p17e_loading_survey_reconciliation_laytime.sql",
+      "sha256": "6653ceea3926e6d40379fd4ba9faa1dcbef8a2713fec817c2c3105160a672634",
+      "status": "applied",
+      "applied_at": "2026-11-22T15:04:25.496Z"
+    },
+    {
+      "id": 108,
+      "filename": "108_p17f_buyer_mapping_rls_recursion_fix.sql",
+      "sha256": "feccb0230f18c6cea51f7ed1e5d10223cbe7bb63476f147f7040cbebb1324d17",
+      "status": "applied",
+      "applied_at": "2026-11-22T15:06:26.439Z"
+    },
+    {
+      "id": 109,
+      "filename": "109_p17f_buyer_self_read_rls_recursion_fix.sql",
+      "sha256": "c02c4ebbdc0d2932c6eee66590262c970fad12d6c494d34cc0dde513c4d6b125",
+      "status": "applied",
+      "applied_at": "2026-11-22T15:07:29.557Z"
     }
   ]
 }

@@ -200,7 +200,7 @@ BEGIN
       RAISE EXCEPTION 'Independent reviewer required to verify a regulatory source' USING ERRCODE='23514';
     END IF;
     IF NEW.official_url IS NULL OR NEW.official_url !~* '^https://'
-       OR COALESCE(NULLIF(NEW.source_checksum_sha256,''),NULLIF(NEW.source_checksum,'')) !~* '^[0-9a-f]{64}
+       OR COALESCE(NULLIF(NEW.source_checksum_sha256,''),NULLIF(NEW.source_checksum,'')) !~* '^[0-9a-f]{64}$' THEN
       RAISE EXCEPTION 'Verified source requires official URL and SHA-256 checksum' USING ERRCODE='23514';
     END IF;
     NEW.last_reviewed=COALESCE(NEW.last_reviewed,now());
@@ -215,7 +215,7 @@ BEFORE INSERT OR UPDATE ON public.regulatory_sources
 FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_source_verification();
 
 CREATE OR REPLACE FUNCTION public.p18_guard_country_requirement_verification()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP='UPDATE' AND OLD.verification_status='verified' AND
      ROW(NEW.country_code,NEW.product_id,NEW.document_type_id,NEW.regulatory_source_id,
@@ -241,7 +241,7 @@ BEGIN
   END IF;
   NEW.updated_at=now();
   RETURN NEW;
-END $;
+END $$;
 
 DROP TRIGGER IF EXISTS p18_country_requirement_verification_guard ON public.country_export_document_requirements;
 CREATE TRIGGER p18_country_requirement_verification_guard
@@ -264,105 +264,8 @@ BEGIN
     IF OLD.approved_by IS NOT NULL AND NEW.approved_by IS DISTINCT FROM OLD.approved_by THEN
       RAISE EXCEPTION 'Regulatory rule approval identity is immutable' USING ERRCODE='23514';
     END IF;
-    IF NEW.status='approved' AND OLD.status='under_review' THEN
-      IF NEW.approved_by IS NULL OR NEW.approved_by=OLD.created_by THEN
-        RAISE EXCEPTION 'Independent maker-checker approval required' USING ERRCODE='23514';
-      END IF;
-      NEW.approved_at=COALESCE(NEW.approved_at,now());
-    ELSIF NEW.status='effective' AND OLD.status='approved' THEN
-      IF OLD.approved_by IS NULL OR OLD.approved_at IS NULL THEN
-        RAISE EXCEPTION 'Only independently approved versions may become effective' USING ERRCODE='23514';
-      END IF;
-    ELSIF NEW.status IS DISTINCT FROM OLD.status
-      AND NOT (OLD.status='draft' AND NEW.status='under_review')
-      AND NOT (OLD.status='under_review' AND NEW.status='rejected')
-      AND NOT (OLD.status='approved' AND NEW.status IN ('effective','superseded','repealed'))
-      AND NOT (OLD.status='effective' AND NEW.status IN ('superseded','repealed')) THEN
-      RAISE EXCEPTION 'Invalid regulatory rule version lifecycle transition' USING ERRCODE='23514';
-    END IF;
-  END IF;
-  NEW.updated_at=now();
-  RETURN NEW;
-END $$;
-
-DROP TRIGGER IF EXISTS p18_regulatory_rule_version_lifecycle_guard ON public.regulatory_rule_versions;
-CREATE TRIGGER p18_regulatory_rule_version_lifecycle_guard
-BEFORE UPDATE ON public.regulatory_rule_versions
-FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_rule_version_lifecycle();
-
-DO $verify$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_sources' AND policyname='p18_regulatory_sources_insert') THEN RAISE EXCEPTION 'P18 source insert policy missing'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_rules' AND policyname='p18_regulatory_rules_insert') THEN RAISE EXCEPTION 'P18 rule insert policy missing'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_rule_versions' AND policyname='p18_regulatory_rule_versions_insert') THEN RAISE EXCEPTION 'P18 version insert policy missing'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_regulatory_rule_version_lifecycle_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 immutable version trigger missing'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_country_requirement_verification_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 country requirement verification trigger missing'; END IF;
-END
-$verify$;
-
-COMMIT;
- THEN
-      RAISE EXCEPTION 'Verified source requires official URL and SHA-256 checksum' USING ERRCODE='23514';
-    END IF;
-    NEW.last_reviewed=COALESCE(NEW.last_reviewed,now());
-  END IF;
-  NEW.updated_at=now();
-  RETURN NEW;
-END $$;
-
-DROP TRIGGER IF EXISTS p18_regulatory_source_verification_guard ON public.regulatory_sources;
-CREATE TRIGGER p18_regulatory_source_verification_guard
-BEFORE INSERT OR UPDATE ON public.regulatory_sources
-FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_source_verification();
-
-CREATE OR REPLACE FUNCTION public.p18_guard_country_requirement_verification()
-RETURNS trigger LANGUAGE plpgsql AS $
-BEGIN
-  IF TG_OP='UPDATE' AND OLD.verification_status='verified' AND
-     ROW(NEW.country_code,NEW.product_id,NEW.document_type_id,NEW.regulatory_source_id,
-         NEW.importing_authority,NEW.mandatory,NEW.effective_from,NEW.effective_to,
-         NEW.official_source_url,NEW.condition_schema)
-     IS DISTINCT FROM
-     ROW(OLD.country_code,OLD.product_id,OLD.document_type_id,OLD.regulatory_source_id,
-         OLD.importing_authority,OLD.mandatory,OLD.effective_from,OLD.effective_to,
-         OLD.official_source_url,OLD.condition_schema) THEN
-    RAISE EXCEPTION 'Verified country requirement is immutable; create a new version' USING ERRCODE='23514';
-  END IF;
-  IF NEW.verification_status='verified' THEN
-    IF NEW.verified_by IS NULL OR NEW.verified_by=NEW.created_by THEN
-      RAISE EXCEPTION 'Independent reviewer required for country requirement verification' USING ERRCODE='23514';
-    END IF;
-    IF NEW.regulatory_source_id IS NULL OR NOT EXISTS(
-      SELECT 1 FROM public.regulatory_sources s WHERE s.id=NEW.regulatory_source_id AND s.verification_status='verified'
-    ) THEN
-      RAISE EXCEPTION 'Country requirement must reference a verified regulatory source' USING ERRCODE='23514';
-    END IF;
-    NEW.last_verified_at=COALESCE(NEW.last_verified_at,now());
-  END IF;
-  NEW.updated_at=now();
-  RETURN NEW;
-END $;
-
-DROP TRIGGER IF EXISTS p18_country_requirement_verification_guard ON public.country_export_document_requirements;
-CREATE TRIGGER p18_country_requirement_verification_guard
-BEFORE INSERT OR UPDATE ON public.country_export_document_requirements
-FOR EACH ROW EXECUTE FUNCTION public.p18_guard_country_requirement_verification();
-
-CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_rule_version_lifecycle()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP='UPDATE' THEN
-    IF ROW(NEW.rule_id,NEW.version_number,NEW.regulatory_source_id,NEW.source_locator,
-      NEW.source_url_snapshot,NEW.source_checksum,NEW.rule_summary,NEW.condition_schema,
-      NEW.outcome,NEW.risk_category,NEW.effective_from,NEW.effective_to,NEW.created_by)
-      IS DISTINCT FROM
-      ROW(OLD.rule_id,OLD.version_number,OLD.regulatory_source_id,OLD.source_locator,
-      OLD.source_url_snapshot,OLD.source_checksum,OLD.rule_summary,OLD.condition_schema,
-      OLD.outcome,OLD.risk_category,OLD.effective_from,OLD.effective_to,OLD.created_by) THEN
-      RAISE EXCEPTION 'Regulatory rule version content is immutable; create a new version' USING ERRCODE='23514';
-    END IF;
-    IF OLD.approved_by IS NOT NULL AND NEW.approved_by IS DISTINCT FROM OLD.approved_by THEN
-      RAISE EXCEPTION 'Regulatory rule approval identity is immutable' USING ERRCODE='23514';
+    IF OLD.approved_at IS NOT NULL AND NEW.approved_at IS DISTINCT FROM OLD.approved_at THEN
+      RAISE EXCEPTION 'Regulatory rule approval timestamp is immutable' USING ERRCODE='23514';
     END IF;
     IF NEW.status='approved' AND OLD.status='under_review' THEN
       IF NEW.approved_by IS NULL OR NEW.approved_by=OLD.created_by THEN

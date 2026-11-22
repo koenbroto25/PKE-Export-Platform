@@ -356,8 +356,8 @@ describe("P17-D evidence-backed AIS observations",()=>{
   expect(API).toContain("AIS_SOURCE_RIGHTS_BLOCKED");
   expect(API).toContain("AIS_VESSEL_IDENTITY_MISMATCH");
   expect(API).toContain("freshness_sla_seconds");
-  expect(M106).toContain("maritime_position_review_ck");
+  expect(M106).toContain("vessel_tracking_source_review_stamp_ck");
   expect(M106).toContain("reviewed_by<>created_by");
-  expect(M106).toContain("maritime_position_project_read");
+  expect(M106).toContain("vessel_tracking_accepted_project_read");
  });
 });

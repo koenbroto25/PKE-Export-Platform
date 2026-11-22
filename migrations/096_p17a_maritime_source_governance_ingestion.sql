@@ -36,9 +36,7 @@ CREATE TABLE public.maritime_data_sources (
     NOT enabled OR (
       rights_status='approved'
       AND internal_processing_allowed IS TRUE
-      AND commercial_use_allowed IS TRUE
-      AND customer_display_allowed IS TRUE
-      AND rights_reviewed_by IS NOT NULL
+            AND rights_reviewed_by IS NOT NULL
       AND rights_reviewed_at IS NOT NULL
       AND rights_expires_at IS NOT NULL
       AND rights_expires_at > rights_reviewed_at

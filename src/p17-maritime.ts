@@ -194,27 +194,36 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
 
 
  // P17-B Project-scoped logistics graph and change requests.
+
  app.get("/api/v1/projects/:projectId/pke-logistics/scenarios",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||"");
   if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");
   if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.view")))return;
-  try{
-   const q=await req.db.query(`SELECT sc.*,k.name AS pks_name,k.facility_type,k.operating_status AS pks_operating_status,
-    r.distance_km,r.distance_method,r.estimated_travel_minutes,r.route_notes,
-    po.name AS port_name,po.city AS port_city,po.province AS port_province,
-    t.name AS terminal_name,t.cargo_types AS terminal_cargo_types,
-    s.service_type,s.cargo_type,s.handling_mode,s.status AS loading_status,
-    w.name AS warehouse_name,w.floor_area_m2,w.storage_capacity_mt,w.storage_mode
-    FROM public.p17b_logistics_scenarios sc
-    JOIN public.pks_sites k ON k.id=sc.pks_site_id
-    JOIN public.pks_port_routes r ON r.id=sc.route_id
-    JOIN public.ports po ON po.id=sc.port_id
-    JOIN public.port_terminals t ON t.id=sc.terminal_id
-    JOIN public.port_loading_services s ON s.id=sc.loading_service_id
-    JOIN public.warehouses w ON w.id=sc.warehouse_id
-    WHERE sc.project_id=$1::uuid ORDER BY sc.created_at DESC LIMIT 100`,[p]);
-   return res.json({scenarios:q.rows});
-  }catch{return bad(res,500,"PKE_LOGISTICS_SCENARIO_LIST_FAILED","Unable to load PKE logistics scenarios.");}
+  try{const q=await req.db.query("SELECT * FROM public.p17b_logistics_simulation_scenarios WHERE project_id=$1::uuid ORDER BY updated_at DESC LIMIT 100",[p]);return res.json({scenarios:q.rows});}
+  catch{return bad(res,500,"PKE_LOGISTICS_SCENARIO_LIST_FAILED","Unable to load Project logistics simulations.");}
+ });
+ app.post("/api/v1/projects/:projectId/pke-logistics/simulation-scenarios",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),b=req.body??{},code=str(b.scenarioCode,80),name=str(b.scenarioName,200),graph=b.graph,
+   evidence=Array.isArray(b.sourceEvidence)?b.sourceEvidence:[],assumptions=b.assumptions&&typeof b.assumptions==="object"&&!Array.isArray(b.assumptions)?b.assumptions:{};
+  if(!uuidPattern.test(p)||!code||!name||!graph||typeof graph!=="object"||Array.isArray(graph))
+   return bad(res,400,"INVALID_PKE_LOGISTICS_SCENARIO","Project, scenario code, name and graph object are required.");
+  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  try{const q=await req.db.query("INSERT INTO public.p17b_logistics_simulation_scenarios(project_id,scenario_code,scenario_name,graph,source_evidence,assumptions,simulation_only,scenario_status,created_by,updated_by) VALUES($1::uuid,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,true,'simulation',$7::uuid,$7::uuid) RETURNING *",
+   [p,code,name,JSON.stringify(graph),JSON.stringify(evidence),JSON.stringify(assumptions),req.user?.id]);return res.status(201).json({scenario:q.rows[0]});}
+  catch(e:any){if(e?.code==="23505")return bad(res,409,"PKE_LOGISTICS_SCENARIO_DUPLICATE","Scenario code already exists in this Project.");if(e?.code==="23514")return bad(res,422,"PKE_LOGISTICS_GRAPH_INVALID","Simulation graph must contain all six linked, unverified node types and valid edges.");return bad(res,500,"PKE_LOGISTICS_SCENARIO_CREATE_FAILED","Unable to create simulation scenario.");}
+ });
+ app.patch("/api/v1/projects/:projectId/pke-logistics/simulation-scenarios/:scenarioId",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),id=String(req.params.scenarioId||""),b=req.body??{},graph=b.graph,
+   evidence=Array.isArray(b.sourceEvidence)?b.sourceEvidence:null,
+   assumptions=b.assumptions&&typeof b.assumptions==="object"&&!Array.isArray(b.assumptions)?b.assumptions:null;
+  if(!uuidPattern.test(p)||!uuidPattern.test(id)||(graph!==undefined&&(!graph||typeof graph!=="object"||Array.isArray(graph))))
+   return bad(res,400,"INVALID_PKE_LOGISTICS_SCENARIO_UPDATE","Project, scenario id or graph is invalid.");
+  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  try{const q=await req.db.query("UPDATE public.p17b_logistics_simulation_scenarios SET graph=COALESCE($3::jsonb,graph),source_evidence=COALESCE($4::jsonb,source_evidence),assumptions=COALESCE($5::jsonb,assumptions),scenario_status=COALESCE($6,scenario_status),updated_by=$7::uuid,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid RETURNING *",
+   [id,p,graph===undefined?null:JSON.stringify(graph),evidence===null?null:JSON.stringify(evidence),assumptions===null?null:JSON.stringify(assumptions),["simulation","draft","archived"].includes(b.scenarioStatus)?b.scenarioStatus:null,req.user?.id]);
+   if(!q.rows.length)return bad(res,404,"PKE_LOGISTICS_SCENARIO_NOT_FOUND","Simulation scenario not found in this Project.");
+   return res.json({scenario:q.rows[0]});}
+  catch(e:any){if(e?.code==="23514")return bad(res,422,"PKE_LOGISTICS_GRAPH_INVALID","Simulation graph must retain all six linked, unverified node types and valid edges.");return bad(res,500,"PKE_LOGISTICS_SCENARIO_UPDATE_FAILED","Unable to update simulation scenario.");}
  });
  app.get("/api/v1/projects/:projectId/pke-logistics/change-requests",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||"");

@@ -350,6 +350,10 @@ describe("P17-F Buyer identity and visibility",()=>{
   expect(M105).toContain("buyer_auth_mapping_project_grant_manager_read");
   expect(M105).toContain("('pm','buyer.visibility.manage')");
   expect(M105).toContain("('buyer','buyer.shipment.view')");
+  expect(M105).toContain("buyer_auth_mapping_single_user_uq");
+  expect(M105).toContain("buyer_auth_mapping_single_owner_uq");
+  expect(M105).not.toContain("user_id uuid NOT NULL UNIQUE");
+  expect(API).toContain("m.mapping_status<>'revoked'");
   expect(M105).toContain("INSERT INTO public.permissions(name,code,description,is_active)");
   expect(M105).toContain("INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)");
   expect(API).toContain("buyer-visibility-grant-candidates");

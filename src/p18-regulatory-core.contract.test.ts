@@ -38,7 +38,7 @@ describe("P18 regulatory core contracts",()=>{
   for(const route of ['/api/v1/regulatory-sources','/api/v1/regulatory-rules','/api/v1/regulatory-rule-versions/:versionId/approve','/api/v1/regulatory-rule-versions/:versionId/activate','/api/v1/country-document-requirements','/api/v1/export-document-types'])
    expect(api).toContain(route);
   expect(api).toContain('REGULATORY_MAKER_CHECKER_REQUIRED');
-  expect(api).toContain('p18_guard_regulatory_rule_version_lifecycle');
+  expect(migration).toContain('p18_guard_regulatory_rule_version_lifecycle');
  });
  it("defines runtime RLS write policies and immutable review guards in migration 111",()=>{
   for(const token of ['reason_code text','p18_regulatory_assessment_review_guard','p18_regulatory_assessment_result_review_guard','p18_regulatory_sources_insert','p18_regulatory_rules_insert','p18_regulatory_rule_versions_insert','p18_export_document_types_insert','p18_country_document_requirements_insert','p18_country_requirement_verification_guard','p18_regulatory_rule_version_lifecycle_guard'])

@@ -31,7 +31,7 @@ export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:bo
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const refresh=async()=>{
   if(!platformAdmin)return;
-  try{const r=await get<{sources?:Source[]}>("/admin/maritime/sources");const rows=Array.isArray(r.sources)?r.sources:[];setSources(rows);setRights(v=>{const next={...v};for(const s of rows)if(!next[s.id])next[s.id]=makeRights(s);return next;});}
+  try{const r=await get<{sources?:Source[]}>("/admin/maritime/sources");const rows=Array.isArray(r.sources)?r.sources:[];setSources(rows);setRights(v=>{const next={...v};for(const s of rows)next[s.id]=makeRights(s);return next;});}
   catch(e:any){setError(e?.message||"Registry sumber maritim gagal dimuat.");}
  };
  useEffect(()=>{void refresh();},[platformAdmin]);

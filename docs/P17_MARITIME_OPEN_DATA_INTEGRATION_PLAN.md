@@ -675,3 +675,17 @@ The `GET /api/v1/port-routes` response now exposes `pke_loading_service_verified
 - Provider activation, bulk import, Production changes, Vercel deployment and PR merge remain out of scope. External source rights must be approved in P17-A before any dataset can be staged/promoted.
 
 **P17-B status:** database foundation applied; route prioritization API/UI implemented; full CI and positive/negative data-backed acceptance pending. No national port catalogue or producer list is yet represented as complete/verified.
+
+
+### 16.5 P17-B database and CI acceptance (22 November 2026)
+
+
+**Result: DATABASE / CONTRACT / CI ACCEPTANCE PASS; LIVE HTTP / BROWSER ACCEPTANCE NOT RUN.**
+- Migration 098 is present in the UAT ledger with exact SHA-256; `migration_history_manifest_uat_001_098.json` reconciles 98/98 rows (16 baseline, 82 applied), zero mismatches.
+- UAT catalog confirms both P17-B tables, forced RLS, expected admin/project policies, FK/unique/check constraints, route geometry FK, distance method constraint and priority index. The UAT tables remain empty; no operational or public data has been promoted.
+- Isolated validation branch `p17a-e-uat-validation-20261122` positive tests: approved synthetic source and field-purpose rights, port-ID crosswalk creation/match review, GeoJSON feature creation/verification. Negative tests: missing independent review stamp and GeoJSON without coordinates rejected by database constraints. Runtime `app_runtime_secure`: PM principal sees zero global crosswalk/untethered geometry rows; Platform Admin sees the synthetic test rows. Synthetic records remain isolated to that branch.
+- The route-priority SQL was executed against UAT successfully; it returned zero rows because there are no verified PKS–port route records in UAT. This is expected and does not represent a live route recommendation.
+- GitHub Unit Tests passed on final P17-B head `d0fa87b8611ceae2d6fb82e6aa2bf0d2378edad3`: 46 test files / 416 tests; migration dry-run, backend API typecheck, frontend typecheck and frontend build passed. Dependency Audit Evidence also passed.
+- P17-B API routes for crosswalk and geospatial staging/review are Platform Admin authenticated; rights and field-purpose checks are fail-closed; maker-checker review is enforced in API. UI route panel shows PKE primary reference only when the full evidence gate passes.
+
+**Remaining release gates:** live authenticated HTTP/API UAT, Project-positive geospatial visibility test with a real approved Project-port link, source-rights approval for the selected national datasets, port master reconciliation/import, and real producer/PKS data onboarding. Vercel and Production remain untouched; no PR merge, provider activation or paid subscription.

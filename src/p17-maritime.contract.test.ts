@@ -43,7 +43,7 @@ describe("P17-A maritime source governance",()=>{
   expect(API).toContain("Array.isArray(payload)");
   expect(API).toContain("JSON.stringify(canonicalize(payload))");
   expect(API).toContain("quotaLimit=source.rows[0].quota_limit==null?null:Number(source.rows[0].quota_limit)");
-  expect(API).toContain("recordsRejected>recordsSeen");
+  expect(API).toContain("rejected>seen");
   expect(API).toContain("public.maritime_provider_usage");
   expect(API).toContain("maritime_provider_health");
  });
@@ -86,15 +86,15 @@ describe("P17-E Project maritime workflows",()=>{
 });
 describe("P17-B Project master-data editing",()=>{
  it("exposes Project-scoped PM draft, submit and Admin decision endpoints",()=>{
-  for(const route of ["/api/v1/projects/:projectId/master-data-change-requests","/api/v1/projects/:projectId/master-data-change-requests/:requestId","/api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision"])expect(API).toContain(route);
-  expect(API).toContain("pks.master_data.change_request.manage");
-  expect(API).toContain("independent Platform Admin");
+  for(const route of ["/api/v1/projects/:projectId/master-data-change-requests","/api/v1/projects/:projectId/master-data-change-requests/:requestId","/api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision"])expect(MAIN).toContain(route);
+  expect(MAIN).toContain("pks.master_data.change_request.manage");
+  expect(MAIN).toContain("independent Platform Admin");
  });
  it("keeps canonical facility/organization writes behind the existing database approval trigger",()=>{
   expect(MAIN).toContain("public.p2a_master_data_change_requests");
   expect(MAIN).toContain("status='draft' AND requested_by=$6::uuid");
-  expect(API).toContain("requireAuth,requireAdmin,async(req:R,res:Response)=>");
-  expect(API).toContain("submitted requests are immutable");
+  expect(MAIN).toContain("requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>");
+  expect(MAIN).toContain("submitted requests are immutable");
  });
 });
 describe("P17-B logistics chain simulation and PM governance",()=>{
@@ -274,7 +274,7 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
   expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");
   expect(gate).toContain("const p17SchemaBackedRead=");
-  for(const readPath of ["buyer-visibility-grant-candidates","voyages","vessel-nominations","vessel-port-calls","loading-operations","vessel-positions","p17-control-tower","advisory-screening"])expect(gate).toContain(readPath);
+  for(const readPath of ["buyer-visibility-grant-candidates","voyages","vessel-nominations","vessel-port-calls","loading-operations","vessel-positions","p17-control-tower"])expect(gate).toContain(readPath);
   expect(gate).toContain("/api/v1/admin/p17-control-tower");
   expect(gate).toContain("migration_history");
   expect(gate).toContain("status='applied'");

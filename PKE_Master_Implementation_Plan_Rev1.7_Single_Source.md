@@ -1,14 +1,14 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.27 — P17 atomic Production release package and UAT maker-checker acceptance
+# Master Implementation Plan Rev2.28 — P17 Production atomic release, runtime RLS backtest and AIS corrective migration
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.27 (22 November 2026 — P17 exact source reconciliation, 096–109 atomic release runner and PM maker-checker acceptance)  
+**Revision:** 2.28 (23 November 2026 — P17 prerequisites + 096–109 applied atomically; Production RLS and workflow backtest; AIS runtime RLS correction prepared and UAT-tested)  
 
-**Tanggal dokumen:** 22 November 2026  
+**Tanggal dokumen:** 23 November 2026  
 
 **Repository:** `D:\PKE`  
 
@@ -8540,3 +8540,43 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 **Production release status:** Not yet applied. Owner approval already covers migrations 096–107. Migrations 108–109 are required to remove the two RLS recursion defects found by UAT; the runner will not apply them to Production without a separate explicit owner approval of their exact combined SHA-256 `7875b384728dc34412df92e1188e40902f252e9c94583056f61c3e23ee3596dd`. Once approved, apply the complete 096–109 package atomically; do not apply 096–107 alone because that would leave the Buyer RLS recursion defects in place.
 
 **Remaining P17 operational gates after database release:** authenticated HTTP/API acceptance without Vercel deployment; external data-source legal rights and credentials; real port/PKS/terminal/warehouse/road evidence; live AIS source permission and freshness; real Buyer Neon Auth mapping and visibility grants; genuine loading survey, quantity reconciliation, NOR and laytime evidence with independent reviewer acceptance. These must remain fail-closed and must not be fabricated. Browser UAT and Vercel remain skipped as instructed.
+
+
+### 32.x P17 Production release and RLS/backtest — 23 November 2026
+
+**FACT — VERIFIED: Production prerequisites and P17 096–109 applied**
+
+- Canonical Production target remains Neon project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, database `neondb`. Snapshot `P17-pre-096-109-20261122` was retained; no restore was performed.
+- Production ledger now contains 70 sequential rows. IDs 54–56 are prerequisite adaptations: `054_complete_project_permission_boundary_prod_compat.sql` (absent `app_runtime` role handled without changing permissions for existing `app_runtime_secure`), `072_p2a_project_pks_participation_prod_no_fixtures.sql` (Project PKS participation schema/permissions, synthetic fixture block omitted), and `083_p2b_port_warehouse_governance_prod.sql`.
+- P17 migrations 096–109 were applied in one atomic transaction at Production ledger IDs 57–70. All 14 SQL files matched their pinned SHA-256 hashes before application and the live ledger matched every filename/hash/status after commit.
+- Canonical Production manifests: `migration_history_manifest_001_056.json` (pre-P17 baseline) and `migration_history_manifest_001_070.json` (current live ledger). The historical 001–053 manifest remains unchanged. Release manifest `migration_release_manifest_p17_096_109.json` is reconciled to IDs 57–70 and records owner approval for all 096–109, including 108–109.
+- Production-safe prerequisite hashes: 054 compat `6eb46885dee0640874c14ab1bb4f6f6eb9a9dc7f35945c3d139b9c5d571a7325`; 072 no-fixtures `01501575229d5a963ccb12aa4076de04249288eb5af0573e961af2bf2173b58e`; 083 governance `6587ae132c376b66a48a6fa4be0dc91717b7fdd4099894572baa067fafe18500`.
+- No synthetic PKS/vendor/capacity fixture was inserted in Production. Existing Production business rows were preserved.
+
+**FACT — VERIFIED: Production runtime RLS and workflow backtests**
+
+- Runtime role `app_runtime_secure`: 16 protected-table reads with no request context returned zero rows without recursion/error. Viewer context on Project B returned zero rows across all 16 tested protected tables and false for logistics view/change, Buyer visibility manage and survey review. PM context on Project A retained the expected pre-existing operational rows and returned true for required P17 logistics, Buyer visibility, voyage, nomination review, port-call, survey, laytime and port/route permissions.
+- Permission allowlist reconciliation: zero existing Project role grants fall outside the canonical allowlist.
+- P17-B PM maker-checker passed in Production: PM created/submitted a port-create request; the same requester could not approve it; a separate Platform Admin approved it; the trigger populated reviewer/applied stamps and a target port ID. The test request and candidate port were rolled back to a SAVEPOINT. The applied target remains designed to require its own independent evidence verification and is not treated as verified.
+- P17-B graph validator passed a rollback-only 6-node/5-edge simulation insert; a deliberately invalid edge semantic was rejected. No test scenario persisted.
+- P17-F Buyer RLS: Buyer self-read and PM read paths executed without recursion; no Buyer mapping/grant exists. Attempted self-mapping was rejected because the user has no linked Neon Auth identity. Mapping/grant counts remain zero.
+- P17-A rights guard: enabling a test AIS source without approved/evidenced rights was rejected; the temporary source was rolled back. Production has zero maritime data sources enabled and no AIS source positions with a licensed `source_id`.
+- P17-E nomination: invalid skip-state transition was rejected; valid `submitted → identity_verified` independent PM review passed with reviewer/version stamps in a rollback-only transaction. Port-call identity mutation was rejected.
+- P17-E loading: a temporary pending quantity-reconciliation acceptance was created in a rollback-only transaction. Self-review was rejected; a distinct reviewer acceptance was rejected because there are no verified loading tickets/completed segments to substantiate quantity. No acceptance persisted.
+- After all backtests, the existing Production nomination remains `submitted`, version 1; the legacy tracking position remains pending with `source_id=NULL`; no test request, scenario, source, mapping, grant, acceptance, or port candidate persisted.
+
+**P17-D corrective finding and current gate**
+
+- Production backtest found migration 106 created the AIS provenance/acceptance trigger and grants but did not create runtime INSERT/UPDATE RLS policies on `vessel_tracking_positions`. Runtime reads were fail-closed, but the intended licensed-AIS ingestion and independent review path could not execute under `app_runtime_secure`.
+- Corrective migration `110_p17d_vessel_position_runtime_rls_fix.sql` was created and applied to UAT only. UAT positive backtest passed: temporary rights-approved synthetic UAT source, field-purpose permissions, AIS observation ingestion by Platform Admin, independent PM acceptance, accepted-position Project visibility, payload immutability rejection; all writes and voyage linkage were rolled back. UAT ledger is now 001–110 and `migration_history_manifest_uat_001_110.json` records it.
+- Migration 110 is **NOT applied to Production**. It requires a separate owner approval because it is a new corrective Production migration beyond the approved 096–109 package. Until approved and applied, licensed AIS ingestion/review remains blocked at runtime. Do not bypass RLS or enable AIS providers to work around this.
+- Migration runner was converted to a post-release verifier: `dry-run` validates exact pinned source hashes; `verify` compares live Production ledger 001–070; replay mode is disabled because 096–109 are already applied. Root package test includes release manifest and dry-run checks.
+
+**External/business gates remain fail-closed**
+
+- Real provider legal rights, license scope, terms, credentials and current freshness are not supplied; no source may be enabled.
+- Production has no Project PKS participation link or verified PKS/port/terminal/warehouse/road evidence. Global port master contains the pre-existing port only; no port-to-PKS route or geospatial crosswalk was fabricated.
+- Buyer mappings/grants remain zero pending real Neon Auth identity linking and explicit Project visibility decisions.
+- Loading survey, quantity reconciliation, NOR and laytime acceptance remain unavailable until genuine private evidence is uploaded and independently reviewed.
+- Vercel deployment and browser UAT remain skipped per owner instruction. Authenticated HTTP/API acceptance is still a separate application-level gate.
+- Therefore the P17 database foundation 096–109 is applied and its available runtime backtests pass, but P17 is **not yet fully operational/application complete** until migration 110 is owner-approved/applied and the external evidence/identity/API gates are satisfied. Do not label business production ready.

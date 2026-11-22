@@ -9,6 +9,7 @@ const E=readFileSync(join(ROOT,"migrations","097_p17e_project_maritime_workflows
 const M104=readFileSync(join(ROOT,"migrations","104_p17e_nomination_submission_guard.sql"),"utf8");
 const M105=readFileSync(join(ROOT,"migrations","105_p17f_buyer_identity_and_grant_audit.sql"),"utf8");
 const M106=readFileSync(join(ROOT,"migrations","106_p17d_vessel_position_observations.sql"),"utf8");
+const M107=readFileSync(join(ROOT,"migrations","107_p17e_loading_survey_reconciliation_laytime.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
@@ -252,8 +253,8 @@ describe("P17 schema release safety gate",()=>{
   const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));
   expect(gate).toContain('app.use(p17WriteReleaseGate)');
   expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
-  expect(gate).toContain("migrations 096-106");
-  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","admin/projects/"]) expect(gate).toContain(fragment);
+  expect(gate).toContain("migrations 096-107");
+  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin/projects/"]) expect(gate).toContain(fragment);
   expect(gate).toContain('if(!["POST","PUT","PATCH","DELETE"].includes(req.method)) return next()');
  });
  it("does not install a broad /projects write block",()=>{
@@ -275,7 +276,8 @@ describe("P17 migration atomicity",()=>{
   ["103",readFileSync(join(ROOT,"migrations","103_p17b_logistics_simulation_edge_semantics.sql"),"utf8")],
   ["104",M104],
   ["105",M105],
-  ["106",M106]
+  ["106",M106],
+  ["107",M107]
  ])("wraps migration %s in a single transaction",(_id,sql)=>{
   expect(sql.trimStart()).toMatch(/^--[\s\S]*?BEGIN;/);
   expect(sql.trimEnd()).toMatch(/COMMIT;$/);
@@ -359,5 +361,23 @@ describe("P17-D evidence-backed AIS observations",()=>{
   expect(M106).toContain("vessel_tracking_source_review_stamp_ck");
   expect(M106).toContain("reviewed_by<>created_by");
   expect(M106).toContain("vessel_tracking_accepted_project_read");
+ });
+});
+
+describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
+ it("provides Project-scoped acceptance and evidence APIs",()=>{
+  expect(API).toContain("/loading-operations/:operationId/unit");
+  expect(API).toContain("/loading-operations/:operationId/acceptances");
+  expect(API).toContain("LOADING_TICKETS_NOT_VERIFIED");
+  expect(API).toContain("LOADING_ACCEPTANCE_MAKER_CHECKER");
+  expect(API).toContain("LAYTIME_EVIDENCE_INVALID");
+  expect(API).toContain("quantity_variance");
+ });
+ it("enforces immutable evidence, independent reviewers and no acceptance with quantity variance",()=>{
+  expect(M107).toContain("loading_operation_acceptances");
+  expect(M107).toContain("reviewed_by<>submitted_by");
+  expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");
+  expect(M107).toContain("loading_acceptance_admin_all");
+  expect(M107).toContain("loading_operations_unit_guard");
  });
 });

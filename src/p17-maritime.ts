@@ -17,6 +17,7 @@ const validGeoJson=(featureType:string,g:any):boolean=>{
  if(["road_access","road_route"].includes(featureType))return (g.type==="LineString"&&geoLine(g.coordinates))||(g.type==="MultiLineString"&&Array.isArray(g.coordinates)&&g.coordinates.length>0&&g.coordinates.every(geoLine));
  return false;
 };
+const validSimulationEvidence=(items:any):boolean=>Array.isArray(items)&&items.length<=100&&items.every((item:any)=>item&&typeof item==="object"&&!Array.isArray(item)&&str(item.publisher,160).length>=2&&str(item.claim,2000).length>=5&&str(item.scope,500).length>=3&&/^https?:\/\//i.test(str(item.url,1000)));
 const validateSimulationGraph=(g:any):boolean=>{
  if(!g||typeof g!=="object"||Array.isArray(g)||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length<6||g.edges.length<5)return false;
  const required=["pks_site","road_route","port","terminal","loading_service","warehouse"],types=new Set<string>(),ids=new Set<string>();
@@ -127,7 +128,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   });
   app.post("/api/v1/projects/:projectId/pke-logistics/simulation-scenarios",requireAuth,async(req:R,res:Response)=>{
    const p=req.params.projectId,b=req.body||{},code=str(b.scenarioCode,80),name=str(b.scenarioName,200),graph=b.graph,evidence=b.sourceEvidence,assumptions=b.assumptions;
-   if(!uuidPattern.test(p)||!code||name.length<2||!validateSimulationGraph(graph)||!Array.isArray(evidence)||!assumptions||typeof assumptions!=="object"||Array.isArray(assumptions)||JSON.stringify(graph).length>250000||JSON.stringify(evidence).length>65536||JSON.stringify(assumptions).length>65536)return bad(res,400,"P17B_SIMULATION_INPUT_INVALID","Scenario requires a complete six-stage simulation graph, source evidence array and assumptions object.");
+   if(!uuidPattern.test(p)||!code||name.length<2||!validateSimulationGraph(graph)||!validSimulationEvidence(evidence)||!assumptions||typeof assumptions!=="object"||Array.isArray(assumptions)||JSON.stringify(graph).length>250000||JSON.stringify(evidence).length>65536||JSON.stringify(assumptions).length>65536)return bad(res,400,"P17B_SIMULATION_INPUT_INVALID","Scenario requires a complete six-stage simulation graph, source evidence array and assumptions object.");
    if(!await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage"))return;
    try{const q=await req.db.query("INSERT INTO public.p17b_logistics_simulation_scenarios(project_id,scenario_code,scenario_name,graph,source_evidence,assumptions,simulation_only,scenario_status,created_by,updated_by) VALUES($1::uuid,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,true,'simulation',req_user_id(),req_user_id()) RETURNING *",[p,code,name,JSON.stringify(graph),JSON.stringify(evidence),JSON.stringify(assumptions)]);return res.status(201).json({scenario:q.rows[0],operationalUseAllowed:false});}
    catch(e:any){if(e?.code==="23505")return bad(res,409,"P17B_SCENARIO_DUPLICATE","Scenario code already exists in this Project.");if(e?.code==="23514"||e?.code==="42501")return bad(res,400,"P17B_SIMULATION_GRAPH_REJECTED","Database graph guard rejected the simulation.");return bad(res,500,"P17B_SIMULATION_CREATE_FAILED","Unable to create Project simulation.");}

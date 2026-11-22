@@ -22,6 +22,7 @@ const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8"
 const WORKSPACE=readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8");
 const WORKFLOW_ACTIONS=readFileSync(join(ROOT,"frontend","src","P17WorkflowActions.tsx"),"utf8");
 const AIS_ADMIN_UI=readFileSync(join(ROOT,"frontend","src","P17AisAdminPanel.tsx"),"utf8");
+const BUYER_UI=readFileSync(join(ROOT,"frontend","src","P17BuyerVisibilityPanel.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -587,5 +588,18 @@ describe("P17-D AIS admin API and UI",()=>{
   expect(AIS_ADMIN_UI).toContain("payloadSha256");
   expect(AIS_ADMIN_UI).toContain("maker-checker");
   expect(WORKSPACE).toContain("P17AisAdminPanel");
+ });
+});
+
+
+describe("P17-F Buyer identity and visibility UI",()=>{
+ it("provides explicit Auth identity mapping review and Project-scoped grant management",()=>{
+  expect(WORKSPACE).toContain("P17BuyerVisibilityPanel");
+  expect(BUYER_UI).toContain("/admin/buyer-auth-mappings");
+  expect(BUYER_UI).toContain("eligibleUsers");
+  expect(BUYER_UI).toContain("Approve mapping");
+  expect(BUYER_UI).toContain("/buyer-visibility-grants");
+  expect(BUYER_UI).toContain("buyer.visibility.manage");
+  expect(BUYER_UI).toContain("Revoke grant");
  });
 });

@@ -34,23 +34,28 @@ WHERE p.code IN ('project.view','documents.view','shipment.view','shipping.view'
  'regulatory.rule.manage','regulatory.rule.version.create','regulatory.document.view','regulatory.document.manage')
 ON CONFLICT(role_code,permission_code) DO NOTHING;
 
+CREATE OR REPLACE FUNCTION public.p18_has_regulatory_permission(permission_code text)
+RETURNS boolean LANGUAGE sql STABLE AS $
+  SELECT public.pke_is_platform_admin() OR public.p18_has_regulatory_permission(permission_code)
+$;
+
 DROP POLICY IF EXISTS pke_regulatory_sources_read ON public.regulatory_sources;
 CREATE POLICY pke_regulatory_sources_read ON public.regulatory_sources
 FOR SELECT TO app_runtime_secure
 USING (
   (verification_status IN ('verified','approved') AND (
-    public.pke_has_any_project_permission('regulatory.source.view')
-    OR public.pke_has_any_project_permission('regulatory.rule.view')
-    OR public.pke_has_any_project_permission('compliance.view')
+    public.p18_has_regulatory_permission('regulatory.source.view')
+    OR public.p18_has_regulatory_permission('regulatory.rule.view')
+    OR public.p18_has_regulatory_permission('compliance.view')
   ))
-  OR public.pke_has_any_project_permission('regulatory.source.manage')
+  OR public.p18_has_regulatory_permission('regulatory.source.manage')
 );
 
 DROP POLICY IF EXISTS p18_regulatory_sources_insert ON public.regulatory_sources;
 CREATE POLICY p18_regulatory_sources_insert ON public.regulatory_sources
 FOR INSERT TO app_runtime_secure
 WITH CHECK (
-  public.pke_has_any_project_permission('regulatory.source.manage')
+  public.p18_has_regulatory_permission('regulatory.source.manage')
   AND verification_status='pending' AND status='draft'
   AND reviewer_id IS NULL
   AND (created_by IS NULL OR created_by=public.pke_current_user_id())
@@ -59,47 +64,47 @@ WITH CHECK (
 DROP POLICY IF EXISTS p18_regulatory_sources_update ON public.regulatory_sources;
 CREATE POLICY p18_regulatory_sources_update ON public.regulatory_sources
 FOR UPDATE TO app_runtime_secure
-USING (public.pke_has_any_project_permission('regulatory.source.manage'))
-WITH CHECK (public.pke_has_any_project_permission('regulatory.source.manage'));
+USING (public.p18_has_regulatory_permission('regulatory.source.manage'))
+WITH CHECK (public.p18_has_regulatory_permission('regulatory.source.manage'));
 
 DROP POLICY IF EXISTS pke_scope_select ON public.regulatory_rules;
 CREATE POLICY pke_scope_select ON public.regulatory_rules
 FOR SELECT TO app_runtime_secure
 USING (
   (status IN ('approved','effective') AND (
-    public.pke_has_any_project_permission('regulatory.rule.view')
-    OR public.pke_has_any_project_permission('compliance.view')
+    public.p18_has_regulatory_permission('regulatory.rule.view')
+    OR public.p18_has_regulatory_permission('compliance.view')
   ))
-  OR public.pke_has_any_project_permission('regulatory.rule.manage')
+  OR public.p18_has_regulatory_permission('regulatory.rule.manage')
 );
 
 DROP POLICY IF EXISTS p18_regulatory_rules_insert ON public.regulatory_rules;
 CREATE POLICY p18_regulatory_rules_insert ON public.regulatory_rules
 FOR INSERT TO app_runtime_secure
-WITH CHECK (public.pke_has_any_project_permission('regulatory.rule.manage'));
+WITH CHECK (public.p18_has_regulatory_permission('regulatory.rule.manage'));
 
 DROP POLICY IF EXISTS p18_regulatory_rules_update ON public.regulatory_rules;
 CREATE POLICY p18_regulatory_rules_update ON public.regulatory_rules
 FOR UPDATE TO app_runtime_secure
-USING (public.pke_has_any_project_permission('regulatory.rule.manage'))
-WITH CHECK (public.pke_has_any_project_permission('regulatory.rule.manage'));
+USING (public.p18_has_regulatory_permission('regulatory.rule.manage'))
+WITH CHECK (public.p18_has_regulatory_permission('regulatory.rule.manage'));
 
 DROP POLICY IF EXISTS pke_scope_select ON public.regulatory_rule_versions;
 CREATE POLICY pke_scope_select ON public.regulatory_rule_versions
 FOR SELECT TO app_runtime_secure
 USING (
   (status IN ('approved','effective') AND (
-    public.pke_has_any_project_permission('regulatory.rule.view')
-    OR public.pke_has_any_project_permission('compliance.view')
+    public.p18_has_regulatory_permission('regulatory.rule.view')
+    OR public.p18_has_regulatory_permission('compliance.view')
   ))
-  OR public.pke_has_any_project_permission('regulatory.rule.manage')
+  OR public.p18_has_regulatory_permission('regulatory.rule.manage')
 );
 
 DROP POLICY IF EXISTS p18_regulatory_rule_versions_insert ON public.regulatory_rule_versions;
 CREATE POLICY p18_regulatory_rule_versions_insert ON public.regulatory_rule_versions
 FOR INSERT TO app_runtime_secure
 WITH CHECK (
-  public.pke_has_any_project_permission('regulatory.rule.version.create')
+  public.p18_has_regulatory_permission('regulatory.rule.version.create')
   AND status='draft'
   AND approved_by IS NULL AND approved_at IS NULL
   AND (created_by IS NULL OR created_by=public.pke_current_user_id())
@@ -108,14 +113,14 @@ WITH CHECK (
 DROP POLICY IF EXISTS p18_regulatory_rule_versions_update ON public.regulatory_rule_versions;
 CREATE POLICY p18_regulatory_rule_versions_update ON public.regulatory_rule_versions
 FOR UPDATE TO app_runtime_secure
-USING (public.pke_has_any_project_permission('regulatory.rule.manage'))
-WITH CHECK (public.pke_has_any_project_permission('regulatory.rule.manage'));
+USING (public.p18_has_regulatory_permission('regulatory.rule.manage'))
+WITH CHECK (public.p18_has_regulatory_permission('regulatory.rule.manage'));
 
 DROP POLICY IF EXISTS p18_regulatory_rule_conditions_insert ON public.regulatory_rule_conditions;
 CREATE POLICY p18_regulatory_rule_conditions_insert ON public.regulatory_rule_conditions
 FOR INSERT TO app_runtime_secure
 WITH CHECK (
-  public.pke_has_any_project_permission('regulatory.rule.version.create')
+  public.p18_has_regulatory_permission('regulatory.rule.version.create')
   AND EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status='draft')
 );
 
@@ -123,7 +128,7 @@ DROP POLICY IF EXISTS p18_regulatory_rule_documents_insert ON public.regulatory_
 CREATE POLICY p18_regulatory_rule_documents_insert ON public.regulatory_rule_documents
 FOR INSERT TO app_runtime_secure
 WITH CHECK (
-  public.pke_has_any_project_permission('regulatory.rule.version.create')
+  public.p18_has_regulatory_permission('regulatory.rule.version.create')
   AND EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status='draft')
 );
 
@@ -133,11 +138,11 @@ FOR SELECT TO app_runtime_secure
 USING (
   (
     EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('approved','effective'))
-    AND (public.pke_has_any_project_permission('regulatory.rule.view') OR public.pke_has_any_project_permission('compliance.view'))
+    AND (public.p18_has_regulatory_permission('regulatory.rule.view') OR public.p18_has_regulatory_permission('compliance.view'))
   )
   OR (
     EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('draft','under_review','rejected'))
-    AND public.pke_has_any_project_permission('regulatory.rule.manage')
+    AND public.p18_has_regulatory_permission('regulatory.rule.manage')
   )
 );
 
@@ -146,40 +151,40 @@ CREATE POLICY pke_scope_select ON public.regulatory_rule_documents
 FOR SELECT TO app_runtime_secure
 USING (
   (EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('approved','effective')))
-  AND (public.pke_has_any_project_permission('regulatory.rule.view')
-    OR public.pke_has_any_project_permission('compliance.view')
-    OR public.pke_has_any_project_permission('regulatory.rule.manage'))
+  AND (public.p18_has_regulatory_permission('regulatory.rule.view')
+    OR public.p18_has_regulatory_permission('compliance.view')
+    OR public.p18_has_regulatory_permission('regulatory.rule.manage'))
 );
 
 DROP POLICY IF EXISTS pke_country_document_requirements_read ON public.country_export_document_requirements;
 CREATE POLICY pke_country_document_requirements_read ON public.country_export_document_requirements
 FOR SELECT TO app_runtime_secure
 USING (
-  (status IN ('verified','active') AND public.pke_has_any_project_access())
-  OR public.pke_has_any_project_permission('regulatory.document.manage')
+  (status IN ('verified','active') AND (public.pke_is_platform_admin() OR public.pke_has_any_project_access()))
+  OR public.p18_has_regulatory_permission('regulatory.document.manage')
 );
 
 DROP POLICY IF EXISTS pke_export_document_types_member_read ON public.export_document_types;
 CREATE POLICY pke_export_document_types_member_read ON public.export_document_types
 FOR SELECT TO app_runtime_secure
-USING (public.pke_has_any_project_access() OR public.pke_has_any_project_permission('regulatory.document.manage'));
+USING (public.pke_is_platform_admin() OR public.pke_has_any_project_access() OR public.p18_has_regulatory_permission('regulatory.document.manage'));
 
 DROP POLICY IF EXISTS p18_export_document_types_insert ON public.export_document_types;
 CREATE POLICY p18_export_document_types_insert ON public.export_document_types
 FOR INSERT TO app_runtime_secure
-WITH CHECK (public.pke_has_any_project_permission('regulatory.document.manage'));
+WITH CHECK (public.p18_has_regulatory_permission('regulatory.document.manage'));
 
 DROP POLICY IF EXISTS p18_export_document_types_update ON public.export_document_types;
 CREATE POLICY p18_export_document_types_update ON public.export_document_types
 FOR UPDATE TO app_runtime_secure
-USING (public.pke_has_any_project_permission('regulatory.document.manage'))
-WITH CHECK (public.pke_has_any_project_permission('regulatory.document.manage'));
+USING (public.p18_has_regulatory_permission('regulatory.document.manage'))
+WITH CHECK (public.p18_has_regulatory_permission('regulatory.document.manage'));
 
 DROP POLICY IF EXISTS p18_country_document_requirements_insert ON public.country_export_document_requirements;
 CREATE POLICY p18_country_document_requirements_insert ON public.country_export_document_requirements
 FOR INSERT TO app_runtime_secure
 WITH CHECK (
-  public.pke_has_any_project_permission('regulatory.document.manage')
+  public.p18_has_regulatory_permission('regulatory.document.manage')
   AND status='draft' AND verification_status='pending' AND verified_by IS NULL
   AND (created_by IS NULL OR created_by=public.pke_current_user_id())
 );
@@ -187,8 +192,8 @@ WITH CHECK (
 DROP POLICY IF EXISTS p18_country_document_requirements_update ON public.country_export_document_requirements;
 CREATE POLICY p18_country_document_requirements_update ON public.country_export_document_requirements
 FOR UPDATE TO app_runtime_secure
-USING (public.pke_has_any_project_permission('regulatory.document.manage'))
-WITH CHECK (public.pke_has_any_project_permission('regulatory.document.manage'));
+USING (public.p18_has_regulatory_permission('regulatory.document.manage'))
+WITH CHECK (public.p18_has_regulatory_permission('regulatory.document.manage'));
 
 DROP POLICY IF EXISTS p18_regulatory_audit_read ON public.audit_events;
 CREATE POLICY p18_regulatory_audit_read ON public.audit_events
@@ -196,10 +201,10 @@ FOR SELECT TO app_runtime_secure
 USING (
   source='p18_regulatory_core'
   AND (
-    public.pke_has_any_project_permission('regulatory.source.view')
-    OR public.pke_has_any_project_permission('regulatory.rule.view')
-    OR public.pke_has_any_project_permission('regulatory.document.view')
-    OR public.pke_has_any_project_permission('compliance.view')
+    public.p18_has_regulatory_permission('regulatory.source.view')
+    OR public.p18_has_regulatory_permission('regulatory.rule.view')
+    OR public.p18_has_regulatory_permission('regulatory.document.view')
+    OR public.p18_has_regulatory_permission('compliance.view')
   )
 );
 

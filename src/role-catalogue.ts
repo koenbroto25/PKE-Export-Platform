@@ -214,6 +214,11 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   role("document_officer", "Document Officer", "governance", ["project.view","document.view","document.download","documents.view","documents.create","documents.update","documents.upload","documents.verify","documents.manage"], ["Document lifecycle only; no Finance, Accounting or payment execution grants."]),
   role("external_provider", "External Provider", "procurement", ["project.view","document.view","document.download","documents.view","documents.create","documents.upload","view_published_docs"], ["External assigned-document scope only."], { classification: "external" }),
   role("field_manager", "Field Manager", "warehouse_logistics", ["project.view","logistics.view","logistics.create","logistics.update","operations.view","operations.update","record_truck_trips","verify_checkpoints","shipment.event.create"], ["Field execution and logistics scope only."]),
+  role("regulatory_compliance_officer", "Regulatory & Compliance Officer", "governance", [
+    "project.view", "documents.view", "compliance.view", "compliance.assess",
+    "regulatory.source.view", "regulatory.source.manage", "regulatory.rule.view",
+    "regulatory.rule.manage", "regulatory.rule.version.create",
+  ], ["May draft and maintain source/rule records. Approval must be performed by a different authenticated reviewer; verified legal sources remain subject to external legal confirmation."]),
   role("viewer", "Viewer", "governance", ["project.view","documents.view","inventory.view","report.view","reports.view","shipment.view","shipping.view"], ["Read-only Project visibility."], { classification: "external" }),
 ] as const;
 

@@ -10,8 +10,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS voyages_project_code_uq ON public.voyages(proj
 CREATE UNIQUE INDEX IF NOT EXISTS voyages_project_idempotency_uq ON public.voyages(project_id,idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS voyages_project_id_uq ON public.voyages(project_id,id);
 
-ALTER TABLE public.shipments ADD CONSTRAINT shipments_project_id_uq UNIQUE(project_id,id);
-
 ALTER TABLE public.vessel_nominations
   ADD COLUMN IF NOT EXISTS idempotency_key text,
   ADD COLUMN IF NOT EXISTS decision_note text,

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.26 — P17 project-context UAT acceptance and migration ledger reconciliation
+# Master Implementation Plan Rev2.27 — P17 atomic Production release package and UAT maker-checker acceptance
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.26 (22 November 2026 — P17 project-context PM/viewer acceptance, simulation/change-request write-path and ledger reconciliation)  
+**Revision:** 2.27 (22 November 2026 — P17 exact source reconciliation, 096–109 atomic release runner and PM maker-checker acceptance)  
 
 **Tanggal dokumen:** 22 November 2026  
 
@@ -8494,7 +8494,7 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - No synthetic business rows were created to force acceptance.
 
 **Important source-history reconciliation:**
-- UAT ledger rows 096, 097 and 098 have historical SHA-256 values `13de94dd16eb6101635a13759456bca89bed27c7147d98bbd36d8e4f93653702`, `814a5bd26e44909de56e2d40bf561cd420dc6c5784310be18012c6064385f0f1`, and `d5e035f92ac2f679111ff717724c1683aa4666574c8aae5e830e501301179445`. These differ from the current branch SQL hashes. Migrations 099–103 match current source. Do not claim the current 096–098 files were applied to UAT or Production.
+- UAT ledger rows 096–098 retain historical full-file SHA-256 values `13de94dd16eb6101635a13759456bca89bed27c7147d98bbd36d8e4f93653702`, `814a5bd26e44909de56e2d40bf561cd420dc6c5784310be18012c6064385f0f1`, and `d5e035f92ac2f679111ff717724c1683aa4666574c8aae5e830e501301179445`. Reconciliation against their historical Git commits confirmed the SQL bodies are byte-for-byte identical to current branch files after removing only the newly added explicit `BEGIN;`/`COMMIT;` wrappers. This is a full-file checksum difference caused by transaction wrapping, not a functional SQL source drift. Current full-file SHA-256 values are pinned in the Production release manifest. Migrations 099–103 and 104–109 match their current UAT-applied hashes exactly.
 - The UAT branch is non-root and Neon does not permit a manual snapshot of it. The existing manual snapshot `P17-pre-096-107-20261122` is of the Production branch and remains available. Production was not modified.
 - Production still has no P17 migration rows and its schema remains at migration 053. Production migration execution remains gated until the 096–098 source/history drift is reconciled and the exact Production release package, ledger manifest, and runner gate are updated together. Do not bypass the runner or manually apply SQL to Production.
 - Vercel deployment and browser UAT remain skipped as instructed.
@@ -8515,3 +8515,28 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - The P17-E read path under PM context returned existing UAT voyage, nomination, port-call, loading-operation, ticket and segment records without RLS errors. Actual survey/laytime acceptance remains empty because no real private evidence object or independent reviewer decision was supplied.
 
 **Updated P17 status:** UAT migration 104–109, Buyer RLS recursion correction, protected-table no-context reads, PM/viewer permission separation, PM draft change request and simulation maker path, P17-E project-scoped read path, CI unit/security/build acceptance: PASS. Overall P17 and Production rollout remain NOT COMPLETE. Outstanding gates include current source-history reconciliation for migrations 096–098, exact Production release package/manifest/runner approval, authenticated API HTTP acceptance, external data rights and credentials, real PKS/port/terminal/warehouse/road evidence, live AIS permission and freshness, Buyer Neon Auth mapping/grants, and genuine loading survey/quantity/NOR/laytime evidence with independent acceptance. No Production migrations or business data were changed; Vercel/browser UAT remain skipped.
+
+
+### P17 Production release package and final UAT maker-checker acceptance — 22 November 2026
+
+**Canonical Production baseline:**
+- Read the complete live Production `migration_history` and reconciled all 53 rows against the verified 001–052 manifest; exact match PASS. Production sequence is max ID 53 / sequence last_value 53.
+- Created `migration_history_manifest_001_053.json` as the canonical exact Production ledger baseline.
+- Created `migration_release_manifest_p17_096_109.json` with 14 exact current-source SQL SHA-256 pins and expected Production ledger IDs 54–67.
+- Created `scripts/apply-p17-migrations.mjs`: dedicated Production-only runner; exact host/branch/database/TLS/maintenance-role checks; baseline ledger verification; exact SQL hash and BEGIN/COMMIT boundary checks; advisory lock; one atomic transaction for the complete 096–109 package; exact post-commit ledger verification; automatic rollback on any failure.
+- The runner requires explicit owner approval of the exact package manifest SHA-256 and approval reference. Migrations 108–109 are separately gated because they are additional Buyer RLS corrective migrations discovered during UAT.
+- Created `scripts/verify-p17-release-package.mjs`; added release verification and runner dry-run to the root test command.
+- GitHub Actions run `45037709012` on commit `630451752684a744e89f5860a2f159a2e246c332` PASS: offline security/unit tests, Production ledger and release gates, backup/Migration 052 checks, prepared 054/055 checks, P17 release-package hash/body verification, P17 runner dry-run, backend build/typecheck and frontend typecheck/build.
+- Production snapshot `P17-pre-096-109-20261122` exists on the canonical Production branch. It was not restored or modified.
+- Production preflight found existing rows: 2 projects, 1 voyage, 1 nomination, 1 port call, 1 loading operation, 1 vessel, 1 port, 1 Buyer and 1 shipment. Preflight found zero duplicate voyage codes, zero orphan nomination-to-voyage/shipment links, zero orphan port-call-to-voyage links and zero orphan loading-to-Project links. Migration 097 will backfill the existing port call's new `project_id` from its linked voyage; no other P17 production data changes are implied by the preflight.
+
+**Additional UAT functional acceptance:**
+- P17-A: an attempted enable of the unapproved `open_ais_contributor` source was rejected by the database guard; source remains disabled with `pending_review`.
+- P17-B full maker-checker: PM created a draft port-create request with explicit source URL/reference/snapshot, submitted it, and a different Platform Admin approved it. The DB trigger created the port candidate and recorded reviewer/applied stamps. The resulting port remains `submitted` for its own independent evidence verification—not `verified`. The entire acceptance test was rolled back to a SAVEPOINT; no test request or port persisted.
+- P17-E nomination review: PM with the independent `vessel.nomination.review` permission transitioned the existing UAT nomination from `submitted` to `identity_verified`, with reviewer stamp and version increment; the test was rolled back and the fixture returned to `submitted` / version 1.
+- PM simulation scenario insert and PM draft logistics change request insert both passed their database guards; both test rows were rolled back.
+- Viewer negative-permission checks, PM project-context checks, 15 protected-table no-context reads, 15-table RLS recursion checks and Buyer mapping RLS fixes remain PASS.
+
+**Production release status:** Not yet applied. Owner approval already covers migrations 096–107. Migrations 108–109 are required to remove the two RLS recursion defects found by UAT; the runner will not apply them to Production without a separate explicit owner approval of their exact combined SHA-256 `7875b384728dc34412df92e1188e40902f252e9c94583056f61c3e23ee3596dd`. Once approved, apply the complete 096–109 package atomically; do not apply 096–107 alone because that would leave the Buyer RLS recursion defects in place.
+
+**Remaining P17 operational gates after database release:** authenticated HTTP/API acceptance without Vercel deployment; external data-source legal rights and credentials; real port/PKS/terminal/warehouse/road evidence; live AIS source permission and freshness; real Buyer Neon Auth mapping and visibility grants; genuine loading survey, quantity reconciliation, NOR and laytime evidence with independent reviewer acceptance. These must remain fail-closed and must not be fabricated. Browser UAT and Vercel remain skipped as instructed.

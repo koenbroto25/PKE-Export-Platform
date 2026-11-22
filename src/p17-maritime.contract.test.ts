@@ -638,6 +638,8 @@ describe("P17-A to P17-B typed staging promotion",()=>{
  it("promotes only accepted port and geometry staging into pending evidence-reviewed candidates",()=>{
   expect(API).toContain('/admin/maritime/staging/:stagingId/promote');
   expect(API).toContain("MARITIME_STAGING_NOT_ACCEPTED");
+  expect(API).toContain("r.triggered_by<>req_user_id()");
+  expect(API).toContain("MARITIME_STAGING_MAKER_CHECKER");
   expect(API).toContain("MARITIME_PROMOTION_RIGHTS_BLOCKED");
   expect(API).toContain("canonicalMasterChanged:false");
   expect(INGESTION_UI).toContain("/promote");

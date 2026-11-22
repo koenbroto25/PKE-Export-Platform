@@ -112,7 +112,64 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   return bad(res,403,"PROJECT_PERMISSION_REQUIRED","One of the required Project permissions is required.") as any;
  };
  // P17-B: port identity reconciliation and versioned GeoJSON. Promotion is explicit and review-gated.
- app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+ 
+  app.get("/api/v1/projects/:projectId/pke-logistics/scenarios",requireAuth,async(req:R,res:Response)=>{
+   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");
+   if(!await requireProjectAccess(req,res,p,"pke.logistics.master.view"))return;
+   try{const q=await req.db.query("SELECT id,project_id,scenario_code,scenario_name,product_code,graph,source_evidence,assumptions,simulation_only,scenario_status,created_by,updated_by,created_at,updated_at FROM public.p17b_logistics_simulation_scenarios WHERE project_id=$1::uuid ORDER BY updated_at DESC,created_at DESC",[p]);return res.json({scenarios:q.rows,projectId:p,simulationOnly:true});}
+   catch{return bad(res,500,"P17B_SCENARIOS_READ_FAILED","Unable to read Project logistics simulation scenarios.");}
+  });
+  app.get("/api/v1/projects/:projectId/pke-logistics/change-requests",requireAuth,async(req:R,res:Response)=>{
+   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");
+   if(!await requireProjectAccess(req,res,p,"pke.logistics.master.view"))return;
+   try{const q=await req.db.query("SELECT id,project_id,entity_type,operation,target_id,proposed_data,base_snapshot,status,request_reason,source_reference,source_url,source_snapshot,decision_note,requested_by,reviewed_by,reviewed_at,applied_target_id,applied_at,created_at,updated_at FROM public.p17b_logistics_change_requests WHERE project_id=$1::uuid ORDER BY created_at DESC",[p]);return res.json({requests:q.rows,projectId:p});}
+   catch{return bad(res,500,"P17B_CHANGE_REQUESTS_READ_FAILED","Unable to read Project logistics change requests.");}
+  });
+  app.post("/api/v1/projects/:projectId/pke-logistics/simulation-scenarios",requireAuth,async(req:R,res:Response)=>{
+   const p=req.params.projectId,b=req.body||{},code=str(b.scenarioCode,80),name=str(b.scenarioName,200),graph=b.graph,evidence=b.sourceEvidence,assumptions=b.assumptions;
+   if(!uuidPattern.test(p)||!code||name.length<2||!validateSimulationGraph(graph)||!Array.isArray(evidence)||!assumptions||typeof assumptions!=="object"||Array.isArray(assumptions)||JSON.stringify(graph).length>250000||JSON.stringify(evidence).length>65536||JSON.stringify(assumptions).length>65536)return bad(res,400,"P17B_SIMULATION_INPUT_INVALID","Scenario requires a complete six-stage simulation graph, source evidence array and assumptions object.");
+   if(!await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage"))return;
+   try{const q=await req.db.query("INSERT INTO public.p17b_logistics_simulation_scenarios(project_id,scenario_code,scenario_name,graph,source_evidence,assumptions,simulation_only,scenario_status,created_by,updated_by) VALUES($1::uuid,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,true,'simulation',req_user_id(),req_user_id()) RETURNING *",[p,code,name,JSON.stringify(graph),JSON.stringify(evidence),JSON.stringify(assumptions)]);return res.status(201).json({scenario:q.rows[0],operationalUseAllowed:false});}
+   catch(e:any){if(e?.code==="23505")return bad(res,409,"P17B_SCENARIO_DUPLICATE","Scenario code already exists in this Project.");if(e?.code==="23514"||e?.code==="42501")return bad(res,400,"P17B_SIMULATION_GRAPH_REJECTED","Database graph guard rejected the simulation.");return bad(res,500,"P17B_SIMULATION_CREATE_FAILED","Unable to create Project simulation.");}
+  });
+  app.patch("/api/v1/projects/:projectId/pke-logistics/simulation-scenarios/:scenarioId",requireAuth,async(req:R,res:Response)=>{
+   const p=req.params.projectId,id=req.params.scenarioId,b=req.body||{},graph=b.graph,evidence=b.sourceEvidence,assumptions=b.assumptions,status=str(b.scenarioStatus,20);
+   if(!uuidPattern.test(p)||!uuidPattern.test(id)||!validateSimulationGraph(graph)||!Array.isArray(evidence)||!assumptions||typeof assumptions!=="object"||Array.isArray(assumptions)||!["simulation","draft","archived"].includes(status)||JSON.stringify(graph).length>250000||JSON.stringify(evidence).length>65536||JSON.stringify(assumptions).length>65536)return bad(res,400,"P17B_SIMULATION_UPDATE_INVALID","Graph, evidence, assumptions and supported simulation status are required.");
+   if(!await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage"))return;
+   try{const q=await req.db.query("UPDATE public.p17b_logistics_simulation_scenarios SET graph=$3::jsonb,source_evidence=$4::jsonb,assumptions=$5::jsonb,scenario_status=$6,updated_by=req_user_id(),updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid RETURNING *",[id,p,JSON.stringify(graph),JSON.stringify(evidence),JSON.stringify(assumptions),status]);if(!q.rows.length)return bad(res,404,"P17B_SCENARIO_NOT_FOUND","Project simulation scenario not found.");return res.json({scenario:q.rows[0],operationalUseAllowed:false});}
+   catch(e:any){if(e?.code==="23514"||e?.code==="42501")return bad(res,400,"P17B_SIMULATION_GRAPH_REJECTED","Database graph guard rejected the simulation.");return bad(res,500,"P17B_SIMULATION_UPDATE_FAILED","Unable to update Project simulation.");}
+  });
+  app.post("/api/v1/projects/:projectId/pke-logistics/change-requests",requireAuth,async(req:R,res:Response)=>{
+   const p=req.params.projectId,b=req.body||{},entity=str(b.entityType,32),operation=str(b.operation,16),target=str(b.targetId,64);
+   const proposal=b.proposedData,reason=str(b.requestReason,2000),reference=str(b.sourceReference,1000),sourceUrl=b.sourceUrl==null||b.sourceUrl===""?null:str(b.sourceUrl,1000),snapshot=b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:{};
+   if(!uuidPattern.test(p)||!["port","route","terminal","loading_service","warehouse"].includes(entity)||!["create","update"].includes(operation)||(operation==="update"&&!uuidPattern.test(target))||(operation==="create"&&target)||!proposal||typeof proposal!=="object"||Array.isArray(proposal)||Object.keys(proposal).length===0||JSON.stringify(proposal).length>65536||reason.length<10||reference.length<8||(sourceUrl!==null&&!/^https?:\/\//i.test(sourceUrl))||JSON.stringify(snapshot).length>65536)return bad(res,400,"P17B_CHANGE_REQUEST_INVALID","Valid entity, operation, proposed data, reason and source evidence are required.");
+   if(!await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage"))return;
+   try{const q=await req.db.query("INSERT INTO public.p17b_logistics_change_requests(project_id,entity_type,operation,target_id,proposed_data,request_reason,source_reference,source_url,source_snapshot,requested_by) VALUES($1::uuid,$2,$3,$4::uuid,$5::jsonb,$6,$7,$8,$9::jsonb,req_user_id()) RETURNING *",[p,entity,operation,target||null,JSON.stringify(proposal),reason,reference,sourceUrl,JSON.stringify(snapshot)]);return res.status(201).json({request:q.rows[0]});}
+   catch(e:any){if(e?.code==="42501")return bad(res,403,"P17B_CHANGE_REQUEST_SCOPE","Project permission or parent-scope guard rejected the proposal.");if(e?.code==="P0002")return bad(res,404,"P17B_CHANGE_TARGET_NOT_FOUND","Target master record was not found.");if(e?.code==="23514"||e?.code==="23503")return bad(res,400,"P17B_CHANGE_REQUEST_REJECTED","Database validation rejected the proposed change.");return bad(res,500,"P17B_CHANGE_REQUEST_CREATE_FAILED","Unable to create Project logistics change request.");}
+  });
+  app.patch("/api/v1/projects/:projectId/pke-logistics/change-requests/:requestId",requireAuth,async(req:R,res:Response)=>{
+   const p=req.params.projectId,id=req.params.requestId,b=req.body||{};
+   if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"P17B_CHANGE_REQUEST_ID_INVALID","Invalid Project or change request ID.");
+   if(!await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage"))return;
+   try{
+    let q;
+    if(b.submit===true){q=await req.db.query("UPDATE public.p17b_logistics_change_requests SET status='submitted',updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND requested_by=req_user_id() AND status='draft' RETURNING *",[id,p]);}
+    else{
+     const proposal=b.proposedData,reason=str(b.requestReason,2000),reference=str(b.sourceReference,1000),sourceUrl=b.sourceUrl==null||b.sourceUrl===""?null:str(b.sourceUrl,1000),snapshot=b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:{};
+     if(!proposal||typeof proposal!=="object"||Array.isArray(proposal)||Object.keys(proposal).length===0||JSON.stringify(proposal).length>65536||reason.length<10||reference.length<8||(sourceUrl!==null&&!/^https?:\/\//i.test(sourceUrl))||JSON.stringify(snapshot).length>65536)return bad(res,400,"P17B_CHANGE_REQUEST_INVALID","Draft proposal, reason and source evidence are required.");
+     q=await req.db.query("UPDATE public.p17b_logistics_change_requests SET proposed_data=$3::jsonb,request_reason=$4,source_reference=$5,source_url=$6,source_snapshot=$7::jsonb,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND requested_by=req_user_id() AND status='draft' RETURNING *",[id,p,JSON.stringify(proposal),reason,reference,sourceUrl,JSON.stringify(snapshot)]);
+    }
+    if(!q.rows.length)return bad(res,409,"P17B_CHANGE_REQUEST_NOT_EDITABLE","Only the requester may edit or submit their own draft.");
+    return res.json({request:q.rows[0]});
+   }catch(e:any){if(e?.code==="42501"||e?.code==="40001")return bad(res,409,"P17B_CHANGE_REQUEST_GUARD","Request is no longer editable or Project scope has changed.");return bad(res,500,"P17B_CHANGE_REQUEST_UPDATE_FAILED","Unable to update Project logistics change request.");}
+  });
+  app.patch("/api/v1/admin/projects/:projectId/pke-logistics/change-requests/:requestId/decision",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+   const p=req.params.projectId,id=req.params.requestId,b=req.body||{},status=str(b.status,16),note=str(b.decisionNote,2000);
+   if(!uuidPattern.test(p)||!uuidPattern.test(id)||!["approved","rejected"].includes(status)||note.length<5)return bad(res,400,"P17B_CHANGE_DECISION_INVALID","Valid decision and substantive decision note are required.");
+   try{const q=await req.db.query("UPDATE public.p17b_logistics_change_requests SET status=$3,decision_note=$4,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND status='submitted' RETURNING *",[id,p,status,note]);if(!q.rows.length)return bad(res,409,"P17B_CHANGE_REQUEST_NOT_SUBMITTED","Only submitted requests can be decided.");return res.json({request:q.rows[0],applied:status==="approved",operationalDataVerified:false});}
+   catch(e:any){if(e?.code==="42501"||e?.code==="40001")return bad(res,409,"P17B_CHANGE_DECISION_GUARD","Maker-checker or Project scope guard rejected the decision.");if(e?.code==="23514"||e?.code==="23503")return bad(res,400,"P17B_CHANGE_DECISION_REJECTED","Proposed master data failed validation.");return bad(res,500,"P17B_CHANGE_DECISION_FAILED","Unable to decide logistics change request.");}
+  });
+app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   try{
    const q=await req.db.query("SELECT x.*,p.name AS port_name,s.source_code FROM public.port_external_id_crosswalk x JOIN public.ports p ON p.id=x.port_id JOIN public.maritime_data_sources s ON s.id=x.source_id ORDER BY x.created_at DESC");
    return res.json({crosswalk:q.rows});

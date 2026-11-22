@@ -189,6 +189,29 @@ BEGIN
       RAISE EXCEPTION 'Loading acceptance requires immutable submission and independent review'
         USING ERRCODE='42501';
     END IF;
+    IF NEW.acceptance_type='quantity_reconciliation' AND NEW.review_status='accepted' THEN
+      SELECT quantity,unit_code INTO operation_quantity,operation_unit
+      FROM public.loading_operations
+      WHERE id=NEW.loading_operation_id AND project_id=NEW.project_id;
+      SELECT COALESCE(SUM(quantity),0),COUNT(*)::integer,COUNT(DISTINCT unit_code)::integer
+      INTO verified_quantity,verified_count,verified_unit_count
+      FROM public.loading_tickets
+      WHERE loading_operation_id=NEW.loading_operation_id AND project_id=NEW.project_id AND status='verified';
+      SELECT COALESCE(SUM(quantity),0),COUNT(*)::integer,COUNT(DISTINCT unit_code)::integer
+      INTO completed_quantity,completed_count,completed_unit_count
+      FROM public.loading_segments
+      WHERE loading_operation_id=NEW.loading_operation_id AND project_id=NEW.project_id AND status='completed';
+      IF NEW.quantity_variance IS DISTINCT FROM 0
+         OR NEW.quantity IS DISTINCT FROM operation_quantity
+         OR NEW.unit_code IS DISTINCT FROM operation_unit
+         OR verified_count=0 OR completed_count=0
+         OR verified_unit_count<>1 OR completed_unit_count<>1
+         OR verified_quantity IS DISTINCT FROM completed_quantity
+         OR verified_quantity IS DISTINCT FROM operation_quantity THEN
+        RAISE EXCEPTION 'Quantity reconciliation with variance cannot be accepted'
+          USING ERRCODE='23514';
+      END IF;
+    END IF;
     IF NEW.acceptance_type='survey' AND NOT public.pke_has_project_permission(NEW.project_id,'shipping.survey.review') THEN
       RAISE EXCEPTION 'Survey reviewer permission required' USING ERRCODE='42501';
     ELSIF NEW.acceptance_type='quantity_reconciliation' AND NOT public.pke_has_project_permission(NEW.project_id,'loading.quantity.reconcile') THEN

@@ -381,6 +381,11 @@ FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_assessment_result_revi
 
 DO $verify$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='p18_has_regulatory_permission') THEN RAISE EXCEPTION 'P18 regulatory permission helper missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='regulatory_sources' AND column_name='created_by') THEN RAISE EXCEPTION 'P18 source maker column missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='regulatory_rule_versions' AND column_name='created_by') THEN RAISE EXCEPTION 'P18 rule version maker column missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='country_export_document_requirements' AND column_name='created_by') THEN RAISE EXCEPTION 'P18 country requirement maker column missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='regulatory_assessment_results' AND column_name='reason_code') THEN RAISE EXCEPTION 'P18 reason code column missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_sources' AND policyname='p18_regulatory_sources_insert') THEN RAISE EXCEPTION 'P18 source insert policy missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_rules' AND policyname='p18_regulatory_rules_insert') THEN RAISE EXCEPTION 'P18 rule insert policy missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_rule_versions' AND policyname='p18_regulatory_rule_versions_insert') THEN RAISE EXCEPTION 'P18 version insert policy missing'; END IF;

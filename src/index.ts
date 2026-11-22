@@ -2340,7 +2340,7 @@ app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:ex
     return res.status(400).json({error:"Valid rule identity, jurisdiction, subject type, outcome, source and effective date are required."});
   if(conditions.length>100||documents.length>100) return res.status(400).json({error:"Rule condition/document limits exceeded."});
   for(const condition of conditions){
-    if(typeof condition?.fieldPath!=="string"||!/^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(condition.fieldPath)||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(condition.operator)||condition.value===undefined||!Number.isInteger(condition.conditionGroup??1)||(condition.conditionGroup??1)<1)
+    if(typeof condition?.fieldPath!=="string"||!/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(condition.fieldPath)||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(condition.operator)||condition.value===undefined||!Number.isInteger(condition.conditionGroup??1)||(condition.conditionGroup??1)<1)
       return res.status(400).json({error:"Invalid rule condition.",code:"REGULATORY_CONDITION_INVALID"});
   }
   for(const document of documents){

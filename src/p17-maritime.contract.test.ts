@@ -243,11 +243,12 @@ describe("P17 role dashboard linkage",()=>{
   expect(DASH).toContain("actual sign-off belum lulus");
  });
 });
-describe("P17 buyer portal navigation fail-closed",()=>{
+describe("P17 Buyer Portal server-derived visibility",()=>{
  const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
- it("requires explicit buyer shipment permission and leaves identity/grant enforcement to server-side APIs",()=>{
-  expect(PAGE).toContain("permissions.has('buyer.shipment.view')");
-  expect(PAGE).toContain("verified Neon Auth");
+ it("requires an authenticated mapped identity and an active supported grant before showing the portal",()=>{
+  expect(PAGE).toContain("user.buyerPortalEnabled === true");
+  expect(MAIN).toContain("buyerPortalEnabled");
+  expect(MAIN).toContain("g.scope IN ('summary','milestones')");
  });
 });
 describe("P17 schema release safety gate",()=>{
@@ -258,8 +259,14 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("migrations 096-107");
   for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin/projects/"]) expect(gate).toContain(fragment);
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
-  expect(gate).toContain("if(schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating))");
+  expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");
   expect(gate).toContain("const p17SchemaBackedRead=");
+  expect(gate).toContain("migration_history");
+  expect(gate).toContain("status='applied'");
+  expect(gate).toContain("relrowsecurity");
+  expect(gate).toContain("policy_count");
+  expect(gate).toContain("requiredPermissions");
+  expect(gate).toContain("if(!protectedPath)return next()");
  });
  it("does not install a broad /projects write block",()=>{
   const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));

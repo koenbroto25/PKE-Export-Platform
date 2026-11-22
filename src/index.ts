@@ -2196,17 +2196,32 @@ app.get("/api/v1/regulatory-knowledge", requireAuth, requireAdmin, async (req: e
 // Deterministic Regulatory Core assessment. No RAG or conversational AI is used here.
 app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId=String(req.params.projectId??"");
-  const {entityType,entityId,targetCountry,inputSnapshot,shipmentId=null,productId=null}=req.body??{};
+  const {entityType,entityId}=req.body??{};
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId))
     return res.status(400).json({error:"Valid projectId is required."});
-  if(typeof entityType!=="string"||!["shipment","product","project"].includes(entityType)||typeof entityId!=="string"||entityId.length>100||typeof targetCountry!=="string"||!/^[A-Z]{2}$/.test(targetCountry)||!inputSnapshot||typeof inputSnapshot!=="object"||Array.isArray(inputSnapshot))
-    return res.status(400).json({error:"Valid entityType, entityId, ISO-3166-1 alpha-2 targetCountry and object inputSnapshot are required."});
+  if(entityType!=="shipment"||typeof entityId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(entityId))
+    return res.status(400).json({error:"Only a valid Project-owned shipment can be assessed. Assessment inputs are server-derived.",code:"REGULATORY_SHIPMENT_REQUIRED"});
   if(!(await requireProjectPermission(req,res,projectId,"compliance.assess"))) return;
   try{
-    if(shipmentId){
-      const shipment=await req.db.query("SELECT id FROM public.shipments WHERE id=$1::uuid AND project_id=$2::uuid",[shipmentId,projectId]);
-      if(!shipment.rows.length) return res.status(404).json({error:"Shipment not found in this Project.",code:"REGULATORY_SHIPMENT_SCOPE_MISMATCH"});
-    }
+    const shipmentResult=await req.db.query(
+      `SELECT to_jsonb(s) AS shipment,to_jsonb(v) AS voyage,
+              dp.country_code AS destination_country,op.country_code AS origin_country,
+              to_jsonb(ps) AS pks_site
+         FROM public.shipments s
+         LEFT JOIN public.voyages v ON v.id=s.voyage_id AND v.project_id=s.project_id
+         LEFT JOIN public.ports dp ON dp.id=COALESCE(s.destination_port_id,v.destination_port_id)
+         LEFT JOIN public.ports op ON op.id=COALESCE(v.origin_port_id,v.port_id)
+         LEFT JOIN public.pks_sites ps ON ps.id=s.pks_site_id
+        WHERE s.id=$1::uuid AND s.project_id=$2::uuid` ,
+      [entityId,projectId],
+    );
+    if(!shipmentResult.rows.length) return res.status(404).json({error:"Shipment not found in this Project.",code:"REGULATORY_SHIPMENT_SCOPE_MISMATCH"});
+    const shipmentRecord=shipmentResult.rows[0];
+    const targetCountry=String(shipmentRecord.destination_country??"").trim().toUpperCase();
+    if(!/^[A-Z]{2}$/.test(targetCountry)) return res.status(422).json({error:"Shipment destination port has no country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
+    const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry:shipmentRecord.origin_country},voyage:shipmentRecord.voyage,pksSite:shipmentRecord.pks_site};
+    const shipmentId=entityId;
+    const productId=null;
     const ruleRows=await req.db.query(
       `SELECT r.id AS rule_id,r.rule_code,r.title,r.jurisdiction,r.subject_type,
               v.id AS version_id,v.version_number,v.regulatory_source_id,v.source_locator,
@@ -2243,7 +2258,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       [projectId],
     );
     const available=new Set<string>(docs.rows.map((d:any)=>String(d.document_type_code)).filter(Boolean));
-    const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,productId,assessedAt:new Date().toISOString()}};
+    const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,assessedAt:new Date().toISOString()}};
     const rules=Array.from(grouped.values()) as RegulatoryRuleInput[];
     const results=rules.map(rule=>evaluateRegulatoryRule(rule,snapshot,available));
     const summary=summarizeRegulatoryAssessment(results);
@@ -2252,7 +2267,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
         (project_id,shipment_id,product_id,origin_country,destination_country,assessment_date,input_snapshot,ruleset_version_snapshot,overall_status,failed_count,pending_count,assessed_by)
        VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,CURRENT_DATE,$6::jsonb,$7::jsonb,$8,$9,$10,$11::uuid)
        RETURNING id,project_id,shipment_id,product_id,assessment_date,overall_status,failed_count,pending_count,created_at`,
-      [projectId,shipmentId,productId,typeof inputSnapshot.originCountry==="string"?inputSnapshot.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify(rules.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode}))),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
+      [projectId,shipmentId,productId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify(rules.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode}))),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
     );
     const assessment=inserted.rows[0];
     for(const result of results){

@@ -23,15 +23,23 @@ const compare=(actual:unknown,operator:RegulatoryOperator,expected:unknown):bool
   }
 };
 export function evaluateRegulatoryRule(rule:RegulatoryRuleInput,input:Record<string,unknown>,availableDocumentCodes:Set<string>):RegulatoryEvaluation{
-  const conditions=rule.conditions??[];
+  const conditions=(rule.conditions??[]).filter(c=>c.is_mandatory!==false);
   if(conditions.some(c=>!c.field_path||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(c.operator))){
     return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"manual_review",reason:"Unsupported or malformed rule condition; evaluation failed closed.",requiredDocuments:rule.requiredDocuments??[],missingDocuments:[],evidence:[]};
   }
   const groups=new Map<number,RegulatoryCondition[]>();
   for(const condition of conditions){const group=condition.condition_group??1;groups.set(group,[...(groups.get(group)??[]),condition]);}
   const matched=groups.size===0 ? null : [...groups.values()].some(group=>group.every(c=>compare(getPath(input,c.field_path),c.operator,c.comparison_value)));
-  const required=(rule.requiredDocuments??[]) as Array<{documentCode?:string;requirementKind?:string}>;
-  const mandatory=required.filter(d=>d.requirementKind!=="optional");
+  const required=(rule.requiredDocuments??[]) as Array<{documentCode?:string;requirementKind?:string;conditionSchema?:{conditions?:RegulatoryCondition[]}} >;
+  const mandatory=required.filter(d=>{
+    if(d.requirementKind==="optional") return false;
+    if(d.requirementKind!=="conditional") return true;
+    const conditional=d.conditionSchema?.conditions??[];
+    if(!conditional.length) return true;
+    const groups=new Map<number,RegulatoryCondition[]>();
+    for(const condition of conditional){const group=condition.condition_group??1;groups.set(group,[...(groups.get(group)??[]),condition]);}
+    return [...groups.values()].some(group=>group.every(c=>compare(getPath(input,c.field_path),c.operator,c.comparison_value)));
+  });
   const missing=mandatory.filter(d=>!d.documentCode||!availableDocumentCodes.has(d.documentCode));
   if(matched===null) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:rule.outcome==="manual_review"?"manual_review":"pending",reason:"Rule has no executable conditions; human review is required.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
   if(!matched) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"not_applicable",reason:"Rule conditions did not match the supplied assessment snapshot.",requiredDocuments:required,missingDocuments:[],evidence:[]};

@@ -2522,9 +2522,42 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     const shipmentRecord=shipmentResult.rows[0];
     const targetCountry=String(shipmentRecord.destination_country??"").trim().toUpperCase();
     if(!/^[A-Z]{2}$/.test(targetCountry)||shipmentRecord.destination_port_verification_status!=="verified") return res.status(422).json({error:"Shipment destination port must have a verified country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
-    const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry:shipmentRecord.origin_country},voyage:shipmentRecord.voyage,destinationPort:shipmentRecord.destination_port,pksSite:shipmentRecord.pks_site};
+    const allocationRows=await req.db.query(
+      `SELECT sa.id AS allocation_id,sa.allocated_quantity,sa.unit,l.product_id,l.product_variant_id,
+              pc.product_code,pc.product_name,pc.category,pc.description,pc.classification_status,
+              ph.id AS hs_classification_id,ph.hs_code,ph.goods_description,ph.review_status AS hs_review_status,
+              ph.valid_from AS hs_valid_from,ph.valid_to AS hs_valid_to
+         FROM public.shipment_allocations sa
+         JOIN public.inventory_lots l ON l.id=sa.lot_id AND l.project_id=$2::uuid
+         LEFT JOIN public.product_catalog pc ON pc.id=l.product_id
+         LEFT JOIN LATERAL (
+           SELECT h.* FROM public.product_hs_classifications h
+            WHERE h.product_id=l.product_id AND h.country_code=$3
+              AND h.review_status='approved' AND h.valid_from<=CURRENT_DATE
+              AND (h.valid_to IS NULL OR h.valid_to>=CURRENT_DATE)
+              AND (h.product_variant_id IS NULL OR h.product_variant_id=l.product_variant_id)
+            ORDER BY (h.product_variant_id IS NOT NULL) DESC,h.valid_from DESC LIMIT 1
+         ) ph ON true
+        WHERE sa.shipment_id=$1::uuid AND sa.project_id=$2::uuid
+          AND sa.status IN ('allocated','partially_loaded','loaded')
+        ORDER BY pc.product_code,sa.id`,
+      [entityId,projectId,targetCountry],
+    );
+    const productMap=new Map<string,any>();
+    for(const row of allocationRows.rows){
+      const key=String(row.product_id??"missing")+":"+String(row.product_variant_id??"base");
+      const current=productMap.get(key)??{
+        productId:row.product_id,productVariantId:row.product_variant_id,productCode:row.product_code,
+        productName:row.product_name,category:row.category,description:row.description,
+        classificationStatus:row.classification_status,allocatedQuantity:0,unit:row.unit,
+        hsClassificationId:row.hs_classification_id,hsCode:row.hs_code,goodsDescription:row.goods_description,
+        hsReviewStatus:row.hs_review_status,hsValidFrom:row.hs_valid_from,hsValidTo:row.hs_valid_to,
+      };
+      current.allocatedQuantity+=Number(row.allocated_quantity??0);
+      productMap.set(key,current);
+    }
+    const productFacts=Array.from(productMap.values());
     const shipmentId=entityId;
-    const productId=null;
     const ruleRows=await req.db.query(
       `SELECT r.id AS rule_id,r.rule_code,r.title,r.jurisdiction,r.subject_type,
               v.id AS version_id,v.version_number,v.regulatory_source_id,v.source_locator,
@@ -2540,14 +2573,14 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
          LEFT JOIN public.export_document_types edt ON edt.id=rd.document_type_id
         WHERE r.status='effective' AND v.status='effective'
           AND s.verification_status='verified'
-          AND r.jurisdiction IN ($1,'GLOBAL') AND r.subject_type IN ($2,'all')
+          AND r.jurisdiction IN ($1,'GLOBAL') AND r.subject_type IN ('shipment','product','all')
           AND v.effective_from<=CURRENT_DATE AND (v.effective_to IS NULL OR v.effective_to>=CURRENT_DATE)
         ORDER BY r.rule_code,v.version_number,c.condition_group,c.field_path,edt.document_code`,
       [targetCountry,entityType],
     );
     const grouped=new Map<string,any>();
     for(const row of ruleRows.rows){
-      if(!grouped.has(row.version_id)) grouped.set(row.version_id,{ruleVersionId:row.version_id,ruleCode:row.rule_code,title:row.title,outcome:row.outcome,conditions:[],requiredDocuments:[],source:{id:row.regulatory_source_id,locator:row.source_locator,url:row.source_url_snapshot,checksum:row.source_checksum},versionNumber:row.version_number,summary:row.rule_summary});
+      if(!grouped.has(row.version_id)) grouped.set(row.version_id,{ruleVersionId:row.version_id,ruleCode:row.rule_code,title:row.title,outcome:row.outcome,subjectType:row.subject_type,conditions:[],requiredDocuments:[],source:{id:row.regulatory_source_id,locator:row.source_locator,url:row.source_url_snapshot,checksum:row.source_checksum},versionNumber:row.version_number,summary:row.rule_summary});
       const rule=grouped.get(row.version_id);
       if(row.field_path) rule.conditions.push({field_path:row.field_path,operator:row.operator,comparison_value:row.comparison_value,is_mandatory:row.is_mandatory,condition_group:row.condition_group});
       if(row.document_code&&!rule.requiredDocuments.some((d:any)=>d.documentCode===row.document_code)) rule.requiredDocuments.push({documentCode:row.document_code,requirementKind:row.requirement_kind});
@@ -2561,21 +2594,45 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       [projectId],
     );
     const available=new Set<string>(docs.rows.map((d:any)=>String(d.document_type_code)).filter(Boolean));
-    const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,assessedAt:new Date().toISOString()}};
     const rules=Array.from(grouped.values()) as RegulatoryRuleInput[];
+    const productRules=rules.filter(rule=>rule.subjectType==="product");
+    const coverageWarnings:string[]=[];
+    if(!productRules.length) coverageWarnings.push("No effective product-scope rules are configured for this destination; legal coverage is unverified.");
+    if(!productFacts.length) coverageWarnings.push("No allocated product lots are linked to this shipment.");
+    if(productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode))
+      coverageWarnings.push("One or more allocated products lack a verified product master and currently approved destination-country HS classification.");
+    const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry:shipmentRecord.origin_country},voyage:shipmentRecord.voyage,destinationPort:shipmentRecord.destination_port,pksSite:shipmentRecord.pks_site,products:productFacts,regulatoryCoverageWarnings:coverageWarnings};
+    const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,assessedAt:new Date().toISOString()}};
     const results=rules.map(rule=>{
-      const result=evaluateRegulatoryRule(rule,snapshot,available);
+      let result:any;
+      if(rule.subjectType==="product"){
+        if(!productFacts.length||productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode)){
+          result={ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"pending",reason:"Product rule cannot be evaluated until all allocated products have approved, current destination-country HS classifications.",requiredDocuments:rule.requiredDocuments??[],missingDocuments:[],evidence:[]};
+        }else{
+          const perProduct=productFacts.map(product=>evaluateRegulatoryRule(rule,{...snapshot,product},available));
+          const statuses=perProduct.map(r=>r.resultStatus);
+          const resultStatus=statuses.includes("fail")?"fail":statuses.includes("manual_review")?"manual_review":statuses.includes("pending")?"pending":statuses.every(s=>s==="not_applicable")?"not_applicable":"pass";
+          result={ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus,reason:perProduct.map((r,i)=>productFacts[i].productCode+": "+r.reason).join(" | "),requiredDocuments:rule.requiredDocuments??[],missingDocuments:perProduct.flatMap(r=>r.missingDocuments),evidence:perProduct.flatMap((r,i)=>[{productId:productFacts[i].productId,productCode:productFacts[i].productCode,hsCode:productFacts[i].hsCode},...r.evidence])};
+        }
+      }else{
+        result=evaluateRegulatoryRule(rule,snapshot,available);
+      }
       const requiredCodes=new Set((rule.requiredDocuments??[]).map((d:any)=>d.documentCode).filter(Boolean));
-      result.evidence=docs.rows.filter((d:any)=>requiredCodes.has(d.document_type_code)).map((d:any)=>({documentId:d.id,documentTypeCode:d.document_type_code,sha256:d.sha256_checksum,objectKey:d.object_key,uploadedAt:d.uploaded_at,expiryDate:d.expiry_date}));
+      result.evidence=[...(result.evidence??[]),...docs.rows.filter((d:any)=>requiredCodes.has(d.document_type_code)).map((d:any)=>({documentId:d.id,documentTypeCode:d.document_type_code,sha256:d.sha256_checksum,objectKey:d.object_key,uploadedAt:d.uploaded_at,expiryDate:d.expiry_date}))];
       return result;
     });
-    const summary=summarizeRegulatoryAssessment(results);
+    const computedSummary=summarizeRegulatoryAssessment(results);
+    const summary=computedSummary.overallStatus!=="fail"&&coverageWarnings.length
+      ? {...computedSummary,overallStatus:"pending" as const,pendingCount:Math.max(computedSummary.pendingCount,coverageWarnings.length)}
+      : computedSummary;
+    const productId=productFacts.length===1?productFacts[0].productId:null;
+    const productHsClassificationId=productFacts.length===1?productFacts[0].hsClassificationId:null;
     const inserted=await req.db.query(
       `INSERT INTO public.regulatory_assessments
-        (project_id,shipment_id,product_id,origin_country,destination_country,assessment_date,input_snapshot,ruleset_version_snapshot,overall_status,failed_count,pending_count,assessed_by)
-       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,CURRENT_DATE,$6::jsonb,$7::jsonb,$8,$9,$10,$11::uuid)
-       RETURNING id,project_id,shipment_id,product_id,assessment_date,overall_status,failed_count,pending_count,created_at`,
-      [projectId,shipmentId,productId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify(rules.map((r:any)=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,source:r.source,versionNumber:r.versionNumber,summary:r.summary}))),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
+        (project_id,shipment_id,product_id,product_hs_classification_id,origin_country,destination_country,assessment_date,input_snapshot,ruleset_version_snapshot,overall_status,failed_count,pending_count,assessed_by)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,CURRENT_DATE,$7::jsonb,$8::jsonb,$9,$10,$11,$12::uuid)
+       RETURNING id,project_id,shipment_id,product_id,product_hs_classification_id,assessment_date,overall_status,failed_count,pending_count,created_at`,
+      [projectId,shipmentId,productId,productHsClassificationId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify({rules:rules.map((r:any)=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,source:r.source,versionNumber:r.versionNumber,summary:r.summary})),coverageWarnings}),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
     );
     const assessment=inserted.rows[0];
     await recordRegulatoryAudit(req,"assessment.created","regulatory_assessment",assessment.id,projectId,"Deterministic assessment created from Project-owned shipment snapshot",null,{overallStatus:summary.overallStatus,ruleCount:rules.length});
@@ -2587,7 +2644,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
         [assessment.id,result.ruleVersionId,result.resultStatus,result.reason,JSON.stringify(result.requiredDocuments),JSON.stringify(result.missingDocuments),JSON.stringify(result.evidence)],
       );
     }
-    return res.status(201).json({assessment,results,ruleCount:rules.length,disclaimer:"Deterministic evaluation only. A missing effective/verified rule set is reported as pending; this result is not a legal opinion or government clearance."});
+    return res.status(201).json({assessment,results,ruleCount:rules.length,coverageWarnings,disclaimer:"Deterministic evaluation only. A missing effective/verified rule set is reported as pending; this result is not a legal opinion or government clearance."});
   }catch(error:any){
     req.logger?.error?.("Regulatory assessment failed",error);
     if(error?.code==="42501") return res.status(403).json({error:"Regulatory assessment permission or database scope denied.",code:"REGULATORY_PERMISSION_DENIED"});

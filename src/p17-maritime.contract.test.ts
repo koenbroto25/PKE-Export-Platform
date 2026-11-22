@@ -8,6 +8,7 @@ const A=readFileSync(join(ROOT,"migrations","096_p17a_maritime_source_governance
 const E=readFileSync(join(ROOT,"migrations","097_p17e_project_maritime_workflows.sql"),"utf8");
 const M104=readFileSync(join(ROOT,"migrations","104_p17e_nomination_submission_guard.sql"),"utf8");
 const M105=readFileSync(join(ROOT,"migrations","105_p17f_buyer_identity_and_grant_audit.sql"),"utf8");
+const M106=readFileSync(join(ROOT,"migrations","106_p17d_vessel_position_observations.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
@@ -251,7 +252,7 @@ describe("P17 schema release safety gate",()=>{
   const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));
   expect(gate).toContain('app.use(p17WriteReleaseGate)');
   expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
-  expect(gate).toContain("migrations 096-105");
+  expect(gate).toContain("migrations 096-106");
   for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","admin/projects/"]) expect(gate).toContain(fragment);
   expect(gate).toContain('if(!["POST","PUT","PATCH","DELETE"].includes(req.method)) return next()');
  });
@@ -273,7 +274,8 @@ describe("P17 migration atomicity",()=>{
   ["102",readFileSync(join(ROOT,"migrations","102_p17b_logistics_request_scope_guard.sql"),"utf8")],
   ["103",readFileSync(join(ROOT,"migrations","103_p17b_logistics_simulation_edge_semantics.sql"),"utf8")],
   ["104",M104],
-  ["105",M105]
+  ["105",M105],
+  ["106",M106]
  ])("wraps migration %s in a single transaction",(_id,sql)=>{
   expect(sql.trimStart()).toMatch(/^--[\s\S]*?BEGIN;/);
   expect(sql.trimEnd()).toMatch(/COMMIT;$/);
@@ -344,5 +346,18 @@ describe("P17-G Project export control tower",()=>{
   expect(API).toContain("operationalClearance:false");
   expect(API).toContain("plannedQuantityIsNotLoadedQuantity:true");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Project Export Control Tower");
+ });
+});
+
+describe("P17-D evidence-backed AIS observations",()=>{
+ it("requires current source rights, permitted fields, canonical MMSI and independent review",()=>{
+  expect(API).toContain("/api/v1/admin/maritime/vessel-positions");
+  expect(API).toContain("/api/v1/projects/:projectId/vessel-positions");
+  expect(API).toContain("AIS_SOURCE_RIGHTS_BLOCKED");
+  expect(API).toContain("AIS_VESSEL_IDENTITY_MISMATCH");
+  expect(API).toContain("freshness_sla_seconds");
+  expect(M106).toContain("maritime_position_review_ck");
+  expect(M106).toContain("reviewed_by<>created_by");
+  expect(M106).toContain("maritime_position_project_read");
  });
 });

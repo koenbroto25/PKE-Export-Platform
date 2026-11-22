@@ -1367,7 +1367,7 @@ P17-B reuses the P16 canonical `ports`, `pks_sites`, `pks_port_routes`, `warehou
 
 Migration 098 was applied to Neon UAT `br-young-boat-b3re832d`, SHA-256 `d5e035f92ac2f679111ff717724c1683aa4666574c8aae5e830e501301179445`. New schema: source-to-canonical port external-ID crosswalk and versioned, license-attributed GeoJSON features for ports/terminals/PKS/road access. Existing PKS–port routes now support a linked route-geometry feature and explicit distance method. RLS is forced; crosswalk is Admin-only; geospatial read is Project-linked.
 
-Route API/UI ranks road routes by verification and distance and labels “Rujukan utama PKE” only when PKS, route, port and PKE loading service are all verified/operational as applicable. No real data imported; current port/PKS rows are fixtures. UAT ledger 98 rows (16 baseline, 82 applied), manifest `migration_history_manifest_uat_001_098.json`. Full CI and data-backed acceptance remain pending. Keep Production/Vercel/PR boundaries unchanged and do not activate providers or represent national port/producer coverage as complete.
+Route API/UI ranks verified PKE primary references first, then road routes by evidence and distance and labels “Rujukan utama PKE” only when PKS, route, port and PKE loading service are all verified/operational as applicable. No real data imported; current port/PKS rows are fixtures. UAT ledger 98 rows (16 baseline, 82 applied), manifest `migration_history_manifest_uat_001_098.json`. Full CI and data-backed acceptance remain pending. Keep Production/Vercel/PR boundaries unchanged and do not activate providers or represent national port/producer coverage as complete.
 
 
 ## P17-B acceptance checkpoint — 22 November 2026

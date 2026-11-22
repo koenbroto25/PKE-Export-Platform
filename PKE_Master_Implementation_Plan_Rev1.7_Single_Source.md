@@ -1,6 +1,6 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.37 — P17 Production reconciliation and validation run
+# Master Implementation Plan Rev2.37 — P17 reconciliation and P18 regulatory RAG corpus
 
 
 

@@ -126,6 +126,50 @@ CREATE TABLE public.maritime_provider_health (
   checked_by uuid REFERENCES public.users(id)
 );
 
+CREATE OR REPLACE FUNCTION public.pke_guard_maritime_source_enable()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
+AS $function$
+BEGIN
+  IF NEW.enabled IS TRUE AND (
+    NEW.rights_status<>'approved' OR NEW.internal_processing_allowed IS NOT TRUE
+    OR NEW.rights_reviewed_by IS NULL OR NEW.rights_reviewed_at IS NULL
+    OR NEW.rights_expires_at IS NULL OR NEW.rights_expires_at<=now()
+    OR NULLIF(btrim(NEW.terms_url),'') IS NULL
+    OR NULLIF(btrim(NEW.rights_evidence_url),'') IS NULL
+    OR NULLIF(btrim(NEW.attribution_text),'') IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Source cannot be enabled without current approved and evidenced rights' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.pke_guard_maritime_source_enable() FROM PUBLIC;
+CREATE TRIGGER pke_maritime_source_enable_guard
+BEFORE INSERT OR UPDATE OF enabled,rights_status,internal_processing_allowed,rights_reviewed_by,rights_reviewed_at,rights_expires_at,terms_url,rights_evidence_url,attribution_text
+ON public.maritime_data_sources FOR EACH ROW EXECUTE FUNCTION public.pke_guard_maritime_source_enable();
+
+CREATE OR REPLACE FUNCTION public.pke_guard_maritime_staging_rights()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
+AS $function$
+DECLARE r record;
+BEGIN
+  SELECT ir.run_status,s.enabled,s.rights_status,s.internal_processing_allowed,s.rights_expires_at
+    INTO r FROM public.maritime_ingestion_runs ir
+    JOIN public.maritime_data_sources s ON s.id=ir.source_id
+   WHERE ir.id=NEW.run_id;
+  IF NOT FOUND OR r.run_status NOT IN ('queued','running') OR r.enabled IS NOT TRUE
+     OR r.rights_status<>'approved' OR r.internal_processing_allowed IS NOT TRUE
+     OR r.rights_expires_at IS NULL OR r.rights_expires_at<=now() THEN
+    RAISE EXCEPTION 'Staging requires an active run under current approved source rights' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.pke_guard_maritime_staging_rights() FROM PUBLIC;
+CREATE TRIGGER pke_maritime_staging_rights_guard
+BEFORE INSERT ON public.maritime_ingestion_staging
+FOR EACH ROW EXECUTE FUNCTION public.pke_guard_maritime_staging_rights();
+
 CREATE OR REPLACE FUNCTION public.pke_guard_maritime_field_permission()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
 AS $function$

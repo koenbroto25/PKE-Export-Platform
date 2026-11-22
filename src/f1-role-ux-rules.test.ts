@@ -38,7 +38,7 @@ describe("Project-scoped effective permission UX", () => {
     expect(hasPageAccess("projects", noSelection)).toBe(true); expect(hasPageAccess("notifications", noSelection)).toBe(true);
   });
   it("keeps external counterparties in their dedicated portals, not internal workbenches", () => {
-    const buyer = user(["buyer.requirement.view", "buyer.shipment.view", "documents.view", "shipment.view"]);
+    const buyer = { ...user(["buyer.requirement.view", "buyer.shipment.view", "documents.view", "shipment.view"]), buyerPortalEnabled: true };
     expect(hasPageAccess("buyer", buyer)).toBe(true); expect(hasPageAccess("dashboard", buyer)).toBe(true);
     expect(hasPageAccess("operations", buyer)).toBe(false); expect(hasPageAccess("compliance", buyer)).toBe(false);
     expect(hasPageAccess("shipment-allocations", buyer)).toBe(false);
@@ -48,7 +48,7 @@ describe("Project-scoped effective permission UX", () => {
   it("keeps internal procurement users out of external Buyer/Supplier portals", () => {
     const procurement = user(["supplier.view", "supplier.manage", "buyer.requirement.view", "contract.view"]);
     expect(hasPageAccess("buyer", procurement)).toBe(false); expect(hasPageAccess("supplier", procurement)).toBe(false);
-    expect(hasPageAccess("buyer", user(["buyer.shipment.view"]))).toBe(true);
+    expect(hasPageAccess("buyer", { ...user(["buyer.shipment.view"]), buyerPortalEnabled: true })).toBe(true);
     expect(hasPageAccess("supplier", user(["supplier.view", "shipment.view"]))).toBe(true);
   });
   it("does not expose the Transporter portal from PM logistics read access alone", () => {

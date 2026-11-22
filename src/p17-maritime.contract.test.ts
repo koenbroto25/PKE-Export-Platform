@@ -201,6 +201,9 @@ describe("P17-B Platform Admin identity and geospatial review UI",()=>{
   expect(IDENTITY_UI).toContain('if(!platformAdmin)return null');
   expect(IDENTITY_UI).toContain("/admin/maritime/port-crosswalk");
   expect(IDENTITY_UI).toContain("/admin/maritime/port-geospatial-features");
+  expect(API).toContain("validGeoJson(featureType,geometry)");
+  expect(API).toContain("createHash(\"sha256\").update(JSON.stringify(canonicalize(geometry)))");
+  expect(API).toContain("geoRing");
  });
  it("requires substantive independent review notes before crosswalk or geometry decisions",()=>{
   expect(IDENTITY_UI).toContain("Catatan review minimal 5 karakter");

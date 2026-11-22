@@ -4,7 +4,7 @@ type Row=Record<string,any>;
 const canonical=(v:any):any=>Array.isArray(v)?v.map(canonical):v&&typeof v==="object"?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
 async function digest(v:unknown){const bytes=new TextEncoder().encode(JSON.stringify(canonical(v)));const hash=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("");}
 export default function P17IngestionRunPanel({source}:{source:Row}){
- const [runId,setRunId]=useState(""),[recordsText,setRecordsText]=useState('[\n  { "externalRecordId": "provider-record-id", "entityType": "other", "payload": {} }\n]');
+ const [runId,setRunId]=useState(""),[recordsText,setRecordsText]=useState("");
  const [staged,setStaged]=useState<Row[]>([]),[seen,setSeen]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  if(source.enabled!==true||source.rights_status!=="approved")return <small>Ingestion run terkunci sampai sumber aktif dengan hak yang disetujui dan masih berlaku.</small>;
  async function run(fn:()=>Promise<unknown>,success:string){setBusy(true);setError("");setNotice("");try{await fn();setNotice(success);}catch(e){setError(e instanceof Error?e.message:"Ingestion run gagal.");}finally{setBusy(false);}}

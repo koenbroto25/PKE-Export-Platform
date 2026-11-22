@@ -1,5 +1,5 @@
 import type { Express, Request, Response, RequestHandler } from "express";
-type R = Request & { db: { query: (sql:string,params?:unknown[])=>Promise<{rows:any[]}> }; user?: {id?:string;isAdmin?:boolean} };
+type R = any;
 type D = { requireAuth:RequestHandler; requireAdmin:RequestHandler; requireProjectPermission:(req:R,res:Response,projectId:string,permission:string)=>Promise<boolean>; uuidPattern:RegExp };
 const bad=(res:Response,status:number,code:string,error:string)=>res.status(status).json({error,code});
 const str=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";

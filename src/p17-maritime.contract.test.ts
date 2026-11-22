@@ -394,3 +394,44 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
   expect(M107).toContain("shipping.laytime.verify");
  });
 });
+
+
+describe("P17-D AIS evidence and freshness hardening",()=>{
+ it("uses one atomic extension of the canonical tracking table and preserves legacy-only global reads",()=>{
+  expect((M106.match(/\\bBEGIN;/g)||[])).toHaveLength(1);
+  expect((M106.match(/\\bCOMMIT;/g)||[])).toHaveLength(1);
+  expect((M106.match(/CREATE OR REPLACE FUNCTION/g)||[])).toHaveLength(1);
+  expect(M106).toContain("source_id IS NULL AND public.pke_has_any_project_permission");
+  expect(M106).toContain("review_status='accepted'");
+  expect(M106).toContain("source_class='ais'");
+ });
+ it("derives fresh or stale from the approved source SLA, never calls unknown live",()=>{
+  expect(API).toContain("metadata?.freshness_sla_seconds");
+  expect(API).toContain("AIS_OBSERVATION_TIME_FUTURE");
+  expect(API).toContain(':"unknown"');
+  expect(API).toContain("freshness_status");
+ });
+});
+
+describe("P17-E loading acceptance database invariants",()=>{
+ it("has one atomic table/trigger definition with declared reconciliation variables",()=>{
+  expect((M107.match(/\\bBEGIN;/g)||[])).toHaveLength(1);
+  expect((M107.match(/\\bCOMMIT;/g)||[])).toHaveLength(1);
+  expect((M107.match(/CREATE TABLE/g)||[])).toHaveLength(1);
+  expect(M107).toContain("DECLARE\\n  operation_quantity numeric;");
+  expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");
+  expect(M107).toContain("NEW.reviewed_by IS DISTINCT FROM public.pke_current_user_id()");
+ });
+ it("provisions the full survey and laytime permission set to the matching operational roles",()=>{
+  for(const permission of ["shipping.survey.view","shipping.survey.submit","shipping.survey.review","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.verify","loading.quantity.reconcile"])expect(M107).toContain(permission);
+ });
+});
+
+describe("P17-F Buyer identity lifecycle hardening",()=>{
+ it("records mapping lifecycle events and permits only independent state transitions",()=>{
+  expect(M105).toContain("buyer_auth_mapping_events");
+  expect(M105).toContain("Invalid Buyer mapping lifecycle transition");
+  expect(M105).toContain("NEW.reviewed_by IS DISTINCT FROM public.pke_current_user_id()");
+  expect(M105).toContain("u.neon_auth_user_id IS NOT NULL");
+ });
+});

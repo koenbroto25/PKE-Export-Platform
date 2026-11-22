@@ -11,6 +11,7 @@ const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_gra
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
 const PORT_UI=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");
 const SCENARIO_UI=readFileSync(join(ROOT,"frontend","src","PkeLogisticsScenarioWorkbench.tsx"),"utf8");
+const IDENTITY_UI=readFileSync(join(ROOT,"frontend","src","MaritimeIdentityReview.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -197,5 +198,21 @@ describe("P17-B Project PM simulation scenario creation",()=>{
   expect(SCENARIO_UI).toContain("terminal_has_warehouse");
   expect(SCENARIO_UI).toContain("dispatch_allowed:false");
   expect(SCENARIO_UI).toContain("production_use_allowed:false");
+ });
+});
+
+
+describe("P17-B Platform Admin identity and geospatial review UI",()=>{
+ it("loads the protected crosswalk and GeoJSON review queues",()=>{
+  expect(PORT_UI).toContain("<MaritimeIdentityReview platformAdmin={platformAdmin} />");
+  expect(IDENTITY_UI).toContain('if(!platformAdmin)return null');
+  expect(IDENTITY_UI).toContain("/admin/maritime/port-crosswalk");
+  expect(IDENTITY_UI).toContain("/admin/maritime/port-geospatial-features");
+ });
+ it("requires substantive independent review notes before crosswalk or geometry decisions",()=>{
+  expect(IDENTITY_UI).toContain("Catatan review minimal 5 karakter");
+  expect(IDENTITY_UI).toContain("reviewStatus:status");
+  expect(API).toContain("PORT_CROSSWALK_MAKER_CHECKER");
+  expect(API).toContain("PORT_GEO_MAKER_CHECKER");
  });
 });

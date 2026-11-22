@@ -589,3 +589,27 @@ P17 may be accepted only when all internally controllable tests pass and externa
 - No paid API, subscription, receiver, hardware, provider contract or AIS feed activation.
 
 **Final P17 status: FULL AUDIT COMPLETE → DOCUMENTATION REVISION BASELINE → IMPLEMENTATION NOT STARTED.** The next engineering step after these documents are verified is P17-A detailed source-registry/ingestion schema design and P17-F Buyer identity/grant design review before implementation. P17-B/C can proceed with approved source rights and staging boundaries. Do not begin provider ingestion or create Migration 096 solely because it appears in the candidate sequence.
+
+
+## 14. P17-A / P17-E implementation checkpoint (2026-11-22)
+
+**Status: IMPLEMENTATION IN PROGRESS — NOT ACCEPTED.** This checkpoint records the first code/migration tranche and its validation boundary; it does not override the UAT migration ledger or imply database acceptance.
+
+### 14.1 Source-controlled implementation
+- Added candidate migration 096 `096_p17a_maritime_source_governance_ingestion.sql`: source/provider metadata and rights register, field-purpose permissions, ingestion run ledger, payload staging with SHA-256/idempotency, provider quota windows and provider health records. Source records are Platform Admin governed and enabled sources fail closed unless internal-processing rights are explicitly approved, evidenced, attributed and current. Credential values are not stored; only secret references are represented.
+- Added candidate migration 097 `097_p17e_project_maritime_workflows.sql`: Project-bound voyage metadata/version/idempotency, composite Project-parent constraints for nominations and port calls, nomination maker-checker, manual actual port-call confirmation, workflow audit events, narrowly scoped permissions, and selected-Project RLS. Existing P16 ports/vessels/shipments/voyages/nominations/port-call tables are reused.
+- Added `src/p17-maritime.ts` and mounted it from `src/index.ts`: Platform Admin source/right/field-permission, ingestion-run/staging/review/completion and provider-health APIs; Project-scoped voyage, nomination and port-call list/create/update/decision APIs. Provider fetching and master-data promotion are not activated; staged data requires review and is not automatically promoted.
+- Added P17 contract tests and included them in the root test command. Added role-catalogue grants for PM, Shipping Agent, Master of Loading and Terminal Representative within the stated scope.
+
+### 14.2 Validation and blockers
+- Neon UAT was re-read before migration authoring: migration 095 remains latest; no P17 migration was applied. Migration manifest remains at UAT 001–095.
+- GitHub Unit Tests and Dependency Audit Evidence passed on intermediate implementation commit `298d413d658a0f8d22de70ea245ba35f8b91d171`. A later source commit `af90924d952edcdbf68d46483c8c2ac6a3930425` was still running CI at checkpoint time; its result must be checked before acceptance.
+- Neon refused creation of the isolated migration-validation branch with HTTP 422 `branches limit exceeded`. The normal Neon migration-preparation flow therefore could not produce a temporary branch for dry-run/backtest. No existing branch was deleted to make room; no DDL was run directly against UAT as a substitute.
+- Consequently migrations 096/097 remain candidate SQL only. Runtime-role/RLS backtests, migration application, API integration acceptance, and full P0–P16 regression against the new schema remain outstanding. Do not claim P17-A or P17-E complete until those gates pass.
+
+### 14.3 Boundaries
+- Neon UAT schema and data unchanged; latest applied migration remains 095.
+- Production untouched. Vercel deployment and environment remain frozen. PR #2 remains OPEN/DRAFT and unmerged.
+- No external provider feed, paid API, subscription, receiver, hardware or contract activated. No AIS or weather feed is represented as live.
+
+**Next required action:** resolve Neon UAT branch capacity through explicit owner-approved cleanup or capacity increase; then prepare 096 and 097 on isolated temporary branches, inspect/fix DDL failures, apply to UAT only, backtest RLS/runtime permissions and workflows, update the UAT manifest to the exact applied ledger, and rerun the full regression/CI on the final head.

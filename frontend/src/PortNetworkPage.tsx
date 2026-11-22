@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode, type FormEvent } from "react";
 import { get, post, patch, del } from "./api";
 import PkeLogisticsScenarioWorkbench from "./PkeLogisticsScenarioWorkbench";
 import MaritimeSourceRegistry from "./MaritimeSourceRegistry";
+import MaritimeIdentityReview from "./MaritimeIdentityReview";
 
 type Row = Record<string, any>;
 type Props = { projectId: string; activeUser?: { id?: string; projectPermissions?: string[]; platformAdmin?: boolean } };
@@ -316,6 +317,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
 
       <PkeLogisticsScenarioWorkbench projectId={projectId} activeUser={activeUser} />
       {platformAdmin && <MaritimeSourceRegistry platformAdmin={platformAdmin} />}
+      {platformAdmin && <MaritimeIdentityReview platformAdmin={platformAdmin} />}
 
       {masterResource && platformAdmin && masterDraft && <form className="p16-editor" onSubmit={saveMaster}>
         <div className="p16-editor__heading"><strong>{masterId ? "Edit master P16" : "Tambah master P16"}</strong><button type="button" onClick={() => { setMasterDraft(""); setMasterId(null); }}>Tutup</button></div>

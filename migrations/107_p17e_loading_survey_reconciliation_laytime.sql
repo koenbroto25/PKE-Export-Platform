@@ -80,6 +80,17 @@ VALUES
  ('Manage laytime evidence','shipping.laytime.manage','Submit laytime evidence for independent verification',true)
 ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=true,updated_at=now();
 
+INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
+VALUES
+ ('pm','shipping.survey.view'),('pm','shipping.survey.review'),
+ ('pm','shipping.laytime.view'),('pm','shipping.laytime.verify'),('pm','loading.quantity.reconcile'),
+ ('loading_supervisor','shipping.laytime.view'),('loading_supervisor','shipping.laytime.manage'),('loading_supervisor','loading.quantity.reconcile'),
+ ('loading_manager','shipping.laytime.view'),('loading_manager','shipping.laytime.manage'),('loading_manager','loading.quantity.reconcile'),
+ ('marine_surveyor','shipping.survey.view'),('marine_surveyor','shipping.survey.submit'),
+ ('shipping_agent','shipping.laytime.view'),('shipping_agent','shipping.laytime.manage'),
+ ('master_of_loading','shipping.laytime.view'),('master_of_loading','shipping.laytime.manage')
+ON CONFLICT(role_code,permission_code) DO NOTHING;
+
 INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id)
 SELECT pr.project_id,pr.id,p.id
 FROM public.project_roles pr

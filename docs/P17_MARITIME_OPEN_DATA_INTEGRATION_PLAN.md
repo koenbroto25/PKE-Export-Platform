@@ -1,9 +1,9 @@
 # P17 — Maritime Open Data Integration & Vessel Export Control Tower
-**Document status:** OWNER-ACCEPTED PLAN / IMPLEMENTATION NOT STARTED  
+**Document status:** OWNER-ACCEPTED PLAN / IMPLEMENTATION IN PROGRESS — P17-A, P17-E AND P17-B FOUNDATION IMPLEMENTED; EXTERNAL DATA AND CONTROL-TOWER ACCEPTANCE OPEN  
 **Revision:** 1.0  
 **Date:** 2026-11-22  
 **Repository:** `koenbroto25/PKE-Export-Platform`  
-**Execution branch:** `f1/project-scoped-cob-20261119`  
+**Execution branch:** `p17b/operational-readiness-20261122`  
 **Scope authority:** Master Implementation Plan Rev 1.7, §7, §17.2–17.4, Sprint 08, §56.43 and this P17 addendum.
 
 > This document refines P17 only. It does not authorize Production changes, paid subscriptions, hardware purchases, AIS receiver deployment, Vercel deployment, PR merge, or changes to P0–P16. The accepted Indonesia-only vessel-position boundary and all safety/data-rights constraints in Master Plan §56.43 remain binding.
@@ -723,3 +723,28 @@ Source links:
 - https://apiindonesia.id/produk/pelabuhan/
 
 **Import rule:** ingest all eligible national port identities to the master only after source rights are evidenced; preserve source identifiers and category. A record becomes a PKE export candidate only after independent verification of producer-linked KCP, road route, port status, loading service and any relevant port warehouse. Nearby distance alone is never enough.
+
+## 17. Consolidated P17 implementation status (22 November 2026)
+
+### Implemented on the current execution branch
+- P17-A source governance schema and Admin APIs are applied to UAT (migrations 096 and source registry 10 candidate entries). The Admin source governance workbench is embedded in Pelabuhan & Gudang. All ten candidate sources remain pending review, disabled, with zero field-purpose permissions and zero ingestion runs/staging records.
+- P17-E voyage, vessel nomination and port-call database/API workflows are applied to UAT (migration 097), including Project scoping, idempotency/version checks, independent nomination review and explicit actual-time confirmation. The APIs exist; role-specific frontend operational workspace and live HTTP acceptance remain open.
+- P17-B port crosswalk and GeoJSON provenance schema is applied to UAT (migration 098). PKE primary-route qualification requires a verified processor organization, KCP/integrated facility, verified road route, active verified port and explicitly verified PKE loading service.
+- P17-B Project-scoped logistics change requests, Admin approval/audit, simulation graph and semantic edge validation are applied to UAT (migrations 099–103). PM/Admin logistics workbench is integrated into Pelabuhan & Gudang. The Kumai scenario is isolated simulation data, not canonical operational master data.
+- P17-B candidate source registry and seed evidence are recorded in UAT/docs without enabling or importing any external dataset.
+
+### Still open — not represented as completed
+- Rights and endpoint entitlement approval for MaritimHub, BMKG, HOTOSM, UN/LOCODE, company disclosures, traceability data and AIS providers.
+- National port-master reconciliation/import, reviewed external-ID crosswalks and real port/terminal records.
+- Real processor/company → KCP/site reconciliation, current operating status, verified coordinates and PKE output evidence.
+- PKS-to-port road-network evidence, route survey, PKE loading service acceptance and verified port warehouse capacity.
+- BMKG weather normalization/freshness and AIS provider adapters/positions. Existing source governance is not a live provider integration.
+- Project-scoped voyage/nomination/port-call frontend workspace, shipment-event reconciliation and Export/Vessel Readiness Control Tower with checklist-backed READY / AT RISK / NOT READY states.
+- Buyer Export Shipment 360 allowlist and end-to-end buyer grant/IDOR acceptance.
+- Live authenticated HTTP/browser acceptance and full final regression. These are intentionally deferred until the remaining P17 implementation is complete and the user asks to rerun npm/frontend checks.
+
+### Non-negotiable boundaries
+- UAT only; no Production migrations or data changes.
+- No Vercel deployment, PR merge, paid AIS subscription, hardware or external provider activation.
+- Do not approve source rights, infer PKE capability, populate road distance/time, or promote candidates without evidence and the required independent review.
+- Simulation nodes remain `simulation_only=true`, `verification_status=unverified`, and ineligible for dispatch, ranking or export commitment.

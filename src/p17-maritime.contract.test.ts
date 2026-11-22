@@ -76,7 +76,6 @@ describe("P17-E Project maritime workflows",()=>{
   expect(E).not.toMatch(/automatic_clearance|auto_clearance/i);
  });
 });
-
 describe("P17-B Project master-data editing",()=>{
  it("exposes Project-scoped PM draft, submit and Admin decision endpoints",()=>{
   for(const route of ["/api/v1/projects/:projectId/master-data-change-requests","/api/v1/projects/:projectId/master-data-change-requests/:requestId","/api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision"])expect(API).toContain(route);
@@ -90,7 +89,6 @@ describe("P17-B Project master-data editing",()=>{
   expect(API).toContain("submitted requests are immutable");
  });
 });
-
 describe("P17-B logistics chain simulation and PM governance",()=>{
  const L=readFileSync(join(ROOT,"migrations","099_p17b_logistics_scenario_and_pm_change_requests.sql"),"utf8");
  it("exposes Project-scoped scenario and logistics change request endpoints",()=>{
@@ -108,7 +106,6 @@ describe("P17-B logistics chain simulation and PM governance",()=>{
   expect(L).toContain("Only Platform Admin may decide logistics change request");
  });
 });
-
 describe("P17-B isolated logistics simulation graph",()=>{
  it("provides Project-scoped scenario create/read/update APIs",()=>{
   for(const route of ["/api/v1/projects/:projectId/pke-logistics/scenarios","/api/v1/projects/:projectId/pke-logistics/simulation-scenarios","/api/v1/projects/:projectId/pke-logistics/simulation-scenarios/:scenarioId"])expect(API).toContain(route);
@@ -127,7 +124,6 @@ describe("P17-B isolated logistics simulation graph",()=>{
   expect(SIM).toContain("pke_has_project_permission(project_id,'pke.logistics.master.change_request.manage')");
  });
 });
-
 describe("P17-B logistics change scope and stale snapshot guard",()=>{
  const SCOPE=readFileSync(join(ROOT,"migrations","102_p17b_logistics_request_scope_guard.sql"),"utf8");
  it("checks project scope for each canonical logistics target",()=>{
@@ -139,7 +135,6 @@ describe("P17-B logistics change scope and stale snapshot guard",()=>{
   expect(SCOPE).toContain("p17b_logistics_change_scope_insert");
  });
 });
-
 describe("P17-B simulation edge topology",()=>{
  const EDGES=readFileSync(join(ROOT,"migrations","103_p17b_logistics_simulation_edge_semantics.sql"),"utf8");
  it("requires five unique, correctly directed logistics edges",()=>{
@@ -148,7 +143,6 @@ describe("P17-B simulation edge topology",()=>{
   expect(EDGES).toContain("exactly the five typed logistics relationships");
  });
 });
-
 describe("P17-B Project Manager role catalogue",()=>{
  const CATALOG=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
  it("grants Project Manager the Project-scoped logistics workbench permissions",()=>{
@@ -157,7 +151,6 @@ describe("P17-B Project Manager role catalogue",()=>{
   expect(pm).toContain('"pke.logistics.master.change_request.manage"');
  });
 });
-
 describe("P17-B Platform Admin and Project PM workbench access",()=>{
  it("allows Platform Admin to enter Project-scoped logistics routes while PM remains permission-scoped",()=>{
   expect(API).toContain("const requireProjectAccess=async");
@@ -166,8 +159,6 @@ describe("P17-B Platform Admin and Project PM workbench access",()=>{
   expect(API).toContain("set_config('app.current_project_id',$1,true)");
  });
 });
-
-
 describe("P17-A Platform Admin source governance workbench",()=>{
  it("mounts the source registry only for Platform Admin on the port workspace",()=>{
   expect(PORT_UI).toContain('import MaritimeSourceRegistry from "./MaritimeSourceRegistry"');
@@ -186,8 +177,6 @@ describe("P17-A Platform Admin source governance workbench",()=>{
   expect(API).toContain("SOURCE_RIGHTS_NOT_CURRENT");
  });
 });
-
-
 describe("P17-B Project PM simulation scenario creation",()=>{
  it("provides PM/Admin create flow with six unverified nodes and five typed edges",()=>{
   expect(SCENARIO_UI).toContain("/pke-logistics/simulation-scenarios");
@@ -200,8 +189,6 @@ describe("P17-B Project PM simulation scenario creation",()=>{
   expect(SCENARIO_UI).toContain("production_use_allowed:false");
  });
 });
-
-
 describe("P17-B Platform Admin identity and geospatial review UI",()=>{
  it("loads the protected crosswalk and GeoJSON review queues",()=>{
   expect(PORT_UI).toContain("<MaritimeIdentityReview platformAdmin={platformAdmin} />");
@@ -216,7 +203,6 @@ describe("P17-B Platform Admin identity and geospatial review UI",()=>{
   expect(API).toContain("PORT_GEO_MAKER_CHECKER");
  });
 });
-
 describe("P17 Production-safe read projections",()=>{
  const MAIN=readFileSync(join(ROOT,"src","index.ts"),"utf8");
  const APP=readFileSync(join(ROOT,"frontend","src","App.tsx"),"utf8");
@@ -238,7 +224,6 @@ describe("P17 Production-safe read projections",()=>{
   expect(PORT).toContain("tidak pernah menjadi izin sandar atau navigasi");
  });
 });
-
 describe("P17 role dashboard linkage",()=>{
  const DASH=readFileSync(join(ROOT,"frontend","src","RoleDashboardPage.tsx"),"utf8");
  it("provides maritime navigation for Project roles with vessel/shipping responsibilities",()=>{
@@ -252,11 +237,24 @@ describe("P17 role dashboard linkage",()=>{
   expect(DASH).toContain("actual sign-off belum lulus");
  });
 });
-
 describe("P17 buyer portal navigation fail-closed",()=>{
  const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
  it("keeps buyer portal hidden until server-side identity mapping and grants are ready",()=>{
   expect(PAGE).toContain("if (pageKey === 'buyer') return false");
   expect(PAGE).toContain("verified Neon Auth");
+ });
+});
+describe("P17 schema release safety gate",()=>{
+ it("installs a pre-route middleware that blocks the P17 mutation surfaces",()=>{
+  const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));
+  expect(gate).toContain('app.use(p17WriteReleaseGate)');
+  expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
+  expect(gate).toContain("migrations 096-103");
+  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","admin/projects/"]) expect(gate).toContain(fragment);
+  expect(gate).toContain('if(!["POST","PUT","PATCH","DELETE"].includes(req.method)) return next()');
+ });
+ it("does not install a broad /projects write block",()=>{
+  const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));
+  expect(gate).not.toContain('path.startsWith("/api/v1/projects/")');
  });
 });

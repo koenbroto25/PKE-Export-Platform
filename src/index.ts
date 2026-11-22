@@ -2334,9 +2334,12 @@ app.get("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:exp
       `SELECT r.id,r.rule_code,r.title,r.jurisdiction,r.subject_type,r.scope,r.status,r.active_version_id,
               r.created_by,r.reviewed_by,r.reviewed_at,r.created_at,r.updated_at,
               v.version_number,v.status AS version_status,v.outcome,v.rule_summary,v.effective_from,v.effective_to,
-              v.created_by AS version_created_by,v.approved_by,v.regulatory_source_id,s.source_id,s.title AS source_title,s.verification_status
+              v.id AS version_id,v.created_by AS version_created_by,v.approved_by,v.regulatory_source_id,s.source_id,s.title AS source_title,s.verification_status
          FROM public.regulatory_rules r
-         LEFT JOIN public.regulatory_rule_versions v ON v.id=r.active_version_id
+         LEFT JOIN LATERAL (
+           SELECT latest.* FROM public.regulatory_rule_versions latest
+            WHERE latest.rule_id=r.id ORDER BY latest.version_number DESC LIMIT 1
+         ) v ON true
          LEFT JOIN public.regulatory_sources s ON s.id=v.regulatory_source_id
         ORDER BY r.jurisdiction,r.rule_code LIMIT 500`,
     );

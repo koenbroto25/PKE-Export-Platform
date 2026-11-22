@@ -1935,7 +1935,7 @@ async function recordRegulatoryAudit(req: express.Request,action: string,targetT
     `INSERT INTO public.audit_events
       (actor_user_id,actor_type,actor_role,permission_code,action,target_type,target_id,project_id,source,reason,before_snapshot,after_snapshot,metadata,outcome)
      VALUES($1::uuid,'user',$2,$3,$4,$5,$6::uuid,$7::uuid,'p18_regulatory_core',$8,$9::jsonb,$10::jsonb,$11::jsonb,'success')`,
-    [req.user?.id??null,req.user?.role??null,action.startsWith("source")?"regulatory.source.manage":action.startsWith("rule")?"regulatory.rule.manage":(action.startsWith("document_type")||action.startsWith("country_requirement"))?"regulatory.document.manage":action.startsWith("project_requirement")?"documents.update":"compliance.assess",action,targetType,targetId,projectId,reason,before?JSON.stringify(before):null,after?JSON.stringify(after):null,JSON.stringify({phase:"P18",branch:"p18/regulatory-core-20261123"})],
+    [req.user?.id??null,req.user?.role??null,action.startsWith("source")?"regulatory.source.manage":action.startsWith("rule")?"regulatory.rule.manage":(action.startsWith("document_type")||action.startsWith("country_requirement"))?"regulatory.document.manage":action==="project_requirement.created"?"documents.create":action.startsWith("project_requirement")?"documents.update":"compliance.assess",action,targetType,targetId,projectId,reason,before?JSON.stringify(before):null,after?JSON.stringify(after):null,JSON.stringify({phase:"P18",branch:"p18/regulatory-core-20261123"})],
   );
 }
 

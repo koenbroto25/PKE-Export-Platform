@@ -42,6 +42,30 @@ CREATE UNIQUE INDEX buyer_auth_mapping_single_owner_uq
 CREATE INDEX buyer_auth_mapping_status_idx
   ON public.buyer_auth_user_mappings(mapping_status,buyer_id);
 
+CREATE TABLE public.buyer_auth_mapping_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  mapping_id uuid NOT NULL REFERENCES public.buyer_auth_user_mappings(id) ON DELETE RESTRICT,
+  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+  buyer_id uuid NOT NULL REFERENCES public.buyers(id) ON DELETE RESTRICT,
+  event_code text NOT NULL CHECK(event_code IN ('mapping_created','activated','suspended','revoked')),
+  actor_id uuid NOT NULL REFERENCES public.users(id),
+  reason text NOT NULL CHECK(length(btrim(reason))>=5),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX buyer_auth_mapping_events_buyer_idx
+  ON public.buyer_auth_mapping_events(buyer_id,created_at DESC);
+ALTER TABLE public.buyer_auth_mapping_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.buyer_auth_mapping_events FORCE ROW LEVEL SECURITY;
+CREATE POLICY buyer_auth_mapping_events_admin_read
+  ON public.buyer_auth_mapping_events FOR SELECT TO app_runtime_secure
+  USING(public.pke_is_platform_admin());
+CREATE POLICY buyer_auth_mapping_events_admin_insert
+  ON public.buyer_auth_mapping_events FOR INSERT TO app_runtime_secure
+  WITH CHECK(public.pke_is_platform_admin() AND actor_id=public.pke_current_user_id());
+GRANT SELECT,INSERT ON public.buyer_auth_mapping_events TO app_runtime_secure;
+
+
+
 CREATE TABLE public.buyer_visibility_grant_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   grant_id uuid NOT NULL REFERENCES public.buyer_visibility_grants(id) ON DELETE RESTRICT,
@@ -101,26 +125,40 @@ CREATE OR REPLACE FUNCTION public.pke_guard_buyer_auth_mapping()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
 AS $function$
 BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.created_by IS DISTINCT FROM public.pke_current_user_id()
+       OR NEW.mapping_status<>'pending_review'
+       OR NEW.reviewed_by IS NOT NULL OR NEW.reviewed_at IS NOT NULL THEN
+      RAISE EXCEPTION 'Buyer mapping must be created as pending review by the authenticated administrator'
+        USING ERRCODE='42501';
+    END IF;
+  ELSE
+    IF NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.buyer_id IS DISTINCT FROM OLD.buyer_id
+       OR NEW.created_by IS DISTINCT FROM OLD.created_by THEN
+      RAISE EXCEPTION 'Buyer mapping identity is immutable; revoke and create a new mapping'
+        USING ERRCODE='23514';
+    END IF;
+    IF NOT (
+      (OLD.mapping_status='pending_review' AND NEW.mapping_status IN ('active','revoked'))
+      OR (OLD.mapping_status='active' AND NEW.mapping_status='suspended')
+      OR (OLD.mapping_status='suspended' AND NEW.mapping_status='revoked')
+    ) THEN
+      RAISE EXCEPTION 'Invalid Buyer mapping lifecycle transition'
+        USING ERRCODE='23514';
+    END IF;
+    IF NEW.reviewed_by IS DISTINCT FROM public.pke_current_user_id()
+       OR NEW.reviewed_by IS NULL OR NEW.reviewed_by=NEW.created_by
+       OR NEW.reviewed_at IS NULL OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN
+      RAISE EXCEPTION 'Buyer mapping lifecycle requires independent authenticated review'
+        USING ERRCODE='42501';
+    END IF;
+  END IF;
   IF NEW.mapping_status='active' AND NOT EXISTS (
     SELECT 1 FROM public.users u JOIN public.buyers b ON b.id=NEW.buyer_id
-    WHERE u.id=NEW.user_id AND u.neon_auth_user_id IS NOT NULL AND u.is_active IS TRUE AND b.is_active IS TRUE
+    WHERE u.id=NEW.user_id AND u.neon_auth_user_id IS NOT NULL
+      AND u.is_active IS TRUE AND b.is_active IS TRUE
   ) THEN
     RAISE EXCEPTION 'Active Buyer mapping requires an active user with explicitly linked Neon Auth identity and active Buyer master'
-      USING ERRCODE='23514';
-  END IF;
-  IF NEW.mapping_status='active' AND (
-    NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL
-    OR NEW.reviewed_by=NEW.created_by
-    OR length(btrim(COALESCE(NEW.review_note,'')))<5
-  ) THEN
-    RAISE EXCEPTION 'Buyer mapping activation requires independent review'
-      USING ERRCODE='23514';
-  END IF;
-  IF TG_OP='UPDATE' AND (
-    NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.buyer_id IS DISTINCT FROM OLD.buyer_id
-    OR NEW.created_by IS DISTINCT FROM OLD.created_by
-  ) THEN
-    RAISE EXCEPTION 'Buyer mapping identity is immutable; revoke and create a new mapping'
       USING ERRCODE='23514';
   END IF;
   NEW.updated_at=now();
@@ -131,6 +169,30 @@ REVOKE ALL ON FUNCTION public.pke_guard_buyer_auth_mapping() FROM PUBLIC;
 CREATE TRIGGER buyer_auth_mapping_guard
 BEFORE INSERT OR UPDATE ON public.buyer_auth_user_mappings
 FOR EACH ROW EXECUTE FUNCTION public.pke_guard_buyer_auth_mapping();
+
+CREATE OR REPLACE FUNCTION public.pke_audit_buyer_auth_mapping()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
+AS $function$
+DECLARE event_name text; event_reason text;
+BEGIN
+  IF TG_OP='INSERT' THEN
+    event_name:='mapping_created';
+    event_reason:='Mapping created and queued for independent review';
+  ELSE
+    event_name:=CASE NEW.mapping_status WHEN 'active' THEN 'activated' WHEN 'suspended' THEN 'suspended' ELSE 'revoked' END;
+    event_reason:=NEW.review_note;
+  END IF;
+  INSERT INTO public.buyer_auth_mapping_events(mapping_id,user_id,buyer_id,event_code,actor_id,reason)
+  VALUES(NEW.id,NEW.user_id,NEW.buyer_id,event_name,public.pke_current_user_id(),event_reason);
+  RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.pke_audit_buyer_auth_mapping() FROM PUBLIC;
+CREATE TRIGGER buyer_auth_mapping_audit
+AFTER INSERT OR UPDATE OF mapping_status ON public.buyer_auth_user_mappings
+FOR EACH ROW EXECUTE FUNCTION public.pke_audit_buyer_auth_mapping();
+
+
 
 -- Buyer-facing RLS is additive: visibility requires an active identity mapping and an active,
 -- unexpired grant scoped to the exact Project and (when present) shipment.

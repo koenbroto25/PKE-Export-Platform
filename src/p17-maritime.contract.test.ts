@@ -85,3 +85,21 @@ describe("P17-B Project master-data editing",()=>{
   expect(API).toContain("submitted requests are immutable");
  });
 });
+
+describe("P17-B logistics chain simulation and PM governance",()=>{
+ const L=readFileSync(join(ROOT,"migrations","099_p17b_logistics_scenario_and_pm_change_requests.sql"),"utf8");
+ it("exposes Project-scoped scenario and logistics change request endpoints",()=>{
+  for(const route of ["/api/v1/projects/:projectId/pke-logistics/scenarios","/api/v1/projects/:projectId/pke-logistics/change-requests","/api/v1/projects/:projectId/pke-logistics/change-requests/:requestId","/api/v1/admin/projects/:projectId/pke-logistics/change-requests/:requestId/decision"])expect(API).toContain(route);
+  expect(API).toContain("pke.logistics.master.change_request.manage");
+ });
+ it("enforces linked PKS-route-port-terminal-service-warehouse scenario integrity",()=>{
+  for(const relation of ["v_route.pks_site_id<>NEW.pks_site_id","v_route.port_id<>NEW.port_id","v_terminal.port_id<>NEW.port_id","v_service.port_id<>NEW.port_id","v_warehouse.port_id<>NEW.port_id"])expect(L).toContain(relation);
+  expect(L).toContain("simulation_only IS TRUE");
+  expect(L).toContain("SIMULATION_ONLY:%");
+ });
+ it("keeps simulated records unverified and source-rights unapproved",()=>{
+  expect(L).toContain("verification_status='unverified'");
+  expect(L).toContain("PKE logistics change request permission required");
+  expect(L).toContain("Only Platform Admin may decide logistics change request");
+ });
+});

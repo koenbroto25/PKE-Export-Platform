@@ -84,6 +84,10 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   useEffect(() => {
     if (!canViewPorts && canViewWarehouses) setTab("warehouses");
   }, [canViewPorts, canViewWarehouses]);
+  useEffect(() => {
+    setSelectedTerminalId("");
+    setP17Advisory(null);
+  }, [selectedPort?.id]);
 
   useEffect(() => {
     let active = true;

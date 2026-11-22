@@ -41,6 +41,14 @@ CREATE INDEX vessel_tracking_review_latest_idx
   ON public.vessel_tracking_positions(vessel_id,review_status,position_timestamp DESC);
 
 DROP POLICY IF EXISTS vessel_tracking_accepted_project_read ON public.vessel_tracking_positions;
+DROP POLICY IF EXISTS pke_scope_select ON public.vessel_tracking_positions;
+CREATE POLICY pke_scope_select
+  ON public.vessel_tracking_positions FOR SELECT TO app_runtime_secure
+  USING (
+    source_id IS NULL
+    AND public.pke_has_any_project_permission('vessel.position.view')
+  );
+
 CREATE POLICY vessel_tracking_accepted_project_read
   ON public.vessel_tracking_positions FOR SELECT TO app_runtime_secure
   USING (

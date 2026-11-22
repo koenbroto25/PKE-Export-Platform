@@ -2464,6 +2464,19 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/approve",requireAuth,asyn
 app.patch("/api/v1/regulatory-rule-versions/:versionId/activate",requireAuth,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
   try{
+    const candidate=await req.db.query(
+      `SELECT v.id,v.rule_id FROM public.regulatory_rule_versions v
+        JOIN public.regulatory_sources s ON s.id=v.regulatory_source_id
+        WHERE v.id=$1::uuid AND v.status='approved' AND v.approved_by IS NOT NULL
+          AND s.verification_status='verified' AND v.effective_from<=CURRENT_DATE
+          AND (v.effective_to IS NULL OR v.effective_to>=CURRENT_DATE)`,
+      [req.params.versionId],
+    );
+    if(!candidate.rows.length) return res.status(409).json({error:"Only approved versions backed by a verified source and within their effective date window can be activated."});
+    await req.db.query(
+      "UPDATE public.regulatory_rule_versions SET status='superseded',updated_at=now() WHERE rule_id=$1::uuid AND status='effective' AND id<>$2::uuid",
+      [candidate.rows[0].rule_id,req.params.versionId],
+    );
     const {rows}=await req.db.query(
       `UPDATE public.regulatory_rule_versions SET status='effective',updated_at=now()
         WHERE id=$1::uuid AND status='approved' AND approved_by IS NOT NULL

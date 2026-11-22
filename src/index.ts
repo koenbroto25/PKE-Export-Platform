@@ -2325,6 +2325,7 @@ app.get("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:exp
 
 app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.version.create"))) return;
   const b=req.body??{};
   const ruleCode=typeof b.ruleCode==="string"?b.ruleCode.trim():"";
   const title=typeof b.title==="string"?b.title.trim():"";
@@ -2338,9 +2339,17 @@ app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:ex
   if(!ruleCode||ruleCode.length>120||!title||!/^([A-Z]{2}|GLOBAL)$/.test(jurisdiction)||!["shipment","product","project","all"].includes(subjectType)||!["require","prohibit","allow","manual_review","informational"].includes(outcome)||!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)||!sourceId)
     return res.status(400).json({error:"Valid rule identity, jurisdiction, subject type, outcome, source and effective date are required."});
   if(conditions.length>100||documents.length>100) return res.status(400).json({error:"Rule condition/document limits exceeded."});
+  for(const condition of conditions){
+    if(typeof condition?.fieldPath!=="string"||!/^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(condition.fieldPath)||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(condition.operator)||condition.value===undefined||!Number.isInteger(condition.conditionGroup??1)||(condition.conditionGroup??1)<1)
+      return res.status(400).json({error:"Invalid rule condition.",code:"REGULATORY_CONDITION_INVALID"});
+  }
+  for(const document of documents){
+    if(typeof document?.documentCode!=="string"||!["mandatory","conditional","optional"].includes(document.requirementKind??"mandatory"))
+      return res.status(400).json({error:"Invalid required document specification.",code:"REGULATORY_DOCUMENT_REQUIREMENT_INVALID"});
+  }
   try{
-    const source=await req.db.query("SELECT id,official_url,source_checksum,source_checksum_sha256 FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
-    if(!source.rows.length) return res.status(422).json({error:"Regulatory source not found or not visible to this role."});
+    const source=await req.db.query("SELECT id,official_url,source_checksum,source_checksum_sha256,verification_status FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
+    if(!source.rows.length||source.rows[0].verification_status!=="verified") return res.status(422).json({error:"A verified regulatory source is required before a rule version can be created."});
     const rule=await req.db.query(
       `INSERT INTO public.regulatory_rules(rule_code,title,jurisdiction,subject_type,scope,status,created_by)
        VALUES($1,$2,$3,$4,$5::jsonb,'draft',$6::uuid) RETURNING id`,
@@ -2356,8 +2365,6 @@ app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:ex
     );
     await req.db.query("UPDATE public.regulatory_rules SET active_version_id=$1::uuid WHERE id=$2::uuid",[version.rows[0].id,rule.rows[0].id]);
     for(const condition of conditions){
-      if(typeof condition?.fieldPath!=="string"||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(condition.operator))
-        return res.status(400).json({error:"Invalid rule condition.",code:"REGULATORY_CONDITION_INVALID"});
       await req.db.query(
         `INSERT INTO public.regulatory_rule_conditions(rule_version_id,field_path,operator,comparison_value,is_mandatory,condition_group)
          VALUES($1::uuid,$2,$3,$4::jsonb,$5,$6)`,
@@ -2395,8 +2402,8 @@ app.post("/api/v1/regulatory-rules/:ruleId/versions",requireAuth,async(req:expre
   try{
     const rule=await req.db.query("SELECT id,rule_code FROM public.regulatory_rules WHERE id=$1::uuid",[req.params.ruleId]);
     if(!rule.rows.length) return res.status(404).json({error:"Regulatory rule not found."});
-    const source=await req.db.query("SELECT id,official_url,source_checksum,source_checksum_sha256 FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
-    if(!source.rows.length) return res.status(422).json({error:"Regulatory source not found."});
+    const source=await req.db.query("SELECT id,official_url,source_checksum,source_checksum_sha256,verification_status FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
+    if(!source.rows.length||source.rows[0].verification_status!=="verified") return res.status(422).json({error:"A verified regulatory source is required before a new rule version can be created."});
     for(const condition of conditions){
       if(typeof condition?.fieldPath!=="string"||!/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(condition.fieldPath)||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(condition.operator)||condition.value===undefined)
         return res.status(400).json({error:"Invalid rule condition."});
@@ -2820,10 +2827,9 @@ app.post("/api/v1/country-document-requirements",requireAuth,async(req:express.R
     const doc=await req.db.query("SELECT id FROM public.export_document_types WHERE document_code=$1 AND is_active=true",[documentCode]);
     if(!doc.rows.length) return res.status(422).json({error:"Active export document type not found."});
     const sourceId=b.regulatorySourceId??null;
-    if(sourceId){
-      const source=await req.db.query("SELECT id FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
-      if(!source.rows.length) return res.status(422).json({error:"Regulatory source not found."});
-    }
+    if(!sourceId) return res.status(400).json({error:"A verified regulatorySourceId is required."});
+    const source=await req.db.query("SELECT id,official_url,verification_status FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
+    if(!source.rows.length||source.rows[0].verification_status!=="verified") return res.status(422).json({error:"A verified regulatory source is required for a country requirement."});
     const {rows}=await req.db.query(
       `INSERT INTO public.country_export_document_requirements
         (country_code,product_id,document_type_id,regulatory_source_id,importing_authority,mandatory,

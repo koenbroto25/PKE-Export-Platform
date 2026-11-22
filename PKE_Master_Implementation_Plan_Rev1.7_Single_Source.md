@@ -8346,3 +8346,12 @@ Read-only inspection of canonical Production confirmed:
 | Full regression/build | DEFERRED_BY_SEQUENCE | Must run after the remaining P17 feature work is finished |
 
 **The P17 tranche is not complete and must not be marked PASS.** The feature commits are source-level; the API routes, permission guards, SQL and UI require later deferred automated/runtime regression. 
+
+
+## 55.25 P17 buyer portal and maritime navigation gate — 22 November 2026
+
+- The P17 maritime operations navigation entry is visible only when the authenticated Project user has at least one of the maritime read permissions `voyage.view`, `vessel.view`, `vessel.nomination.review`, `shipping.view` or `shipment.view`. Server authorization remains mandatory and is not relaxed.
+- The Buyer Portal navigation entry is now explicitly fail-closed in frontend page visibility until the verified Neon Auth user → buyer master mapping and server-side grant-based projection are implemented. This does not remove underlying role grants, alter Production role assignments, or replace API/RLS controls; it prevents the client from implying buyer export visibility is ready.
+- Existing `buyer-projects` API is not accepted as a buyer identity boundary because it joins Project membership and accepts an optional client-supplied `buyerId`. Do not use it for buyer-facing export data.
+- No Project role or permission was expanded as part of this UI guard. Project role assignments and permission grants remain unchanged.
+- Static contract assertions were added. They are not yet executed because the deferred `npm test`/frontend validation is intentionally sequenced after the remaining P17 feature tranche.

@@ -248,6 +248,8 @@ describe("P17 Buyer Portal server-derived visibility",()=>{
  it("requires an authenticated mapped identity and an active supported grant before showing the portal",()=>{
   expect(PAGE).toContain("user.buyerPortalEnabled === true");
   expect(MAIN).toContain("buyerPortalEnabled");
+  expect(API).toContain("identityMapped:identity.rows[0]?.identity_mapped===true");
+  expect(readFileSync(join(ROOT,"frontend","src","App.tsx"),"utf8")).toContain("buyerAccess.data?.identityMapped === true");
   expect(MAIN).toContain("g.scope IN ('summary','milestones')");
  });
 });
@@ -344,6 +346,10 @@ describe("P17-F Buyer identity and visibility",()=>{
   expect(M105).toContain("buyer_visibility_grants_buyer_read");
   expect(M105).toContain("shipments_buyer_summary_read");
   expect(M105).toContain("buyer_auth_mapping_project_grant_manager_read");
+  expect(M105).toContain("('pm','buyer.visibility.manage')");
+  expect(M105).toContain("('buyer','buyer.shipment.view')");
+  expect(M105).toContain("INSERT INTO public.permissions(name,code,description,is_active)");
+  expect(M105).toContain("INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)");
   expect(API).toContain("buyer-visibility-grant-candidates");
   expect(API).toContain("BUYER_GRANT_EXPIRY_FAILED");
   expect(readFileSync(join(ROOT,"frontend","src","RoleDashboardPage.tsx"),"utf8")).toContain("expireGrants");
@@ -446,6 +452,7 @@ describe("P17-E loading acceptance database invariants",()=>{
  });
  it("provisions the full survey and laytime permission set to the matching operational roles",()=>{
   for(const permission of ["shipping.survey.view","shipping.survey.submit","shipping.survey.review","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.verify","loading.quantity.reconcile"])expect(M107).toContain(permission);
+  expect(M107).toContain("INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)");
  });
 });
 

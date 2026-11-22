@@ -41,7 +41,10 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     "port_geospatial_features","p17b_logistics_change_requests","p17b_logistics_scenarios",
     "p17b_logistics_simulation_scenarios","buyer_auth_user_mappings","buyer_auth_mapping_events",
     "buyer_visibility_grant_events","buyer_visibility_grants","loading_operation_acceptances",
-    "vessel_tracking_positions","voyages","vessel_nominations","vessel_port_calls"
+    "vessel_tracking_positions","voyages","vessel_nominations","vessel_port_calls","pks_port_routes",
+    "loading_operations","loading_tickets","loading_segments","shipments","shipment_events","buyers","users",
+    "projects","ports","pks_sites","port_terminals","port_equipment","warehouses","vessels",
+    "vessel_port_assessments","shipment_allocations","project_export_documents","project_work_items"
   ];
   try{
     const migrations=await req.db.query(

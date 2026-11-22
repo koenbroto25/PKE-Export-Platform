@@ -342,6 +342,8 @@ describe("P17-E nomination lifecycle completion",()=>{
   expect(API).toContain("nomination_reviewed");
   expect(API).toContain("nomination_withdrawn");
   expect(API).toContain("port_call_created");
+  expect(API).toContain("/api/v1/projects/:projectId/maritime-workflow-events");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Maritime workflow timeline");
   expect(E).toContain("maritime_workflow_events");
  });
 });

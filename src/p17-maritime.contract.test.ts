@@ -8,6 +8,8 @@ const A=readFileSync(join(ROOT,"migrations","096_p17a_maritime_source_governance
 const E=readFileSync(join(ROOT,"migrations","097_p17e_project_maritime_workflows.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
+const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
+const PORT_UI=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -160,5 +162,25 @@ describe("P17-B Platform Admin and Project PM workbench access",()=>{
   expect(API).toContain("public.pke_is_platform_admin() AS is_admin");
   expect(API).toContain("return requireProjectPermission(req,res,projectId,permission)");
   expect(API).toContain("set_config('app.current_project_id',$1,true)");
+ });
+});
+
+
+describe("P17-A Platform Admin source governance workbench",()=>{
+ it("mounts the source registry only for Platform Admin on the port workspace",()=>{
+  expect(PORT_UI).toContain('import MaritimeSourceRegistry from "./MaritimeSourceRegistry"');
+  expect(PORT_UI).toContain("<MaritimeSourceRegistry platformAdmin={platformAdmin} />");
+  expect(SOURCE_UI).toContain('if(!platformAdmin)return null');
+ });
+ it("supports source registration, rights decisions and field-purpose permission with fail-closed activation",()=>{
+  expect(SOURCE_UI).toContain("/admin/maritime/sources");
+  expect(SOURCE_UI).toContain("/rights");
+  expect(SOURCE_UI).toContain("/field-permissions");
+  expect(SOURCE_UI).toContain("/enable");
+  expect(SOURCE_UI).toContain("rightsEvidenceUrl");
+  expect(SOURCE_UI).toContain("internalProcessingAllowed");
+  expect(SOURCE_UI).toContain("Aktifkan sumber");
+  expect(API).toContain("RIGHTS_EVIDENCE_REQUIRED");
+  expect(API).toContain("SOURCE_RIGHTS_NOT_CURRENT");
  });
 });

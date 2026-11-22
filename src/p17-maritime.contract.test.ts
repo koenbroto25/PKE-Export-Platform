@@ -10,6 +10,8 @@ const M104=readFileSync(join(ROOT,"migrations","104_p17e_nomination_submission_g
 const M105=readFileSync(join(ROOT,"migrations","105_p17f_buyer_identity_and_grant_audit.sql"),"utf8");
 const M106=readFileSync(join(ROOT,"migrations","106_p17d_vessel_position_observations.sql"),"utf8");
 const M107=readFileSync(join(ROOT,"migrations","107_p17e_loading_survey_reconciliation_laytime.sql"),"utf8");
+const M108=readFileSync(join(ROOT,"migrations","108_p17f_buyer_mapping_rls_recursion_fix.sql"),"utf8");
+const M109=readFileSync(join(ROOT,"migrations","109_p17f_buyer_self_read_rls_recursion_fix.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
@@ -527,5 +529,23 @@ describe("P17-C advisory vessel and terminal compatibility",()=>{
   expect(ui).toContain("P17-C · Advisory kompatibilitas kapal–terminal PKE");
   expect(ui).toContain("/advisory-screening?portId=");
   expect(ui).toContain("p17Advisory");
+ });
+});
+
+
+describe("P17-F Buyer portal RLS recursion regression",()=>{
+ it("keeps Buyer mapping self-read independent from Buyer row RLS",()=>{
+  expect(M108).toContain("CREATE POLICY buyer_auth_mapping_self_read");
+  expect(M108).toContain("public.pke_current_user_id()");
+  expect(M108).toContain("u.neon_auth_user_id IS NOT NULL");
+  expect(M108).not.toMatch(/JOIN\\s+public\\.buyers/i);
+  expect(M108).not.toMatch(/FROM\\s+public\\.buyers/i);
+ });
+ it("validates active Buyer on the outer Buyer row without self-query recursion",()=>{
+  expect(M109).toContain("CREATE POLICY buyers_verified_mapping_self_read");
+  expect(M109).toContain("is_active IS TRUE");
+  expect(M109).toContain("m.mapping_status = 'active'");
+  expect(M109).toContain("u.neon_auth_user_id IS NOT NULL");
+  expect(M109).not.toMatch(/FROM\\s+public\\.buyers/i);
  });
 });

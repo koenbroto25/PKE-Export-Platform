@@ -108,7 +108,7 @@ AS $function$
 DECLARE
  v_user uuid;
 BEGIN
- v_user:=NULLIF(current_setting('app.current_user_id',true),'')::uuid;
+ v_user:=COALESCE(NULLIF(current_setting('app.current_user_id',true),'')::uuid,CASE WHEN TG_OP='INSERT' THEN NEW.created_by ELSE NEW.updated_by END);
  INSERT INTO public.audit_events(actor_user_id,actor_type,actor_role,permission_code,action,target_type,target_id,project_id,
   source,reason,before_snapshot,after_snapshot,metadata,outcome)
  VALUES(v_user,'user',NULLIF(current_setting('app.current_role',true),''),'pke.logistics.master.change_request.manage',

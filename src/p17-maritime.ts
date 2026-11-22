@@ -29,6 +29,11 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   }
   return requireProjectPermission(req,res,projectId,permission);
  };
+ const requireProjectAnyAccess=async(req:R,res:Response,projectId:string,permissions:string[]):Promise<boolean>=>{
+  const q=await req.db.query("SELECT public.pke_is_platform_admin() AS is_admin, "+permissions.map((_,i)=>"public.pke_has_project_permission($1::uuid,$"+(i+2)+"::text)").join(" OR ")+" AS allowed",[projectId,...permissions]);
+  if(q.rows[0]?.is_admin===true||q.rows[0]?.allowed===true){await req.db.query("SELECT set_config('app.current_role',$1,true),set_config('app.current_project_id',$2,true),set_config('app.current_permission_code',$3,true)",[q.rows[0]?.is_admin===true?"admin":"project",projectId,permissions[0]]);return true;}
+  return bad(res,403,"PROJECT_PERMISSION_REQUIRED","One of the required Project permissions is required.") as any;
+ };
  // P17-B: port identity reconciliation and versioned GeoJSON. Promotion is explicit and review-gated.
  app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   try{

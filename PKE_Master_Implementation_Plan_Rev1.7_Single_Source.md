@@ -8273,6 +8273,7 @@ Working branch: p17b/operational-readiness-20261122. Source artifacts include:
 - P17-E migration 104 nomination lifecycle; voyage/nomination/port-call workflow events; migration 107 loading unit locking, versioned survey/quantity/laytime evidence, private upload presigning, server-side object size/SHA verification, independent review and quantity reconciliation.
 - P17-F migration 105 explicit Neon Auth-to-Buyer mapping state machine, append-only mapping/grant audit, PM visibility grants, expiry action, server-derived Buyer Portal access and milestone timeline.
 - P17-G Project and Platform Admin Control Tower APIs/UI; Project route view ranks PKE evidence candidates before other verified routes and then by distance.
+- Dynamic P17 release gate checks all twelve migration-history entries, RLS plus at least one policy across 40 P17-critical tables, and the required nine active permissions. It remains closed until all three checks pass; it is not a permanent hard-coded block.
 - Contract tests cover migrations 096–107, release gates, Buyer access, AIS payload/freshness, private loading evidence, PKS-port capability ranking and Control Tower UI.
 
 Migrations 096–107 remain source-only. No Production schema, role, RLS policy, business record, Buyer mapping/grant, AIS provider credential or source payload was changed. P17 schema-backed Admin/Buyer surfaces and writes remain fail-closed until explicit Production release approval. No merge or Vercel deployment was performed; browser UAT remains skipped.
@@ -8453,6 +8454,7 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 
 ### Read-only validation performed
 - PostgreSQL EXPLAIN succeeded for the PKS-to-port capability query, Project Control Tower existing-schema queries, Admin Control Tower queries, P17-C vessel/terminal advisory queries, and existing loading-ticket/segment aggregates.
+- Read-only Production preflight for the dynamic gate found 0/12 P17 migrations applied, 24/40 protected tables present (all present tables had RLS and policies), and 2/9 required permissions present. The gate therefore correctly remains closed.
 - The loading-operation GET query was adjusted to use NULL::text AS unit_code until migration 107 exists; its pre-migration query plan succeeded.
 - Static source assertions and migration atomicity checks were expanded. Root npm test, TypeScript build, frontend build and API runtime acceptance have not been executed in this tranche; no test PASS is claimed.
 - No Production SQL mutation, migration execution, role/RLS change, provider connection, Buyer grant, merge or Vercel deployment was performed. Vercel remains skipped.

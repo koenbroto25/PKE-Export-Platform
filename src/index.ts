@@ -492,6 +492,21 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
        AND NOT(pr.role_code='funder' AND (perm.code LIKE 'finance.%' OR perm.code LIKE 'accounting.%' OR perm.code LIKE 'reports.%' OR perm.code LIKE 'payment.%' OR perm.code IN('report.view','view_financial','view_rab')))
        ORDER BY perm.code`,[userId]);
     const permissions: string[] = permissionRows.map((r: any) => r.code);
+    let buyerPortalEnabled=false;
+    try{
+      const buyerSchema=await req.db.query("SELECT to_regclass('public.buyer_auth_user_mappings') IS NOT NULL AS ready");
+      if(buyerSchema.rows[0]?.ready===true){
+        const buyerAccess=await req.db.query(`SELECT EXISTS(
+          SELECT 1 FROM public.buyer_auth_user_mappings m
+          JOIN public.users u ON u.id=m.user_id AND u.is_active IS TRUE AND u.neon_auth_user_id IS NOT NULL
+          JOIN public.buyers b ON b.id=m.buyer_id AND b.is_active IS TRUE
+          JOIN public.buyer_visibility_grants g ON g.buyer_id=b.id
+          WHERE m.user_id=$1::uuid AND m.mapping_status='active'
+            AND g.status='active' AND (g.expires_at IS NULL OR g.expires_at>now())
+        ) AS enabled`,[userId]);
+        buyerPortalEnabled=buyerAccess.rows[0]?.enabled===true;
+      }
+    }catch{buyerPortalEnabled=false;}
 
     const activeMemberships = memberships.filter((m: any) =>
       m.is_active === true &&
@@ -530,6 +545,7 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
           joinedAt: m.joined_at,
         })),
         permissions,
+        buyerPortalEnabled,
         portalAccess,
       },
     });

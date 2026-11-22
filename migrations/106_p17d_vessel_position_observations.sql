@@ -68,7 +68,7 @@ BEGIN
     OR NEW.raw_payload_hash IS DISTINCT FROM OLD.raw_payload_hash OR NEW.source_reference IS DISTINCT FROM OLD.source_reference
     OR NEW.attribution_text IS DISTINCT FROM OLD.attribution_text OR NEW.created_by IS DISTINCT FROM OLD.created_by
   ) THEN RAISE EXCEPTION 'Provider position identity and payload are immutable' USING ERRCODE='23514'; END IF;
-  IF NEW.source_id IS NOT NULL THEN
+  IF NEW.source_id IS NOT NULL AND (TG_OP='INSERT' OR NEW.review_status='accepted') THEN
     IF NEW.sog_knots IS NOT NULL THEN required_fields:=array_append(required_fields,'sog_knots'); END IF;
     IF NEW.cog_degrees IS NOT NULL THEN required_fields:=array_append(required_fields,'cog_degrees'); END IF;
     IF NEW.provider_reference IS NULL OR NEW.provider_reference='' OR NEW.source_reference IS NULL

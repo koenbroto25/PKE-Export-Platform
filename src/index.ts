@@ -2214,7 +2214,7 @@ app.get("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:e
               reviewer_id,last_reviewed,created_by,created_at,updated_at
          FROM public.regulatory_sources ORDER BY created_at DESC LIMIT 500`,
     );
-    return res.json({sources:rows});
+    return res.json({sources:rows.map((r:any)=>({id:r.id,sourceId:r.source_id,title:r.title,issuingAuthority:r.issuing_authority,jurisdiction:r.jurisdiction,documentType:r.document_type,regulationNumber:r.regulation_number,effectiveDate:r.effective_date,expiryRepealDate:r.expiry_repeal_date,status:r.status,officialUrl:r.official_url,sourceChecksum:r.source_checksum_sha256??r.source_checksum,verificationStatus:r.verification_status,reviewerId:r.reviewer_id,lastReviewed:r.last_reviewed,createdBy:r.created_by,createdAt:r.created_at}))});
   }catch(error:any){
     req.logger?.error?.("Regulatory source registry read failed",error);
     return res.status(500).json(internalServerErrorPayload());
@@ -2390,7 +2390,7 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/activate",requireAuth,asy
       [req.params.versionId],
     );
     if(!rows.length) return res.status(409).json({error:"Only approved versions within their effective date window can be activated."});
-    await req.db.query("UPDATE public.regulatory_rules SET status='effective',active_version_id=$1::uuid,updated_at=now() WHERE id=$1::uuid",[rows[0].id]);
+    await req.db.query("UPDATE public.regulatory_rules SET status='effective',active_version_id=$1::uuid,updated_at=now() WHERE id=$2::uuid",[rows[0].id,rows[0].rule_id]);
     return res.json({version:rows[0]});
   }catch(error:any){if(error?.code==="23505") return res.status(409).json({error:"Another effective version already exists for this rule."});return res.status(500).json(internalServerErrorPayload());}
 });

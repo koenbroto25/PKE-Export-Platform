@@ -80,7 +80,7 @@ FROM public.project_roles pr
 JOIN public.permissions p ON p.code IN ('shipping.survey.review','shipping.laytime.verify','loading.quantity.reconcile')
 WHERE pr.is_active=true AND (
   (pr.role_code='pm' AND p.code IN ('shipping.survey.view','shipping.survey.review','shipping.laytime.view','shipping.laytime.verify','loading.quantity.reconcile'))
-  OR (pr.role_code='loading_supervisor' AND p.code IN ('shipping.laytime.view','shipping.laytime.manage','loading.quantity.reconcile'))
+  OR (pr.role_code IN ('loading_supervisor','loading_manager') AND p.code IN ('shipping.laytime.view','shipping.laytime.manage','loading.quantity.reconcile'))
   OR (pr.role_code='marine_surveyor' AND p.code IN ('shipping.survey.view','shipping.survey.submit'))
   OR (pr.role_code='shipping_agent' AND p.code IN ('shipping.laytime.view','shipping.laytime.manage'))
   OR (pr.role_code='master_of_loading' AND p.code IN ('shipping.laytime.view','shipping.laytime.manage'))

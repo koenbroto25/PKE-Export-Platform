@@ -46,7 +46,7 @@ function removeTransactionWrapper(sql) {
   if (!/^\s*(?:--[^\r\n]*(?:\r?\n|$))*BEGIN;\s*/i.test(normalized) || !/COMMIT;\s*$/.test(normalized)) {
     throw new Error("transaction wrapper missing");
   }
-  return normalized.replace(/^\s*(?:--[^\r\n]*(?:\r?\n|$))*BEGIN;\s*/i, "").replace(/COMMIT;\s*$/, "");
+  return normalized.replace(/\nBEGIN;\n\n/, "\n").replace(/COMMIT;\n?$/, "");
 }
 for (let i = 0; i < release.migrations.length; i++) {
   const item = release.migrations[i], n=96+i;

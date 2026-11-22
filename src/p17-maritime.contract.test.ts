@@ -59,6 +59,8 @@ describe("P17-E Project maritime workflows",()=>{
   for(const permission of ["voyage.create","voyage.update","vessel.nomination.review","vessel.port_call.manage","vessel.port_call.confirm"])expect(E).toContain(permission);
   expect(ROLES).toContain("vessel.nominate");
   expect(ROLES).toContain("vessel.port_call.confirm");
+  expect(E).toContain("('pm','voyage.view')");
+  expect(ROLES).toContain('"vessel.view", "vessel.port.assess", "voyage.view", "voyage.create"');
  });
  it("never treats port call or AIS as clearance authority",()=>{
   expect(API).toContain("operationalClearance:false");

@@ -8,6 +8,13 @@ JOIN public.permissions p ON p.code='buyer.visibility.manage'
 WHERE pr.is_active=true AND pr.role_code='pm'
 ON CONFLICT(project_role_id,permission_id) DO NOTHING;
 
+INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id)
+SELECT pr.project_id,pr.id,p.id
+FROM public.project_roles pr
+JOIN public.permissions p ON p.code='buyer.shipment.view'
+WHERE pr.is_active=true AND pr.role_code='buyer'
+ON CONFLICT(project_role_id,permission_id) DO NOTHING;
+
 CREATE TABLE public.buyer_auth_user_mappings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL UNIQUE REFERENCES public.users(id) ON DELETE RESTRICT,

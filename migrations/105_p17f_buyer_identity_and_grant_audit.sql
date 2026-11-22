@@ -210,6 +210,7 @@ CREATE POLICY buyers_verified_mapping_self_read
   USING (
     EXISTS (
       SELECT 1 FROM public.buyer_auth_user_mappings m
+      JOIN public.users u ON u.id=m.user_id AND u.is_active IS TRUE AND u.neon_auth_user_id IS NOT NULL
       WHERE m.buyer_id=buyers.id AND m.user_id=public.pke_current_user_id()
         AND m.mapping_status='active'
     )
@@ -228,6 +229,7 @@ CREATE POLICY buyer_visibility_grants_buyer_read
     status='active' AND (expires_at IS NULL OR expires_at>now())
     AND EXISTS (
       SELECT 1 FROM public.buyer_auth_user_mappings m
+      JOIN public.users u ON u.id=m.user_id AND u.is_active IS TRUE AND u.neon_auth_user_id IS NOT NULL
       WHERE m.user_id=public.pke_current_user_id()
         AND m.buyer_id=buyer_visibility_grants.buyer_id
         AND m.mapping_status='active'
@@ -240,6 +242,7 @@ CREATE POLICY shipments_buyer_summary_read
     EXISTS (
       SELECT 1 FROM public.buyer_visibility_grants g
       JOIN public.buyer_auth_user_mappings m ON m.buyer_id=g.buyer_id
+      JOIN public.users u ON u.id=m.user_id AND u.is_active IS TRUE AND u.neon_auth_user_id IS NOT NULL
       WHERE m.user_id=public.pke_current_user_id() AND m.mapping_status='active'
         AND g.project_id=shipments.project_id AND (g.shipment_id IS NULL OR g.shipment_id=shipments.id)
         AND g.status='active' AND (g.expires_at IS NULL OR g.expires_at>now())
@@ -253,6 +256,7 @@ CREATE POLICY shipment_events_buyer_milestones_read
     EXISTS (
       SELECT 1 FROM public.buyer_visibility_grants g
       JOIN public.buyer_auth_user_mappings m ON m.buyer_id=g.buyer_id
+      JOIN public.users u ON u.id=m.user_id AND u.is_active IS TRUE AND u.neon_auth_user_id IS NOT NULL
       WHERE m.user_id=public.pke_current_user_id() AND m.mapping_status='active'
         AND g.project_id=shipment_events.project_id
         AND (g.shipment_id IS NULL OR g.shipment_id=shipment_events.shipment_id)

@@ -12,7 +12,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  const p17WriteReleaseGate:RequestHandler=(req,res,next)=>{
   const path=req.path||"";
   const mutating=["POST","PUT","PATCH","DELETE"].includes(req.method);
-  const schemaAdmin=path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings");
+  const schemaAdmin=path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings")||path.startsWith("/api/v1/admin/buyer-visibility-grants");
   const buyerProjection=path.startsWith("/api/v1/buyer/");
   const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|buyer-visibility-grants(?:\/|$)|loading-operations(?:\/|$))/.test(path);
   const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);
@@ -289,6 +289,10 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
 
  // P17-F: Buyer access is resolved by verified Neon Auth identity mapping plus active scoped grants.
+ app.post("/api/v1/admin/buyer-visibility-grants/expire",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  try{const expired=await req.db.query("UPDATE public.buyer_visibility_grants SET status='expired' WHERE status='active' AND expires_at IS NOT NULL AND expires_at<=now() RETURNING id,project_id,buyer_id");for(const g of expired.rows)await req.db.query("INSERT INTO public.buyer_visibility_grant_events(grant_id,project_id,buyer_id,event_code,actor_id,reason) VALUES($1::uuid,$2::uuid,$3::uuid,'expired',req_user_id(),'Grant expired at its configured expiry time')",[g.id,g.project_id,g.buyer_id]);return res.json({expiredCount:expired.rows.length});}
+  catch{return bad(res,500,"BUYER_GRANT_EXPIRY_FAILED","Unable to record expired Buyer grants.");}
+ });
  app.get("/api/v1/admin/buyer-auth-mappings",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   try{
    const mappings=await req.db.query("SELECT m.id,m.user_id,u.name AS user_name,u.email AS user_email,(u.neon_auth_user_id IS NOT NULL) AS auth_identity_linked,m.buyer_id,b.name AS buyer_name,m.mapping_status,m.created_by,m.reviewed_by,m.reviewed_at,m.review_note,m.created_at,m.updated_at FROM public.buyer_auth_user_mappings m JOIN public.users u ON u.id=m.user_id JOIN public.buyers b ON b.id=m.buyer_id ORDER BY m.created_at DESC");

@@ -135,3 +135,12 @@ describe("P17-B logistics change scope and stale snapshot guard",()=>{
   expect(SCOPE).toContain("p17b_logistics_change_scope_insert");
  });
 });
+
+describe("P17-B simulation edge topology",()=>{
+ const EDGES=readFileSync(join(ROOT,"migrations","103_p17b_logistics_simulation_edge_semantics.sql"),"utf8");
+ it("requires five unique, correctly directed logistics edges",()=>{
+  for(const relation of ["pks_to_road_route","road_route_to_port","port_has_terminal","terminal_has_loading_service","terminal_has_warehouse"])expect(EDGES).toContain("'"+relation+"'");
+  expect(EDGES).toContain("endpoint types do not match");
+  expect(EDGES).toContain("exactly the five typed logistics relationships");
+ });
+});

@@ -97,7 +97,12 @@ CREATE POLICY buyer_auth_mapping_project_grant_manager_read
 
 CREATE POLICY buyer_auth_mapping_self_read
   ON public.buyer_auth_user_mappings FOR SELECT TO app_runtime_secure
-  USING (user_id=public.pke_current_user_id() AND mapping_status='active');
+  USING (
+    user_id=public.pke_current_user_id() AND mapping_status='active'
+    AND EXISTS(SELECT 1 FROM public.users u JOIN public.buyers b ON b.id=buyer_auth_user_mappings.buyer_id
+      WHERE u.id=buyer_auth_user_mappings.user_id AND u.is_active IS TRUE
+        AND u.neon_auth_user_id IS NOT NULL AND b.is_active IS TRUE)
+  );
 
 ALTER TABLE public.buyer_visibility_grant_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY buyer_visibility_grant_events_project_insert

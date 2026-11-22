@@ -173,13 +173,13 @@ USING (public.pke_is_platform_admin() OR public.pke_has_any_project_access() OR 
 DROP POLICY IF EXISTS p18_export_document_types_insert ON public.export_document_types;
 CREATE POLICY p18_export_document_types_insert ON public.export_document_types
 FOR INSERT TO app_runtime_secure
-WITH CHECK (public.p18_has_regulatory_permission('regulatory.document.manage'));
+WITH CHECK (public.pke_is_platform_admin());
 
 DROP POLICY IF EXISTS p18_export_document_types_update ON public.export_document_types;
 CREATE POLICY p18_export_document_types_update ON public.export_document_types
 FOR UPDATE TO app_runtime_secure
-USING (public.p18_has_regulatory_permission('regulatory.document.manage'))
-WITH CHECK (public.p18_has_regulatory_permission('regulatory.document.manage'));
+USING (public.pke_is_platform_admin())
+WITH CHECK (public.pke_is_platform_admin());
 
 DROP POLICY IF EXISTS p18_country_document_requirements_insert ON public.country_export_document_requirements;
 CREATE POLICY p18_country_document_requirements_insert ON public.country_export_document_requirements

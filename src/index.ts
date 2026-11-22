@@ -2675,6 +2675,32 @@ app.post("/api/v1/compliance-check", requireAuth, (_req: express.Request, res: e
 );
 
 // Export document catalog and country requirement governance.
+app.get("/api/v1/export-document-types",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.view"))) return;
+  try{
+    const {rows}=await req.db.query("SELECT id,document_code,document_name,document_category,description,is_active FROM public.export_document_types ORDER BY document_code LIMIT 500");
+    return res.json({documentTypes:rows});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.get("/api/v1/country-document-requirements",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.document.view"))) return;
+  try{
+    const {rows}=await req.db.query(
+      `SELECT cdr.id,cdr.country_code,c.country_name,cdr.product_id,cdr.document_type_id,edt.document_code,
+              edt.document_name,cdr.regulatory_source_id,s.source_id,cdr.importing_authority,cdr.mandatory,
+              cdr.status,cdr.effective_from,cdr.effective_to,cdr.official_source_url,cdr.notes,
+              cdr.verification_status,cdr.version_no,cdr.created_by,cdr.verified_by,cdr.last_verified_at
+         FROM public.country_export_document_requirements cdr
+         JOIN public.countries c ON c.country_code=cdr.country_code
+         JOIN public.export_document_types edt ON edt.id=cdr.document_type_id
+         LEFT JOIN public.regulatory_sources s ON s.id=cdr.regulatory_source_id
+        ORDER BY cdr.country_code,edt.document_code,cdr.version_no DESC LIMIT 1000`,
+    );
+    return res.json({requirements:rows});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
 app.post("/api/v1/export-document-types",requireAuth,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
   const b=req.body??{};

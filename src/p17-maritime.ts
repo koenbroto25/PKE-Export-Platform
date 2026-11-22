@@ -11,18 +11,59 @@ const canonicalize=(v:any):any=>Array.isArray(v)?v.map(canonicalize):v&&typeof v
 export function registerP17MaritimeRoutes(app:Express,d:D){
  // Production schema is still at migration 053. Block P17 mutations until 096-107
  // and their RLS/policy acceptance are explicitly released on canonical Production.
- const p17WriteReleaseGate:RequestHandler=(req,res,next)=>{
+ const p17WriteReleaseGate:RequestHandler=async(req,res,next)=>{
   const path=req.path||"";
   const mutating=["POST","PUT","PATCH","DELETE"].includes(req.method);
   const schemaAdmin=path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings")||path.startsWith("/api/v1/admin/buyer-visibility-grants");
   const buyerProjection=path.startsWith("/api/v1/buyer/");
-  const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|buyer-visibility-grants(?:\/|$)|loading-operations(?:\/|$))/.test(path);
-  const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);
-  const p17SchemaBackedRead=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|buyer-visibility-grants(?:\/|$))/.test(path);
-  if(schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)){
-   return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema-backed workflow is unavailable until migrations 096-107 and their RLS/permission acceptance are released to canonical Production.");
+  const p17ProjectWorkflow=/^\\/api\\/v1\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/(?:simulation-scenarios|change-requests)(?:\\/|$)|voyages(?:\\/|$)|vessel-nominations(?:\\/|$)|vessel-port-calls(?:\\/|$)|buyer-visibility-grants(?:\\/|$)|loading-operations(?:\\/|$))/.test(path);
+  const p17AdminProjectWorkflow=/^\\/api\\/v1\\/admin\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/change-requests(?:\\/|$))/.test(path);
+  const p17SchemaBackedRead=/^\\/api\\/v1\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/(?:simulation-scenarios|change-requests)(?:\\/|$)|buyer-visibility-grants(?:\\/|$))/.test(path);
+  const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating);
+  if(!protectedPath)return next();
+  const migrationFiles=[
+    "096_p17a_maritime_source_governance_ingestion.sql",
+    "097_p17e_project_maritime_workflows.sql",
+    "098_p17b_port_identity_geospatial.sql",
+    "099_p17b_logistics_scenario_and_pm_change_requests.sql",
+    "100_p17b_logistics_change_audit.sql",
+    "101_p17b_logistics_simulation_graph.sql",
+    "102_p17b_logistics_request_scope_guard.sql",
+    "103_p17b_logistics_simulation_edge_semantics.sql",
+    "104_p17e_nomination_submission_guard.sql",
+    "105_p17f_buyer_identity_and_grant_audit.sql",
+    "106_p17d_vessel_position_observations.sql",
+    "107_p17e_loading_survey_reconciliation_laytime.sql"
+  ];
+  const protectedTables=[
+    "maritime_data_sources","maritime_source_field_permissions","maritime_ingestion_runs","maritime_ingestion_staging",
+    "maritime_provider_usage","maritime_provider_health","maritime_workflow_events","port_external_id_crosswalk",
+    "port_geospatial_features","p17b_logistics_change_requests","p17b_logistics_scenarios",
+    "p17b_logistics_simulation_scenarios","buyer_auth_user_mappings","buyer_auth_mapping_events",
+    "buyer_visibility_grant_events","buyer_visibility_grants","loading_operation_acceptances",
+    "vessel_tracking_positions","voyages","vessel_nominations","vessel_port_calls"
+  ];
+  try{
+    const migrations=await req.db.query(
+      "SELECT COUNT(*)::int AS applied_count FROM public.migration_history WHERE filename=ANY($1::text[]) AND status='applied'",
+      [migrationFiles]
+    );
+    if(Number(migrations.rows[0]?.applied_count)!==migrationFiles.length)
+      return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema release is incomplete; migrations 096-107 must all be applied to canonical Production.");
+    const rls=await req.db.query(
+      "SELECT COUNT(*)::int AS found_count,COUNT(*) FILTER(WHERE NOT c.relrowsecurity OR COALESCE(p.policy_count,0)=0)::int AS unsafe_count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN (SELECT tablename,COUNT(*)::int AS policy_count FROM pg_policies WHERE schemaname='public' GROUP BY tablename) p ON p.tablename=c.relname WHERE n.nspname='public' AND c.relname=ANY($1::text[])",
+      [protectedTables]
+    );
+    if(Number(rls.rows[0]?.found_count)!==protectedTables.length||Number(rls.rows[0]?.unsafe_count)!==0)
+      return bad(res,503,"P17_RLS_RELEASE_BLOCKED","P17 tables are missing RLS or an applicable policy; protected APIs remain unavailable.");
+    const requiredPermissions=["buyer.shipment.view","buyer.visibility.manage","shipping.survey.view","shipping.survey.submit","shipping.survey.review","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.verify","loading.quantity.reconcile"];
+    const permissions=await req.db.query("SELECT COUNT(*)::int AS permission_count FROM public.permissions WHERE code=ANY($1::text[]) AND is_active IS TRUE",[requiredPermissions]);
+    if(Number(permissions.rows[0]?.permission_count)!==requiredPermissions.length)
+      return bad(res,503,"P17_PERMISSION_RELEASE_BLOCKED","P17 role permissions are incomplete; protected APIs remain unavailable.");
+    return next();
+  }catch{
+    return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema/RLS release state could not be verified; protected APIs remain fail-closed.");
   }
-  return next();
  };
  app.use(p17WriteReleaseGate);
 

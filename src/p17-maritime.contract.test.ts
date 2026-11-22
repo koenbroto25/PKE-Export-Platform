@@ -21,6 +21,7 @@ const IDENTITY_UI=readFileSync(join(ROOT,"frontend","src","MaritimeIdentityRevie
 const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
 const WORKSPACE=readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8");
 const WORKFLOW_ACTIONS=readFileSync(join(ROOT,"frontend","src","P17WorkflowActions.tsx"),"utf8");
+const AIS_ADMIN_UI=readFileSync(join(ROOT,"frontend","src","P17AisAdminPanel.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -573,5 +574,18 @@ describe("P17 operational workflow UI",()=>{
   expect(WORKFLOW_ACTIONS).toContain("permissions.includes(\"vessel.port_call.confirm\")");
   expect(WORKFLOW_ACTIONS).toContain("expectedVersion");
   expect(WORKFLOW_ACTIONS).toContain("crypto.randomUUID()");
+ });
+});
+
+
+describe("P17-D AIS admin API and UI",()=>{
+ it("provides an authenticated admin review queue and hash-verified observation intake",()=>{
+  expect(API).toContain('app.get("/api/v1/admin/maritime/vessel-positions",requireAuth,requireAdmin');
+  expect(API).toContain("AIS_ADMIN_QUEUE_READ_FAILED");
+  expect(AIS_ADMIN_UI).toContain("/admin/maritime/vessel-positions?reviewStatus=pending");
+  expect(AIS_ADMIN_UI).toContain("crypto.subtle.digest(\"SHA-256\"");
+  expect(AIS_ADMIN_UI).toContain("payloadSha256");
+  expect(AIS_ADMIN_UI).toContain("maker-checker");
+  expect(WORKSPACE).toContain("P17AisAdminPanel");
  });
 });

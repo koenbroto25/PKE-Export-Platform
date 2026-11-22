@@ -46,6 +46,8 @@ describe("P17-B port identity and PKS-linked geospatial governance",()=>{
   expect(MAIN).toContain("pke_loading_service_verified");
   expect(MAIN).toContain("producer_company_verified");
   expect(MAIN).toContain("po.organization_type='processor'");
+  expect(MAIN).toContain("ps.facility_type IN ('kernel_crushing_plant','integrated_mill_kcp')");
+  expect(MAIN).toContain("'palm_kernel_expeller'");
   expect(MAIN).toContain("LEFT JOIN public.partner_organizations po ON po.id=ps.organization_id");
   expect(UI).toContain("Produsen belum ditautkan");
   expect(UI).toContain("produsen:");

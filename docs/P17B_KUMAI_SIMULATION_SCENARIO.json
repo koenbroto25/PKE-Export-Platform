@@ -1,0 +1,181 @@
+{
+  "scenario_code": "SIM-PKE-KUMAI-001",
+  "project_id": "a1000000-0000-4000-8000-000000000001",
+  "simulation_only": true,
+  "scenario_status": "simulation",
+  "product_code": "PKE",
+  "graph": {
+    "nodes": [
+      {
+        "id": "pks-cbu-tempenek",
+        "type": "pks_site",
+        "name": "[SIMULATION] Citra Borneo Utama KCP — Tempenek, Kumai",
+        "simulation_only": true,
+        "verification_status": "unverified",
+        "attributes": {
+          "company": "PT Citra Borneo Utama Tbk",
+          "facility_type": "kernel_crushing_plant",
+          "location": "Tempenek, Kumai, Kotawaringin Barat, Kalimantan Tengah, Indonesia",
+          "coordinates": null,
+          "reported_group_kcp_capacity_mt_year": 180000,
+          "capacity_basis": "group KCP capacity published by CBI Group; not site-level PKE output",
+          "pke_product_capability": "candidate; independently verify product output and current site"
+        }
+      },
+      {
+        "id": "road-cbu-bumiharjo",
+        "type": "road_route",
+        "name": "[SIMULATION] KCP Tempenek → Terminal Bumiharjo road leg",
+        "simulation_only": true,
+        "verification_status": "unverified",
+        "attributes": {
+          "mode": "road",
+          "origin_node": "pks-cbu-tempenek",
+          "destination_node": "port-bumiharjo",
+          "candidate_access_reference": "Jl. Pelabuhan CPO-Tanjung Kalaf, Kumai",
+          "distance_km": null,
+          "estimated_travel_minutes": null,
+          "geometry": null,
+          "distance_method": null,
+          "truck_restrictions": "not surveyed",
+          "route_status": "candidate only; do not dispatch"
+        }
+      },
+      {
+        "id": "port-bumiharjo",
+        "type": "port",
+        "name": "[SIMULATION] Pelabuhan Bumiharjo (Kumai)",
+        "simulation_only": true,
+        "verification_status": "unverified",
+        "attributes": {
+          "operator": "PT Pelindo Multi Terminal",
+          "address": "Jl. Pelabuhan CPO-Tanjung Kalaf RT. 18, Kumai, Kotawaringin Barat, Kalimantan Tengah 74181, Indonesia",
+          "coordinates": null,
+          "terminal_categories": [
+            "liquid_bulk",
+            "dry_bulk",
+            "general_cargo"
+          ],
+          "published_berth_length_m": 392.9,
+          "published_stacking_yard_area_m2": 1560,
+          "published_warehouse_area_m2": 2616,
+          "category_note": "Dry-bulk appears in terminal category metadata; published activity description does not confirm PKE cargo acceptance"
+        }
+      },
+      {
+        "id": "terminal-bumiharjo",
+        "type": "terminal",
+        "name": "[SIMULATION] Terminal Bumiharjo — dry bulk candidate",
+        "simulation_only": true,
+        "verification_status": "unverified",
+        "attributes": {
+          "port_node": "port-bumiharjo",
+          "cargo_types": [
+            "general_cargo",
+            "dry_bulk_candidate"
+          ],
+          "berth_id": null,
+          "berth_depth_m": null,
+          "maximum_draft_m": null,
+          "operating_window": null,
+          "pke_acceptance_confirmed": false
+        }
+      },
+      {
+        "id": "loading-pke-bumiharjo",
+        "type": "loading_service",
+        "name": "[SIMULATION] PKE loose-bulk loading service candidate",
+        "simulation_only": true,
+        "verification_status": "unverified",
+        "attributes": {
+          "terminal_node": "terminal-bumiharjo",
+          "cargo_type": "PKE_candidate",
+          "handling_mode": "loose_bulk",
+          "loading_rate_mt_hour": null,
+          "service_status": "unconfirmed",
+          "equipment_and_dust_control": "to be verified"
+        }
+      },
+      {
+        "id": "warehouse-bumiharjo",
+        "type": "warehouse",
+        "name": "[SIMULATION] Gudang Terminal Bumiharjo",
+        "simulation_only": true,
+        "verification_status": "unverified",
+        "attributes": {
+          "terminal_node": "terminal-bumiharjo",
+          "published_floor_area_m2": 2616,
+          "storage_capacity_mt": null,
+          "storage_mode": "unknown",
+          "PKE_suitability": "not confirmed",
+          "published_open_stacking_yard_area_m2": 1560
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-01",
+        "from_id": "pks-cbu-tempenek",
+        "to_id": "road-cbu-bumiharjo",
+        "relationship_type": "pks_to_road_route"
+      },
+      {
+        "id": "edge-02",
+        "from_id": "road-cbu-bumiharjo",
+        "to_id": "port-bumiharjo",
+        "relationship_type": "road_route_to_port"
+      },
+      {
+        "id": "edge-03",
+        "from_id": "port-bumiharjo",
+        "to_id": "terminal-bumiharjo",
+        "relationship_type": "port_has_terminal"
+      },
+      {
+        "id": "edge-04",
+        "from_id": "terminal-bumiharjo",
+        "to_id": "loading-pke-bumiharjo",
+        "relationship_type": "terminal_has_loading_service"
+      },
+      {
+        "id": "edge-05",
+        "from_id": "terminal-bumiharjo",
+        "to_id": "warehouse-bumiharjo",
+        "relationship_type": "terminal_has_warehouse"
+      }
+    ]
+  },
+  "source_evidence": [
+    {
+      "publisher": "Citra Borneo Indah Group",
+      "url": "https://www.citraborneo.co.id/",
+      "claim": "Official company website states PT Citra Borneo Utama processes palm derivatives and group KCP capacity is 180,000 MT/year.",
+      "scope": "Group-level company disclosure; not site-specific PKE output.",
+      "rights_status": "pending_manual_review"
+    },
+    {
+      "publisher": "Pelindo Multi Terminal",
+      "url": "https://pelindomultiterminal.com/portfolio/bumiharjo-bagendang",
+      "claim": "Official profile lists Bumiharjo in Kumai, Kotawaringin Barat; terminal category metadata includes dry bulk; published berth 392.9 m, stacking yard 1,560 m2 and warehouse 2,616 m2.",
+      "scope": "Port facility data only; PKE-specific handling not confirmed.",
+      "rights_status": "pending_manual_review"
+    }
+  ],
+  "assumptions": {
+    "simulation_only": true,
+    "road_distance_km": null,
+    "road_travel_minutes": null,
+    "road_geometry": null,
+    "pks_coordinates": null,
+    "port_coordinates": null,
+    "pke_acceptance_confirmed": false,
+    "terminal_loading_rate_mt_hour": null,
+    "warehouse_storage_capacity_mt": null,
+    "warehouse_pke_suitability_confirmed": false,
+    "dispatch_allowed": false,
+    "production_use_allowed": false,
+    "ranking_eligibility": "ineligible_until_independent_validation",
+    "kcp_group_capacity_mt_year": 180000,
+    "kcp_capacity_basis": "group-level company-stated KCP capacity; never treat as this site's PKE output capacity"
+  }
+}

@@ -9,6 +9,10 @@ ALTER TABLE public.regulatory_rule_versions
 ALTER TABLE public.country_export_document_requirements
   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id);
 
+ALTER TABLE public.regulatory_rule_versions DROP CONSTRAINT IF EXISTS regulatory_rule_versions_status_check;
+ALTER TABLE public.regulatory_rule_versions ADD CONSTRAINT regulatory_rule_versions_status_check
+  CHECK (status IN ('draft','under_review','approved','effective','rejected','superseded','repealed'));
+
 INSERT INTO public.permissions(name,code,description,is_active)
 VALUES
  ('View Regulatory Sources','regulatory.source.view','View verified regulatory source metadata and reviewable drafts.',true),

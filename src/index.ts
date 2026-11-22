@@ -1920,6 +1920,16 @@ async function requireProjectDocumentPermission(
   return requireProjectPermission(req, res, projectId, permissionCode);
 }
 
+function normalizeRegulatoryConditions(conditions: any[]): any[] {
+  return conditions.map(condition=>({
+    field_path:condition.fieldPath??condition.field_path,
+    operator:condition.operator,
+    comparison_value:condition.value??condition.comparison_value,
+    is_mandatory:condition.isMandatory??condition.is_mandatory??true,
+    condition_group:condition.conditionGroup??condition.condition_group??1,
+  }));
+}
+
 async function recordRegulatoryAudit(req: express.Request,action: string,targetType: string,targetId: string,projectId: string|null=null,reason: string|null=null,before: unknown=null,after: unknown=null): Promise<void> {
   await req.db.query(
     `INSERT INTO public.audit_events
@@ -2361,7 +2371,7 @@ app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:ex
         rule_summary,condition_schema,outcome,risk_category,effective_from,status,created_by)
        VALUES($1::uuid,1,$2::uuid,$3,$4,$5,$6,$7::jsonb,$8,$9,$10::date,'draft',$11::uuid)
        RETURNING id,rule_id,version_number,status`,
-      [rule.rows[0].id,sourceId,b.sourceLocator??null,source.rows[0].official_url,source.rows[0].source_checksum_sha256??source.rows[0].source_checksum??null,String(b.summary??title),JSON.stringify({conditions}),outcome,b.riskCategory??null,effectiveFrom,req.user?.id??null],
+      [rule.rows[0].id,sourceId,b.sourceLocator??null,source.rows[0].official_url,source.rows[0].source_checksum_sha256??source.rows[0].source_checksum??null,String(b.summary??title),JSON.stringify({conditions:normalizeRegulatoryConditions(conditions)}),outcome,b.riskCategory??null,effectiveFrom,req.user?.id??null],
     );
     await req.db.query("UPDATE public.regulatory_rules SET active_version_id=$1::uuid WHERE id=$2::uuid",[version.rows[0].id,rule.rows[0].id]);
     for(const condition of conditions){
@@ -2377,7 +2387,7 @@ app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:ex
       await req.db.query(
         `INSERT INTO public.regulatory_rule_documents(rule_version_id,document_type_id,requirement_kind,issuing_authority,holder_party,presentation_point,validity_days,condition_schema)
          VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8::jsonb)`,
-        [version.rows[0].id,docType.rows[0].id,document.requirementKind??"mandatory",document.issuingAuthority??null,document.holderParty??null,document.presentationPoint??null,document.validityDays??null,JSON.stringify(document.conditionSchema??{})],
+        [version.rows[0].id,docType.rows[0].id,document.requirementKind??"mandatory",document.issuingAuthority??null,document.holderParty??null,document.presentationPoint??null,document.validityDays??null,JSON.stringify({conditions:normalizeRegulatoryConditions(Array.isArray(document.conditionSchema?.conditions)?document.conditionSchema.conditions:[])} )],
       );
     }
     await recordRegulatoryAudit(req,"rule.created","regulatory_rule",rule.rows[0].id,null,"Rule and draft version created",null,{ruleId:rule.rows[0].id,version:version.rows[0]});
@@ -2415,7 +2425,7 @@ app.post("/api/v1/regulatory-rules/:ruleId/versions",requireAuth,async(req:expre
         rule_summary,condition_schema,outcome,risk_category,effective_from,status,created_by)
        VALUES($1::uuid,$2,$3::uuid,$4,$5,$6,$7,$8::jsonb,$9,$10,$11::date,'draft',$12::uuid)
        RETURNING id,rule_id,version_number,status`,
-      [req.params.ruleId,max.rows[0].next_version,sourceId,b.sourceLocator??null,source.rows[0].official_url,source.rows[0].source_checksum_sha256??source.rows[0].source_checksum??null,String(b.summary??rule.rows[0].rule_code),JSON.stringify({conditions}),b.outcome,b.riskCategory??null,b.effectiveFrom,req.user?.id??null],
+      [req.params.ruleId,max.rows[0].next_version,sourceId,b.sourceLocator??null,source.rows[0].official_url,source.rows[0].source_checksum_sha256??source.rows[0].source_checksum??null,String(b.summary??rule.rows[0].rule_code),JSON.stringify({conditions:normalizeRegulatoryConditions(conditions)}),b.outcome,b.riskCategory??null,b.effectiveFrom,req.user?.id??null],
     );
     for(const condition of conditions) await req.db.query(
       "INSERT INTO public.regulatory_rule_conditions(rule_version_id,field_path,operator,comparison_value,is_mandatory,condition_group) VALUES($1::uuid,$2,$3,$4::jsonb,$5,$6)",

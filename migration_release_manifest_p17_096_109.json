@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "purpose": "production_p17_release_package_exact_sql_hashes_owner_approval_required",
+  "project_id": "purple-base-63944903",
+  "branch_id": "br-damp-shape-b3xlh4nr",
+  "database": "neondb",
+  "starting_history_manifest": "migration_history_manifest_001_053.json",
+  "starting_history_count": 53,
+  "expected_first_ledger_id": 54,
+  "expected_last_ledger_id": 67,
+  "release_scope": "P17-A through P17-G database foundation and Buyer RLS hardening",
+  "owner_approval": {
+    "migrations_096_to_107": "approved by owner in ChatGPT conversation on 2026-11-22 for exact Production target",
+    "migrations_108_to_109": "additional corrective migrations discovered by UAT runtime-role acceptance; Production application requires explicit owner approval",
+    "approval_reference": "ChatGPT owner instruction 2026-11-22; additional 108-109 approval pending"
+  },
+  "uat_validation": {
+    "branch_id": "br-young-boat-b3re832d",
+    "manifest": "migration_history_manifest_uat_001_109.json",
+    "migrations_096_to_098": "historical UAT SQL bodies match current source exactly after removing the added BEGIN/COMMIT transaction wrappers",
+    "migrations_104_to_109": "applied and checksum-reconciled",
+    "runtime_role_rls": "15 protected-table reads and PM/viewer context checks passed"
+  },
+  "migrations": [
+    {
+      "ledger_id": 54,
+      "filename": "096_p17a_maritime_source_governance_ingestion.sql",
+      "sha256": "00e4ddeb1ba87a3011a74c74b774b912e6eeac8f09fdf2d68f64c0ac4a788eba",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 55,
+      "filename": "097_p17e_project_maritime_workflows.sql",
+      "sha256": "bf56ed7b82692c2ad0cb2acb52a4a850b358a4b117714de9ef687737899c2d5a",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 56,
+      "filename": "098_p17b_port_identity_geospatial.sql",
+      "sha256": "803815efd5c83e999069752d806c4bff04921be01063cbf8968e5e1f49a63dfc",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 57,
+      "filename": "099_p17b_logistics_scenario_and_pm_change_requests.sql",
+      "sha256": "8fa210ebf923dd5c8e41a8f92b77cf0bf3299edda5d144fd641f785a321050a9",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 58,
+      "filename": "100_p17b_logistics_change_audit.sql",
+      "sha256": "3ef0d4c8c3aa0daec99751f453838d0bd13faf988b5129b6e0366abbd35e880a",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 59,
+      "filename": "101_p17b_logistics_simulation_graph.sql",
+      "sha256": "f94babb6eb3b9f96e6f57b75e625e11ee7fdfa8799592c71d5fafdf29cb64e10",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 60,
+      "filename": "102_p17b_logistics_request_scope_guard.sql",
+      "sha256": "2a552738a73815f754416cbf71c59cb11eb4625e7054eabd4ce09398f87ffc23",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 61,
+      "filename": "103_p17b_logistics_simulation_edge_semantics.sql",
+      "sha256": "635b9f4b955a41e436af934dd88a23b9dc0d034063e4e368ee89d29a0ce413a4",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 62,
+      "filename": "104_p17e_nomination_submission_guard.sql",
+      "sha256": "e101b4d03ee81fe833136658c651978ee0267026d90de6cca2489e16618b7ab7",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 63,
+      "filename": "105_p17f_buyer_identity_and_grant_audit.sql",
+      "sha256": "3ec980792916ed0733e0a0fd2e7d15cfc665a684e3d83988934573526f2af383",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 64,
+      "filename": "106_p17d_vessel_position_observations.sql",
+      "sha256": "db77e1bde251158faa9cf99cdadcbcce8582945203f0f4fd9416370ab00a7fee",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 65,
+      "filename": "107_p17e_loading_survey_reconciliation_laytime.sql",
+      "sha256": "6653ceea3926e6d40379fd4ba9faa1dcbef8a2713fec817c2c3105160a672634",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": false
+    },
+    {
+      "ledger_id": 66,
+      "filename": "108_p17f_buyer_mapping_rls_recursion_fix.sql",
+      "sha256": "feccb0230f18c6cea51f7ed1e5d10223cbe7bb63476f147f7040cbebb1324d17",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": true
+    },
+    {
+      "ledger_id": 67,
+      "filename": "109_p17f_buyer_self_read_rls_recursion_fix.sql",
+      "sha256": "c02c4ebbdc0d2932c6eee66590262c970fad12d6c494d34cc0dde513c4d6b125",
+      "status": "pending",
+      "source_sha_verified": true,
+      "requires_additional_owner_approval": true
+    }
+  ]
+}

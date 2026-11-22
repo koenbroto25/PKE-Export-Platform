@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.29 — P17 Production migrations 096–110 applied and verified
+# Master Implementation Plan Rev2.30 — P17 technical completion track and owner handoff
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.29 (23 November 2026 — P17 migrations 096–110 applied; Production runtime RLS negative-path backtests passed; external operational gates remain fail-closed)  
+**Revision:** 2.30 (23 November 2026 — Production ledger 001–071 reconciled; migration runner/verifier corrected; owner actions separated from technical completion)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8597,3 +8597,34 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Production still has zero enabled maritime/AIS providers and zero source-linked positions. The one legacy pending row remains unlinked and cannot be reviewed as licensed AIS. No provider credentials or legal rights were invented or activated.
 
 **P17 database migrations 096–110 are now applied.** This closes the migration 110 database/RLS blocker. P17 is not declared fully operational or application-production-ready: real provider rights/credentials, verified PKS-port-route evidence, Buyer identity mapping, loading evidence and authenticated HTTP/API acceptance remain external/application gates. Vercel deployment and browser UAT remain skipped per owner instruction.
+
+
+## P17 technical completion continuation and owner handoff — 23 November 2026
+
+**Execution rule (owner instruction):** External licenses, provider credentials, Buyer identities and genuine operational evidence are NOT blockers to continuing application revisions. The implementation must proceed with provider-neutral adapters, configuration validation, mock/contract tests, fail-closed activation guards, admin workflows, evidence upload/review workflows, and API contract coverage. Only the live activation/acceptance of the corresponding external integration remains gated. Do not pause code work while waiting for owner inputs.
+
+**FACT — VERIFIED in this session**
+- Re-read the active branch source of truth, P17 release manifests, migration runner, release verifier and root package scripts.
+- Queried canonical Neon Production directly. `public.migration_history` returns sequential latest rows 67–71, with migration 110 at ID 71, exact SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`, status `applied`.
+- Corrected a stale diagnostic in `scripts/apply-p17-migrations.mjs` that still reported the current Production manifest as 001–070; it now correctly reports 001–071.
+- Strengthened `scripts/verify-p17-release-package.mjs` so the regression check asserts the 001–071 diagnostic. Both source changes are committed to the active P17 branch. GitHub Actions re-validation is required for the new commit; do not claim it passed until a new run reports success.
+- The initial probe used a nonexistent table name `schema_migrations`; that read-only query failed without changing Production. The canonical table is `public.migration_history`, and the follow-up read-only query succeeded.
+
+**Owner/company actions — handoff only, not blockers for technical revisions**
+1. **AIS/maritime provider:** obtain the provider contract/license, allowed purposes/territories, redistribution and retention rights, API credentials, vessel/IMO coverage and freshness/SLA details. Provide these to configure the adapter and approve a source. Until then, keep provider disabled and do not ingest live positions.
+2. **PKS and logistics master evidence:** provide the official PKS identities/coordinates, operating/production capability evidence, port/terminal/warehouse identity, road access/route evidence and permission to use the data. The app can continue implementing source capture, verification, geospatial comparison and route scoring using clearly marked reference/demo inputs; do not mark any facility-route pair verified without evidence.
+3. **Buyer portal:** provide each real Buyer user's Neon Auth identity (or invite/activation outcome), the relevant Project/contract relationship and an explicit visibility decision. Code, mapping validation, admin UI and negative-path tests continue meanwhile; do not create placeholder identities or grants.
+4. **Loading and vessel operations:** provide genuine loading survey/tally records, quantity/weight reconciliation, NOR/statement-of-facts/time events, vessel/voyage references and independent reviewer identity/decision. Continue document ingestion, validation, discrepancy detection and maker-checker workflows; do not accept or post an operational quantity/laytime result without evidence.
+5. **Legal/compliance and commercial master data:** provide approved contract/product specifications, export document rules, regulatory interpretation sign-off and any restricted source permissions when those modules reach their activation/approval step. Continue implementing versioned source provenance, review and audit trails.
+
+**Technical work that must continue without waiting for the above**
+- Complete authenticated HTTP/API contract acceptance against the actual Express/serverless route registry without deploying to Vercel; test auth middleware, Project context propagation, permission denial, request validation, error envelopes and audit events. Use isolated mocks/contracts where real external actors or records are unavailable.
+- Reconcile every P17-A through P17-F requirement to backend route/service, database object, permission, frontend screen/action and test. Fix code/schema/UI mismatches in the same work cycle; do not stop at audit findings.
+- Finish provider-neutral AIS/map/geocoding adapters and health/freshness/rights checks; make missing secrets or rights return explicit disabled/unavailable states.
+- Complete P17 port/PKS/terminal/warehouse relationship workflows, source provenance, verification status and route/cost scenario interfaces without inventing verified master data.
+- Complete Buyer identity linking and visibility-management UI/API around real identity inputs; maintain zero grants until explicitly authorized.
+- Complete loading evidence/document workflows, quantity reconciliation and independent laytime review; reject unsupported acceptance.
+- Run the full root unit/security suite, P17 release verifier, migration runner dry-run/verify where credentials permit, backend build/typecheck, frontend typecheck/build, API contract suite and regression tests. Record only actual results.
+- Keep Vercel deployment and browser UAT skipped per owner instruction. No Production business fixtures, no extra Neon branches, no destructive cleanup, and no new Production migration without exact owner approval.
+
+**Status semantics:** P17 database migrations 096–110 are applied and the known database/RLS correction is closed. This does NOT mean all application/API/UI acceptance has passed. External owner inputs above are operational activation gates only; they must not be used to defer or stop technical implementation. Overall P17 remains in technical completion until all code/API/UI/test gates that can be completed without those inputs pass. Business Production Ready remains a later owner/legal/operational sign-off.

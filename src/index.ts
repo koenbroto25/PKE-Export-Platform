@@ -2503,8 +2503,8 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
   try{
     const shipmentResult=await req.db.query(
       `SELECT to_jsonb(s) AS shipment,to_jsonb(v) AS voyage,
-              dp.country_code AS destination_country,op.country_code AS origin_country,
-              to_jsonb(ps) AS pks_site
+              dp.country_code AS destination_country,dp.verification_status AS destination_port_verification_status,
+              to_jsonb(dp) AS destination_port,op.country_code AS origin_country,to_jsonb(ps) AS pks_site
          FROM public.shipments s
          LEFT JOIN public.voyages v ON v.id=s.voyage_id AND v.project_id=s.project_id
          LEFT JOIN public.ports dp ON dp.id=COALESCE(s.destination_port_id,v.destination_port_id)
@@ -2516,8 +2516,8 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     if(!shipmentResult.rows.length) return res.status(404).json({error:"Shipment not found in this Project.",code:"REGULATORY_SHIPMENT_SCOPE_MISMATCH"});
     const shipmentRecord=shipmentResult.rows[0];
     const targetCountry=String(shipmentRecord.destination_country??"").trim().toUpperCase();
-    if(!/^[A-Z]{2}$/.test(targetCountry)) return res.status(422).json({error:"Shipment destination port has no country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
-    const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry:shipmentRecord.origin_country},voyage:shipmentRecord.voyage,pksSite:shipmentRecord.pks_site};
+    if(!/^[A-Z]{2}$/.test(targetCountry)||shipmentRecord.destination_port_verification_status!=="verified") return res.status(422).json({error:"Shipment destination port must have a verified country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
+    const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry:shipmentRecord.origin_country},voyage:shipmentRecord.voyage,destinationPort:shipmentRecord.destination_port,pksSite:shipmentRecord.pks_site};
     const shipmentId=entityId;
     const productId=null;
     const ruleRows=await req.db.query(
@@ -2548,7 +2548,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       if(row.document_code&&!rule.requiredDocuments.some((d:any)=>d.documentCode===row.document_code)) rule.requiredDocuments.push({documentCode:row.document_code,requirementKind:row.requirement_kind});
     }
     const docs=await req.db.query(
-      `SELECT DISTINCT document_type_code FROM public.project_export_documents
+      `SELECT id,document_type_code,sha256_checksum,object_key,uploaded_at,expiry_date FROM public.project_export_documents
         WHERE project_id=$1::uuid AND status='approved' AND upload_verified_at IS NOT NULL
           AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL
           AND storage_bucket='pke-private-documents' AND legal_hold=false
@@ -2558,14 +2558,14 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     const available=new Set<string>(docs.rows.map((d:any)=>String(d.document_type_code)).filter(Boolean));
     const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,assessedAt:new Date().toISOString()}};
     const rules=Array.from(grouped.values()) as RegulatoryRuleInput[];
-    const results=rules.map(rule=>evaluateRegulatoryRule(rule,snapshot,available));
+    const results=rules.map(rule=>{\n      const result=evaluateRegulatoryRule(rule,snapshot,available);\n      const requiredCodes=new Set((rule.requiredDocuments??[]).map((d:any)=>d.documentCode).filter(Boolean));\n      result.evidence=docs.rows.filter((d:any)=>requiredCodes.has(d.document_type_code)).map((d:any)=>({documentId:d.id,documentTypeCode:d.document_type_code,sha256:d.sha256_checksum,objectKey:d.object_key,uploadedAt:d.uploaded_at,expiryDate:d.expiry_date}));\n      return result;\n    });
     const summary=summarizeRegulatoryAssessment(results);
     const inserted=await req.db.query(
       `INSERT INTO public.regulatory_assessments
         (project_id,shipment_id,product_id,origin_country,destination_country,assessment_date,input_snapshot,ruleset_version_snapshot,overall_status,failed_count,pending_count,assessed_by)
        VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,CURRENT_DATE,$6::jsonb,$7::jsonb,$8,$9,$10,$11::uuid)
        RETURNING id,project_id,shipment_id,product_id,assessment_date,overall_status,failed_count,pending_count,created_at`,
-      [projectId,shipmentId,productId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify(rules.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode}))),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
+      [projectId,shipmentId,productId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify(rules.map((r:any)=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,source:r.source,versionNumber:r.versionNumber,summary:r.summary}))),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
     );
     const assessment=inserted.rows[0];
     await recordRegulatoryAudit(req,"assessment.created","regulatory_assessment",assessment.id,projectId,"Deterministic assessment created from Project-owned shipment snapshot",null,{overallStatus:summary.overallStatus,ruleCount:rules.length});

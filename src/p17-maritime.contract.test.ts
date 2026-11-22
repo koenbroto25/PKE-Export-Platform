@@ -118,6 +118,10 @@ describe("P17-B isolated logistics simulation graph",()=>{
   for(const route of ["/api/v1/projects/:projectId/pke-logistics/scenarios","/api/v1/projects/:projectId/pke-logistics/simulation-scenarios","/api/v1/projects/:projectId/pke-logistics/simulation-scenarios/:scenarioId"])expect(API).toContain(route);
   expect(API).toContain("pke.logistics.master.change_request.manage");
   expect(API).toContain("p17b_logistics_simulation_scenarios");
+  expect(API).toContain("validateSimulationGraph(graph)");
+  expect(API).toContain("validSimulationEvidence(evidence)");
+  expect(API).toContain("P17B_CHANGE_EVIDENCE_REQUIRED");
+  expect(API).toContain("operationalUseAllowed:false");
  });
  it("validates all six logistics nodes and their relationship edges",()=>{
   for(const node of ["pks_site","road_route","port","terminal","loading_service","warehouse"])expect(SIM).toContain("'"+node+"'");

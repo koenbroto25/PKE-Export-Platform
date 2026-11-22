@@ -124,6 +124,37 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   }
  });
  // P17-A: provider/source governance. Secret values never enter application rows.
+ // P17-D: AIS positions are provider observations, never invented coordinates or navigational clearance.
+ app.post("/api/v1/admin/maritime/vessel-positions",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const b=req.body||{},sourceId=str(b.sourceId,64),vesselId=str(b.vesselId,64),mmsi=str(b.mmsi,20),reference=str(b.sourceReference,1000),attribution=str(b.attributionText,1000),hash=str(b.payloadSha256,64),observed=time(b.observedAt);
+  const lat=Number(b.latitude),lon=Number(b.longitude),sog=b.sogKnots==null?null:Number(b.sogKnots),cog=b.cogDegrees==null?null:Number(b.cogDegrees);
+  if(!uuidPattern.test(sourceId)||!uuidPattern.test(vesselId)||!/^\d{9}$/.test(mmsi)||!observed||!reference||!attribution||!/^[a-f0-9]{64}$/.test(hash)||!Number.isFinite(lat)||lat < -90||lat>90||!Number.isFinite(lon)||lon < -180||lon>180||(sog!==null&&(!Number.isFinite(sog)||sog<0||sog>120))||(cog!==null&&(!Number.isFinite(cog)||cog<0||cog>360)))return bad(res,400,"AIS_POSITION_INVALID","Valid source, vessel MMSI, coordinates, observation time, source reference, attribution and SHA-256 are required.");
+  try{
+   const source=await req.db.query("SELECT id FROM public.maritime_data_sources s WHERE s.id=$1::uuid AND s.enabled IS TRUE AND s.rights_status='approved' AND s.internal_processing_allowed IS TRUE AND s.rights_reviewed_by IS NOT NULL AND s.rights_reviewed_at IS NOT NULL AND s.rights_expires_at>now() AND EXISTS(SELECT 1 FROM public.maritime_source_field_permissions f WHERE f.source_id=s.id AND f.purpose_code='internal_operations' AND f.allowed IS TRUE AND f.field_code IN ('mmsi','latitude','longitude','observed_at') GROUP BY f.source_id HAVING COUNT(DISTINCT f.field_code)=4)",[sourceId]);
+   if(!source.rows.length)return bad(res,409,"AIS_SOURCE_RIGHTS_BLOCKED","AIS source lacks current approved internal-processing rights and required field-purpose permissions.");
+   const vessel=await req.db.query("SELECT id FROM public.vessels WHERE id=$1::uuid AND mmsi=$2 AND is_active IS TRUE",[vesselId,mmsi]);
+   if(!vessel.rows.length)return bad(res,422,"AIS_VESSEL_IDENTITY_MISMATCH","MMSI does not match the active canonical vessel master.");
+   const q=await req.db.query("INSERT INTO public.maritime_vessel_position_observations(source_id,vessel_id,mmsi,latitude,longitude,sog_knots,cog_degrees,observed_at,payload_sha256,source_reference,attribution_text,created_by,review_status) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8::timestamptz,$9,$10,$11,req_user_id(),'pending') RETURNING id,vessel_id,mmsi,observed_at,review_status,created_at",[sourceId,vesselId,mmsi,lat,lon,sog,cog,observed,hash,reference,attribution]);
+   return res.status(201).json({observation:q.rows[0],displayable:false});
+  }catch(e:any){if(e?.code==="23505")return bad(res,409,"AIS_POSITION_DUPLICATE","This source observation has already been received.");if(e?.code==="42501")return bad(res,409,"AIS_POSITION_RIGHTS_BLOCKED","AIS source rights or policy guard rejected the observation.");return bad(res,500,"AIS_POSITION_INGEST_FAILED","Unable to ingest AIS observation.");}
+ });
+ app.patch("/api/v1/admin/maritime/vessel-positions/:id/review",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const id=req.params.id,status=str(req.body?.reviewStatus,24),note=str(req.body?.reviewNote,2000);
+  if(!uuidPattern.test(id)||!["accepted","rejected","superseded"].includes(status)||note.length<5)return bad(res,400,"AIS_POSITION_REVIEW_INVALID","Observation, supported review state and substantive independent review note are required.");
+  try{const q=await req.db.query("UPDATE public.maritime_vessel_position_observations SET review_status=$2,reviewed_by=req_user_id(),reviewed_at=now(),review_note=$3 WHERE id=$1::uuid AND review_status='pending' AND created_by<>req_user_id() RETURNING id,vessel_id,mmsi,observed_at,review_status,reviewed_by,reviewed_at,review_note",[id,status,note]);if(!q.rows.length)return bad(res,409,"AIS_POSITION_MAKER_CHECKER","Observation must be pending and reviewed by an independent administrator.");return res.json({observation:q.rows[0],displayable:status==="accepted"});}
+  catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"AIS_POSITION_REVIEW_REJECTED","Current source rights or maker-checker guard rejected this review.");return bad(res,500,"AIS_POSITION_REVIEW_FAILED","Unable to review AIS observation.");}
+ });
+ app.get("/api/v1/projects/:projectId/vessel-positions",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["vessel.view","shipping.view"]))return;
+  try{
+   const exists=await req.db.query("SELECT to_regclass('public.maritime_vessel_position_observations') IS NOT NULL AS ready");
+   if(exists.rows[0]?.ready!==true)return bad(res,503,"AIS_SCHEMA_NOT_RELEASED","AIS observation schema is not released on this database.");
+   const q=await req.db.query("SELECT DISTINCT ON (o.vessel_id) o.id,o.vessel_id,v.name AS vessel_name,o.latitude,o.longitude,o.sog_knots,o.cog_degrees,o.observed_at,EXTRACT(EPOCH FROM (now()-o.observed_at))::int AS age_seconds,s.metadata->>'freshness_sla_seconds' AS freshness_sla_seconds,s.attribution_text,s.source_reference FROM public.maritime_vessel_position_observations o JOIN public.vessels v ON v.id=o.vessel_id JOIN public.maritime_data_sources s ON s.id=o.source_id JOIN public.voyages g ON g.vessel_id=o.vessel_id AND g.project_id=$1::uuid WHERE o.review_status='accepted' AND s.enabled IS TRUE AND s.rights_status='approved' AND s.internal_processing_allowed IS TRUE AND s.rights_expires_at>now() AND EXISTS(SELECT 1 FROM public.maritime_source_field_permissions f WHERE f.source_id=s.id AND f.field_code IN ('latitude','longitude','observed_at') AND f.purpose_code='internal_operations' AND f.allowed IS TRUE GROUP BY f.source_id HAVING COUNT(DISTINCT f.field_code)=3) ORDER BY o.vessel_id,o.observed_at DESC",[p]);
+   const positions=q.rows.map((r:R)=>{const sla=Number(r.freshness_sla_seconds);const validSla=Number.isInteger(sla)&&sla>0;return {...r,freshness_status:!validSla?"unknown_sla":Number(r.age_seconds)<=sla?"within_sla":"stale"};});
+   return res.json({positions,liveProviderConfigured:positions.length>0,freshnessPolicy:"source_configured",operationalClearance:false});
+  }catch{return bad(res,500,"AIS_POSITION_READ_FAILED","Unable to read approved Project AIS observations.");}
+ });
+
  // P17-C: vessel/terminal compatibility is advisory only; no navigational or port-clearance authority is implied.
  app.get("/api/v1/projects/:projectId/vessels/:vesselId/advisory-screening",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId,vessel=req.params.vesselId,port=str(req.query.portId,64),terminal=str(req.query.terminalId,64);

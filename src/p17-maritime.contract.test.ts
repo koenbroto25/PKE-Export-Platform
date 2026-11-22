@@ -144,3 +144,12 @@ describe("P17-B simulation edge topology",()=>{
   expect(EDGES).toContain("exactly the five typed logistics relationships");
  });
 });
+
+describe("P17-B Project Manager role catalogue",()=>{
+ const CATALOG=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
+ it("grants Project Manager the Project-scoped logistics workbench permissions",()=>{
+  const pm=CATALOG.slice(CATALOG.indexOf('role("pm"'),CATALOG.indexOf('role("internal_auditor"'));
+  expect(pm).toContain('"pke.logistics.master.view"');
+  expect(pm).toContain('"pke.logistics.master.change_request.manage"');
+ });
+});

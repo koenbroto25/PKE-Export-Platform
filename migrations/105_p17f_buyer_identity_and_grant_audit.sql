@@ -91,11 +91,11 @@ CREATE OR REPLACE FUNCTION public.pke_guard_buyer_auth_mapping()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
 AS $function$
 BEGIN
-  IF NOT EXISTS (
+  IF NEW.mapping_status='active' AND NOT EXISTS (
     SELECT 1 FROM public.users u JOIN public.buyers b ON b.id=NEW.buyer_id
     WHERE u.id=NEW.user_id AND u.neon_auth_user_id IS NOT NULL AND u.is_active IS TRUE AND b.is_active IS TRUE
   ) THEN
-    RAISE EXCEPTION 'Buyer mapping requires an active user with explicitly linked Neon Auth identity'
+    RAISE EXCEPTION 'Active Buyer mapping requires an active user with explicitly linked Neon Auth identity and active Buyer master'
       USING ERRCODE='23514';
   END IF;
   IF NEW.mapping_status='active' AND (

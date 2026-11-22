@@ -25,6 +25,7 @@ CREATE TABLE public.loading_operation_acceptances (
   excluded_hours numeric NOT NULL DEFAULT 0 CHECK(excluded_hours>=0),
   evidence_object_key text NOT NULL,
   evidence_sha256 text NOT NULL,
+  evidence_size_bytes bigint NOT NULL CHECK(evidence_size_bytes BETWEEN 1 AND 52428800),
   submitted_by uuid NOT NULL REFERENCES public.users(id),
   submitted_at timestamptz NOT NULL DEFAULT now(),
   review_status text NOT NULL DEFAULT 'pending' CHECK(review_status IN ('pending','accepted','rejected')),
@@ -190,6 +191,7 @@ BEGIN
        OR NEW.excluded_hours IS DISTINCT FROM OLD.excluded_hours
        OR NEW.evidence_object_key IS DISTINCT FROM OLD.evidence_object_key
        OR NEW.evidence_sha256 IS DISTINCT FROM OLD.evidence_sha256
+       OR NEW.evidence_size_bytes IS DISTINCT FROM OLD.evidence_size_bytes
        OR NEW.submitted_by IS DISTINCT FROM OLD.submitted_by
        OR NEW.submitted_at IS DISTINCT FROM OLD.submitted_at
        OR NEW.created_at IS DISTINCT FROM OLD.created_at

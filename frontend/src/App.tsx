@@ -1516,6 +1516,8 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
   const canAdminRegulatory = activeUser?.platformAdmin === true;
   const canViewRegulatorySources = can('regulatory.source.view') || canAdminRegulatory;
   const canViewCountryPacks = can('regulatory.document.view') || canAdminRegulatory;
+  const canViewRegulatoryRules = can('regulatory.rule.view') || can('regulatory.rule.manage');
+  const canViewRegulatoryDocuments = can('regulatory.document.view') || can('regulatory.document.manage');
   const canAssessRegulatory = can("compliance.assess") && Boolean(projectId);
   const knowledge = useLoad<{ sources?: AnyRecord[] }>(() => canViewRegulatorySources ? get('/regulatory-sources') : Promise.resolve({ sources: [] }), [canViewRegulatorySources]);
   const packs = useLoad<{ countryPacks?: AnyRecord[] }>(() => canViewCountryPacks ? get('/country-packs') : Promise.resolve({ countryPacks: [] }), [canViewCountryPacks]);
@@ -1653,7 +1655,7 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
         })}
       </div>}
     </Card>}
-    {(canSourceView || canRuleView || canDocView) && <RegulatoryCoreWorkspace projectId={projectId} activeUser={activeUser} onNotice={onNotice} />}
+    {(canViewRegulatorySources || canViewRegulatoryRules || canViewRegulatoryDocuments) && <RegulatoryCoreWorkspace projectId={projectId} activeUser={activeUser} onNotice={onNotice} />}
     {canAssessRegulatory && <Card><PanelHeading title="Regulatory assessment" description="Evaluasi deterministik atas rule yang sudah effective dan source yang sudah verified. Hasil tidak menggantikan keputusan legal atau clearance otoritas." /><form className="form-grid" onSubmit={runCheck}><FormField label="Jenis entitas"><select value={check.entityType} onChange={e => setCheck(v => ({ ...v, entityType: e.target.value }))}><option value="shipment">Shipment</option></select></FormField><FormField label="ID entitas"><input value={check.entityId} onChange={e => setCheck(v => ({ ...v, entityId: e.target.value }))} required placeholder="UUID Project / Shipment / Product" /></FormField><FormField label="Negara tujuan"><select value={check.targetCountry} onChange={e => setCheck(v => ({ ...v, targetCountry: e.target.value }))}><option value="CN">China</option><option value="PK">Pakistan</option></select></FormField><FormField label="Jenis pemeriksaan"><select value={check.checkType} onChange={e => setCheck(v => ({ ...v, checkType: e.target.value }))}><option value="document_readiness">Document readiness</option><option value="shipment_compliance">Shipment compliance</option><option value="contract_compliance">Contract compliance</option></select></FormField><div className="form-actions"><button className="primary-button" disabled={busy || !projectId}>{busy ? 'Memproses…' : 'Jalankan assessment'}</button></div></form>{checkResult && <div className="review-result"><div className="review-result-head"><CircleAlert size={18} /><strong>Status: {checkResult.overall_status || checkResult.overallStatus || 'pending'}</strong></div><p>{checkResult.message}</p><small>Target: {check.targetCountry} · Entitas: {shortId(check.entityId)} · Rules: {checkResult.ruleCount ?? 0}</small>{(checkResult.results || []).map((item: AnyRecord) => <div key={item.ruleVersionId} className="document-requirement-meta">{item.ruleCode}: {item.resultStatus} — {item.reason}</div>)}</div>}</Card>}
   </>;
 }

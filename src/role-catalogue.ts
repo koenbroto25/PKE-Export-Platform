@@ -61,7 +61,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ], { mandatory: true, legacyAliases: ["admin"] }),
   role("pm", "Project Manager", "governance", [
     "project.view", "project.update", "project.members.view", "project.members.invite", "project.members.manage", "project.roles.manage", "project.configuration.manage", "audit.finding.view",
-    "contract.view", "manage_contract_programs", "port.view", "port.depth.view", "port.depth.submit", "route.estimate", "vessel.view", "vessel.port.assess", "pks.site.view", "pks.participation.manage", "pks.master_data.change_request.view", "pks.master_data.change_request.manage", "facility.view", "facility.product.view", "facility.capacity.view", "product.view", "supplier.view", "product.requirement.view", "product.requirement.manage", "shipping.view", "shipment.view",
+    "contract.view", "manage_contract_programs", "port.view", "port.depth.view", "port.depth.submit", "route.estimate", "vessel.view", "vessel.port.assess", "voyage.create", "voyage.update", "vessel.nomination.review", "vessel.port_call.manage", "pks.site.view", "pks.participation.manage", "pks.master_data.change_request.view", "pks.master_data.change_request.manage", "facility.view", "facility.product.view", "facility.capacity.view", "product.view", "supplier.view", "product.requirement.view", "product.requirement.manage", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
     "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view",
     "project.tasks.view", "project.tasks.create", "project.tasks.assign", "project.tasks.update", "project.tasks.resolve", "project.tasks.escalate",
@@ -168,7 +168,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
   ], ["Assigned trip/checkpoint scope only."], { classification: "external" }),
   role("master_of_loading", "Master of Loading", "shipping_loading", [
     "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create",
-    "inventory.view", "documents.view", "workflow.view", "voyage.view", "vessel.view", "port.view", "shipping.survey.view", "shipping.ack.view", "shipping.laytime.view", "shipping.laytime.manage", "audit.finding.respond",
+    "inventory.view", "documents.view", "workflow.view", "voyage.view", "voyage.create", "vessel.view", "vessel.port_call.confirm", "port.view", "shipping.survey.view", "shipping.ack.view", "shipping.laytime.view", "shipping.laytime.manage", "audit.finding.respond",
     "hse.action.respond",
   ], [
     "Coordinates shore-side readiness and loading evidence.",
@@ -183,11 +183,11 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "hse.action.respond",
   ]),
   role("terminal_representative", "Terminal Representative", "shipping_loading", [
-    "port.view", "port.depth.view", "port.depth.submit", "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",
+    "port.view", "port.depth.view", "port.depth.submit", "vessel.port_call.confirm", "shipping.view", "shipment.view", "loading.ticket.create", "shipping.laytime.view",
     "hse.action.respond",
   ], ["Terminal-authorized scope only."], { classification: "external" }),
   role("shipping_agent", "Shipping Agent", "shipping_loading", [
-    "shipment.view", "shipping.view", "shipping.create", "vessel.view", "voyage.view", "documents.view", "shipping.laytime.view", "shipping.laytime.manage", "lc.view", "lc.update", "lc.discrepancy.manage", "lc.present",
+    "shipment.view", "shipping.view", "shipping.create", "vessel.view", "vessel.nominate", "vessel.port_call.manage", "voyage.view", "voyage.create", "documents.view", "shipping.laytime.view", "shipping.laytime.manage", "lc.view", "lc.update", "lc.discrepancy.manage", "lc.present",
     "hse.action.respond",
   ], ["Assigned shipment/voyage and permitted document scope only."], { classification: "external" }),
   role("marine_surveyor", "Marine Surveyor", "shipping_loading", [

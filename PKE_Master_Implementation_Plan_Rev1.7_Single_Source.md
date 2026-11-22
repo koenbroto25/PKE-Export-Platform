@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.36 — P17 Production reconciliation and validation run
+# Master Implementation Plan Rev2.37 — P17 Production reconciliation and validation run
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.36 (23 November 2026 — Production ledger and external-gate reconciliation; technical validation run requested)  
+**Revision:** 2.37 (23 November 2026 — P18 official regulatory source capture and initial RAG corpus)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8707,3 +8707,16 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Control Tower KPI/query semantics still require a test against controlled fixtures or a safe rollback-only test surface. Production has no business records to validate live KPI totals; keep missing data as unknown/not available rather than numeric zero where the source is absent.
 - External owner/company activation items remain separate: AIS provider license/contract and API credentials; verified PKS–port–terminal–warehouse–road source evidence; real Buyer Neon Auth identity and approved visibility scope; genuine survey/tally/tickets/NOR/laytime evidence; legal/compliance approval. None blocks further code, contract tests, admin UX, fail-closed behavior or non-production validation.
 - Continue to skip Vercel deployment and browser UAT until the owner explicitly changes that instruction.
+
+
+**P18 source acquisition and initial RAG corpus — 23 November 2026**
+
+- Created GitHub work branch `p18/regulatory-rag-corpus-20261123` from `p17b/operational-readiness-20261122`. No Neon branch was created; the permanent single-Neon-branch rule remains in force.
+- Captured nine source records in `docs/p18/sources/`: Indonesia Permendag 16/2026 metadata/abstract, Indonesia KMK 33/MK/BC/2026, DJBC export procedure guidance, China GACC Decree 280, China MOA imported-feed registration measure (2014), China MOA imported-feed data requirements (2013), Pakistan Import Policy Order 2022, Pakistan TIPP Palm Kernel Cake tariff record 230660001000, and Codex CXC 54-2004.
+- Processed the source captures into four retrieval-ready RAG documents (Indonesia export controls, China feed import controls, Pakistan PKE import research, international feed safety) and a normalized `chunks.jsonl` with 14 semantic chunks plus a corpus manifest.
+- Source hierarchy and guardrails are embedded in each source/RAG record: jurisdiction, authority, publication/effective date where known, retrieval date, source locator, currentness state, applicability caveats, and fail-closed legal-review state.
+- Important legal-scope safeguards: do not infer that PKE is within Permendag 16/2026 without matching the exact Indonesian BTKI code to the operative annex; do not apply China's food-manufacturer Decree 280 automatically to animal-feed PKE; treat the 2014 China feed-registration text as candidate pending current MARA consolidation; do not apply Pakistan's animal-origin feed restriction to plant-derived PKE by analogy; do not treat Pakistan tariff snapshots as binding landed costs; Codex is international guidance, not automatically national law.
+- **Storage fidelity limitation:** the current GitHub corpus contains official source URLs, source metadata, extracted/verified facts and derived RAG summaries/chunks. The original binary PDF/HTML files were not mirrored as binary artifacts in this pass. Codex text was not reproduced; only metadata and a concise derived summary were stored. The original government publications remain available at their cited official URLs.
+- Read-only Neon schema/policy inspection confirmed existing knowledge document/version/chunk/ingestion tables. The runtime RLS policies currently permit SELECT only for public + indexed knowledge documents/chunks with knowledge.search permission; knowledge_ingestion_runs has a SELECT policy that evaluates false. No INSERT/UPDATE grants or ingestion-write policy were evidenced by this inspection.
+- **No Neon Production writes were made.** Do not bypass RLS or use owner privileges to seed knowledge rows. Database ingestion remains pending until an authenticated, audited ingestion path and explicit write policy are implemented and tested. The GitHub corpus is the current canonical seed source.
+- P18 remains in progress. Next technical actions: acquire complete official Indonesian Permendag 16/2026 text and annex; extract KMK 33/MK/BC/2026 annex and match PKE's verified BTKI code; reconcile current China MARA feed rules and Indonesia–China protocol; obtain Pakistan's consolidated IPO and current SROs; then implement authenticated ingestion, version/checksum handling, semantic chunking, embedding/retrieval and citation-grounded acceptance. No legal rule should be activated solely from these preliminary RAG summaries.

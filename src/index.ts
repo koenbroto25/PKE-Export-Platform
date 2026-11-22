@@ -4143,7 +4143,7 @@ const P16_RESOURCES:Record<string,P16Resource>={
  "warehouse-zones":{table:"warehouse_zones",required:["warehouse_id","zone_code","zone_type"],fields:["warehouse_id","zone_code","zone_type","capacity","unit_code","status","source_reference","evidence_sha256"]},
  "warehouse-bins":{table:"warehouse_bins",required:["zone_id","bin_code"],fields:["zone_id","bin_code","capacity","unit_code","allowed_product_ids","status","source_reference","evidence_sha256"]},
  "warehouse-equipment":{table:"warehouse_equipment",required:["warehouse_id","equipment_type"],fields:["warehouse_id","equipment_type","asset_code","rated_capacity","capacity_unit","condition_status","source_reference","evidence_sha256"]},
- routes:{table:"pks_port_routes",required:["pks_site_id","port_id","route_mode"],fields:["pks_site_id","port_id","route_mode","distance_km","estimated_travel_minutes","route_notes","source_reference","evidence_sha256","is_active"]}
+ routes:{table:"pks_port_routes",required:["pks_site_id","port_id","route_mode"],fields:["pks_site_id","port_id","route_mode","distance_km","estimated_travel_minutes","distance_method","route_geometry_feature_id","route_notes","source_reference","evidence_sha256","is_active"]}
 };
 const P16_JSON_FIELDS=new Set(["operating_restrictions","restrictions","operating_window","availability","weather_limits"]);
 function p16Values(resource:string,body:Record<string,unknown>,partial:boolean){

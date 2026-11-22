@@ -2313,7 +2313,7 @@ app.patch("/api/v1/regulatory-sources/:id/review",requireAuth,async(req:express.
     const {rows}=await req.db.query(
       `UPDATE public.regulatory_sources SET verification_status=$1,status=CASE WHEN $1='verified' THEN 'active' ELSE 'draft' END,reviewer_id=$2::uuid,
               last_reviewed=now(),updated_at=now()
-        WHERE id=$3::uuid AND (created_by IS NULL OR created_by<>$2::uuid)
+        WHERE id=$3::uuid AND verification_status IN ('pending','reviewed') AND (created_by IS NULL OR created_by<>$2::uuid)
         RETURNING id,source_id,verification_status,reviewer_id,last_reviewed`,
       [decision,req.user?.id??null,req.params.id],
     );
@@ -2472,6 +2472,27 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/submit-review",requireAut
     await recordRegulatoryAudit(req,"rule.submitted_for_review","regulatory_rule_version",rows[0].id,null,"Rule version submitted for independent review",null,rows[0]);
     return res.json({version:rows[0]});
   }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.patch("/api/v1/regulatory-rule-versions/:versionId/reject",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
+  const reason=typeof req.body?.reason==="string"?req.body.reason.trim():"";
+  if(reason.length<10) return res.status(400).json({error:"Rejection reason of at least 10 characters is required."});
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.regulatory_rule_versions SET status='rejected',updated_at=now()
+        WHERE id=$1::uuid AND status='under_review' AND created_by IS DISTINCT FROM $2::uuid
+        RETURNING id,rule_id,status`,
+      [req.params.versionId,req.user?.id??null],
+    );
+    if(!rows.length) return res.status(409).json({error:"Rule version is not reviewable or maker-checker independence failed."});
+    await req.db.query(
+      "UPDATE public.regulatory_rules SET status=CASE WHEN EXISTS(SELECT 1 FROM public.regulatory_rule_versions av WHERE av.id=active_version_id AND av.status='effective') THEN 'effective' ELSE 'draft' END,updated_at=now() WHERE id=$1::uuid",
+      [rows[0].rule_id],
+    );
+    await recordRegulatoryAudit(req,"rule.rejected","regulatory_rule_version",rows[0].id,null,reason,null,rows[0]);
+    return res.json({version:rows[0]});
+  }catch(error:any){if(error?.code==="23514") return res.status(409).json({error:"Rule version lifecycle constraint rejected the transition."});return res.status(500).json(internalServerErrorPayload());}
 });
 
 app.patch("/api/v1/regulatory-rule-versions/:versionId/approve",requireAuth,async(req:express.Request,res:express.Response)=>{
@@ -2900,7 +2921,7 @@ app.patch("/api/v1/country-document-requirements/:id/review",requireAuth,async(r
       `UPDATE public.country_export_document_requirements c SET verification_status=$1,
         status=CASE WHEN $1='verified' THEN 'active' ELSE 'draft' END,
         verified_by=$2::uuid,last_verified_at=CASE WHEN $1='verified' THEN now() ELSE last_verified_at END,updated_at=now()
-        WHERE c.id=$3::uuid AND c.created_by IS DISTINCT FROM $2::uuid
+        WHERE c.id=$3::uuid AND c.verification_status IN ('pending','reviewed') AND c.created_by IS DISTINCT FROM $2::uuid
           AND ($1<>'verified' OR c.regulatory_source_id IS NOT NULL AND EXISTS(
             SELECT 1 FROM public.regulatory_sources s WHERE s.id=c.regulatory_source_id AND s.verification_status='verified'))
         RETURNING c.id,c.country_code,c.document_type_id,c.status,c.verification_status,c.verified_by,c.last_verified_at`,

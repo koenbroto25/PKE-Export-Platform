@@ -29,6 +29,9 @@ CREATE TABLE public.buyer_auth_user_mappings (
 CREATE UNIQUE INDEX buyer_auth_mapping_active_buyer_uq
   ON public.buyer_auth_user_mappings(buyer_id)
   WHERE mapping_status='active';
+CREATE UNIQUE INDEX buyer_auth_mapping_single_owner_uq
+  ON public.buyer_auth_user_mappings(buyer_id)
+  WHERE mapping_status IN ('pending_review','active','suspended');
 CREATE INDEX buyer_auth_mapping_status_idx
   ON public.buyer_auth_user_mappings(mapping_status,buyer_id);
 

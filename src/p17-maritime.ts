@@ -7,6 +7,16 @@ const bad=(res:Response,status:number,code:string,error:string)=>res.status(stat
 const str=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";
 const time=(v:unknown)=>typeof v==="string"&&Number.isFinite(Date.parse(v))?new Date(v).toISOString():null;
 const canonicalize=(v:any):any=>Array.isArray(v)?v.map(canonicalize):v&&typeof v==="object"?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonicalize(v[k])])):v;
+const geoPosition=(v:any):boolean=>Array.isArray(v)&&v.length>=2&&v.length<=3&&typeof v[0]==="number"&&typeof v[1]==="number"&&Number.isFinite(v[0])&&Number.isFinite(v[1])&&v[0]>=-180&&v[0]<=180&&v[1]>=-90&&v[1]<=90&&(v.length===2||typeof v[2]==="number"&&Number.isFinite(v[2]));
+const geoLine=(v:any):boolean=>Array.isArray(v)&&v.length>=2&&v.every(geoPosition);
+const geoRing=(v:any):boolean=>Array.isArray(v)&&v.length>=4&&v.every(geoPosition)&&v[0][0]===v[v.length-1][0]&&v[0][1]===v[v.length-1][1];
+const validGeoJson=(featureType:string,g:any):boolean=>{
+ if(!g||typeof g!=="object"||Array.isArray(g)||!g.coordinates)return false;
+ if(["port_point","terminal_point","pks_point"].includes(featureType))return g.type==="Point"&&geoPosition(g.coordinates);
+ if(["port_boundary","terminal_boundary","pks_boundary"].includes(featureType))return (g.type==="Polygon"&&Array.isArray(g.coordinates)&&g.coordinates.length>0&&g.coordinates.every(geoRing))||(g.type==="MultiPolygon"&&Array.isArray(g.coordinates)&&g.coordinates.length>0&&g.coordinates.every((poly:any)=>Array.isArray(poly)&&poly.length>0&&poly.every(geoRing)));
+ if(["road_access","road_route"].includes(featureType))return (g.type==="LineString"&&geoLine(g.coordinates))||(g.type==="MultiLineString"&&Array.isArray(g.coordinates)&&g.coordinates.length>0&&g.coordinates.every(geoLine));
+ return false;
+};
 
 export function registerP17MaritimeRoutes(app:Express,d:D){
  // Production schema is still at migration 053. Block P17 mutations until 096-107
@@ -148,8 +158,8 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   const subjectCount=(uuidPattern.test(port)?1:0)+(uuidPattern.test(pks)?1:0);
   if(subjectCount!==1||!uuidPattern.test(sourceId)||!featureId||
     !["port_point","terminal_point","port_boundary","terminal_boundary","pks_point","pks_boundary","road_access","road_route"].includes(featureType)||
-    !geometry||typeof geometry!=="object"||Array.isArray(geometry)||typeof geometry.type!=="string"||!Array.isArray(geometry.coordinates)||
-    !/^[a-f0-9]{64}$/.test(geometryHash)||!datasetVersion||!licence||!attribution||reference.length<8)
+    !validGeoJson(featureType,geometry)||
+    !/^[a-f0-9]{64}$/.test(geometryHash)||createHash("sha256").update(JSON.stringify(canonicalize(geometry))).digest("hex")!==geometryHash||!datasetVersion||!licence||!attribution||reference.length<8)
     return bad(res,400,"PORT_GEO_INVALID","Exactly one port or PKS subject, registered source, valid GeoJSON, SHA-256, dataset version, licence, attribution and source feature ID are required.");
   try{
    const q=await req.db.query(

@@ -27,7 +27,7 @@ ON CONFLICT(project_role_id,permission_id) DO NOTHING;
 
 CREATE TABLE public.buyer_auth_user_mappings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL UNIQUE REFERENCES public.users(id) ON DELETE RESTRICT,
+  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
   buyer_id uuid NOT NULL REFERENCES public.buyers(id) ON DELETE RESTRICT,
   mapping_status text NOT NULL DEFAULT 'pending_review'
     CHECK (mapping_status IN ('pending_review','active','suspended','revoked')),
@@ -48,6 +48,9 @@ CREATE UNIQUE INDEX buyer_auth_mapping_active_buyer_uq
   WHERE mapping_status='active';
 CREATE UNIQUE INDEX buyer_auth_mapping_single_owner_uq
   ON public.buyer_auth_user_mappings(buyer_id)
+  WHERE mapping_status IN ('pending_review','active','suspended');
+CREATE UNIQUE INDEX buyer_auth_mapping_single_user_uq
+  ON public.buyer_auth_user_mappings(user_id)
   WHERE mapping_status IN ('pending_review','active','suspended');
 CREATE INDEX buyer_auth_mapping_status_idx
   ON public.buyer_auth_user_mappings(mapping_status,buyer_id);

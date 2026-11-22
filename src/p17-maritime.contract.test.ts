@@ -251,8 +251,8 @@ describe("P17 schema release safety gate",()=>{
   const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));
   expect(gate).toContain('app.use(p17WriteReleaseGate)');
   expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
-  expect(gate).toContain("migrations 096-103");
-  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","admin/projects/"]) expect(gate).toContain(fragment);
+  expect(gate).toContain("migrations 096-105");
+  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","admin/projects/"]) expect(gate).toContain(fragment);
   expect(gate).toContain('if(!["POST","PUT","PATCH","DELETE"].includes(req.method)) return next()');
  });
  it("does not install a broad /projects write block",()=>{
@@ -339,7 +339,7 @@ describe("P17-G Project export control tower",()=>{
   expect(API).toContain("/api/v1/projects/:projectId/p17-control-tower");
   expect(API).toContain("public.loading_tickets");
   expect(API).toContain("public.pks_port_routes");
-  expect(API).toContain("ais_live_position");
+  expect(API).toContain("aisLivePosition");
   expect(API).toContain("plannedQuantityIsNotLoadedQuantity:true");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Project Export Control Tower");
  });

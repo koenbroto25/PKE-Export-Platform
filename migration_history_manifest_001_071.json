@@ -507,5 +507,5 @@
     }
   ],
   "pending_migrations": [],
-  "verification_note": "All 53 Production migration_history rows match IDs, filenames, SHA-256 and status. P17 migrations are not yet applied."
+  "verification_note": "All 71 live Production migration_history rows match IDs, filenames, SHA-256 and status. P17 migrations 096-109 occupy IDs 57-70 and owner-approved corrective migration 110 is applied at ID 71."
 }

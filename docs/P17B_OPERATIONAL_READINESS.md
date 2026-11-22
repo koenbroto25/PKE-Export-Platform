@@ -168,3 +168,17 @@ Migration 101 adds the isolated simulation graph. PMs with `pke.logistics.master
 | Road distance/time and PKE loading acceptance | UNKNOWN / NOT VERIFIED |
 | PM authenticated HTTP test and full test suite | NOT EXECUTED |
 | Production / Vercel | NOT TOUCHED |
+
+
+## 15. Semantic graph integrity — Migration 103
+Migration 103 enforces that each of the five directed relationships has the correct source/target node types, unique edge IDs, and the complete required edge set. It rejects a graph that merely contains six node labels but connects them incorrectly.
+
+## 16. Permission backtest
+UAT database checks using the Alpha Project's fixture PM account:
+- `pke.logistics.master.view`: true.
+- `pke.logistics.master.change_request.manage`: true.
+- Same PM against the Beta Project: no permission.
+- Runtime role `app_runtime_secure` can read the Alpha simulation graph under PM session context.
+- Runtime role PM successfully updated the scenario status to `draft`; owner/admin reset it to `simulation`. Both transitions are recorded by the simulation audit trigger.
+- Canonical CBU company row count remains zero; the failed canonical seed transaction did not bypass P16 Admin protection.
+- The seeded graph remains 6 nodes / 5 edges, simulation-only and unverified.

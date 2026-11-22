@@ -8263,20 +8263,19 @@ Target used for read-only inspection: Neon project `purple-base-63944903`, branc
 - Each source reports available, permission-unavailable or schema-not-released; missing source data is not fabricated as zero. Planned quantity is not loaded quantity; AIS is last-known, not live; no Control Tower metric grants operational clearance.
 - **Status:** source-level Project and Admin Control Tower implemented; permission/API/runtime regression and real-data acceptance remain **NOT VALIDATED**.
 
-### P17 work branch and safe change inventory — Revision 2.22
+### P17 work branch and safe change inventory — Revision 2.23
 
-Working branch: p17b/operational-readiness-20261122. Source artifacts now include:
-- P17-A source registry, rights/evidence and field-purpose governance, quota-aware ingestion and SHA-256-verified staging.
-- P17-B source identity crosswalk, GeoJSON review, simulation graph/change requests and nearest verified PKS-to-port route ordering.
-- P17-C advisory vessel/terminal screening endpoint plus the existing persisted Port Network assessment workflow.
-- P17-D migration 106 extending the canonical vessel tracking table, source-rights/MMSI/field-purpose checks, independent review, Project position projection and freshness display.
-- P17-E migration 104 nomination lifecycle guard; voyage/nomination/port-call workflow events; loading operation unit assignment; migration 107 survey, ticket/segment quantity reconciliation and laytime evidence APIs/UI.
-- P17-F migration 105 verified Neon Auth-to-Buyer mapping, Admin mapping lifecycle, PM visibility grants/revoke/expiry audit, Buyer shipment/milestone projection and Buyer Portal UI.
-- P17-G Project and Platform Admin Control Tower APIs/UI for shipment stages, nominations, port calls, loading, quantity reconciliation, documents, work items, exceptions, PKS-port routes and last-known AIS.
-- Contract assertions for migrations 096–107, release gate, role/Project scope, source rights, Buyer grants, AIS and loading acceptance. The assertions are source artifacts and have not been executed in this work tranche.
+Working branch: p17b/operational-readiness-20261122. Source artifacts include:
+- P17-A registry, rights/evidence review, field-purpose UPSERTs, quota-aware ingestion, staging SHA-256 and configurable AIS freshness SLA/grace metadata.
+- P17-B port identity/geospatial review, simulation graph/change requests and Project route candidates across all verified PKS-to-port routes, including PKE terminal, loading-equipment and warehouse evidence.
+- P17-C advisory vessel/terminal screening plus persisted Port Network assessment; no operational clearance.
+- P17-D migration 106 extends canonical vessel_tracking_positions, enforces current AIS source rights, field-purpose permissions and canonical MMSI, verifies canonical raw-payload SHA-256 against normalized fields, supports independent review and exposes SLA-based freshness.
+- P17-E migration 104 nomination lifecycle; voyage/nomination/port-call workflow events; migration 107 loading unit locking, versioned survey/quantity/laytime evidence, private upload presigning, server-side object size/SHA verification, independent review and quantity reconciliation.
+- P17-F migration 105 explicit Neon Auth-to-Buyer mapping state machine, append-only mapping/grant audit, PM visibility grants, expiry action, server-derived Buyer Portal access and milestone timeline.
+- P17-G Project and Platform Admin Control Tower APIs/UI; Project route view ranks PKE evidence candidates before other verified routes and then by distance.
+- Contract tests cover migrations 096–107, release gates, Buyer access, AIS payload/freshness, private loading evidence, PKS-port capability ranking and Control Tower UI.
 
-All P17 migrations 096–107 are source-only. No Production schema, role, RLS policy, business record, provider credential, or Buyer grant was changed. The release gate remains active for schema-backed Admin maritime/Buyer surfaces and P17 Project mutations. No merge or deployment was requested; Vercel remains skipped.
-
+Migrations 096–107 remain source-only. No Production schema, role, RLS policy, business record, Buyer mapping/grant, AIS provider credential or source payload was changed. P17 schema-backed Admin/Buyer surfaces and writes remain fail-closed until explicit Production release approval. No merge or Vercel deployment was performed; browser UAT remains skipped.
 ### Immediate remaining P17 execution order
 
 1. Obtain legal/provider evidence for DJPL/BMKG/AIS use, including exact fields, internal/customer display, retention, caching and redistribution rights. Do not enable or ingest a source without it.

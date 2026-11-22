@@ -258,7 +258,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    sourceRef=b.sourceReference===undefined?null:str(b.sourceReference,1000),sourceUrl=b.sourceUrl===undefined?null:str(b.sourceUrl,1000),
    sourceSnapshot=b.sourceSnapshot===undefined?null:(b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:null);
   if((!submit&&((reason!==null&&reason.length<10)||(proposal!==undefined&&(!proposal||typeof proposal!=="object"||Array.isArray(proposal)||!Object.keys(proposal).length))))||
-    (sourceRef!==null&&sourceRef.length<8)||(sourceUrl!==null&&sourceUrl!==""&&!/^https?:\\/\\//i.test(sourceUrl))||
+    (sourceRef!==null&&sourceRef.length<8)||(sourceUrl!==null&&sourceUrl!==""&&!/^https?:\/\//i.test(sourceUrl))||
     (b.sourceSnapshot!==undefined&&sourceSnapshot===null))
    return bad(res,400,"INVALID_PKE_LOGISTICS_DRAFT","Draft reason, source provenance or proposed data is invalid.");
   try{

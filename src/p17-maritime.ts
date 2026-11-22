@@ -1,7 +1,8 @@
 import type { Express, Request, Response, RequestHandler } from "express";
 import { createHash } from "node:crypto";
+import type { PrivateStorageAdapter } from "./storage.js";
 type R = any;
-type D = { requireAuth:RequestHandler; requireAdmin:RequestHandler; requireProjectPermission:(req:R,res:Response,projectId:string,permission:string)=>Promise<boolean>; uuidPattern:RegExp };
+type D = { requireAuth:RequestHandler; requireAdmin:RequestHandler; requireProjectPermission:(req:R,res:Response,projectId:string,permission:string)=>Promise<boolean>; uuidPattern:RegExp; privateStorage:PrivateStorageAdapter };
 const bad=(res:Response,status:number,code:string,error:string)=>res.status(status).json({error,code});
 const str=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";
 const time=(v:unknown)=>typeof v==="string"&&Number.isFinite(Date.parse(v))?new Date(v).toISOString():null;
@@ -25,7 +26,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  };
  app.use(p17WriteReleaseGate);
 
- const {requireAuth,requireAdmin,requireProjectPermission,uuidPattern}=d;
+ const {requireAuth,requireAdmin,requireProjectPermission,uuidPattern,privateStorage}=d;
  const requireProjectAccess=async(req:R,res:Response,projectId:string,permission:string):Promise<boolean>=>{
   const admin=await req.db.query("SELECT public.pke_is_platform_admin() AS is_admin");
   if(admin.rows[0]?.is_admin===true){
@@ -154,6 +155,23 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    const quantityReconciliation={unitCode:unit||null,expectedQuantity:unit?expected:null,verifiedTicketQuantity:verified,completedSegmentQuantity,segmentTicketVariance:verified!==null&&completedSegmentQuantity!==null?completedSegmentQuantity-verified:null,operationTicketVariance:unit&&verified!==null?expected-verified:null,status:!unit?"unit_unassigned":!tickets.rows.length?"no_tickets":!ticket?(tickets.rows.some((x:R)=>Number(x.verified_count)>0)?"unit_mismatch":"no_verified_tickets"):Number(ticket.verified_count)===0?"no_verified_tickets":!segment||Number(segment.completed_segments)===0?"no_completed_segments":completedSegmentQuantity!==verified?"segment_ticket_variance":expected===verified?"matched":"operation_ticket_variance"};
    return res.json({projectId:p,operation:op.rows[0],tickets:tickets.rows,segments:segments.rows,acceptances:acceptanceRows,quantityReconciliation,readOnly:false,operationalClearance:false});
   }catch{return bad(res,500,"LOADING_ACCEPTANCE_READ_FAILED","Unable to read Project loading acceptance evidence.");}
+ });
+ app.post("/api/v1/projects/:projectId/loading-operations/:operationId/acceptances/presign",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,id=req.params.operationId,b=req.body||{},type=str(b.acceptanceType,32);
+  const objectKey=str(b.objectKey,1024),mimeType=str(b.mimeType,160),filename=str(b.filename,240),contentLength=Number(b.contentLength);
+  if(!uuidPattern.test(p)||!uuidPattern.test(id)||!["survey","quantity_reconciliation","laytime"].includes(type))return bad(res,400,"LOADING_EVIDENCE_INPUT_INVALID","Valid Project, loading operation and acceptance type are required.");
+  const permission=type==="survey"?"shipping.survey.submit":type==="quantity_reconciliation"?"loading.quantity.reconcile":"shipping.laytime.manage";
+  if(!await requireProjectAccess(req,res,p,permission))return;
+  if(!objectKey.startsWith(`projects/${p}/loading-operations/${id}/${type}/`))return bad(res,400,"LOADING_EVIDENCE_KEY_INVALID","Evidence must be stored under the selected Project, loading operation and acceptance type.");
+  const storageStatus=privateStorage.status();
+  if(!storageStatus.available||storageStatus.bucket!=="pke-private-documents")return bad(res,503,"LOADING_EVIDENCE_STORAGE_UNAVAILABLE","Private PKE evidence storage is unavailable.");
+  const keyCheck=privateStorage.validateObjectKey(objectKey),metaCheck=privateStorage.validateFileMetadata({mimeType,contentLength,filename});
+  if(!keyCheck.ok||!metaCheck.ok)return bad(res,400,"LOADING_EVIDENCE_FILE_INVALID",keyCheck.reason||metaCheck.reason||"Evidence file metadata is invalid.");
+  try{
+   const op=await req.db.query("SELECT id FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid",[id,p]);if(!op.rows.length)return bad(res,404,"LOADING_OPERATION_NOT_FOUND","Loading operation not found in this Project.");
+   const upload=await privateStorage.presignedUpload(objectKey,mimeType,contentLength);
+   return res.json({upload,bucket:storageStatus.bucket,verificationRequired:true});
+  }catch{return bad(res,503,"LOADING_EVIDENCE_PRESIGN_FAILED","Unable to prepare private evidence upload.");}
  });
  app.post("/api/v1/projects/:projectId/loading-operations/:operationId/acceptances",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId,id=req.params.operationId,b=req.body||{},type=str(b.acceptanceType,32);

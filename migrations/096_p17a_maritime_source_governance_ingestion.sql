@@ -124,6 +124,36 @@ CREATE TABLE public.maritime_provider_health (
   checked_by uuid REFERENCES public.users(id)
 );
 
+CREATE OR REPLACE FUNCTION public.pke_guard_maritime_field_permission()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
+AS $function$
+DECLARE s record;
+BEGIN
+  IF NEW.allowed IS TRUE THEN
+    SELECT rights_status,rights_expires_at,internal_processing_allowed,customer_display_allowed,
+           redistribution_allowed,derivative_use_allowed
+      INTO s FROM public.maritime_data_sources WHERE id=NEW.source_id FOR SHARE;
+    IF NOT FOUND OR s.rights_status<>'approved' OR s.rights_expires_at<=now() THEN
+      RAISE EXCEPTION 'Current approved source rights are required for field permission' USING ERRCODE='42501';
+    END IF;
+    IF NEW.reviewed_by IS DISTINCT FROM public.pke_current_user_id() OR NEW.reviewed_at IS NULL THEN
+      RAISE EXCEPTION 'Field rights must be reviewed by the authenticated administrator' USING ERRCODE='42501';
+    END IF;
+    IF (NEW.purpose_code IN ('internal_operations','analytics') AND s.internal_processing_allowed IS NOT TRUE)
+       OR (NEW.purpose_code='customer_display' AND s.customer_display_allowed IS NOT TRUE)
+       OR (NEW.purpose_code='redistribution' AND s.redistribution_allowed IS NOT TRUE)
+       OR (NEW.purpose_code='derived_product' AND s.derivative_use_allowed IS NOT TRUE) THEN
+      RAISE EXCEPTION 'Field permission cannot exceed source-level purpose rights' USING ERRCODE='42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.pke_guard_maritime_field_permission() FROM PUBLIC;
+CREATE TRIGGER pke_maritime_field_permission_guard
+BEFORE INSERT OR UPDATE ON public.maritime_source_field_permissions
+FOR EACH ROW EXECUTE FUNCTION public.pke_guard_maritime_field_permission();
+
 CREATE INDEX maritime_ingestion_runs_source_created_idx ON public.maritime_ingestion_runs(source_id,created_at DESC);
 CREATE INDEX maritime_ingestion_staging_review_idx ON public.maritime_ingestion_staging(run_id,review_status,created_at);
 CREATE INDEX maritime_provider_health_source_checked_idx ON public.maritime_provider_health(source_id,checked_at DESC);

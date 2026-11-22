@@ -2576,7 +2576,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
           AND r.jurisdiction IN ($1,'GLOBAL') AND r.subject_type IN ('shipment','product','all')
           AND v.effective_from<=CURRENT_DATE AND (v.effective_to IS NULL OR v.effective_to>=CURRENT_DATE)
         ORDER BY r.rule_code,v.version_number,c.condition_group,c.field_path,edt.document_code`,
-      [targetCountry,entityType],
+      [targetCountry],
     );
     const grouped=new Map<string,any>();
     for(const row of ruleRows.rows){

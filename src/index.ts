@@ -2524,8 +2524,8 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     if(!/^[A-Z]{2}$/.test(targetCountry)||shipmentRecord.destination_port_verification_status!=="verified") return res.status(422).json({error:"Shipment destination port must have a verified country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
     const allocationRows=await req.db.query(
       `SELECT sa.id AS allocation_id,sa.allocated_quantity,sa.unit,l.product_id,l.product_variant_id,
-              pc.product_code,pc.product_name,pc.category,pc.description,pc.classification_status,
-              ph.id AS hs_classification_id,ph.hs_code,ph.goods_description,ph.review_status AS hs_review_status,
+              pc.product_code,pc.product_name,pc.category,pc.description,pc.classification_status,l.quality_status,
+              ph.id AS hs_classification_id,ph.hs_code,ph.goods_description,ph.classification_rationale,ph.source_reference,ph.review_status AS hs_review_status,
               ph.valid_from AS hs_valid_from,ph.valid_to AS hs_valid_to
          FROM public.shipment_allocations sa
          JOIN public.inventory_lots l ON l.id=sa.lot_id AND l.project_id=$2::uuid
@@ -2549,8 +2549,8 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       const current=productMap.get(key)??{
         productId:row.product_id,productVariantId:row.product_variant_id,productCode:row.product_code,
         productName:row.product_name,category:row.category,description:row.description,
-        classificationStatus:row.classification_status,allocatedQuantity:0,unit:row.unit,
-        hsClassificationId:row.hs_classification_id,hsCode:row.hs_code,goodsDescription:row.goods_description,
+        classificationStatus:row.classification_status,qualityStatus:row.quality_status,allocatedQuantity:0,unit:row.unit,
+        hsClassificationId:row.hs_classification_id,hsCode:row.hs_code,goodsDescription:row.goods_description,hsClassificationRationale:row.classification_rationale,hsSourceReference:row.source_reference,
         hsReviewStatus:row.hs_review_status,hsValidFrom:row.hs_valid_from,hsValidTo:row.hs_valid_to,
       };
       current.allocatedQuantity+=Number(row.allocated_quantity??0);
@@ -2586,11 +2586,16 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       if(row.document_code&&!rule.requiredDocuments.some((d:any)=>d.documentCode===row.document_code)) rule.requiredDocuments.push({documentCode:row.document_code,requirementKind:row.requirement_kind});
     }
     const docs=await req.db.query(
-      `SELECT id,document_type_code,sha256_checksum,object_key,uploaded_at,expiry_date FROM public.project_export_documents
-        WHERE project_id=$1::uuid AND status='approved' AND upload_verified_at IS NOT NULL
-          AND sha256_checksum IS NOT NULL AND object_key IS NOT NULL
-          AND storage_bucket='pke-private-documents' AND legal_hold=false
-          AND (expiry_date IS NULL OR expiry_date>=CURRENT_DATE)`,
+      `SELECT DISTINCT d.id,COALESCE(d.document_type_code,edt.document_code) AS document_type_code,
+              d.sha256_checksum,d.object_key,d.uploaded_at,d.expiry_date
+         FROM public.project_export_documents d
+         JOIN public.project_export_document_requirements pr ON pr.id=d.project_requirement_id AND pr.project_id=d.project_id
+         LEFT JOIN public.country_export_document_requirements cr ON cr.id=pr.country_requirement_id
+         LEFT JOIN public.export_document_types edt ON edt.id=cr.document_type_id
+        WHERE d.project_id=$1::uuid AND d.status='approved' AND d.upload_verified_at IS NOT NULL
+          AND d.sha256_checksum IS NOT NULL AND d.object_key IS NOT NULL
+          AND d.storage_bucket='pke-private-documents' AND d.legal_hold=false
+          AND (d.expiry_date IS NULL OR d.expiry_date>=CURRENT_DATE)`,
       [projectId],
     );
     const available=new Set<string>(docs.rows.map((d:any)=>String(d.document_type_code)).filter(Boolean));
@@ -2599,14 +2604,14 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     const coverageWarnings:string[]=[];
     if(!productRules.length) coverageWarnings.push("No effective product-scope rules are configured for this destination; legal coverage is unverified.");
     if(!productFacts.length) coverageWarnings.push("No allocated product lots are linked to this shipment.");
-    if(productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode))
+    if(productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||p.qualityStatus!=="passed"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode))
       coverageWarnings.push("One or more allocated products lack a verified product master and currently approved destination-country HS classification.");
     const inputSnapshot={shipment:{...shipmentRecord.shipment,destinationCountry:targetCountry,originCountry:shipmentRecord.origin_country},voyage:shipmentRecord.voyage,destinationPort:shipmentRecord.destination_port,pksSite:shipmentRecord.pks_site,products:productFacts,regulatoryCoverageWarnings:coverageWarnings};
     const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,assessedAt:new Date().toISOString()}};
     const results=rules.map(rule=>{
       let result:any;
       if(rule.subjectType==="product"){
-        if(!productFacts.length||productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode)){
+        if(!productFacts.length||productFacts.some(p=>!p.productId||p.classificationStatus!=="verified"||p.qualityStatus!=="passed"||!p.hsClassificationId||p.hsReviewStatus!=="approved"||!p.hsCode)){
           result={ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"pending",reason:"Product rule cannot be evaluated until all allocated products have approved, current destination-country HS classifications.",requiredDocuments:rule.requiredDocuments??[],missingDocuments:[],evidence:[]};
         }else{
           const perProduct=productFacts.map(product=>evaluateRegulatoryRule(rule,{...snapshot,product},available));

@@ -1358,3 +1358,13 @@ Post-apply UAT runtime-role permission checks passed; Viewer reads returned zero
 **Acceptance boundary:** UAT migration/schema/RLS backtests and CI contract gates PASS. Live HTTP/browser endpoint acceptance and Vercel deployment were not run because deployment remains frozen by prior instruction; no Production changes, PR merge or provider activation occurred. The isolated validation branch `p17a-e-uat-validation-20261122` is retained with synthetic test fixtures only.
 
 See `docs/P17_MARITIME_OPEN_DATA_INTEGRATION_PLAN.md` §15 and `migration_history_manifest_uat_001_097.json` for the full evidence record.
+
+
+## P17-B checkpoint — port master and PKS-first logistics (22 November 2026)
+
+
+P17-B reuses the P16 canonical `ports`, `pks_sites`, `pks_port_routes`, `warehouses`, `port_terminals` and `port_loading_services` tables. The producer/operator relationship is `pks_sites.organization_id → partner_organizations.id`; Project-specific PKS participation remains in `project_pks_site_participation`. No duplicate master entities are introduced.
+
+Migration 098 was applied to Neon UAT `br-young-boat-b3re832d`, SHA-256 `d5e035f92ac2f679111ff717724c1683aa4666574c8aae5e830e501301179445`. New schema: source-to-canonical port external-ID crosswalk and versioned, license-attributed GeoJSON features for ports/terminals/PKS/road access. Existing PKS–port routes now support a linked route-geometry feature and explicit distance method. RLS is forced; crosswalk is Admin-only; geospatial read is Project-linked.
+
+Route API/UI ranks road routes by verification and distance and labels “Rujukan utama PKE” only when PKS, route, port and PKE loading service are all verified/operational as applicable. No real data imported; current port/PKS rows are fixtures. UAT ledger 98 rows (16 baseline, 82 applied), manifest `migration_history_manifest_uat_001_098.json`. Full CI and data-backed acceptance remain pending. Keep Production/Vercel/PR boundaries unchanged and do not activate providers or represent national port/producer coverage as complete.

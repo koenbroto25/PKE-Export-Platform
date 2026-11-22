@@ -258,3 +258,20 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).not.toContain('path.startsWith("/api/v1/projects/")');
  });
 });
+
+
+describe("P17 migration atomicity",()=>{
+ it.each([
+  ["096",A],
+  ["097",E],
+  ["098",readFileSync(join(ROOT,"migrations","098_p17b_port_identity_geospatial.sql"),"utf8")],
+  ["099",readFileSync(join(ROOT,"migrations","099_p17b_logistics_scenario_and_pm_change_requests.sql"),"utf8")],
+  ["100",readFileSync(join(ROOT,"migrations","100_p17b_logistics_change_audit.sql"),"utf8")],
+  ["101",SIM],
+  ["102",readFileSync(join(ROOT,"migrations","102_p17b_logistics_request_scope_guard.sql"),"utf8")],
+  ["103",readFileSync(join(ROOT,"migrations","103_p17b_logistics_simulation_edge_semantics.sql"),"utf8")]
+ ])("wraps migration %s in a single transaction",(_id,sql)=>{
+  expect(sql.trimStart()).toMatch(/^--[\s\S]*?BEGIN;/);
+  expect(sql.trimEnd()).toMatch(/COMMIT;$/);
+ });
+});

@@ -8724,3 +8724,32 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - The existing source records and RAG chunks from the archival branch are not approved legal content and must not be used to seed or activate regulatory rules. Human confirmation remains required before any source/rule is marked verified/approved/effective.
 - P19 has not been defined in the active Master Plan or located in the repository at this inspection. Therefore P19 will not be started speculatively. Finish and validate the reduced P18 scope first, then define P19 from the remaining approved roadmap and actual system gaps.
 - Initial repo inspection identified existing legacy regulatory-sources and country-packs routes, an admin-only regulatory-knowledge read route, and a placeholder compliance-check that explicitly does not evaluate verified rules. Existing schema migrations 015 and 034 create the source registry and export-document requirement/document tables. These are starting points, not proof of P18 completion.
+## P18 Regulatory Core — initial implementation audit — 23 November 2026
+
+**FACT — repository inspection (base P17b code, active P18 core branch):**
+- The API contains legacy GET/POST routes for regulatory-sources and export document requirements, but source creation is gated by global requireAdmin rather than the canonical regulatory.source.manage permission. There is no observed complete CRUD/version/review API for regulatory_rules and regulatory_rule_versions.
+- The legacy /api/v1/regulatory-knowledge endpoint is a Platform Admin-only read projection; it is not a Regulatory Source Registry workspace.
+- /api/v1/compliance-check is explicitly a placeholder. It returns compliant=null and requires_human_review with an empty issues array; it does not evaluate regulatory_rules or persist a regulatory_assessments record. This is a confirmed P18 functional blocker.
+- Country document requirements and project document/document-review APIs exist, but must be reconciled against live Production schema and their lifecycle/security rules before acceptance.
+- Existing frontend CompliancePage is primarily a project document lifecycle screen. Regulatory sources and country packs are only shown to Platform Admin, and compliance execution calls the placeholder endpoint. No complete rule/version/assessment review workspace was found.
+
+**FACT — read-only canonical Neon Production inspection:**
+- regulatory_sources, regulatory_rules, regulatory_rule_versions, regulatory_assessments, export_document_types, country_export_document_requirements, project_export_document_requirements and project_export_documents exist.
+- regulatory_sources runtime RLS exposes SELECT only for verified/approved records and appropriate regulatory/compliance permissions; no runtime INSERT/UPDATE policy was found.
+- regulatory_rules and regulatory_rule_versions runtime RLS expose SELECT only for approved/effective records and appropriate permissions; no runtime INSERT/UPDATE policy was found.
+- regulatory_assessments has Project-scoped INSERT/SELECT/UPDATE policies tied to compliance.assess and compliance.view.
+- Country document requirement and export document type tables have read policies; Project document requirements/documents have Project-scoped CRUD policies. These policies still require end-to-end runtime verification.
+- Permission catalogue rows exist in Production for compliance.assess, compliance.view, knowledge.ingest, knowledge.search, regulatory.rule.manage, regulatory.rule.version.create, regulatory.rule.view, regulatory.source.manage and regulatory.source.view. However, the source-controlled role-catalogue.ts did not show the regulatory.source.* or regulatory.rule.* codes in the initial targeted scan; reconcile the canonical catalogue and DB assignments before authorizing UI/API actions.
+- Live Production schema for export_document_types has document_code and document_category, while legacy API GET/POST still refers to document_type_id/document_category optionality from the older migration file. This is a concrete schema/API drift risk and must be reconciled before declaring document catalog endpoints accepted.
+- No Production writes or migration applications were performed during this audit.
+
+**P18 next implementation order:**
+1. Reconcile migrations/schema definitions to live Production without modifying data; identify the exact applied migration history and all constraints/triggers.
+2. Align canonical permission catalogue, route middleware and RLS policies for source/rule lifecycle; add least-privilege runtime write policies only through a reviewed migration and the project's explicit Production migration approval process.
+3. Implement immutable regulatory rule version CRUD and independent review/activation transitions.
+4. Replace the compliance-check placeholder with deterministic assessment logic using effective, approved rule versions; persist snapshots, rule references, reason codes and outcomes.
+5. Harden country/project document requirement lifecycle, schema compatibility, maker-checker and expiry/version handling.
+6. Build permission-aware Regulatory Core workspace for source, rules, review queue, assessments and audit history; no RAG/chatbot panels.
+7. Add API contract, RLS isolation, workflow and frontend acceptance; run full regression/build/typecheck before phase close.
+
+**Audit status:** P18 Regulatory Core is NOT COMPLETE. The source registry has a partial legacy API, deterministic compliance evaluation is not implemented, rule lifecycle write path is not implemented, and Regulatory Workspace is incomplete. These are active engineering tasks, not external stakeholder blockers.

@@ -6,7 +6,7 @@ type RightsDraft = {
  rightsStatus:string; reviewNote:string; commercialUseAllowed:boolean; internalProcessingAllowed:boolean;
  customerDisplayAllowed:boolean; redistributionAllowed:boolean; derivativeUseAllowed:boolean;
  cachingAllowed:boolean; retentionDays:string; termsUrl:string; rightsEvidenceUrl:string;
- attributionText:string; rightsExpiresAt:string;
+ attributionText:string; rightsExpiresAt:string; freshnessSlaSeconds:string; freshnessDelayedGraceSeconds:string;
 };
 const blankSource={sourceCode:"",providerName:"",sourceClass:"other",datasetCode:"",endpointUrl:"",termsUrl:"",licenseCode:"",accessMethod:"manual"};
 const makeRights=(s:Source):RightsDraft=>({
@@ -21,7 +21,9 @@ const makeRights=(s:Source):RightsDraft=>({
  retentionDays:s.retention_days==null?"":String(s.retention_days),
  termsUrl:String(s.terms_url||""),rightsEvidenceUrl:String(s.rights_evidence_url||""),
  attributionText:String(s.attribution_text||""),
- rightsExpiresAt:s.rights_expires_at?new Date(s.rights_expires_at).toISOString().slice(0,16):""
+ rightsExpiresAt:s.rights_expires_at?new Date(s.rights_expires_at).toISOString().slice(0,16):"",
+ freshnessSlaSeconds:s.metadata?.freshness_sla_seconds==null?"":String(s.metadata.freshness_sla_seconds),
+ freshnessDelayedGraceSeconds:s.metadata?.freshness_delayed_grace_seconds==null?"":String(s.metadata.freshness_delayed_grace_seconds)
 });
 
 export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:boolean}){
@@ -55,7 +57,9 @@ export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:bo
     redistributionAllowed:r.redistributionAllowed,derivativeUseAllowed:r.derivativeUseAllowed,
     cachingAllowed:r.cachingAllowed,retentionDays:r.retentionDays===""?null:Number(r.retentionDays),
     termsUrl:r.termsUrl,rightsEvidenceUrl:r.rightsEvidenceUrl,attributionText:r.attributionText,
-    rightsExpiresAt:r.rightsExpiresAt?new Date(r.rightsExpiresAt).toISOString():null
+    rightsExpiresAt:r.rightsExpiresAt?new Date(r.rightsExpiresAt).toISOString():null,
+    freshnessSlaSeconds:r.freshnessSlaSeconds===""?null:Number(r.freshnessSlaSeconds),
+    freshnessDelayedGraceSeconds:r.freshnessDelayedGraceSeconds===""?null:Number(r.freshnessDelayedGraceSeconds)
    });
    setNotice("Keputusan hak sumber tersimpan.");await refresh();
   }catch(e:any){setError(e?.message||"Hak sumber gagal diperbarui.");}
@@ -92,6 +96,8 @@ export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:bo
       <div className="p17-source-checks">
        {([["commercialUseAllowed","Penggunaan komersial"],["internalProcessingAllowed","Pemrosesan internal"],["customerDisplayAllowed","Tampilan ke customer"],["redistributionAllowed","Redistribusi"],["derivativeUseAllowed","Produk turunan"],["cachingAllowed","Caching"]] as const).map(([key,label])=><label key={key}><input type="checkbox" checked={r[key]} onChange={e=>setRights(v=>({...v,[s.id]:{...r,[key]:e.target.checked}}))}/>{label}</label>)}
       </div>
+      <label>AIS freshness SLA (detik; kosong = unknown)<input type="number" min="1" step="1" value={r.freshnessSlaSeconds} onChange={e=>setRights(v=>({...v,[s.id]:{...r,freshnessSlaSeconds:e.target.value}}))}/></label>
+      <label>AIS delayed grace (detik; opsional)<input type="number" min="0" step="1" value={r.freshnessDelayedGraceSeconds} onChange={e=>setRights(v=>({...v,[s.id]:{...r,freshnessDelayedGraceSeconds:e.target.value}}))}/></label>
       <label>Catatan review<input required value={r.reviewNote} onChange={e=>setRights(v=>({...v,[s.id]:{...r,reviewNote:e.target.value}}))}/></label>
       <label>URL terms<input type="url" value={r.termsUrl} onChange={e=>setRights(v=>({...v,[s.id]:{...r,termsUrl:e.target.value}}))}/></label>
       <label>Bukti hak / keputusan<input type="url" value={r.rightsEvidenceUrl} onChange={e=>setRights(v=>({...v,[s.id]:{...r,rightsEvidenceUrl:e.target.value}}))}/></label>

@@ -7,6 +7,14 @@ const time=(v:unknown)=>typeof v==="string"&&Number.isFinite(Date.parse(v))?new 
 
 export function registerP17MaritimeRoutes(app:Express,d:D){
  const {requireAuth,requireAdmin,requireProjectPermission,uuidPattern}=d;
+ const requireProjectAccess=async(req:R,res:Response,projectId:string,permission:string):Promise<boolean>=>{
+  const admin=await req.db.query("SELECT public.pke_is_platform_admin() AS is_admin");
+  if(admin.rows[0]?.is_admin===true){
+   await req.db.query("SELECT set_config('app.current_role','admin',true),set_config('app.current_project_id',$1,true),set_config('app.current_permission_code',$2,true)",[projectId,permission]);
+   return true;
+  }
+  return requireProjectPermission(req,res,projectId,permission);
+ };
  // P17-B: port identity reconciliation and versioned GeoJSON. Promotion is explicit and review-gated.
  app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   try{const q=await req.db.query("SELECT x.*,p.name AS port_name,s.source_code,s.provider_name FROM public.port_external_id_crosswalk x JOIN public.ports p ON p.id=x.port_id JOIN public.maritime_data_sources s ON s.id=x.source_id ORDER BY x.created_at DESC LIMIT 500");return res.json({crosswalk:q.rows});}
@@ -198,7 +206,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  app.get("/api/v1/projects/:projectId/pke-logistics/scenarios",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||"");
   if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");
-  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.view")))return;
+  if(!(await requireProjectAccess(req,res,p,"pke.logistics.master.view")))return;
   try{const q=await req.db.query("SELECT * FROM public.p17b_logistics_simulation_scenarios WHERE project_id=$1::uuid ORDER BY updated_at DESC LIMIT 100",[p]);return res.json({scenarios:q.rows});}
   catch{return bad(res,500,"PKE_LOGISTICS_SCENARIO_LIST_FAILED","Unable to load Project logistics simulations.");}
  });
@@ -207,7 +215,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    evidence=Array.isArray(b.sourceEvidence)?b.sourceEvidence:[],assumptions=b.assumptions&&typeof b.assumptions==="object"&&!Array.isArray(b.assumptions)?b.assumptions:{};
   if(!uuidPattern.test(p)||!code||!name||!graph||typeof graph!=="object"||Array.isArray(graph))
    return bad(res,400,"INVALID_PKE_LOGISTICS_SCENARIO","Project, scenario code, name and graph object are required.");
-  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  if(!(await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage")))return;
   try{const q=await req.db.query("INSERT INTO public.p17b_logistics_simulation_scenarios(project_id,scenario_code,scenario_name,graph,source_evidence,assumptions,simulation_only,scenario_status,created_by,updated_by) VALUES($1::uuid,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,true,'simulation',$7::uuid,$7::uuid) RETURNING *",
    [p,code,name,JSON.stringify(graph),JSON.stringify(evidence),JSON.stringify(assumptions),req.user?.id]);return res.status(201).json({scenario:q.rows[0]});}
   catch(e:any){if(e?.code==="23505")return bad(res,409,"PKE_LOGISTICS_SCENARIO_DUPLICATE","Scenario code already exists in this Project.");if(e?.code==="23514")return bad(res,422,"PKE_LOGISTICS_GRAPH_INVALID","Simulation graph must contain all six linked, unverified node types and valid edges.");return bad(res,500,"PKE_LOGISTICS_SCENARIO_CREATE_FAILED","Unable to create simulation scenario.");}
@@ -218,7 +226,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    assumptions=b.assumptions&&typeof b.assumptions==="object"&&!Array.isArray(b.assumptions)?b.assumptions:null;
   if(!uuidPattern.test(p)||!uuidPattern.test(id)||(graph!==undefined&&(!graph||typeof graph!=="object"||Array.isArray(graph))))
    return bad(res,400,"INVALID_PKE_LOGISTICS_SCENARIO_UPDATE","Project, scenario id or graph is invalid.");
-  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  if(!(await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage")))return;
   try{const q=await req.db.query("UPDATE public.p17b_logistics_simulation_scenarios SET graph=COALESCE($3::jsonb,graph),source_evidence=COALESCE($4::jsonb,source_evidence),assumptions=COALESCE($5::jsonb,assumptions),scenario_status=COALESCE($6,scenario_status),updated_by=$7::uuid,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid RETURNING *",
    [id,p,graph===undefined?null:JSON.stringify(graph),evidence===null?null:JSON.stringify(evidence),assumptions===null?null:JSON.stringify(assumptions),["simulation","draft","archived"].includes(b.scenarioStatus)?b.scenarioStatus:null,req.user?.id]);
    if(!q.rows.length)return bad(res,404,"PKE_LOGISTICS_SCENARIO_NOT_FOUND","Simulation scenario not found in this Project.");
@@ -228,7 +236,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  app.get("/api/v1/projects/:projectId/pke-logistics/change-requests",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||"");
   if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");
-  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.view")))return;
+  if(!(await requireProjectAccess(req,res,p,"pke.logistics.master.view")))return;
   try{const q=await req.db.query("SELECT * FROM public.p17b_logistics_change_requests WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 200",[p]);return res.json({requests:q.rows});}
   catch{return bad(res,500,"PKE_LOGISTICS_REQUEST_LIST_FAILED","Unable to load logistics change requests.");}
  });
@@ -242,7 +250,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    (sourceUrl&&!/^https?:\/\//i.test(sourceUrl))||!proposal||typeof proposal!=="object"||
    Array.isArray(proposal)||!Object.keys(proposal).length)
    return bad(res,400,"INVALID_PKE_LOGISTICS_REQUEST","Entity, operation, target, proposal, reason and source evidence are invalid.");
-  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  if(!(await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage")))return;
   try{
    const q=await req.db.query("INSERT INTO public.p17b_logistics_change_requests(project_id,entity_type,operation,target_id,proposed_data,request_reason,source_reference,source_url,source_snapshot,requested_by) VALUES($1::uuid,$2,$3,$4::uuid,$5::jsonb,$6,$7,$8,$9::jsonb,$10::uuid) RETURNING *",
     [p,entity,operation,target||null,JSON.stringify(proposal),reason,sourceRef,sourceUrl||null,
@@ -253,7 +261,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  app.patch("/api/v1/projects/:projectId/pke-logistics/change-requests/:requestId",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||""),id=String(req.params.requestId||""),b=req.body??{},submit=b.submit===true;
   if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"INVALID_PKE_LOGISTICS_REQUEST","Valid Project and request ids are required.");
-  if(!(await requireProjectPermission(req,res,p,"pke.logistics.master.change_request.manage")))return;
+  if(!(await requireProjectAccess(req,res,p,"pke.logistics.master.change_request.manage")))return;
   const reason=b.requestReason===undefined?null:str(b.requestReason,2000),proposal=b.proposedData,
    sourceRef=b.sourceReference===undefined?null:str(b.sourceReference,1000),sourceUrl=b.sourceUrl===undefined?null:str(b.sourceUrl,1000),
    sourceSnapshot=b.sourceSnapshot===undefined?null:(b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:null);

@@ -441,3 +441,16 @@ describe("P17-F Buyer identity lifecycle hardening",()=>{
   expect(M105).toContain("u.neon_auth_user_id IS NOT NULL");
  });
 });
+
+
+describe("P17-B PKS to PKE port prioritization",()=>{
+ it("ranks verified route candidates by evidenced PKE terminal, equipment and warehouse readiness",()=>{
+  expect(API).toContain("evidence_candidate_only");
+  expect(API).toContain("verified_pke_terminal_count");
+  expect(API).toContain("verified_operational_equipment_count");
+  expect(API).toContain("verified_warehouse_capacity_mt");
+  expect(API).toContain("is_shipment_destination");
+  expect(API).toContain("pr.verified_at IS NOT NULL");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("nearby alternative");
+ });
+});

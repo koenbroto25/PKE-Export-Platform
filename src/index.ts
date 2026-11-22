@@ -2577,8 +2577,8 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     if(!shipmentResult.rows.length) return res.status(404).json({error:"Shipment not found in this Project.",code:"REGULATORY_SHIPMENT_SCOPE_MISMATCH"});
     const shipmentRecord=shipmentResult.rows[0];
     const targetCountry=String(shipmentRecord.destination_country??"").trim().toUpperCase();
-    if(!/^[A-Z]{2}$/.test(targetCountry)||shipmentRecord.destination_port_verification_status!=="verified") return res.status(422).json({error:"Shipment destination port must have a verified country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
-    const originCountry=shipmentRecord.origin_port_verification_status==="verified"?shipmentRecord.origin_country:(shipmentRecord.pks_site?.verification_status==="verified"?shipmentRecord.pks_site.country_code:null);
+    if(!/^[A-Z]{2}$/.test(targetCountry)||shipmentRecord.destination_port_verification_status!=="verified"||!shipmentRecord.destination_port_verified_at||shipmentRecord.destination_port_is_active!==true) return res.status(422).json({error:"Shipment destination port must have a verified country mapping; assessment remains blocked.",code:"REGULATORY_DESTINATION_UNRESOLVED"});
+    const originCountry=shipmentRecord.origin_port_verification_status==="verified"&&shipmentRecord.origin_port?.verified_at&&shipmentRecord.origin_port?.is_active===true?shipmentRecord.origin_country:(shipmentRecord.pks_site?.verification_status==="verified"&&shipmentRecord.pks_site?.verified_at&&shipmentRecord.pks_site?.is_active===true?shipmentRecord.pks_site.country_code:null);
     const allocationRows=await req.db.query(
       `SELECT sa.id AS allocation_id,sa.allocated_quantity,sa.unit,l.product_id,l.product_variant_id,
               pc.product_code,pc.product_name,pc.category,pc.description,pc.classification_status,l.quality_status,

@@ -404,10 +404,15 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
   expect(API).toContain("/loading-operations/:operationId/unit");
   expect(API).toContain("/loading-operations/:operationId/acceptances");
   expect(API).toContain("LOADING_TICKETS_NOT_VERIFIED");
+  expect(API).toContain("verifiedTicketUnits.length!==1");
+  expect(API).toContain("completedSegmentUnits.length!==1");
+  expect(API).toContain("LOADING_SEGMENT_UNIT_MISMATCH");
   expect(API).toContain("LOADING_ACCEPTANCE_MAKER_CHECKER");
   expect(API).toContain("LAYTIME_EVIDENCE_INVALID");
   expect(API).toContain("quantity_variance");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("LoadingAcceptancePanel");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("operationTicketVariance");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("segmentTicketVariance");
  });
  it("enforces immutable evidence, independent reviewers and no acceptance with quantity variance",()=>{
   expect(M107).toContain("loading_operation_acceptances");

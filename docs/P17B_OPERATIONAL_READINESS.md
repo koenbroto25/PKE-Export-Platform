@@ -239,3 +239,19 @@ A Platform Admin-only source governance workbench is now integrated into the Pel
 | BMKG endpoint entitlement and commercial/display rights | BLOCKED_EXTERNAL — confirmation required |
 | AIS provider access/rights | BLOCKED_EXTERNAL — no subscription/contribution activated |
 | Real port, producer/KCP, route, terminal/loading and warehouse data | BLOCKED_EXTERNAL — source and operational evidence pending |
+
+## 20. P17-B/Admin workbench completion tranche (22 November 2026)
+
+- Added a Project PM/Admin create-scenario flow. A new simulation starts with exactly six typed nodes and five required directed relationships; all nodes are `simulation_only=true`, `verification_status=unverified`; route distance/time/geometry, coordinates, PKE acceptance, loading rate and warehouse capacity remain NULL/false. The initial assumptions explicitly prohibit dispatch, production use and ranking eligibility.
+- Added a Platform Admin identity/geospatial review panel to Pelabuhan & Gudang. It reads the protected port crosswalk and GeoJSON queues and submits independent review decisions with substantive notes. Existing API maker-checker checks remain authoritative.
+- Improved the PM canonical change-request editor so selecting an existing draft opens the editor panel.
+- Improved source-rights review persistence: source listing now returns rights evidence URL and metadata, and the UI refreshes rights state from the saved server record.
+- Added static contract assertions for source governance, crosswalk/geospatial review and PM scenario creation. These assertions are not a substitute for running `npm test` or frontend build; those are intentionally deferred by the current owner instruction.
+
+| Work item | Status |
+|---|---|
+| PM/Admin create simulation scenario | IMPLEMENTED — runtime acceptance pending |
+| Admin source registry and rights workbench | IMPLEMENTED — runtime acceptance pending |
+| Admin crosswalk and GeoJSON review queue | IMPLEMENTED — runtime acceptance pending |
+| PM canonical port/route/terminal/loading/warehouse change requests | IMPLEMENTED — runtime acceptance pending |
+| Real-world source approval, ingestion and canonical port/PKS/route data | BLOCKED_EXTERNAL — evidence/rights approval pending |

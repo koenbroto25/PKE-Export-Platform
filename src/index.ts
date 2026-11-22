@@ -2439,7 +2439,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
          LEFT JOIN public.export_document_types edt ON edt.id=rd.document_type_id
         WHERE r.status='effective' AND v.status='effective'
           AND s.verification_status='verified'
-          AND r.jurisdiction=$1 AND r.subject_type IN ($2,'all')
+          AND r.jurisdiction IN ($1,'GLOBAL') AND r.subject_type IN ($2,'all')
           AND v.effective_from<=CURRENT_DATE AND (v.effective_to IS NULL OR v.effective_to>=CURRENT_DATE)
         ORDER BY r.rule_code,v.version_number,c.condition_group,c.field_path,edt.document_code`,
       [targetCountry,entityType],
@@ -2484,6 +2484,89 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
   }catch(error:any){
     req.logger?.error?.("Regulatory assessment failed",error);
     if(error?.code==="42501") return res.status(403).json({error:"Regulatory assessment permission or database scope denied.",code:"REGULATORY_PERMISSION_DENIED"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/projects/:projectId/regulatory-assessments",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId??"");
+  if(!(await requireProjectPermission(req,res,projectId,"compliance.view"))) return;
+  try{
+    const {rows}=await req.db.query(
+      `SELECT id,project_id,shipment_id,origin_country,destination_country,assessment_date,
+              overall_status,failed_count,pending_count,assessed_by,reviewed_by,reviewed_at,created_at
+         FROM public.regulatory_assessments WHERE project_id=$1::uuid
+        ORDER BY created_at DESC LIMIT 100`,
+      [projectId],
+    );
+    return res.json({assessments:rows});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.get("/api/v1/projects/:projectId/regulatory-assessments/:assessmentId",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId??"");
+  if(!(await requireProjectPermission(req,res,projectId,"compliance.view"))) return;
+  try{
+    const assessment=await req.db.query("SELECT * FROM public.regulatory_assessments WHERE id=$1::uuid AND project_id=$2::uuid",[req.params.assessmentId,projectId]);
+    if(!assessment.rows.length) return res.status(404).json({error:"Assessment not found."});
+    const results=await req.db.query(
+      `SELECT ar.*,v.rule_id,v.version_number,v.rule_summary,v.outcome,v.regulatory_source_id,
+              s.source_id,s.title AS source_title,s.official_url,s.source_checksum
+         FROM public.regulatory_assessment_results ar
+         JOIN public.regulatory_rule_versions v ON v.id=ar.rule_version_id
+         JOIN public.regulatory_sources s ON s.id=v.regulatory_source_id
+        WHERE ar.assessment_id=$1::uuid ORDER BY v.rule_id,v.version_number`,
+      [req.params.assessmentId],
+    );
+    return res.json({assessment:assessment.rows[0],results:results.rows});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.patch("/api/v1/projects/:projectId/regulatory-assessments/:assessmentId/review",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId??"");
+  if(!(await requireProjectPermission(req,res,projectId,"compliance.assess"))) return;
+  const decisions=req.body?.decisions;
+  if(!Array.isArray(decisions)||decisions.length<1||decisions.length>100)
+    return res.status(400).json({error:"One or more assessment result decisions are required."});
+  try{
+    const assessment=await req.db.query(
+      "SELECT id,assessed_by FROM public.regulatory_assessments WHERE id=$1::uuid AND project_id=$2::uuid FOR UPDATE",
+      [req.params.assessmentId,projectId],
+    );
+    if(!assessment.rows.length) return res.status(404).json({error:"Assessment not found."});
+    if(assessment.rows[0].assessed_by===req.user?.id)
+      return res.status(409).json({error:"Assessment maker cannot approve their own result.",code:"REGULATORY_MAKER_CHECKER_REQUIRED"});
+    for(const decision of decisions){
+      if(typeof decision?.resultId!=="string"||!["pass","fail","not_applicable"].includes(decision.decision)||typeof decision.reason!=="string"||decision.reason.trim().length<5)
+        return res.status(400).json({error:"Each decision requires resultId, pass/fail/not_applicable and a reason."});
+      const updated=await req.db.query(
+        `UPDATE public.regulatory_assessment_results SET result_status=$1,reason=$2,reviewer_id=$3::uuid,reviewed_at=now()
+          WHERE id=$4::uuid AND assessment_id=$5::uuid AND result_status IN ('pending','manual_review')
+          RETURNING id`,
+        [decision.decision,decision.reason.trim(),req.user?.id??null,decision.resultId,req.params.assessmentId],
+      );
+      if(!updated.rows.length) return res.status(409).json({error:"Result is not pending review or does not belong to this assessment.",code:"REGULATORY_REVIEW_CONFLICT"});
+    }
+    const summary=await req.db.query(
+      `SELECT COUNT(*) FILTER(WHERE result_status='fail')::int AS failed,
+              COUNT(*) FILTER(WHERE result_status IN ('pending','manual_review'))::int AS pending,
+              COUNT(*) FILTER(WHERE result_status<>'not_applicable')::int AS applicable,
+              COUNT(*)::int AS total
+         FROM public.regulatory_assessment_results WHERE assessment_id=$1::uuid`,
+      [req.params.assessmentId],
+    );
+    const counts=summary.rows[0];
+    const overall=counts.failed>0?'fail':counts.pending>0?'manual_review':counts.applicable===0&&counts.total>0?'not_applicable':counts.total===0?'pending':'pass';
+    const updatedAssessment=await req.db.query(
+      `UPDATE public.regulatory_assessments SET overall_status=$1,failed_count=$2,pending_count=$3,
+              reviewed_by=$4::uuid,reviewed_at=now()
+        WHERE id=$5::uuid AND project_id=$6::uuid
+        RETURNING id,overall_status,failed_count,pending_count,reviewed_by,reviewed_at`,
+      [overall,counts.failed,counts.pending,req.user?.id??null,req.params.assessmentId,projectId],
+    );
+    return res.json({assessment:updatedAssessment.rows[0]});
+  }catch(error:any){
+    if(error?.code==="42501") return res.status(403).json({error:"Assessment review permission denied."});
     return res.status(500).json(internalServerErrorPayload());
   }
 });

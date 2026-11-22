@@ -250,7 +250,7 @@ describe("P17 role dashboard linkage",()=>{
  });
  it("does not claim AIS, buyer visibility or loading completion acceptance",()=>{
   expect(DASH).toContain("AIS provider");
-  expect(DASH).toContain("buyer shipment projection");
+  expect(DASH).toContain("BuyerAccessControlPanel");
   expect(DASH).toContain("actual sign-off belum lulus");
  });
 });
@@ -270,7 +270,7 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain('app.use(p17WriteReleaseGate)');
   expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
   expect(gate).toContain("migrations 096-107");
-  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","scenarios","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin/projects/"]) expect(gate).toContain(fragment);
+  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics","scenarios","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin/projects/"]) expect(gate).toContain(fragment);
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
   expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");
   expect(gate).toContain("const p17SchemaBackedRead=");

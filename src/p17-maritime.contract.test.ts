@@ -23,6 +23,7 @@ const WORKSPACE=readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorks
 const WORKFLOW_ACTIONS=readFileSync(join(ROOT,"frontend","src","P17WorkflowActions.tsx"),"utf8");
 const AIS_ADMIN_UI=readFileSync(join(ROOT,"frontend","src","P17AisAdminPanel.tsx"),"utf8");
 const BUYER_UI=readFileSync(join(ROOT,"frontend","src","P17BuyerVisibilityPanel.tsx"),"utf8");
+const INGESTION_UI=readFileSync(join(ROOT,"frontend","src","P17IngestionRunPanel.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -601,5 +602,18 @@ describe("P17-F Buyer identity and visibility UI",()=>{
   expect(BUYER_UI).toContain("/buyer-visibility-grants");
   expect(BUYER_UI).toContain("buyer.visibility.manage");
   expect(BUYER_UI).toContain("Revoke grant");
+ });
+});
+
+
+describe("P17-A provider ingestion staging UI",()=>{
+ it("supports idempotent provider runs, canonical payload hashes, staging review and explicit run completion",()=>{
+  expect(SOURCE_UI).toContain("P17IngestionRunPanel");
+  expect(INGESTION_UI).toContain("/runs/");
+  expect(INGESTION_UI).toContain("crypto.subtle.digest(\"SHA-256\"");
+  expect(INGESTION_UI).toContain("payloadSha256");
+  expect(INGESTION_UI).toContain("quarantined");
+  expect(INGESTION_UI).toContain("Complete run");
+  expect(INGESTION_UI).toContain("belum dipromosikan menjadi master data");
  });
 });

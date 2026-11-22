@@ -1,7 +1,7 @@
 export type RegulatoryOperator = "eq"|"ne"|"in"|"not_in"|"gt"|"gte"|"lt"|"lte"|"between"|"contains"|"exists";
 export interface RegulatoryCondition { field_path:string; operator:RegulatoryOperator; comparison_value:unknown; is_mandatory?:boolean; condition_group?:number; }
 export interface RegulatoryRuleInput { ruleVersionId:string; ruleCode:string; title:string; subjectType?:string; outcome:"require"|"prohibit"|"allow"|"manual_review"|"informational"; conditions:RegulatoryCondition[]; requiredDocuments?:unknown[]; }
-export interface RegulatoryEvaluation { ruleVersionId:string; ruleCode:string; resultStatus:"pass"|"fail"|"pending"|"manual_review"|"not_applicable"; reason:string; requiredDocuments:unknown[]; missingDocuments:unknown[]; evidence:unknown[]; }
+export interface RegulatoryEvaluation { ruleVersionId:string; ruleCode:string; resultStatus:"pass"|"fail"|"pending"|"manual_review"|"not_applicable"; reasonCode:string; reason:string; requiredDocuments:unknown[]; missingDocuments:unknown[]; evidence:unknown[]; }
 const getPath=(value:unknown,path:string):unknown=>{
   if(!/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(path)) return undefined;
   return path.split(".").reduce<unknown>((current,key)=>current && typeof current==="object" && !Array.isArray(current) ? (current as Record<string,unknown>)[key] : undefined,value);
@@ -25,7 +25,7 @@ const compare=(actual:unknown,operator:RegulatoryOperator,expected:unknown):bool
 export function evaluateRegulatoryRule(rule:RegulatoryRuleInput,input:Record<string,unknown>,availableDocumentCodes:Set<string>):RegulatoryEvaluation{
   const conditions=(rule.conditions??[]).filter(c=>c.is_mandatory!==false);
   if(conditions.some(c=>!c.field_path||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(c.operator))){
-    return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"manual_review",reason:"Unsupported or malformed rule condition; evaluation failed closed.",requiredDocuments:rule.requiredDocuments??[],missingDocuments:[],evidence:[]};
+    return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"manual_review",reasonCode:"REGULATORY_RULE_INVALID",reason:"Unsupported or malformed rule condition; evaluation failed closed.",requiredDocuments:rule.requiredDocuments??[],missingDocuments:[],evidence:[]};
   }
   const groups=new Map<number,RegulatoryCondition[]>();
   for(const condition of conditions){const group=condition.condition_group??1;groups.set(group,[...(groups.get(group)??[]),condition]);}
@@ -41,12 +41,12 @@ export function evaluateRegulatoryRule(rule:RegulatoryRuleInput,input:Record<str
     return [...groups.values()].some(group=>group.every(c=>compare(getPath(input,c.field_path),c.operator,c.comparison_value)));
   });
   const missing=mandatory.filter(d=>!d.documentCode||!availableDocumentCodes.has(d.documentCode));
-  if(matched===null) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:rule.outcome==="manual_review"?"manual_review":"pending",reason:"Rule has no executable conditions; human review is required.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
-  if(!matched) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"not_applicable",reason:"Rule conditions did not match the supplied assessment snapshot.",requiredDocuments:required,missingDocuments:[],evidence:[]};
-  if(rule.outcome==="manual_review") return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"manual_review",reason:"Matched rule explicitly requires human review.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
-  if(rule.outcome==="prohibit") return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"fail",reason:"Matched prohibitive regulatory rule.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
-  if(rule.outcome==="require"&&missing.length) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"fail",reason:"One or more mandatory documents are not present in the verified document set.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
-  return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"pass",reason:rule.outcome==="informational"?"Matched informational rule.":"Rule conditions satisfied.",requiredDocuments:required,missingDocuments:[],evidence:[]};
+  if(matched===null) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:rule.outcome==="manual_review"?"manual_review":"pending",reasonCode:"REGULATORY_RULE_UNCONFIGURED",reason:"Rule has no executable conditions; human review is required.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
+  if(!matched) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"not_applicable",reasonCode:"RULE_NOT_APPLICABLE",reason:"Rule conditions did not match the supplied assessment snapshot.",requiredDocuments:required,missingDocuments:[],evidence:[]};
+  if(rule.outcome==="manual_review") return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"manual_review",reasonCode:"HUMAN_REVIEW_REQUIRED",reason:"Matched rule explicitly requires human review.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
+  if(rule.outcome==="prohibit") return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"fail",reasonCode:"REGULATORY_PROHIBITED",reason:"Matched prohibitive regulatory rule.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
+  if(rule.outcome==="require"&&missing.length) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"fail",reasonCode:"MANDATORY_DOCUMENT_MISSING",reason:"One or more mandatory documents are not present in the verified document set.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
+  return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"pass",reasonCode:rule.outcome==="informational"?"RULE_INFORMATIONAL":"RULE_SATISFIED",reason:rule.outcome==="informational"?"Matched informational rule.":"Rule conditions satisfied.",requiredDocuments:required,missingDocuments:[],evidence:[]};
 }
 export function summarizeRegulatoryAssessment(results:RegulatoryEvaluation[]):{overallStatus:"pass"|"fail"|"pending"|"manual_review"|"not_applicable";failedCount:number;pendingCount:number}{
   const failedCount=results.filter(r=>r.resultStatus==="fail").length;

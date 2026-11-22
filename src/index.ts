@@ -4240,7 +4240,7 @@ app.get("/api/v1/vessels",requireAuth,async(req:express.Request,res:express.Resp
  try{const r=await req.db.query("SELECT id,name,imo_number,vessel_type,loa_m,beam_m,max_draft_m,summer_draft_m,verification_status,verified_at,source_reference FROM public.vessels WHERE is_active=true ORDER BY name LIMIT 250");return res.json({vessels:r.rows,projectId});}
  catch{return res.status(500).json(internalServerErrorPayload());}
 });
-registerP17MaritimeRoutes(app, { requireAuth, requireAdmin, requireProjectPermission, uuidPattern: p16UuidPattern });
+registerP17MaritimeRoutes(app, { requireAuth, requireAdmin, requireProjectPermission, uuidPattern: p16UuidPattern, privateStorage });
 
 app.get("/api/v1/port-routes",requireAuth,async(req:express.Request,res:express.Response)=>{
  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";if(!(await requireP16ReadAccess(req,res,projectId,"route.estimate")))return;

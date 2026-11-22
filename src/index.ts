@@ -2832,7 +2832,7 @@ app.get("/api/v1/country-document-requirements",requireAuth,async(req:express.Re
   }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
 });
 
-app.post("/api/v1/export-document-types",requireAuth,async(req:express.Request,res:express.Response)=>{
+app.post("/api/v1/export-document-types",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
   const b=req.body??{};
   const code=typeof b.documentCode==="string"?b.documentCode.trim().toUpperCase():"";
@@ -2852,7 +2852,7 @@ app.post("/api/v1/export-document-types",requireAuth,async(req:express.Request,r
   }
 });
 
-app.patch("/api/v1/export-document-types/:id",requireAuth,async(req:express.Request,res:express.Response)=>{
+app.patch("/api/v1/export-document-types/:id",requireAuth,requireAdmin,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.document.manage"))) return;
   const b=req.body??{};
   if(typeof b.documentName!=="string"||!b.documentName.trim()||typeof b.documentCategory!=="string"||!b.documentCategory.trim()||typeof b.isActive!=="boolean")

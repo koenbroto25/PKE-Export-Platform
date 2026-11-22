@@ -111,23 +111,23 @@
     {
       "candidate_id": "pke-facility-003",
       "entity_type": "facility_candidate",
-      "legal_name": "Citra Borneo Utama KCP",
+      "legal_name": "PT Citra Borneo Utama Tbk",
       "country_code": "ID",
       "region": "Kotawaringin Barat, Kalimantan Tengah",
       "facility_type": "kernel_crushing_plant_candidate",
       "evidence": {
         "source_class": "company_disclosure",
-        "source_name": "Citra Borneo Utama company disclosure",
+        "source_name": "CBI Group official corporate disclosure",
         "source_url": "https://www.citraborneo.co.id/",
-        "claim": "Company disclosure describes KCP with 600 MT/day kernel input capacity and PKE as product",
-        "claim_scope": "exact facility site and active status require confirmation"
+        "claim": "Official company website identifies PT Citra Borneo Utama and states group KCP capacity of 180,000 MT/year.",
+        "claim_scope": "Group-level KCP capacity only; do not allocate to a single site or treat as PKE output capacity. Site location, PKE output, and current operating details need independent validation."
       },
-      "status": "candidate_requires_site_coordinates_and_current_validation",
+      "status": "candidate_requires_site_identity_and_product_output_validation",
       "confidence": "medium",
       "capacity": {
-        "value": 600,
-        "unit": "MT/day",
-        "basis": "kernel_input",
+        "value": 180000,
+        "unit": "MT/year",
+        "basis": "group-level KCP capacity reported by company; not site-specific and not PKE output",
         "pke_output_capacity": null
       },
       "rights_status": "manual_reference_only_pending_review"

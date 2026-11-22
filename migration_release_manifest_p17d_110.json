@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "purpose": "production_p17d_runtime_rls_correction_owner_approval_required",
+  "project_id": "purple-base-63944903",
+  "branch_id": "br-damp-shape-b3xlh4nr",
+  "database": "neondb",
+  "starting_history_manifest": "migration_history_manifest_001_070.json",
+  "starting_history_count": 70,
+  "expected_first_ledger_id": 71,
+  "expected_last_ledger_id": 71,
+  "release_scope": "P17-D licensed AIS runtime ingestion and independent reviewer RLS correction",
+  "owner_approval": {
+    "status": "pending",
+    "reason": "Production backtest found migration 106 has no runtime INSERT/UPDATE policies for vessel_tracking_positions; migration 110 adds admin-only licensed-source ingestion and Project-scoped independent PM review.",
+    "approval_reference": "Awaiting explicit owner approval after UAT positive backtest.",
+    "exact_sha256": "f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46"
+  },
+  "uat_validation": {
+    "branch_id": "br-young-boat-b3re832d",
+    "migration_status": "applied at UAT ledger ID 110",
+    "positive_backtest": "Synthetic UAT-only rights-approved source, field-purpose permissions, admin ingestion, PM independent acceptance, immutable payload and accepted-position visibility all passed in one rollback-only transaction.",
+    "persistence": "No test source, field permission, AIS observation or voyage link persisted after rollback."
+  },
+  "production_preflight": {
+    "ledger_last_id": 70,
+    "rls_enabled": true,
+    "pre_110_write_policies": 0,
+    "legacy_pending_rows": 1,
+    "licensed_source_positions": 0,
+    "note": "Existing legacy row has source_id NULL and remains pending; migration 110 policy deliberately excludes it from licensed-source review."
+  },
+  "migrations": [
+    {
+      "ledger_id": 71,
+      "filename": "110_p17d_vessel_position_runtime_rls_fix.sql",
+      "sha256": "f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46",
+      "status": "pending",
+      "source_sha_verified": true,
+      "uat_applied": true,
+      "requires_owner_approval": true
+    }
+  ]
+}

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.32 — P17 workflow coverage expansion and owner handoff
+# Master Implementation Plan Rev2.33 — P17 permission-path corrections and technical handoff
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.32 (23 November 2026 — P17 provider staging, AIS, Buyer mapping/grants and Project workflow UIs expanded; owner actions remain separate from technical work)  
+**Revision:** 2.33 (23 November 2026 — P17 loading role access corrected; Admin overrides and owner handoff reconciled)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8660,3 +8660,13 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 5. Keep deployment/browser UAT skipped until the owner changes that instruction.
 
 **Owner actions remain separate from this technical backlog:** provider contracts/rights/credentials, verified port/PKS/terminal/warehouse/road evidence, real Buyer Neon Auth identity and visibility decisions, genuine loading survey/ticket/NOR/laytime evidence, and legal/compliance sign-off are required only to activate and accept those real-world integrations. They do not block source code, schemas on approved non-production surfaces, mock/contract tests, UI, admin workflows, or fail-closed guards.
+
+
+**P17 permission-path correction — 23 November 2026**
+- Corrected the Project loading-operation list API to permit the distinct authorized roles `shipping.view`, `shipping.survey.view`, `shipping.laytime.view` and `loading.quantity.reconcile`, matching the existing acceptance read endpoint. Previously the list required only `shipping.view`, which prevented surveyor/laytime/quantity roles from loading the operations they were authorized to submit/review evidence for.
+- The Loading Evidence panel is now hidden from unrelated Project roles instead of making an unauthorized API request. Platform Admin remains supported through the same explicit Admin path; database independent-review and quantity reconciliation guards remain unchanged.
+- Added a contract assertion for the broader loading read permission boundary. This is source-level regression coverage and has not yet been run by CI.
+- Rechecked the canonical Production database read-only: migration ledger 71/max ID 71; enabled maritime sources 0; source-linked vessel positions 0; Buyer Auth mappings 0; Buyer visibility grants 0; Project PKS participation links 0. These are intentionally empty pending genuine evidence and owner authorization.
+- Latest visible commit status continues to show only the Vercel build-rate-limit failure; Vercel deployment is skipped by instruction. No fresh GitHub Actions result is visible for the current source commits, so the new API/frontend changes are not yet certified by a full test/build run.
+
+**Next technical actions (continue independently of owner inputs):** complete typed staging promotion into canonical candidate/change-request workflows; add runtime API auth/IDOR and project-scope acceptance for P17-A–G; validate Project and Admin Control Tower query semantics; run root unit/security suite, P17 release verifier, backend build/typecheck and frontend typecheck/build through a non-deployment CI path. Do not mark all-pass until actual test output exists.

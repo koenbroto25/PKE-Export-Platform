@@ -160,7 +160,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   if(!await requireProjectAccess(req,res,p,permission))return;
   try{
    const op=await req.db.query("SELECT id,quantity,unit_code,status FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid",[id,p]);if(!op.rows.length)return bad(res,404,"LOADING_OPERATION_NOT_FOUND","Loading operation not found in this Project.");
-   const evidence=str(b.evidenceObjectKey,1000),hash=str(b.evidenceSha256,64);if(!evidence||!/^[a-f0-9]{64}$/.test(hash))return bad(res,400,"LOADING_EVIDENCE_REQUIRED","Evidence object key and SHA-256 are required.");
+   const evidence=str(b.evidenceObjectKey,1000),hash=str(b.evidenceSha256,64);if(!evidence||/^https?:\\/\\//i.test(evidence)||evidence.startsWith("/")||evidence.split("/").includes("..")||!/^[a-f0-9]{64}$/.test(hash))return bad(res,400,"LOADING_EVIDENCE_REQUIRED","Evidence object key and SHA-256 are required.");
    let quantity:number|null=null,unit=str(b.unitCode,12).toUpperCase()||null,variance:number|null=null,nor:string|null=null,start:string|null=null,end:string|null=null,allowed:number|null=null,excluded=0,laytimeHours:number|null=null;
    if(type==="survey"||type==="quantity_reconciliation"){
     quantity=Number(b.quantity);if(!Number.isFinite(quantity)||quantity<=0||!unit||!op.rows[0].unit_code||unit!==op.rows[0].unit_code)return bad(res,400,"LOADING_QUANTITY_UNIT_INVALID","Positive quantity must use the loading operation's assigned unit.");

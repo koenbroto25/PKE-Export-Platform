@@ -388,6 +388,10 @@ describe("P17-E loading survey, quantity reconciliation and laytime",()=>{
  });
  it("enforces immutable evidence, independent reviewers and no acceptance with quantity variance",()=>{
   expect(M107).toContain("loading_operation_acceptances");
+  expect(M107).toContain("evidence_size_bytes bigint NOT NULL");
+  expect(API).toContain("privateStorage.verifyObject(evidence,evidenceSize,hash)");
+  expect(API).toContain("/acceptances/presign");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Upload & submit evidence");
   expect(M107).toContain("reviewed_by<>submitted_by");
   expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");
   expect(M107).toContain("loading_acceptance_one_pending_uq");

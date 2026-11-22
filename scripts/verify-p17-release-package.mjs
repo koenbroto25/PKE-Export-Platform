@@ -8,99 +8,68 @@ const readJson = (name) => JSON.parse(fs.readFileSync(path.join(root, name), "ut
 const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const hashFile = (name) => hash(fs.readFileSync(path.join(migrationsDir, name)));
 const fail = (message) => { console.error("FAIL: " + message); process.exitCode = 1; };
-
-const history = readJson("migration_history_manifest_001_053.json");
-const uat = readJson("migration_history_manifest_uat_001_109.json");
+const historyBase = readJson("migration_history_manifest_001_056.json");
+const historyCurrent = readJson("migration_history_manifest_001_070.json");
+const uat = readJson("migration_history_manifest_uat_001_110.json");
 const release = readJson("migration_release_manifest_p17_096_109.json");
 const runner = fs.readFileSync(path.join(root, "scripts/apply-p17-migrations.mjs"), "utf8");
 
-if (history.project_id !== "purple-base-63944903" ||
-    history.branch_id !== "br-damp-shape-b3xlh4nr" ||
-    history.database !== "neondb" ||
-    history.applied_count !== 53 || history.entries?.length !== 53 ||
-    history.entries[52]?.filename !== "053_project_admin_accounting_reports_read_only.sql") {
-  fail("Canonical Production baseline manifest must pin exactly migration history 001-053.");
+if (historyBase.project_id !== "purple-base-63944903" || historyBase.branch_id !== "br-damp-shape-b3xlh4nr" ||
+    historyBase.database !== "neondb" || historyBase.applied_count !== 56 || historyBase.entries?.length !== 56 ||
+    historyBase.entries[55]?.filename !== "083_p2b_port_warehouse_governance_prod.sql") {
+  fail("Production pre-P17 baseline manifest must pin exactly ledger 001-056.");
 }
-
-if (uat.purpose !== "verified_uat_history_only_not_production_history" ||
-    uat.branch_id !== "br-young-boat-b3re832d" || uat.ledger_row_count !== 109 ||
-    uat.applied_count !== 93 || uat.entries?.length !== 109 ||
-    uat.entries[108]?.filename !== "109_p17f_buyer_self_read_rls_recursion_fix.sql") {
-  fail("UAT manifest must remain isolated and reconcile through ledger 109.");
+if (historyCurrent.project_id !== "purple-base-63944903" || historyCurrent.branch_id !== "br-damp-shape-b3xlh4nr" ||
+    historyCurrent.database !== "neondb" || historyCurrent.applied_count !== 70 || historyCurrent.entries?.length !== 70 ||
+    historyCurrent.entries[69]?.filename !== "109_p17f_buyer_self_read_rls_recursion_fix.sql") {
+  fail("Current Production manifest must reconcile exactly ledger 001-070.");
 }
-
+if (uat.purpose !== "verified_uat_history_only_not_production_history" || uat.branch_id !== "br-young-boat-b3re832d" ||
+    uat.ledger_row_count !== 110 || uat.applied_count !== 94 || uat.entries?.length !== 110 ||
+    uat.entries[109]?.filename !== "110_p17d_vessel_position_runtime_rls_fix.sql") {
+  fail("UAT history must remain isolated and reconcile through migration 110.");
+}
 if (release.purpose !== "production_p17_release_package_exact_sql_hashes_owner_approval_required" ||
-    release.project_id !== "purple-base-63944903" ||
-    release.branch_id !== "br-damp-shape-b3xlh4nr" ||
-    release.starting_history_count !== 53 ||
-    release.migrations?.length !== 14) {
+    release.project_id !== "purple-base-63944903" || release.branch_id !== "br-damp-shape-b3xlh4nr" ||
+    release.starting_history_count !== 56 || release.expected_first_ledger_id !== 57 ||
+    release.expected_last_ledger_id !== 70 || release.migrations?.length !== 14) {
   fail("P17 Production release manifest target/scope mismatch.");
 }
-
+for (let i = 0; i < 56; i++) {
+  const a=historyBase.entries[i], b=historyCurrent.entries[i];
+  if (!a || !b || a.id!==i+1 || b.id!==i+1 || a.filename!==b.filename || a.sha256!==b.sha256 || a.status!==b.status) {
+    fail("Production baseline/current manifest diverges at ID " + (i+1));
+  }
+}
 function removeTransactionWrapper(sql) {
   const normalized = sql.replace(/\r\n/g, "\n");
-  if (!/\nBEGIN;\n\n/.test(normalized) || !/COMMIT;\n?$/.test(normalized)) {
+  if (!/^\s*(?:--[^\r\n]*(?:\r?\n|$))*BEGIN;\s*/i.test(normalized) || !/COMMIT;\s*$/.test(normalized)) {
     throw new Error("transaction wrapper missing");
   }
-  return normalized.replace(/\nBEGIN;\n\n/, "\n").replace(/COMMIT;\n?$/, "");
+  return normalized.replace(/^\s*(?:--[^\r\n]*(?:\r?\n|$))*BEGIN;\s*/i, "").replace(/COMMIT;\s*$/, "");
 }
-
 for (let i = 0; i < release.migrations.length; i++) {
-  const item = release.migrations[i];
-  const ledgerId = 54 + i;
-  if (item.ledger_id !== ledgerId || item.status !== "pending" ||
-      item.source_sha_verified !== true ||
-      hashFile(item.filename) !== item.sha256) {
-    fail("P17 release SQL/hash mismatch: " + item.filename);
+  const item = release.migrations[i], n=96+i;
+  if (item.ledger_id !== 57+i || item.status !== "applied" || item.source_sha_verified !== true ||
+      hashFile(item.filename) !== item.sha256) fail("P17 source/hash/ledger mismatch: " + item.filename);
+  const live=historyCurrent.entries[56+i];
+  if (live?.id !== item.ledger_id || live?.filename !== item.filename || live?.sha256 !== item.sha256 || live?.status !== "applied") {
+    fail("Production ledger row differs from P17 release entry: " + item.filename);
   }
-  const sql = fs.readFileSync(path.join(migrationsDir, item.filename), "utf8");
-  if ((sql.match(/^BEGIN;\s*$/gim) || []).length !== 1 ||
-      (sql.match(/^COMMIT;\s*$/gim) || []).length !== 1) {
-    fail("Migration must have exactly one atomic transaction boundary: " + item.filename);
-  }
-  if (/^\s*(DROP\s+TABLE|DROP\s+SCHEMA|TRUNCATE)\b/im.test(sql)) {
-    fail("Unexpected destructive DDL in " + item.filename);
-  }
-}
-
-for (let n = 96; n <= 98; n++) {
-  const item = release.migrations[n - 96];
-  const uatEntry = uat.entries.find(x => x.filename === item.filename);
-  const normalizedHash = hash(Buffer.from(removeTransactionWrapper(fs.readFileSync(path.join(migrationsDir, item.filename), "utf8"))));
-  if (!uatEntry || normalizedHash !== uatEntry.sha256) {
-    fail("P17 migration " + n + " SQL body differs from the historical UAT-applied source; only transaction wrappers may differ.");
+  const sql=fs.readFileSync(path.join(migrationsDir,item.filename),"utf8");
+  if ((sql.match(/^BEGIN;\s*$/gim)||[]).length!==1 || (sql.match(/^COMMIT;\s*$/gim)||[]).length!==1) fail("Atomic wrapper missing: "+item.filename);
+  if (/^\s*(DROP\s+TABLE|DROP\s+SCHEMA|TRUNCATE)\b/im.test(sql)) fail("Unexpected destructive DDL: "+item.filename);
+  if (n>=96 && n<=98) {
+    const u=uat.entries.find(x=>x.filename===item.filename);
+    if (!u || hash(Buffer.from(removeTransactionWrapper(sql)))!==u.sha256) fail("Historical UAT SQL body differs for "+item.filename);
+  } else {
+    const u=uat.entries.find(x=>x.filename===item.filename);
+    if (!u || u.sha256!==item.sha256) fail("UAT source hash mismatch for "+item.filename);
   }
 }
-for (let n = 99; n <= 103; n++) {
-  const item = release.migrations[n - 96];
-  const uatEntry = uat.entries.find(x => x.filename === item.filename);
-  if (!uatEntry || uatEntry.sha256 !== item.sha256) {
-    fail("P17 migration " + n + " must match its exact UAT-applied source hash.");
-  }
+const ais=uat.entries.find(x=>x.filename==="110_p17d_vessel_position_runtime_rls_fix.sql");
+if (!ais || ais.sha256!==hashFile("110_p17d_vessel_position_runtime_rls_fix.sql")) fail("UAT AIS runtime RLS corrective migration 110 hash mismatch.");
+for (const guard of ["pg_advisory_lock(424242)","LIVE VERIFY PASS","P17 096-109 are already applied","P17 096-109 applied at IDs 57-70"]) {
+  if (!runner.includes(guard)) fail("P17 release verifier missing required guard: "+guard);
 }
-for (let n = 104; n <= 109; n++) {
-  const item = release.migrations[n - 96];
-  const uatEntry = uat.entries.find(x => x.filename === item.filename);
-  if (!uatEntry || uatEntry.sha256 !== item.sha256) {
-    fail("P17 migration " + n + " must match its exact UAT-applied source hash.");
-  }
-}
-
-for (const guard of [
-  "MIGRATE_P17_CONFIRM",
-  "MIGRATION_P17_APPROVED_MANIFEST_SHA256",
-  "MIGRATION_P17_APPROVAL_REFERENCE",
-  "MIGRATE_P17_108_109_CONFIRM",
-  "MIGRATION_P17_108_109_APPROVED_SHA256",
-  "MIGRATION_P17_108_109_APPROVAL_REFERENCE",
-  "pg_advisory_lock(424242)",
-  "P17 package failed; all migrations 096-109 were rolled back",
-]) {
-  if (!runner.includes(guard)) fail("P17 migration runner is missing required guard: " + guard);
-}
-
-if (!runner.includes("P17 096-109 atomic Production release PASS")) {
-  fail("P17 migration runner is missing post-commit verification.");
-}
-
-if (!process.exitCode) console.log("P17 release package contract PASS: Production baseline 001-053, UAT 001-109, source hashes 096-109, and owner-gated atomic runner verified.");
+if (!process.exitCode) console.log("P17 release package PASS: Production ledger 001-070, pre-release baseline 001-056, UAT 001-110, 096-109 exact hashes and migration 110 UAT fix verified.");

@@ -1378,3 +1378,9 @@ Migration 098 applied to Neon UAT; manifest `migration_history_manifest_uat_001_
 Final code head `d0fa87b8611ceae2d6fb82e6aa2bf0d2378edad3`: Unit Tests PASS (46 files / 416 tests), migration dry-run PASS, backend API typecheck PASS, frontend typecheck/build PASS, Dependency Audit Evidence PASS. The route ranking SQL executes but returns no candidates because UAT has no verified PKS–port route records.
 
 P17-B database/API contract/CI acceptance PASS. Live authenticated HTTP/browser UAT, Project-positive geospatial visibility with a real port link, source-rights approvals and real port/producer data import remain pending. Keep Vercel, Production and PR #2 boundaries unchanged; no external provider activation.
+
+
+## P17-B producer linkage hardening — 22 November 2026
+
+
+PKE primary route designation now requires a verified processor company linked to the PKS/KCP through `pks_sites.organization_id`. The API returns company legal name and verification status. Missing or unverified producer identity prevents primary designation. Existing `partner_organizations` and `pks_sites` are reused; no duplicate producer table. The complete route SQL query was executed on UAT and returned zero rows (no verified routes yet). CI for the final source head is pending.

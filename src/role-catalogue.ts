@@ -63,7 +63,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "project.view", "project.update", "project.members.view", "project.members.invite", "project.members.manage", "project.roles.manage", "project.configuration.manage", "audit.finding.view",
     "contract.view", "manage_contract_programs", "port.view", "port.depth.view", "port.depth.submit", "route.estimate", "vessel.view", "vessel.port.assess", "voyage.view", "voyage.create", "voyage.update", "vessel.nomination.review", "vessel.port_call.manage", "pks.site.view", "pks.participation.manage", "pks.master_data.change_request.view", "pks.master_data.change_request.manage", "pke.logistics.master.view", "pke.logistics.master.change_request.manage", "facility.view", "facility.product.view", "facility.capacity.view", "product.view", "supplier.view", "product.requirement.view", "product.requirement.manage", "shipping.view", "shipment.view",
     "finance.view", "inventory.view", "operations.view", "logistics.view", "warehouse.view",
-    "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view",
+    "documents.view", "workflow.view", "approvals.view", "reports.view", "audit.view", "shipping.survey.review", "shipping.laytime.verify", "loading.quantity.reconcile",
     "project.tasks.view", "project.tasks.create", "project.tasks.assign", "project.tasks.update", "project.tasks.resolve", "project.tasks.escalate",
   ], [
     "PM is appointed per Project by Platform Admin; one PM may serve multiple Projects.",
@@ -175,7 +175,7 @@ export const CANONICAL_ROLE_TEMPLATES: readonly CanonicalRoleTemplate[] = [
     "Cannot approve independent survey, QA release, warehouse receipt, vessel stability or statutory terminal decisions.",
   ], { legacyAliases: ["loading_manager"] }),
   role("loading_supervisor", "Loading Supervisor", "shipping_loading", [
-    "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create", "shipping.laytime.view", "shipping.laytime.manage", "audit.finding.respond",
+    "shipping.view", "shipping.update", "shipment.view", "loading.ticket.create", "shipping.laytime.view", "shipping.laytime.manage", "loading.quantity.reconcile", "audit.finding.respond",
     "hse.action.respond",
   ]),
   role("loading_operator", "Loading Operator", "shipping_loading", [

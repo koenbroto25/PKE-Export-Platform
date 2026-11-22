@@ -583,6 +583,12 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
 
 // P17-E: Project-scoped voyages, nominations and port calls. Every mutation is permission-gated.
+ app.get("/api/v1/projects/:projectId/maritime-workflow-events",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");
+  if(!await requireProjectAnyAccess(req,res,p,["voyage.view","vessel.view","shipping.view"]))return;
+  try{const q=await req.db.query("SELECT id,entity_type,entity_id,event_code,from_status,to_status,actor_id,created_at FROM public.maritime_workflow_events WHERE project_id=$1::uuid ORDER BY created_at DESC,id DESC LIMIT 200",[p]);return res.json({events:q.rows,projectId:p,readOnly:true});}
+  catch{return bad(res,500,"MARITIME_WORKFLOW_EVENTS_READ_FAILED","Unable to read Project maritime workflow timeline.");}
+ });
  app.get("/api/v1/projects/:projectId/voyages",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["voyage.view","vessel.view","shipping.view"]))return;
   try{const q=await req.db.query("SELECT * FROM public.voyages WHERE project_id=$1::uuid ORDER BY COALESCE(planned_departure_at,actual_departure_at,start_date) DESC NULLS LAST",[p]);return res.json({voyages:q.rows});}

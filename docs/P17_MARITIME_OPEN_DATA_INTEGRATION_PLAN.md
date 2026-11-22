@@ -689,3 +689,11 @@ The `GET /api/v1/port-routes` response now exposes `pke_loading_service_verified
 - P17-B API routes for crosswalk and geospatial staging/review are Platform Admin authenticated; rights and field-purpose checks are fail-closed; maker-checker review is enforced in API. UI route panel shows PKE primary reference only when the full evidence gate passes.
 
 **Remaining release gates:** live authenticated HTTP/API UAT, Project-positive geospatial visibility test with a real approved Project-port link, source-rights approval for the selected national datasets, port master reconciliation/import, and real producer/PKS data onboarding. Vercel and Production remain untouched; no PR merge, provider activation or paid subscription.
+
+
+### 16.6 Producer-company linkage is a primary-reference requirement
+
+
+The PKS-to-port route is not treated as a complete export-supply relationship unless the PKS site is linked through `pks_sites.organization_id` to a current verified `partner_organizations` record of type `processor`. The route API returns the producer legal name and a `producer_company_verified` flag. `is_primary_reference` now requires the linked processor organization to be active, verified, time-stamped and supported by verification source/evidence SHA-256, in addition to the verified PKS, route, port and PKE loading-service gates. This deliberately prevents an unlinked or unverified company from being represented as a confirmed PKE producer.
+
+The existing organization taxonomy already supports `processor`; the PKS taxonomy already supports `kernel_crushing_plant` and `integrated_mill_kcp`. This is the canonical relationship for the future producer directory; do not create a duplicate producer table unless a later data-model gap is demonstrated. The full route query was executed against UAT after the change and returned zero rows (expected because UAT has no verified route/company fixture). CI must be rerun on the final head.

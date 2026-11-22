@@ -2263,7 +2263,8 @@ app.post("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:
   const jurisdiction=typeof b.jurisdiction==="string"?b.jurisdiction.trim().toUpperCase():"";
   const effectiveDate=typeof b.effectiveDate==="string"?b.effectiveDate:"";
   const officialUrl=typeof b.officialUrl==="string"?b.officialUrl.trim():"";
-  if(!sourceId||sourceId.length>120||!title||title.length>500||!issuingAuthority||!jurisdiction||!/^([A-Z]{2}|GLOBAL)$/.test(jurisdiction)||!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)||!/^https:\/\//i.test(officialUrl))
+  const checksum=typeof b.sha256Checksum==="string"?b.sha256Checksum.trim().toLowerCase():"";
+  if(!/^[a-f0-9]{64}$/.test(checksum)||!sourceId||sourceId.length>120||!title||title.length>500||!issuingAuthority||!jurisdiction||!/^([A-Z]{2}|GLOBAL)$/.test(jurisdiction)||!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)||!/^https:\/\//i.test(officialUrl))
     return res.status(400).json({error:"Source ID, title, issuing authority, jurisdiction, effective date and HTTPS official URL are required."});
   try{
     const {rows}=await req.db.query(
@@ -2288,7 +2289,7 @@ app.post("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:
 app.patch("/api/v1/regulatory-sources/:id",requireAuth,async(req:express.Request,res:express.Response)=>{
   if(!(await requireAnyProjectPermission(req,res,"regulatory.source.manage"))) return;
   const b=req.body??{};
-  if(typeof b.title!=="string"||!b.title.trim()||typeof b.issuingAuthority!=="string"||!b.issuingAuthority.trim()||typeof b.jurisdiction!=="string"||!/^([A-Z]{2}|GLOBAL)$/.test(b.jurisdiction.toUpperCase())||typeof b.effectiveDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(b.effectiveDate))
+  if(typeof b.title!=="string"||!b.title.trim()||typeof b.issuingAuthority!=="string"||!b.issuingAuthority.trim()||typeof b.jurisdiction!=="string"||!/^([A-Z]{2}|GLOBAL)$/.test(b.jurisdiction.toUpperCase())||typeof b.effectiveDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(b.effectiveDate)||typeof b.sha256Checksum!=="string"||!/^[a-f0-9]{64}$/i.test(b.sha256Checksum))
     return res.status(400).json({error:"Title, issuing authority, jurisdiction and effective date are required."});
   try{
     const {rows}=await req.db.query(
@@ -2949,7 +2950,7 @@ app.post("/api/v1/projects/:projectId/document-requirements",requireAuth,async(r
     if(!country.rows.length) return res.status(422).json({error:"Only currently effective, independently verified country requirements can be added to a Project."});
     const {rows}=await req.db.query(
       `INSERT INTO public.project_export_document_requirements(project_id,country_requirement_id,is_required,status)
-       SELECT $1::uuid,$2::uuid,mandatory,'required' FROM public.country_export_document_requirements WHERE id=$2::uuid
+       SELECT $1::uuid,$2::uuid,mandatory,'pending' FROM public.country_export_document_requirements WHERE id=$2::uuid
        RETURNING *`,
       [projectId,countryRequirementId],
     );

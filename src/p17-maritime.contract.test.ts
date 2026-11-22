@@ -19,6 +19,7 @@ const PORT_UI=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"ut
 const SCENARIO_UI=readFileSync(join(ROOT,"frontend","src","PkeLogisticsScenarioWorkbench.tsx"),"utf8");
 const IDENTITY_UI=readFileSync(join(ROOT,"frontend","src","MaritimeIdentityReview.tsx"),"utf8");
 const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
+const WORKSPACE=readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -547,5 +548,15 @@ describe("P17-F Buyer portal RLS recursion regression",()=>{
   expect(M109).toContain("m.mapping_status = 'active'");
   expect(M109).toContain("u.neon_auth_user_id IS NOT NULL");
   expect(M109).not.toMatch(/FROM\\s+public\\.buyers/i);
+ });
+});
+
+
+describe("P17 admin workspace reachability",()=>{
+ it("mounts maritime source governance and port identity review in the Platform Admin workspace only",()=>{
+  expect(WORKSPACE).toContain("MaritimeSourceRegistry");
+  expect(WORKSPACE).toContain("MaritimeIdentityReview");
+  expect(WORKSPACE).toContain("activeUser?.platformAdmin===true");
+  expect(WORKSPACE).toContain("platformAdmin={true}");
  });
 });

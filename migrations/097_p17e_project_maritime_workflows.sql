@@ -109,6 +109,14 @@ WITH CHECK (project_id=NULLIF(current_setting('app.current_project_id',true),'')
     OR public.pke_has_project_permission(project_id,'vessel.port_call.confirm')));
 
 DROP POLICY IF EXISTS pke_voyages_insert ON public.voyages;
+DROP POLICY IF EXISTS pke_voyages_select ON public.voyages;
+CREATE POLICY pke_voyages_select ON public.voyages FOR SELECT TO app_runtime_secure
+USING (project_id=NULLIF(current_setting('app.current_project_id',true),'')::uuid
+  AND (public.pke_has_project_permission(project_id,'shipping.view') OR public.pke_has_project_permission(project_id,'voyage.view')));
+DROP POLICY IF EXISTS pke_voyages_delete ON public.voyages;
+CREATE POLICY pke_voyages_delete ON public.voyages FOR DELETE TO app_runtime_secure
+USING (project_id=NULLIF(current_setting('app.current_project_id',true),'')::uuid
+  AND public.pke_has_project_permission(project_id,'shipping.delete'));
 CREATE POLICY pke_voyages_insert ON public.voyages FOR INSERT TO app_runtime_secure
 WITH CHECK (project_id=NULLIF(current_setting('app.current_project_id',true),'')::uuid
   AND (public.pke_has_project_permission(project_id,'voyage.create') OR public.pke_has_project_permission(project_id,'shipping.create')));
@@ -196,7 +204,7 @@ BEGIN
   SELECT id,project_id,vessel_id,origin_port_id,destination_port_id,port_id
     INTO v FROM public.voyages WHERE id=NEW.voyage_id AND project_id=NEW.project_id;
   IF NOT FOUND OR v.vessel_id IS DISTINCT FROM NEW.vessel_id
-     OR NEW.port_id NOT IN (v.origin_port_id,v.destination_port_id,v.port_id) THEN
+     OR NOT (NEW.port_id = ANY(ARRAY_REMOVE(ARRAY[v.origin_port_id,v.destination_port_id,v.port_id]::uuid[],NULL))) THEN
     RAISE EXCEPTION 'Port call must match the same-Project voyage vessel and route' USING ERRCODE='23514';
   END IF;
   IF NEW.event_type IN ('arrived','berthed','departed') THEN

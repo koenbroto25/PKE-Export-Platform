@@ -10621,3 +10621,12 @@ Source rights fail closed; ingestion is idempotent and auditable; provider rate 
 
 ### F. Boundaries and next action
 Documentation changes only. UAT was read-only; Production untouched; Vercel deployment frozen; PR #2 remains OPEN/DRAFT and unmerged; browser UAT/JWT remains deferred; no provider activation or paid service. P17 status is **FULL AUDIT COMPLETE / DOCUMENTATION REVISION BASELINE / IMPLEMENTATION NOT STARTED**. Next engineering action is detailed P17-A source registry/ingestion and P17-F Buyer identity/grant design review; do not create Migration 096 or activate providers without separate evidence-based approval.
+
+
+## 56.57 — P17-A / P17-E implementation checkpoint (22 November 2026)
+
+**Status: IMPLEMENTATION IN PROGRESS / NOT ACCEPTED.** Candidate migrations 096 (maritime source governance and ingestion foundation) and 097 (Project-scoped voyage, nomination and port-call controls) have been authored on the working branch. API source governance, field-level rights, ingestion run/staging/review/health operations, Project voyage/nominations/port-call operations, role-catalogue grants and contract tests have also been added. Existing P16 entities are reused; no duplicate port/vessel/shipment master tables are introduced.
+
+Intermediate CI: Unit Tests and Dependency Audit Evidence passed at commit `298d413d658a0f8d22de70ea245ba35f8b91d171`. Latest code commit at this checkpoint is `af90924d952edcdbf68d46483c8c2ac6a3930425`; its CI was still in progress and must be rechecked. Neon UAT remains at migration 095 because the isolated migration-preparation branch was rejected with HTTP 422 `branches limit exceeded`. The Neon migration-preparation workflow could not perform DDL dry-run/backtest. No direct DDL workaround was run. The UAT manifest remains 001–095. Therefore neither P17-A nor P17-E is complete/accepted: migration application, runtime-role/RLS backtests, API integration acceptance and full P0–P16 regression are still mandatory.
+
+Production remains untouched; Vercel frozen; PR #2 OPEN/DRAFT/unmerged; no provider feed, paid service, receiver, hardware or contract activated. Next action: obtain explicit owner-approved Neon UAT branch cleanup/capacity so 096 and 097 can be prepared on isolated branches, revised as required, then applied UAT-only and fully backtested. See `docs/P17_MARITIME_OPEN_DATA_INTEGRATION_PLAN.md` §14 for exact scope and evidence boundary.

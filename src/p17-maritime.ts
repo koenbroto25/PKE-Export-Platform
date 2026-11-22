@@ -32,7 +32,21 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
  app.post("/api/v1/admin/maritime/sources/:id/runs",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const id=String(req.params.id||""),key=str(req.get("Idempotency-Key")||req.body?.idempotencyKey,200);if(!uuidPattern.test(id)||key.length<8)return bad(res,400,"INVALID_RUN","Source and idempotency key are required.");
-  try{const s=await req.db.query("SELECT id,dataset_code,enabled,rights_status,internal_processing_allowed,rights_expires_at FROM public.maritime_data_sources WHERE id=$1::uuid",[id]);if(!s.rows.length)return bad(res,404,"SOURCE_NOT_FOUND","Source not found.");const x=s.rows[0],blocked=!x.enabled||x.rights_status!=="approved"||x.internal_processing_allowed!==true||!x.rights_expires_at||Date.parse(x.rights_expires_at)<=Date.now();const q=await req.db.query("INSERT INTO public.maritime_ingestion_runs(source_id,dataset_code,idempotency_key,run_status,completed_at,error_code,error_summary,triggered_by) VALUES($1::uuid,$2,$3,$4,CASE WHEN $4='blocked_rights' THEN now() ELSE NULL END,CASE WHEN $4='blocked_rights' THEN 'SOURCE_RIGHTS_NOT_ACTIVE' END,CASE WHEN $4='blocked_rights' THEN 'Source disabled or rights not current' END,$5::uuid) ON CONFLICT(source_id,idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key RETURNING *",[id,x.dataset_code,key,blocked?"blocked_rights":"queued",req.user?.id||null]);return res.status(201).json({run:q.rows[0]});}
+  try{const s=await req.db.query("SELECT id,dataset_code,enabled,rights_status,internal_processing_allowed,rights_expires_at,quota_limit,quota_window_seconds FROM public.maritime_data_sources WHERE id=$1::uuid",[id]);
+   if(!s.rows.length)return bad(res,404,"SOURCE_NOT_FOUND","Source not found.");
+   const x=s.rows[0];
+   const blockedRights=!x.enabled||x.rights_status!=="approved"||x.internal_processing_allowed!==true||!x.rights_expires_at||Date.parse(x.rights_expires_at)<=Date.now();
+   let blockedQuota=false;
+   if(!blockedRights&&x.quota_limit&&x.quota_window_seconds){
+    const usage=await req.db.query("SELECT COALESCE(sum(request_count),0)::int AS used FROM public.maritime_provider_usage WHERE source_id=$1::uuid AND window_started_at>now()-($2::int*interval '1 second')",[id,x.quota_window_seconds]);
+    blockedQuota=Number(usage.rows[0]?.used||0)>=Number(x.quota_limit);
+   }
+   const runStatus=blockedRights?"blocked_rights":blockedQuota?"blocked_quota":"queued";
+   if(runStatus==="queued"&&x.quota_limit&&x.quota_window_seconds){
+    await req.db.query("INSERT INTO public.maritime_provider_usage(source_id,window_started_at,window_seconds,request_count,quota_limit,last_request_at) VALUES($1::uuid,to_timestamp(floor(extract(epoch from now())/$2::int)*$2::int),$2::int,1,$3::int,now()) ON CONFLICT(source_id,window_started_at,window_seconds) DO UPDATE SET request_count=public.maritime_provider_usage.request_count+1,last_request_at=now(),updated_at=now()",[id,x.quota_window_seconds,x.quota_limit]);
+   }
+   const q=await req.db.query("INSERT INTO public.maritime_ingestion_runs(source_id,dataset_code,idempotency_key,run_status,completed_at,error_code,error_summary,triggered_by) VALUES($1::uuid,$2,$3,$4,CASE WHEN $4 IN ('blocked_rights','blocked_quota') THEN now() ELSE NULL END,CASE WHEN $4='blocked_rights' THEN 'SOURCE_RIGHTS_NOT_ACTIVE' WHEN $4='blocked_quota' THEN 'SOURCE_QUOTA_EXHAUSTED' END,CASE WHEN $4='blocked_rights' THEN 'Source disabled or rights not current' WHEN $4='blocked_quota' THEN 'Provider quota exhausted' END,$5::uuid) ON CONFLICT(source_id,idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key RETURNING *",[id,x.dataset_code,key,runStatus,req.user?.id||null]);
+   return res.status(201).json({run:q.rows[0]});}
   catch{return bad(res,500,"RUN_CREATE_FAILED","Unable to create ingestion run.");}
  });
  app.post("/api/v1/admin/maritime/runs/:runId/staging",requireAuth,requireAdmin,async(req:R,res:Response)=>{

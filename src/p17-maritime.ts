@@ -376,7 +376,9 @@ app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(r
  app.get("/api/v1/projects/:projectId/vessels/:vesselId/advisory-screening",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId,vessel=req.params.vesselId,port=str(req.query.portId,64),terminal=str(req.query.terminalId,64);
   if(!uuidPattern.test(p)||!uuidPattern.test(vessel)||!uuidPattern.test(port)||!uuidPattern.test(terminal))return bad(res,400,"VESSEL_SCREENING_INPUT_INVALID","Project, vessel, destination port and terminal IDs are required.");
-  if(!await requireProjectAnyAccess(req,res,p,["vessel.view","vessel.nomination.review","shipping.view"]))return;
+  if(!await requireProjectAccess(req,res,p,"vessel.view"))return;
+  const portPermission=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'port.view') AS allowed",[p]);
+  if(portPermission.rows[0]?.allowed!==true)return bad(res,403,"PORT_PERMISSION_REQUIRED","Port view permission is required for vessel-terminal advisory screening.");
   try{
    const linked=await req.db.query("SELECT 1 FROM public.shipments WHERE project_id=$1::uuid AND destination_port_id=$2::uuid LIMIT 1",[p,port]);
    if(!linked.rows.length)return bad(res,404,"PROJECT_DESTINATION_PORT_NOT_FOUND","Destination port is not linked to a shipment in this Project.");

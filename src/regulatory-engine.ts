@@ -40,11 +40,12 @@ export function evaluateRegulatoryRule(rule:RegulatoryRuleInput,input:Record<str
   if(rule.outcome==="require"&&missing.length) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"fail",reason:"One or more mandatory documents are not present in the verified document set.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
   return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"pass",reason:rule.outcome==="informational"?"Matched informational rule.":"Rule conditions satisfied.",requiredDocuments:required,missingDocuments:[],evidence:[]};
 }
-export function summarizeRegulatoryAssessment(results:RegulatoryEvaluation[]):{overallStatus:"pass"|"fail"|"pending"|"manual_review";failedCount:number;pendingCount:number}{
+export function summarizeRegulatoryAssessment(results:RegulatoryEvaluation[]):{overallStatus:"pass"|"fail"|"pending"|"manual_review"|"not_applicable";failedCount:number;pendingCount:number}{
   const failedCount=results.filter(r=>r.resultStatus==="fail").length;
   const pendingCount=results.filter(r=>r.resultStatus==="pending"||r.resultStatus==="manual_review").length;
   if(failedCount) return {overallStatus:"fail",failedCount,pendingCount};
   if(results.some(r=>r.resultStatus==="manual_review")) return {overallStatus:"manual_review",failedCount,pendingCount};
   if(pendingCount||results.length===0) return {overallStatus:"pending",failedCount,pendingCount};
+  if(results.every(r=>r.resultStatus==="not_applicable")) return {overallStatus:"not_applicable",failedCount,pendingCount};
   return {overallStatus:"pass",failedCount,pendingCount};
 }

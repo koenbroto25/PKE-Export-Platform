@@ -4,6 +4,7 @@ import MaritimeSourceRegistry from "./MaritimeSourceRegistry";
 import MaritimeIdentityReview from "./MaritimeIdentityReview";
 import P17WorkflowActions from "./P17WorkflowActions";
 import P17AisAdminPanel from "./P17AisAdminPanel";
+import P17BuyerVisibilityPanel from "./P17BuyerVisibilityPanel";
 type Row=Record<string,any>; type Props={projectId:string;activeUser?:{projectPermissions?:string[];platformAdmin?:boolean}};
 type State={rows:Row[];loading:boolean;error:string}; const blank:State={rows:[],loading:false,error:""};
 const show=(r:Row,...keys:string[])=>{for(const k of keys)if(r[k]!==null&&r[k]!==undefined&&r[k]!=="")return String(r[k]);return "—";};
@@ -91,6 +92,7 @@ export default function MaritimeOperationsWorkspace({projectId,activeUser}:Props
   <small>AIS live: unavailable sampai hak provider, timestamp dan freshness disetujui. KPI tidak mengasumsikan clearance.</small></>:<div className="empty-state">Control Tower belum tersedia.</div>}</section>
  <Panel title="Vessel master reference" caption="Daftar master referensi; tidak menyatakan relasi dengan shipment Project." state={vessels} render={r=><div><strong>{show(r,"name")}</strong><p>IMO {show(r,"imo_number")} · {show(r,"vessel_type")}</p><small>{show(r,"verification_status")} · verified {date(r.verified_at)}</small></div>}/>
  <P17WorkflowActions projectId={projectId} permissions={perms} voyages={voyages.rows} nominations={nominations.rows} onChanged={()=>setRefreshVersion(v=>v+1)} />
+ <P17BuyerVisibilityPanel projectId={projectId} platformAdmin={activeUser?.platformAdmin===true} permissions={perms}/>
  <LoadingAcceptancePanel projectId={projectId} permissions={perms} />
  <Panel title="AIS observations" caption="Hanya posisi yang telah direview; freshness dihitung dari SLA sumber yang tercatat." state={positions} render={r=><div><strong>{show(r,"vessel_name")}</strong><p>{show(r,"latitude")}, {show(r,"longitude")} · SOG {show(r,"sog_knots")} kn · COG {show(r,"cog_degrees")}°</p><small>Provider {show(r,"provider_code")} · observed {date(r.observed_at)} · received {date(r.received_at)} · age {show(r,"age_seconds")} detik · freshness {show(r,"freshness_status")}</small><p><small>{show(r,"attribution_text")} · {show(r,"source_reference")}</small></p></div>}/>
  <Panel title="Voyages" caption="Jadwal kapal Project." state={voyages} render={r=><div><strong>{show(r,"voyage_code")}</strong><p>{show(r,"vessel_name","vessel_id")} · {show(r,"origin_port_name","origin_port_id")} → {show(r,"destination_port_name","destination_port_id")}</p><small>{show(r,"status")} · ETD {date(r.planned_departure_at)} · ETA {date(r.planned_arrival_at)}</small></div>}/>

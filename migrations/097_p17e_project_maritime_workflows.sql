@@ -203,11 +203,17 @@ RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog
 AS $function$
 DECLARE v record;
 BEGIN
+  IF TG_OP='UPDATE' AND (NEW.project_id IS DISTINCT FROM OLD.project_id OR NEW.voyage_id IS DISTINCT FROM OLD.voyage_id OR NEW.vessel_id IS DISTINCT FROM OLD.vessel_id OR NEW.port_id IS DISTINCT FROM OLD.port_id OR NEW.event_type IS DISTINCT FROM OLD.event_type) THEN
+    RAISE EXCEPTION 'Port-call identity is immutable; append a new event instead' USING ERRCODE='23514';
+  END IF;
   SELECT id,project_id,vessel_id,origin_port_id,destination_port_id,port_id
     INTO v FROM public.voyages WHERE id=NEW.voyage_id AND project_id=NEW.project_id;
   IF NOT FOUND OR v.vessel_id IS DISTINCT FROM NEW.vessel_id
      OR NOT (NEW.port_id = ANY(ARRAY_REMOVE(ARRAY[v.origin_port_id,v.destination_port_id,v.port_id]::uuid[],NULL))) THEN
     RAISE EXCEPTION 'Port call must match the same-Project voyage vessel and route' USING ERRCODE='23514';
+  END IF;
+  IF NEW.terminal_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.port_terminals t WHERE t.id=NEW.terminal_id AND t.port_id=NEW.port_id) THEN
+    RAISE EXCEPTION 'Port-call terminal must belong to the selected port' USING ERRCODE='23514';
   END IF;
   IF NEW.event_type IN ('arrived','berthed','departed') THEN
     IF NOT public.pke_has_project_permission(NEW.project_id,'vessel.port_call.confirm')

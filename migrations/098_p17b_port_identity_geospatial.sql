@@ -1,4 +1,6 @@
 -- Migration 098: P17-B port identity crosswalk and versioned geospatial layer.
+BEGIN;
+
 -- Reuses P16 ports, pks_sites and pks_port_routes; no duplicate port or PKS master.
 CREATE TABLE public.port_external_id_crosswalk (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), port_id uuid NOT NULL REFERENCES public.ports(id) ON DELETE RESTRICT, source_id uuid NOT NULL REFERENCES public.maritime_data_sources(id) ON DELETE RESTRICT, external_record_id text NOT NULL, external_code text, match_method text NOT NULL DEFAULT 'manual', match_confidence numeric(5,4), review_status text NOT NULL DEFAULT 'pending', source_reference text NOT NULL, evidence_sha256 text, source_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb, created_by uuid REFERENCES public.users(id), reviewed_by uuid REFERENCES public.users(id), reviewed_at timestamptz, review_note text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
@@ -28,3 +30,4 @@ ALTER TABLE public.pks_port_routes ADD COLUMN IF NOT EXISTS route_geometry_featu
 ALTER TABLE public.pks_port_routes ADD COLUMN IF NOT EXISTS distance_method text;
 ALTER TABLE public.pks_port_routes ADD CONSTRAINT pks_port_routes_distance_method_ck CHECK(distance_method IS NULL OR distance_method IN ('straight_line','road_network','operator_quote','gps_track','manual_estimate'));
 CREATE INDEX pks_port_routes_verified_priority_idx ON public.pks_port_routes(pks_site_id,verification_status,is_active,distance_km) WHERE route_mode='road';
+COMMIT;

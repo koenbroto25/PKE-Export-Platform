@@ -8292,3 +8292,57 @@ The following work was already present on `p17b/operational-readiness-20261122` 
 | Final regression and builds | DEFERRED_BY_SEQUENCE | Run only after remaining P17 feature tranche is completed |
 
 **Overall P17 status: IN PROGRESS — NOT ALL PASS.** This is a truthful feature/Production readiness status, not a claim of completion. No Production write, migration, external provider activation, GitHub merge, Vercel deployment or Production data seed was performed by this addendum.
+
+
+
+## 55.24 P17 application tranche and role/dashboard alignment — 22 November 2026
+
+### Working-branch implementation committed
+
+Working branch: `p17b/operational-readiness-20261122`. The following changes are committed as two fast-forward commits after the existing P17-B work:
+- `269689c146310be01526dfe2e1d13e5afaa50428` — Project-scoped shipment timeline and loading-ticket GET projections, maritime read-only workspace route, permission page key, Buyer portal fail-closed notice, corrected vessel-screening advisory message, and contract assertions.
+- `f8a1264163d7ca13334efc384a1c5b5073960dac` — role dashboard navigation and readiness copy for maritime roles; the dashboard no longer incorrectly says the entire vessel/port-call/loading-ticket surface is absent.
+
+New read endpoints in `src/index.ts`:
+- `GET /api/v1/projects/:projectId/shipments/:shipmentId/timeline`: requires authenticated principal and `shipment.view`, verifies the shipment belongs to the selected Project, then retrieves only event rows where both shipment ID and project ID match. It is read-only and returns a bounded timeline.
+- `GET /api/v1/projects/:projectId/loading-operations/:operationId/tickets`: requires authenticated principal and `shipment.view`, verifies the loading operation belongs to the selected Project, and selects child ticket rows by both operation ID and project ID. It is read-only and returns a bounded ticket list.
+- Both route handlers use existing Production fields only. They do not mutate Production or depend on the new P17-E event table.
+- New `frontend/src/MaritimeOperationsWorkspace.tsx` is a read-only page for voyages, nominations, port calls and vessel master reference. It visibly identifies the global vessel master list as reference-only, not proof of Project linkage. It explicitly does not display AIS as live or offer nomination/actual port-call/loading sign-off actions.
+- Navigation is permission-gated with Project membership and existing view permissions; PM and external role templates are not given new write permissions.
+- The Buyer portal placeholder now explains that no verified Neon Auth → buyer identity mapping or buyer-scoped grant-backed endpoint is active. It does not accept buyerId from URL/query/email as proof of identity.
+- Port detail assessment text now correctly identifies the existing form as advisory-only and explicitly not a navigation/berthing clearance.
+- Role dashboard navigation for PM, Master of Loading, Loading Supervisor, Loading Operator, Terminal Representative, Shipping Agent and Ship Master now points to the read-only maritime workspace. Dashboard readiness labels maritime/loading as partial/read-only and states that AIS, buyer projection, quantity reconciliation, survey acceptance, laytime and actual sign-off have not passed end-to-end acceptance.
+- Static contract assertions were added for Project-scoped predicates, page route/permissions, fail-closed buyer copy and dashboard readiness wording. These are source assertions only; no test runner was executed.
+
+### Current database entity existence recheck
+
+Read-only inspection of canonical Production confirmed:
+- Tables `buyer_visibility_grants`, `vessel_tracking_positions`, `vessel_port_assessments`, `vessel_port_calls`, `loading_tickets`, and `shipment_events` exist.
+- Tables introduced by source migrations 096/097/098/099/101 and expected by P17 governance/workflow modules were checked separately; missing objects are recorded as gates. The new read-only projections use only already-existing fields and do not resolve the schema blockers for write routes.
+- `buyer_visibility_grants` has SELECT/INSERT/UPDATE policies requiring Project-scoped `buyer.shipment.view` or `buyer.visibility.manage`, but grant row count is zero. The role template `buyer` having a permission does not establish an active buyer grant.
+- `users` contains `neon_auth_user_id`, but does not contain `buyer_id`; no verified user-to-buyer mapping exists. `buyers` is its own master entity. Do not match email to buyer or rely on `/api/v1/buyer-projects?buyerId=` input: that existing route derives Project access from Project membership and optionally trusts a query buyerId for contract filtering, which is not a buyer identity boundary.
+- No Buyer projection, document access, download endpoint or Admin visibility-grant lifecycle was activated.
+
+### Important limitations and follow-up
+
+- Existing `GET /api/v1/vessels?projectId=` applies `vessel.view` but returns all active vessel master records, not a list of vessels linked to the Project. The new workspace labels this correctly as “master reference” and does not use it for nomination or Project operational clearance. This API should be narrowed in a later migration/design that proves the relevant assignment links.
+- Existing P17-E voyage/nomination/port-call list and write routes are in `src/p17-maritime.ts`. Their SQL selects/inserts P17-E fields such as `version`, `idempotency_key`, `decision_note`, `submitted_at`, `created_by`/ `updated_by` and `maritime_workflow_events`. Production schema does not yet contain all these fields/tables, therefore those handlers remain **NOT PRODUCTION READY** even if the route registration is present in source. Do not surface their write actions.
+- The read-only workspace calls existing list routes and gracefully shows a schema blocker if Production lacks expected columns. Runtime/browser API acceptance is not yet performed.
+- This commit does not implement the paid AIS provider adapter, rights/contract, buyer identity mapping, grant management, complete Export Control Tower, document consistency engine or full quantity reconciliation.
+- No Production SQL write, migration, data seed, new Neon branch, external data provider activation, Vercel deployment, PR merge or Production release was performed.
+
+### Updated P17 status after this tranche
+
+| Workstream | Status | Latest note |
+|---|---|---|
+| P17-A source governance | PARTIAL_IMPLEMENTED | Rights/purpose UI on branch; no source enabled/ingested or rights approved |
+| P17-B port identity/logistics | PARTIAL_IMPLEMENTED | Crosswalk/GeoJSON review and simulation workbench; real port/PKS/route/terminal evidence incomplete |
+| P17-C vessel/compatibility | PARTIAL_IMPLEMENTED | Advisory screen UI/API; no E2E verified evidence set |
+| P17-D AIS | BLOCKED_EXTERNAL | Provider subscription/licence and adapter/freshness not ready |
+| P17-E voyage/nomination/port call | READ_ONLY_UI_PARTIAL / WRITE_SCHEMA_BLOCKED | Read-only workspace and some GET paths; migration 097 required for writes and some list-query shapes |
+| P17-E shipment timeline/loading evidence | READ_ONLY_API_ADDED | New project-scoped reads committed; no runtime regression yet |
+| P17-F buyer visibility | FAIL_CLOSED | No verified identity mapping, no grant rows, no buyer projection endpoints |
+| P17-G Export Control Tower | NOT_COMPLETE | Role dashboard linked to maritime read-only workspace, not yet a complete verified export command center |
+| Full regression/build | DEFERRED_BY_SEQUENCE | Must run after the remaining P17 feature work is finished |
+
+**The P17 tranche is not complete and must not be marked PASS.** The feature commits are source-level; the API routes, permission guards, SQL and UI require later deferred automated/runtime regression. 

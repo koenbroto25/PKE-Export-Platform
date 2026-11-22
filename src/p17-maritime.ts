@@ -439,7 +439,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
  app.post("/api/v1/admin/maritime/runs/:runId/staging",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const run=req.params.runId;if(!uuidPattern.test(run)||!Array.isArray(req.body?.records)||req.body.records.length>500)return bad(res,400,"MARITIME_STAGING_INVALID","Valid run ID and batch up to 500 records are required.");
-  const records=req.body.records;
+  const records: Array<{externalRecordId?:unknown;payload?:unknown;payloadSha256?:unknown;entityType?:unknown}> = req.body.records;
   for(const item of records){
    const external=str(item?.externalRecordId,240),payload=item?.payload,hash=str(item?.payloadSha256,64),entity=str(item?.entityType,40)||"other";
    if(!external||!payload||typeof payload!=="object"||Array.isArray(payload)||Object.keys(payload).length===0||!/^[a-f0-9]{64}$/.test(hash)||
@@ -453,7 +453,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    const permissions=await req.db.query("SELECT field_code FROM public.maritime_source_field_permissions WHERE source_id=$1::uuid AND purpose_code='internal_operations' AND allowed IS TRUE",[active.rows[0].source_id]);
    const allowedFields=new Set<string>(permissions.rows.map((row:R)=>String(row.field_code)));
    const blockedFields=new Set<string>();
-   for(const item of records)for(const field of Object.keys(item.payload))if(!allowedFields.has(field))blockedFields.add(field);
+   for(const item of records)for(const field of Object.keys(item.payload as Record<string,unknown>))if(!allowedFields.has(field))blockedFields.add(field);
    if(blockedFields.size)return res.status(403).json({error:"Payload has fields not approved for internal operations.",code:"MARITIME_FIELD_PURPOSE_BLOCKED",fields:[...blockedFields]});
    const staged=[];
    for(const item of records){

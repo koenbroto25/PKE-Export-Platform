@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.24 — P17 source regression and frontend build acceptance
+# Master Implementation Plan Rev2.25 — P17 UAT migration validation and Buyer RLS hardening
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.24 (22 November 2026 — P17 source regression, backend/frontend typecheck and build acceptance)  
+**Revision:** 2.25 (22 November 2026 — P17 UAT migration 104–109, Buyer RLS recursion fixes and runtime-role acceptance)  
 
 **Tanggal dokumen:** 22 November 2026  
 
@@ -8470,3 +8470,33 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Production read-only preflight remains 0/12 P17 migrations applied; protected schema/RLS and role-permission requirements are incomplete. P17 mutations and Buyer schema-backed surfaces remain fail-closed. No P17 migrations were applied, no Production data was changed, no external provider credentials/rights were fabricated, no merge/deployment was run, and Vercel remains skipped.
 
 **P17 source-level status: PASS for current CI suite and frontend/backend builds. Overall operational release: IN PROGRESS — blocked on owner-authorized Production migration release, external source/AIS rights and credentials, verified port/PKS/terminal/warehouse evidence, real Buyer identity/grants, and real survey/ticket/NOR/laytime evidence plus post-release API acceptance.**
+
+
+### P17 UAT migration validation and runtime-role security acceptance — 22 November 2026
+
+**UAT target:** Neon project `purple-base-63944903`, branch `br-young-boat-b3re832d` (`p0-preview-uat-20261120`), database `neondb`. The UAT branch is a child of Production; no Production schema/data was changed in this tranche.
+
+**Migration execution:**
+- Applied migrations 104–107 from the current P17 branch in individual atomic transactions. SHA-256 values were recorded in the UAT migration ledger.
+- UAT `migration_history_id_seq` was stale at 99 while the ledger max ID was 103. Before migration 104, the sequence was reconciled to 103; the next migration ledger IDs 104–107 were then inserted successfully.
+- Runtime-role testing of the Buyer and shipment read paths found two RLS recursion defects in migration 105:
+  1. `buyer_auth_mapping_self_read` queried `buyers`, while the Buyer self-read policy queried mappings.
+  2. `buyers_verified_mapping_self_read` queried `buyers` from a policy on `buyers` itself.
+- Added and applied migration 108 `108_p17f_buyer_mapping_rls_recursion_fix.sql` (SHA-256 `feccb0230f18c6cea51f7ed1e5d10223cbe7bb63476f147f7040cbebb1324d17`) to make mapping self-read independent from Buyer-row RLS.
+- Added and applied migration 109 `109_p17f_buyer_self_read_rls_recursion_fix.sql` (SHA-256 `c02c4ebbdc0d2932c6eee66590262c970fad12d6c494d34cc0dde513c4d6b125`) to validate the active outer Buyer row without querying `buyers` recursively.
+- Reconciled `migration_history_manifest_uat_001_103.json` through ledger ID 109. The manifest remains explicitly UAT-only.
+
+**UAT acceptance evidence:**
+- Migration ledger IDs 96–109 exist and are marked applied. Migrations 104–109 match the current branch SQL SHA-256 values.
+- All 16 P17-created tables inspected have RLS enabled and policies attached.
+- As `app_runtime_secure`, SELECT probes passed without SQL/RLS errors on 15 tables: maritime source/ingestion tables, port crosswalk/geospatial, logistics change/scenario/simulation tables, Buyer mapping/grant events, loading acceptances, vessel tracking positions, buyers, shipments and shipment events. No-context reads returned zero visible rows as expected.
+- UAT currently contains 10 disabled/pending-review maritime source registry entries; none was enabled. Buyer mapping/grant-event and loading-acceptance tables remain empty. No AIS observations were fabricated.
+- No synthetic business rows were created to force acceptance.
+
+**Important source-history reconciliation:**
+- UAT ledger rows 096, 097 and 098 have historical SHA-256 values `13de94dd16eb6101635a13759456bca89bed27c7147d98bbd36d8e4f93653702`, `814a5bd26e44909de56e2d40bf561cd420dc6c5784310be18012c6064385f0f1`, and `d5e035f92ac2f679111ff717724c1683aa4666574c8aae5e830e501301179445`. These differ from the current branch SQL hashes. Migrations 099–103 match current source. Do not claim the current 096–098 files were applied to UAT or Production.
+- The UAT branch is non-root and Neon does not permit a manual snapshot of it. The existing manual snapshot `P17-pre-096-107-20261122` is of the Production branch and remains available. Production was not modified.
+- Production still has no P17 migration rows and its schema remains at migration 053. Production migration execution remains gated until the 096–098 source/history drift is reconciled and the exact Production release package, ledger manifest, and runner gate are updated together. Do not bypass the runner or manually apply SQL to Production.
+- Vercel deployment and browser UAT remain skipped as instructed.
+
+**Status after this tranche:** P17-E/F UAT database migrations 104–109 and runtime-role RLS read probes PASS. Overall P17 is NOT COMPLETE: full authenticated API acceptance with project/user context, P17-A/B/C/D/E/F/G end-to-end workflow acceptance, current 096–098 source reconciliation, Production release package, external source/AIS rights, real Buyer identity/grants, verified port/PKS/terminal/warehouse evidence, and genuine loading/survey/NOR/laytime evidence remain open. These external data and authorization gates must remain fail-closed.

@@ -16,6 +16,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
   const canRuleManage=can("regulatory.rule.manage");
   const canDocView=can("regulatory.document.view")||can("regulatory.document.manage");
   const canDocManage=can("regulatory.document.manage");
+  const canAddProjectRequirement=can("documents.create")&&Boolean(projectId);
   const canAssess=can("compliance.assess")&&Boolean(projectId);
   const [sources,setSources]=useState<AnyRecord[]>([]);
   const [rules,setRules]=useState<AnyRecord[]>([]);
@@ -92,6 +93,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
     try{await patch(`/projects/${encodeURIComponent(projectId)}/regulatory-assessments/${encodeURIComponent(selectedAssessment)}/review`,{decisions:[{resultId,decision,reason:reviewReason.trim()}]});onNotice("success","Review assessment tersimpan.");await refresh();await openAssessment(selectedAssessment);}
     catch(e){onNotice("error",e instanceof Error?e.message:"Review assessment gagal.");}finally{setBusy(false);}
   };
+  const addCountryRequirement=async(id:string)=>{setBusy(true);try{await post(`/projects/${encodeURIComponent(projectId)}/document-requirements`,{countryRequirementId:id});onNotice("success","Persyaratan dokumen ditambahkan ke Project.");}catch(e){onNotice("error",e instanceof Error?e.message:"Persyaratan gagal ditambahkan ke Project.");}finally{setBusy(false);}};
   const reviewCountryRequirement=async(id:string)=>{
     setBusy(true);
     try{await patch(`/country-document-requirements/${encodeURIComponent(id)}/review`,{decision:"verified"});onNotice("success","Persyaratan negara diverifikasi secara independen.");await refresh();}
@@ -120,7 +122,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label>Judul<input required value={ruleForm.title} onChange={e=>setRuleForm(v=>({...v,title:e.target.value}))}/></label>
         <label>Jurisdiksi<select value={ruleForm.jurisdiction} onChange={e=>setRuleForm(v=>({...v,jurisdiction:e.target.value}))}><option value="CN">China</option><option value="PK">Pakistan</option><option value="ID">Indonesia</option><option value="GLOBAL">Global</option></select></label>
         <label>Subjek<select value={ruleForm.subjectType} onChange={e=>setRuleForm(v=>({...v,subjectType:e.target.value}))}><option value="shipment">Shipment</option><option value="product">Product</option><option value="project">Project</option><option value="all">All</option></select></label>
-        <label>Source ID<input required value={ruleForm.sourceId} onChange={e=>setRuleForm(v=>({...v,sourceId:e.target.value}))} placeholder="UUID regulatory_sources"/></label>
+        <label>Verified source<select required value={ruleForm.sourceId} onChange={e=>setRuleForm(v=>({...v,sourceId:e.target.value}))}><option value="">Pilih sumber terverifikasi</option>{sources.filter(s=>s.verificationStatus==="verified").map(s=><option key={s.id} value={s.id}>{s.sourceId} · {s.title}</option>)}</select></label>
         <label>Outcome<select value={ruleForm.outcome} onChange={e=>setRuleForm(v=>({...v,outcome:e.target.value}))}><option value="require">Require</option><option value="prohibit">Prohibit</option><option value="allow">Allow</option><option value="manual_review">Manual review</option><option value="informational">Informational</option></select></label>
         <label>Effective from<input type="date" required value={ruleForm.effectiveFrom} onChange={e=>setRuleForm(v=>({...v,effectiveFrom:e.target.value}))}/></label>
         <label>Ringkasan<textarea required value={ruleForm.summary} onChange={e=>setRuleForm(v=>({...v,summary:e.target.value}))}/></label>
@@ -141,7 +143,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
       </form><form className="form-grid" onSubmit={submitCountryRequirement}>
         <label>Negara tujuan<select value={countryForm.countryCode} onChange={e=>setCountryForm(v=>({...v,countryCode:e.target.value}))}><option value="CN">China</option><option value="PK">Pakistan</option><option value="ID">Indonesia</option></select></label>
         <label>Document code<select required value={countryForm.documentCode} onChange={e=>setCountryForm(v=>({...v,documentCode:e.target.value}))}><option value="">Pilih dokumen</option>{docTypes.filter(d=>d.is_active).map(d=><option key={d.id} value={d.document_code}>{d.document_code} · {d.document_name}</option>)}</select></label>
-        <label>Verified source UUID<input required value={countryForm.regulatorySourceId} onChange={e=>setCountryForm(v=>({...v,regulatorySourceId:e.target.value}))}/></label>
+        <label>Verified source<select required value={countryForm.regulatorySourceId} onChange={e=>setCountryForm(v=>({...v,regulatorySourceId:e.target.value}))}><option value="">Pilih sumber terverifikasi</option>{sources.filter(s=>s.verificationStatus==="verified").map(s=><option key={s.id} value={s.id}>{s.sourceId} · {s.title}</option>)}</select></label>
         <label>Effective from<input type="date" required value={countryForm.effectiveFrom} onChange={e=>setCountryForm(v=>({...v,effectiveFrom:e.target.value}))}/></label>
         <label>Importing authority<input value={countryForm.importingAuthority} onChange={e=>setCountryForm(v=>({...v,importingAuthority:e.target.value}))}/></label>
         <label>Official source URL<input type="url" value={countryForm.officialSourceUrl} onChange={e=>setCountryForm(v=>({...v,officialSourceUrl:e.target.value}))}/></label>
@@ -149,7 +151,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label>Notes<input value={countryForm.notes} onChange={e=>setCountryForm(v=>({...v,notes:e.target.value}))}/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Tambah country requirement draft</button></div>
       </form></>}
-      <div className="activity-list">{countryReqs.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.country_code} · {r.document_code} · {r.document_name}</strong><span>{r.status} / {r.verification_status} · v{r.version_no}</span><small>Source: {r.source_id||"—"} · berlaku {String(r.effective_from||"").slice(0,10)}</small></div>{canDocManage&&["pending","reviewed"].includes(r.verification_status)&&<button className="secondary-button" disabled={busy||r.created_by===activeUser?.id||!r.regulatory_source_id} onClick={()=>void reviewCountryRequirement(r.id)}>Verify (independent)</button>}</div>)}{!countryReqs.length&&<p className="muted">Belum ada country requirement.</p>}</div>
+      <div className="activity-list">{countryReqs.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.country_code} · {r.document_code} · {r.document_name}</strong><span>{r.status} / {r.verification_status} · v{r.version_no}</span><small>Source: {r.source_id||"—"} · berlaku {String(r.effective_from||"").slice(0,10)}</small></div>{canDocManage&&["pending","reviewed"].includes(r.verification_status)&&<button className="secondary-button" disabled={busy||r.created_by===activeUser?.id||!r.regulatory_source_id} onClick={()=>void reviewCountryRequirement(r.id)}>Verify (independent)</button>}{canAddProjectRequirement&&r.status==="active"&&r.verification_status==="verified"&&<button className="secondary-button" disabled={busy} onClick={()=>void addCountryRequirement(r.id)}>Add to active Project</button>}</div>)}{!countryReqs.length&&<p className="muted">Belum ada country requirement.</p>}</div>
       <p className="muted">{docTypes.length} document types · {countryReqs.length} country requirements</p>
     </section>}
     {canSourceView&&<section className="card"><h3>Regulatory Audit Trail</h3><div className="activity-list">{auditEvents.map(a=><div className="activity-item" key={a.id}><div className="activity-copy"><strong>{a.action} · {a.target_type}</strong><span>{a.reason}</span><small>{a.actor_user_id} · {new Date(a.occurred_at).toLocaleString()}</small></div></div>)}{!auditEvents.length&&<p className="muted">Belum ada aktivitas Regulatory Core.</p>}</div></section>}

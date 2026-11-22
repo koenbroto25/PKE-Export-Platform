@@ -74,7 +74,7 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const canViewWarehouses = platformAdmin || permissions.includes("warehouse.view");
   const canSubmitDepth = permissions.includes("port.depth.submit");
   const canEstimateRoutes = platformAdmin || permissions.includes("route.estimate");
-  const canAssessVessel = permissions.includes("vessel.port.assess") && permissions.includes("vessel.view");
+  const canAssessVessel = permissions.includes("vessel.port.assess") && permissions.includes("vessel.view") && permissions.includes("port.view");
   const canUploadDocuments = platformAdmin || permissions.includes("documents.create");
   const canManageDocuments = platformAdmin || permissions.includes("documents.view") || permissions.includes("documents.create") || permissions.includes("documents.update");
   const canReviewDocuments = platformAdmin || permissions.includes("documents.update");

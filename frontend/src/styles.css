@@ -128,3 +128,7 @@
 @media(max-width:760px){.p17b-chain{grid-template-columns:1fr}.p17b-form-grid{grid-template-columns:1fr}.p17b-edge-list>div{display:grid}.p17b-workbench{padding:.85rem}}
 
 .p17b-form-actions,.p17b-request-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+
+.p17b-proposal-detail{margin:.55rem 0}
+.p17b-proposal-detail summary{cursor:pointer;font-weight:600}
+.p17b-proposal-detail pre{max-height:16rem;overflow:auto;padding:.65rem;border-radius:8px;background:var(--surface-muted,#f4f6f9);font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}

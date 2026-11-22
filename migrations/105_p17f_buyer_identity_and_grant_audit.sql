@@ -96,6 +96,47 @@ CREATE TRIGGER buyer_auth_mapping_guard
 BEFORE INSERT OR UPDATE ON public.buyer_auth_user_mappings
 FOR EACH ROW EXECUTE FUNCTION public.pke_guard_buyer_auth_mapping();
 
+-- Buyer-facing RLS is additive: visibility requires an active identity mapping and an active,
+-- unexpired grant scoped to the exact Project and (when present) shipment.
+CREATE POLICY buyer_visibility_grants_buyer_read
+  ON public.buyer_visibility_grants FOR SELECT TO app_runtime_secure
+  USING (
+    status='active' AND (expires_at IS NULL OR expires_at>now())
+    AND EXISTS (
+      SELECT 1 FROM public.buyer_auth_user_mappings m
+      WHERE m.user_id=public.pke_current_user_id()
+        AND m.buyer_id=buyer_visibility_grants.buyer_id
+        AND m.mapping_status='active'
+    )
+  );
+
+CREATE POLICY shipments_buyer_summary_read
+  ON public.shipments FOR SELECT TO app_runtime_secure
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.buyer_visibility_grants g
+      JOIN public.buyer_auth_user_mappings m ON m.buyer_id=g.buyer_id
+      WHERE m.user_id=public.pke_current_user_id() AND m.mapping_status='active'
+        AND g.project_id=shipments.project_id AND (g.shipment_id IS NULL OR g.shipment_id=shipments.id)
+        AND g.status='active' AND (g.expires_at IS NULL OR g.expires_at>now())
+        AND g.scope IN ('summary','milestones')
+    )
+  );
+
+CREATE POLICY shipment_events_buyer_milestones_read
+  ON public.shipment_events FOR SELECT TO app_runtime_secure
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.buyer_visibility_grants g
+      JOIN public.buyer_auth_user_mappings m ON m.buyer_id=g.buyer_id
+      WHERE m.user_id=public.pke_current_user_id() AND m.mapping_status='active'
+        AND g.project_id=shipment_events.project_id
+        AND (g.shipment_id IS NULL OR g.shipment_id=shipment_events.shipment_id)
+        AND g.status='active' AND (g.expires_at IS NULL OR g.expires_at>now())
+        AND g.scope IN ('summary','milestones')
+    )
+  );
+
 -- Existing Buyer grants remain untouched; all existing/legacy rows stay subject to explicit mapping.
 COMMENT ON TABLE public.buyer_auth_user_mappings IS
 'P17-F: explicit, independently reviewed mapping from app user with verified Neon Auth UUID to canonical Buyer; never inferred by email.';

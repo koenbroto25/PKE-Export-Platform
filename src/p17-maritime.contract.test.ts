@@ -82,6 +82,6 @@ describe("P17-B Project master-data editing",()=>{
   expect(API).toContain("public.p2a_master_data_change_requests");
   expect(API).toContain("status='draft' AND requested_by=$6::uuid");
   expect(API).toContain("requireAuth,requireAdmin,async(req:R,res:Response)=>");
-  expect(API).toContain("Submitted requests are immutable");
+  expect(API).toContain("submitted requests are immutable");
  });
 });

@@ -132,6 +132,14 @@ BEGIN
       RAISE EXCEPTION 'Buyer mapping must be created as pending review by the authenticated administrator'
         USING ERRCODE='42501';
     END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.users u JOIN public.buyers b ON b.id=NEW.buyer_id
+      WHERE u.id=NEW.user_id AND u.neon_auth_user_id IS NOT NULL
+        AND u.is_active IS TRUE AND b.is_active IS TRUE
+    ) THEN
+      RAISE EXCEPTION 'Pending Buyer mapping requires an active user with explicitly linked Neon Auth identity and active Buyer master'
+        USING ERRCODE='23514';
+    END IF;
   ELSE
     IF NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.buyer_id IS DISTINCT FROM OLD.buyer_id
        OR NEW.created_by IS DISTINCT FROM OLD.created_by THEN

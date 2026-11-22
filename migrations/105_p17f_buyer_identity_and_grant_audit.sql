@@ -1,6 +1,16 @@
 -- Migration 105: verified Neon Auth to Buyer master mapping and Buyer grant audit.
 BEGIN;
 
+INSERT INTO public.permissions(name,code,description,is_active)
+VALUES
+ ('Manage Buyer visibility grants','buyer.visibility.manage','Manage verified Buyer shipment visibility grants within a Project',true),
+ ('View Buyer shipment portal','buyer.shipment.view','View explicitly granted Buyer shipment summaries and milestones',true)
+ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=true,updated_at=now();
+
+INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
+VALUES ('pm','buyer.visibility.manage'),('buyer','buyer.shipment.view')
+ON CONFLICT(role_code,permission_code) DO NOTHING;
+
 INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id)
 SELECT pr.project_id,pr.id,p.id
 FROM public.project_roles pr

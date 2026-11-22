@@ -108,7 +108,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
     return hasSelectedProjectMembership(user);
   }
   const permissions = new Set(user.projectPermissions || []);
-  if (pageKey === 'buyer') return false; // Buyer export portal is held until verified Neon Auth → buyer mapping and server-side visibility grants are deployed.
+  if (pageKey === 'buyer') return permissions.has('buyer.shipment.view'); // API additionally requires verified Neon Auth → Buyer mapping and active scoped grants.
   if (pageKey === 'maritime-operations') return ['voyage.view', 'vessel.view', 'vessel.nomination.review', 'shipping.view', 'shipment.view'].some(permission => permissions.has(permission));
   if (pageKey === 'supplier') return permissions.has('supplier.view') && permissions.has('shipment.view');
   if (pageKey === 'transporter') return permissions.has('record_truck_trips') && permissions.has('verify_checkpoints');

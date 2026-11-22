@@ -185,7 +185,7 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
    <button type="button" onClick={()=>void refresh()} disabled={busy}>Muat ulang</button>
    {canManage&&<button type="button" onClick={()=>setNewScenarioOpen(v=>!v)} disabled={busy}>Buat simulasi</button>}
   </div>
-  {{canManage&&newScenarioOpen&&<form className="p17b-editor" onSubmit={createScenario}>
+  {canManage&&newScenarioOpen&&<form className="p17b-editor" onSubmit={createScenario}>
     <h3>Buat simulasi rantai PKE</h3>
     <p>Graph awal berisi enam node dan lima relasi wajib. Semua nilai operasional tetap kosong, unverified dan tidak dapat dipakai untuk dispatch.</p>
     <label>Kode skenario<input required maxLength={80} value={newScenarioCode} onChange={e=>setNewScenarioCode(e.target.value)} placeholder="SIM-PKE-PROJECT-001"/></label>

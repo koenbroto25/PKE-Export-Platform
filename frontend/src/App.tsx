@@ -1416,13 +1416,23 @@ function PaymentInstructionsPage({ onNotice }: { onNotice: (kind: 'success' | 'e
 }
 
 function BuyerWorkspacePage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+  const [shipments,setShipments]=useState<AnyRecord[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  useEffect(()=>{let active=true;setLoading(true);setError('');
+    get<{shipments?:AnyRecord[]}>('/buyer/shipments').then(result=>{if(active)setShipments(Array.isArray(result.shipments)?result.shipments:[]);})
+      .catch(e=>{if(active)setError(e instanceof Error?e.message:'Buyer access belum tersedia.');})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[projectId]);
   return <>
-    <div className="inline-warning"><CircleAlert size={17} /> Buyer Export Portal belum aktif: identitas Neon Auth belum dipetakan secara terverifikasi ke buyer master, dan endpoint buyer-scoped dengan visibility grant belum tersedia pada runtime. Data kontrak, shipment, posisi kapal dan dokumen ditahan. BuyerId dari URL/query/email bukan dasar otorisasi.</div>
-    <PageTitle eyebrow="BUYER PORTAL" title="Workspace Buyer" subtitle="Lihat kontrak, pengiriman, dan dokumen yang dibagikan untuk buyer." />
-    <div className="metric-grid three"><Metric label="Kontrak aktif" value="—" foot="Tidak ada data dummy" icon={BriefcaseBusiness} tone="navy" /><Metric label="Pengiriman" value="—" foot="Menunggu data nyata" icon={Truck} tone="blue" /><Metric label="Dokumen dibagikan" value="—" foot="Tidak ada dummy" icon={FileCheck2} tone="green" /></div>
-    <Card><PanelHeading title="Kontrak Saya" description="Kontrak yang terikat pada buyer ini." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Tidak ada data kontrak</div><div className="empty-desc">Data kontrak hanya ditampilkan setelah buyer ditetapkan pada project dan memiliki sharing grant yang sah.</div></div></Card>
-    <Card><PanelHeading title="Pengiriman Saya" description="Status pengiriman yang terkait pada buyer." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Tidak ada data pengiriman</div><div className="empty-desc">Pengiriman hanya ditampilkan setelah allocation dan shipment dibuat dengan sharing grant.</div></div></Card>
-    <Card><PanelHeading title="Dokumen yang Dibagikan" description="Dokumen kompatibilitas dan persetujuan buyer." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Tidak ada dokumen</div><div className="empty-desc">Dokumen hanya ditampilkan setelah diunggah dan dibagikan dengan buyer.</div></div></Card>
+    <PageTitle eyebrow="BUYER PORTAL" title="Workspace Buyer" subtitle="Hanya shipment yang dibagikan melalui identity mapping dan visibility grant aktif." />
+    {error&&<div className="inline-warning"><CircleAlert size={17} /> Akses Buyer belum tersedia: {error}. Identitas tidak pernah ditentukan dari email, URL, atau BuyerId yang dikirim client.</div>}
+    <div className="metric-grid three"><Metric label="Pengiriman dibagikan" value={loading?'…':shipments.length} foot="Dari grant aktif server-side" icon={Truck} tone="blue" /><Metric label="Kontrak" value="—" foot="Belum termasuk proyeksi kontrak" icon={BriefcaseBusiness} tone="navy" /><Metric label="Dokumen" value="—" foot="Dokumen tetap ditahan sampai scope dokumen tersedia" icon={FileCheck2} tone="green" /></div>
+    <Card><PanelHeading title="Pengiriman Saya" description="Ringkasan shipment yang secara eksplisit dibagikan untuk Buyer." />
+      {loading?<div className="empty-state">Memuat shipment…</div>:error?<div className="empty-state">Data tidak ditampilkan karena otorisasi belum tersedia.</div>:shipments.length?<div className="stack-list">{shipments.map(s=><div className="list-row" key={s.id}><strong>{s.shipment_code||shortId(s.id)}</strong><p>{s.status} · {number(s.quantity)} {s.unit_code||''}</p><small>Port tujuan: {s.destination_port||'Belum ditentukan'} · ETA {dateTime(s.planned_arrival_at)}</small></div>)}</div>:<div className="empty-state"><CircleAlert size={24}/><div className="empty-title">Belum ada shipment yang dibagikan</div><div className="empty-desc">Tidak ada grant aktif untuk identitas Buyer yang terverifikasi.</div></div>}
+    </Card>
+    <Card><PanelHeading title="Kontrak & Dokumen" description="Ditampilkan hanya setelah endpoint dan grant khusus dokumen diterapkan." /><div className="empty-state">Belum ada proyeksi kontrak atau dokumen yang diizinkan untuk ditampilkan.</div></Card>
   </>;
 }
 

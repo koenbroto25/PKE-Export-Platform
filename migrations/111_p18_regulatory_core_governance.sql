@@ -306,6 +306,65 @@ CREATE TRIGGER p18_regulatory_rule_version_lifecycle_guard
 BEFORE UPDATE ON public.regulatory_rule_versions
 FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_rule_version_lifecycle();
 
+CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_assessment_review()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+  IF TG_OP='UPDATE' THEN
+    IF ROW(NEW.project_id,NEW.shipment_id,NEW.product_id,NEW.product_hs_classification_id,
+           NEW.origin_country,NEW.destination_country,NEW.assessment_date,NEW.input_snapshot,
+           NEW.ruleset_version_snapshot,NEW.assessed_by)
+       IS DISTINCT FROM
+       ROW(OLD.project_id,OLD.shipment_id,OLD.product_id,OLD.product_hs_classification_id,
+           OLD.origin_country,OLD.destination_country,OLD.assessment_date,OLD.input_snapshot,
+           OLD.ruleset_version_snapshot,OLD.assessed_by) THEN
+      RAISE EXCEPTION 'Regulatory assessment facts and ruleset snapshot are immutable' USING ERRCODE='23514';
+    END IF;
+    IF NEW.reviewed_by IS NOT NULL THEN
+      IF NEW.reviewed_by=NEW.assessed_by THEN
+        RAISE EXCEPTION 'Assessment maker cannot review their own assessment' USING ERRCODE='23514';
+      END IF;
+      NEW.reviewed_at=COALESCE(NEW.reviewed_at,now());
+    END IF;
+  END IF;
+  RETURN NEW;
+END $;
+
+DROP TRIGGER IF EXISTS p18_regulatory_assessment_review_guard ON public.regulatory_assessments;
+CREATE TRIGGER p18_regulatory_assessment_review_guard
+BEFORE UPDATE ON public.regulatory_assessments
+FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_assessment_review();
+
+CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_assessment_result_review()
+RETURNS trigger LANGUAGE plpgsql AS $
+DECLARE assessment_maker uuid;
+BEGIN
+  IF TG_OP='UPDATE' THEN
+    IF ROW(NEW.assessment_id,NEW.rule_version_id,NEW.required_documents,NEW.missing_documents,
+           NEW.evidence,NEW.evaluated_at)
+       IS DISTINCT FROM
+       ROW(OLD.assessment_id,OLD.rule_version_id,OLD.required_documents,OLD.missing_documents,
+           OLD.evidence,OLD.evaluated_at) THEN
+      RAISE EXCEPTION 'Regulatory assessment result evidence is immutable' USING ERRCODE='23514';
+    END IF;
+    SELECT assessed_by INTO assessment_maker FROM public.regulatory_assessments WHERE id=OLD.assessment_id;
+    IF OLD.result_status NOT IN ('pending','manual_review')
+       OR NEW.result_status NOT IN ('pass','fail','not_applicable')
+       OR NEW.reviewer_id IS NULL OR NEW.reviewer_id=assessment_maker THEN
+      RAISE EXCEPTION 'Only an independent reviewer may resolve a pending regulatory result' USING ERRCODE='23514';
+    END IF;
+    IF OLD.reviewer_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Regulatory assessment result has already been reviewed' USING ERRCODE='23514';
+    END IF;
+    NEW.reviewed_at=COALESCE(NEW.reviewed_at,now());
+  END IF;
+  RETURN NEW;
+END $;
+
+DROP TRIGGER IF EXISTS p18_regulatory_assessment_result_review_guard ON public.regulatory_assessment_results;
+CREATE TRIGGER p18_regulatory_assessment_result_review_guard
+BEFORE UPDATE ON public.regulatory_assessment_results
+FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_assessment_result_review();
+
 DO $verify$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_sources' AND policyname='p18_regulatory_sources_insert') THEN RAISE EXCEPTION 'P18 source insert policy missing'; END IF;
@@ -314,6 +373,8 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_regulatory_rule_version_lifecycle_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 immutable version trigger missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_country_requirement_verification_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 country requirement verification trigger missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='audit_events' AND policyname='p18_regulatory_audit_read') THEN RAISE EXCEPTION 'P18 regulatory audit read policy missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_regulatory_assessment_review_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 assessment review guard missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_regulatory_assessment_result_review_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 assessment result review guard missing'; END IF;
 END
 $verify$;
 

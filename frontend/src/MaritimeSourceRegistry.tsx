@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, get, post, patch } from "./api";
+import P17IngestionRunPanel from "./P17IngestionRunPanel";
 
 type Source = Record<string, any>;
 type RightsDraft = {
@@ -119,6 +120,7 @@ export default function MaritimeSourceRegistry({platformAdmin}:{platformAdmin:bo
      </form>
     </details>
     {!s.enabled&&<button type="button" disabled={busy||s.rights_status!=="approved"} onClick={()=>void enableSource(s.id)}>Aktifkan sumber</button>}
+    <P17IngestionRunPanel source={s}/>
    </article>})}
   </div>
   <details className="p17-source-register-form"><summary>Daftarkan sumber kandidat baru</summary>

@@ -15,7 +15,7 @@ const actualSha=crypto.createHash("sha256").update(Buffer.from(migration,"utf8")
 if(actualSha!==expectedSha)fail("Migration 054 SHA-256 mismatch.");
 if(!/^\s*--[^\n]*\n(?:--[^\n]*\n)*\s*BEGIN\s*;/i.test(migration)||!/COMMIT\s*;\s*$/.test(migration))fail("Migration 054 must retain explicit BEGIN/COMMIT wrapper.");
 const roleCodes=[...roleSource.matchAll(/role\("([^"]+)"/g)].map(m=>m[1]);
-if(roleCodes.length!==38||new Set(roleCodes).size!==38)fail("Canonical role catalogue must contain 38 unique roles.");
+if(roleCodes.length!==39||new Set(roleCodes).size!==39)fail("Canonical role catalogue must contain 39 unique roles.");
 for(const code of ["document_officer","external_provider","field_manager","viewer"])if(!roleCodes.includes(code))fail("Missing explicit legacy role template: "+code);
 for(const token of ["pke_project_role_policy","pke_project_role_permission_allowlist","pke_guard_project_role_permission_allowlist","pke_current_user_project_permissions","pke_payment_approval_guard","pke_payment_instruction_guard","pke_payment_evidence_guard","pke_payment_reconciliation_guard","pke_guard_journal_entry","Platform Admin RLS bypass remains"])if(!migration.includes(token))fail("Migration 054 missing control: "+token);
 const helperStart=api.indexOf("async function requireProjectPermission"),helperEnd=api.indexOf("async function findExplicitProjectPermission",helperStart);
@@ -24,5 +24,5 @@ if(api.includes("SELECT code FROM permissions WHERE is_active = true ORDER BY co
 if(ui.includes("if (user.platformAdmin === true) return true;"))fail("Frontend still has a Platform Admin Project wildcard.");
 if(!workflow.includes("f1/project-scoped-cob-20261119"))fail("Unit Tests workflow does not trigger on the active implementation branch.");
 if(process.exitCode)process.exit(process.exitCode);
-console.log("PASS: Migration 054 source SHA-256, canonical role count, SQL boundary markers, API/UI bypass checks and active-branch CI trigger verified.");
+console.log("PASS: Migration 054 source SHA-256, canonical role count (39), SQL boundary markers, API/UI bypass checks and active-branch CI trigger verified.");
 console.log("NOTICE: static verification does not apply SQL or certify UAT/Production backtests.");

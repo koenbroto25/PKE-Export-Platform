@@ -124,6 +124,31 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   }
  });
  // P17-A: provider/source governance. Secret values never enter application rows.
+ // P17-C: vessel/terminal compatibility is advisory only; no navigational or port-clearance authority is implied.
+ app.get("/api/v1/projects/:projectId/vessels/:vesselId/advisory-screening",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,vessel=req.params.vesselId,port=str(req.query.portId,64),terminal=str(req.query.terminalId,64);
+  if(!uuidPattern.test(p)||!uuidPattern.test(vessel)||!uuidPattern.test(port)||!uuidPattern.test(terminal))return bad(res,400,"VESSEL_SCREENING_INPUT_INVALID","Project, vessel, destination port and terminal IDs are required.");
+  if(!await requireProjectAnyAccess(req,res,p,["vessel.view","vessel.nomination.review","shipping.view"]))return;
+  try{
+   const linked=await req.db.query("SELECT 1 FROM public.shipments WHERE project_id=$1::uuid AND destination_port_id=$2::uuid LIMIT 1",[p,port]);
+   if(!linked.rows.length)return bad(res,404,"PROJECT_DESTINATION_PORT_NOT_FOUND","Destination port is not linked to a shipment in this Project.");
+   const v=await req.db.query("SELECT id,name,imo_number,vessel_type,verification_status,verified_at,loa_m,beam_m,depth_m,air_draft_m,summer_draft_m,max_draft_m,dwt_mt,hold_capacity_m3,cargo_capabilities,source_reference FROM public.vessels WHERE id=$1::uuid AND is_active IS TRUE",[vessel]);
+   const t=await req.db.query("SELECT id,port_id,terminal_code,name,status,verified_at,cargo_types,operating_restrictions,source_reference FROM public.port_terminals WHERE id=$1::uuid AND port_id=$2::uuid",[terminal,port]);
+   if(!v.rows.length||!t.rows.length)return bad(res,404,"VESSEL_OR_TERMINAL_NOT_FOUND","Active vessel and terminal at the selected port are required.");
+   const vesselRow=v.rows[0],terminalRow=t.rows[0],limits=terminalRow.operating_restrictions||{};
+   const checks=[
+    {code:"vessel_master_verified",status:vesselRow.verification_status==="verified"&&!!vesselRow.verified_at?"evidenced":"unknown"},
+    {code:"terminal_master_verified",status:terminalRow.status==="verified"&&!!terminalRow.verified_at?"evidenced":"unknown"},
+    {code:"loa_limit",status:Number.isFinite(Number(vesselRow.loa_m))&&Number.isFinite(Number(limits.max_loa_m))?(Number(vesselRow.loa_m)<=Number(limits.max_loa_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
+    {code:"beam_limit",status:Number.isFinite(Number(vesselRow.beam_m))&&Number.isFinite(Number(limits.max_beam_m))?(Number(vesselRow.beam_m)<=Number(limits.max_beam_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
+    {code:"draft_limit",status:Number.isFinite(Number(vesselRow.summer_draft_m??vesselRow.max_draft_m))&&Number.isFinite(Number(limits.max_draft_m))?(Number(vesselRow.summer_draft_m??vesselRow.max_draft_m)<=Number(limits.max_draft_m)?"within_advisory_limit":"exceeds_advisory_limit"):"unknown"},
+    {code:"pke_cargo_compatibility",status:Array.isArray(terminalRow.cargo_types)&&terminalRow.cargo_types.some((x:string)=>/pke|palm kernel expeller|bulk/i.test(x))?"candidate_match":"unknown"}
+   ];
+   const advisoryStatus=checks.some(x=>x.status==="exceeds_advisory_limit")?"adverse_advisory":checks.every(x=>x.status!=="unknown")?"candidate_only":"insufficient_verified_data";
+   return res.json({projectId:p,vessel:vesselRow,terminal:terminalRow,checks,advisoryStatus,operationalClearance:false,disclaimer:"Advisory screening only. It is not port acceptance, pilotage, navigation, berth allocation, statutory clearance or master/terminal sign-off."});
+  }catch{return bad(res,500,"VESSEL_SCREENING_FAILED","Unable to complete advisory vessel/terminal screening.");}
+ });
+
  // P17-G: Project control tower uses actual Project rows; missing sources are never represented as zero.
  app.get("/api/v1/projects/:projectId/p17-control-tower",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"pke.logistics.master.view"))return;

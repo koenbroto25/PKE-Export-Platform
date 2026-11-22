@@ -338,6 +338,10 @@ app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(r
  });
 
  // P17-D: AIS positions are provider observations, never invented coordinates or navigational clearance.
+ app.get("/api/v1/admin/maritime/vessel-positions",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  try{const q=await req.db.query("SELECT o.id,o.source_id,o.vessel_id,v.name AS vessel_name,o.mmsi,o.latitude,o.longitude,o.position_timestamp AS observed_at,o.provider_code,o.provider_reference,o.source_reference,o.attribution_text,o.review_status,o.source_quality,o.created_by,o.created_at FROM public.vessel_tracking_positions o JOIN public.vessels v ON v.id=o.vessel_id WHERE o.source_id IS NOT NULL AND ($1::text IS NULL OR o.review_status=$1) ORDER BY o.created_at DESC LIMIT 250",[typeof req.query.reviewStatus==="string"?req.query.reviewStatus:null]);return res.json({observations:q.rows});}
+  catch{return bad(res,500,"AIS_ADMIN_QUEUE_READ_FAILED","Unable to read pending AIS observations.");}
+ });
  app.post("/api/v1/admin/maritime/vessel-positions",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const b=req.body||{},sourceId=str(b.sourceId,64),vesselId=str(b.vesselId,64),mmsi=str(b.mmsi,20),reference=str(b.sourceReference,1000),providerReference=str(b.providerReference,240),attribution=str(b.attributionText,1000),hash=str(b.payloadSha256,64),observed=time(b.observedAt),rawPayload=b.rawPayload;
   const lat=Number(b.latitude),lon=Number(b.longitude),sog=b.sogKnots==null?null:Number(b.sogKnots),cog=b.cogDegrees==null?null:Number(b.cogDegrees);

@@ -10,6 +10,7 @@ const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
 const PORT_UI=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");
+const SCENARIO_UI=readFileSync(join(ROOT,"frontend","src","PkeLogisticsScenarioWorkbench.tsx"),"utf8");
 describe("P17-A maritime source governance",()=>{
  it("mounts authenticated admin-only source registry and ingestion endpoints",()=>{
   for(const route of ["/api/v1/admin/maritime/sources","/api/v1/admin/maritime/sources/:id/rights","/api/v1/admin/maritime/sources/:id/enable","/api/v1/admin/maritime/sources/:id/field-permissions","/api/v1/admin/maritime/sources/:id/runs","/api/v1/admin/maritime/runs/:runId/staging","/api/v1/admin/maritime/staging/:stagingId/review","/api/v1/admin/maritime/runs/:runId/complete","/api/v1/admin/maritime/sources/:id/health"])expect(API).toContain(route);
@@ -182,5 +183,19 @@ describe("P17-A Platform Admin source governance workbench",()=>{
   expect(SOURCE_UI).toContain("Aktifkan sumber");
   expect(API).toContain("RIGHTS_EVIDENCE_REQUIRED");
   expect(API).toContain("SOURCE_RIGHTS_NOT_CURRENT");
+ });
+});
+
+
+describe("P17-B Project PM simulation scenario creation",()=>{
+ it("provides PM/Admin create flow with six unverified nodes and five typed edges",()=>{
+  expect(SCENARIO_UI).toContain("/pke-logistics/simulation-scenarios");
+  expect(SCENARIO_UI).toContain("scenarioCode:code");
+  expect(SCENARIO_UI).toContain("simulation_only:true");
+  expect(SCENARIO_UI).toContain("verification_status:\"unverified\"");
+  expect(SCENARIO_UI).toContain("pks_to_road_route");
+  expect(SCENARIO_UI).toContain("terminal_has_warehouse");
+  expect(SCENARIO_UI).toContain("dispatch_allowed:false");
+  expect(SCENARIO_UI).toContain("production_use_allowed:false");
  });
 });

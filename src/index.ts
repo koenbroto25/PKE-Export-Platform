@@ -2792,7 +2792,7 @@ app.patch("/api/v1/projects/:projectId/regulatory-assessments/:assessmentId/revi
         RETURNING id,overall_status,failed_count,pending_count,reviewed_by,reviewed_at`,
       [overall,counts.failed,counts.pending,req.user?.id??null,req.params.assessmentId,projectId],
     );
-    await recordRegulatoryAudit(req,"assessment.reviewed","regulatory_assessment",req.params.assessmentId,projectId,"Independent assessment result review",null,updatedAssessment.rows[0]);
+    await recordRegulatoryAudit(req,"assessment.reviewed","regulatory_assessment",String(req.params.assessmentId),projectId,"Independent assessment result review",null,updatedAssessment.rows[0]);
     return res.json({assessment:updatedAssessment.rows[0]});
   }catch(error:any){
     if(error?.code==="42501") return res.status(403).json({error:"Assessment review permission denied."});

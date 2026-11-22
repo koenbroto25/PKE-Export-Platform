@@ -272,6 +272,8 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain('"buyer_auth_mapping_events"');
   expect(gate).toContain('"buyer_visibility_grant_events"');
   expect(gate).toContain("requiredPermissions");
+  expect(gate).toContain("pke_project_role_permission_allowlist");
+  expect(gate).toContain("P17_ROLE_PERMISSION_RELEASE_BLOCKED");
   expect(gate).toContain("if(!protectedPath)return next()");
  });
  it("does not install a broad /projects write block",()=>{

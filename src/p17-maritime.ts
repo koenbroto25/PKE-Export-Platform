@@ -119,6 +119,21 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   }
  });
  // P17-A: provider/source governance. Secret values never enter application rows.
+ // P17-G: Project control tower uses actual Project rows; missing sources are never represented as zero.
+ app.get("/api/v1/projects/:projectId/p17-control-tower",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"pke.logistics.master.view"))return;
+  try{
+   const k=await req.db.query("SELECT COUNT(*)::int AS shipment_count,COUNT(DISTINCT pks_site_id)::int AS linked_pks_count,COUNT(DISTINCT destination_port_id)::int AS destination_port_count,COALESCE(SUM(quantity),0)::numeric AS planned_quantity FROM public.shipments WHERE project_id=$1::uuid",[p]);
+   const v=await req.db.query("SELECT COUNT(*)::int AS voyage_count,COUNT(*) FILTER(WHERE status IN ('planned','nominated','confirmed'))::int AS planned_or_active_voyages FROM public.voyages WHERE project_id=$1::uuid",[p]);
+   const n=await req.db.query("SELECT COUNT(*)::int AS nomination_count,COUNT(*) FILTER(WHERE nomination_status='submitted')::int AS pending_review_count FROM public.vessel_nominations WHERE project_id=$1::uuid",[p]);
+   const pc=await req.db.query("SELECT COUNT(*)::int AS port_call_count,COUNT(*) FILTER(WHERE status='actual')::int AS actual_port_call_count,COUNT(*) FILTER(WHERE status IN ('planned','predicted'))::int AS predicted_port_call_count FROM public.vessel_port_calls WHERE project_id=$1::uuid",[p]);
+   const load=await req.db.query("SELECT COUNT(*)::int AS operation_count,COUNT(*) FILTER(WHERE status IN ('completed','closed'))::int AS completed_count FROM public.loading_operations WHERE project_id=$1::uuid",[p]);
+   const tickets=await req.db.query("SELECT unit_code,COUNT(*)::int AS ticket_count,COALESCE(SUM(quantity),0)::numeric AS measured_quantity,COUNT(*) FILTER(WHERE verified_at IS NOT NULL)::int AS verified_count FROM public.loading_tickets WHERE project_id=$1::uuid GROUP BY unit_code ORDER BY unit_code",[p]);
+   const routes=await req.db.query("SELECT DISTINCT ON (s.pks_site_id,pr.port_id) s.pks_site_id,ps.name AS pks_name,pr.port_id,pt.name AS port_name,pr.distance_km,pr.estimated_travel_minutes,pr.verified_at,pr.source_reference FROM public.shipments s JOIN public.pks_sites ps ON ps.id=s.pks_site_id JOIN public.pks_port_routes pr ON pr.pks_site_id=s.pks_site_id AND pr.is_active IS TRUE JOIN public.ports pt ON pt.id=pr.port_id AND pt.is_active IS TRUE WHERE s.project_id=$1::uuid AND s.destination_port_id=pr.port_id ORDER BY s.pks_site_id,pr.port_id,pr.distance_km ASC NULLS LAST",[p]);
+   return res.json({projectId:p,sourceStatus:{shipments:"available",voyages:"available",nominations:"available",portCalls:"available",loadingOperations:"available",loadingTickets:"available",pksPortRoutes:"available"},kpis:{...k.rows[0],...v.rows[0],...n.rows[0],...pc.rows[0],...load.rows[0]},loadingByUnit:tickets.rows,projectPksPortRoutes:routes.rows,quality:{plannedQuantityIsNotLoadedQuantity:true,actualPortCallsRequireConfirmedEvidence:true,loadingTicketQuantityRequiresIndependentVerification:true,aisLivePosition:"unavailable_until_provider_rights_and_freshness_are_approved"}});
+  }catch(e:any){return bad(res,500,"P17_CONTROL_TOWER_READ_FAILED","Project control tower source query failed; metrics are not substituted with zero.");}
+ });
+
  // P17-F: Buyer access is resolved by verified Neon Auth identity mapping plus active scoped grants.
  app.post("/api/v1/admin/buyer-auth-mappings",requireAuth,requireAdmin,async(req:R,res:Response)=>{
   const userId=str(req.body?.userId,64),buyerId=str(req.body?.buyerId,64);

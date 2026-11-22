@@ -287,7 +287,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   try{
    const mappings=await req.db.query("SELECT m.id,m.user_id,u.name AS user_name,u.email AS user_email,(u.neon_auth_user_id IS NOT NULL) AS auth_identity_linked,m.buyer_id,b.name AS buyer_name,m.mapping_status,m.created_by,m.reviewed_by,m.reviewed_at,m.review_note,m.created_at,m.updated_at FROM public.buyer_auth_user_mappings m JOIN public.users u ON u.id=m.user_id JOIN public.buyers b ON b.id=m.buyer_id ORDER BY m.created_at DESC");
    const users=await req.db.query("SELECT u.id,u.name,u.email FROM public.users u WHERE u.is_active IS TRUE AND u.neon_auth_user_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.buyer_auth_user_mappings m WHERE m.user_id=u.id) ORDER BY u.name,u.email");
-   const buyers=await req.db.query("SELECT b.id,b.name,b.code FROM public.buyers b WHERE b.is_active IS TRUE AND NOT EXISTS(SELECT 1 FROM public.buyer_auth_user_mappings m WHERE m.buyer_id=b.id AND m.mapping_status='active') ORDER BY b.name");
+   const buyers=await req.db.query("SELECT b.id,b.name,b.code FROM public.buyers b WHERE b.is_active IS TRUE AND NOT EXISTS(SELECT 1 FROM public.buyer_auth_user_mappings m WHERE m.buyer_id=b.id AND m.mapping_status<>'revoked') ORDER BY b.name");
    return res.json({mappings:mappings.rows,eligibleUsers:users.rows,eligibleBuyers:buyers.rows,identityMatching:"explicit_user_id_only"});
   }catch{return bad(res,503,"BUYER_MAPPING_SCHEMA_NOT_RELEASED","Buyer mapping schema is not released on this database.");}
  });

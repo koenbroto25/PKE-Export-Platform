@@ -511,3 +511,18 @@ describe("P17-B PKS to PKE port prioritization",()=>{
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("capacity unknown");
  });
 });
+
+describe("P17-C advisory vessel and terminal compatibility",()=>{
+ it("uses verified vessel dimensions and terminal operating restrictions without granting clearance",()=>{
+  expect(API).toContain("/api/v1/projects/:projectId/vessels/:vesselId/advisory-screening");
+  expect(API).toContain("operationalClearance:false");
+  expect(API).toContain("insufficient_verified_data");
+  expect(API).toContain("exceeds_advisory_limit");
+ });
+ it("exposes the advisory screen in the Port Network UI",()=>{
+  const ui=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");
+  expect(ui).toContain("P17-C · Advisory kompatibilitas kapal–terminal PKE");
+  expect(ui).toContain("/advisory-screening?portId=");
+  expect(ui).toContain("p17Advisory");
+ });
+});

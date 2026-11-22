@@ -613,3 +613,31 @@ P17 may be accepted only when all internally controllable tests pass and externa
 - No external provider feed, paid API, subscription, receiver, hardware or contract activated. No AIS or weather feed is represented as live.
 
 **Next required action:** resolve Neon UAT branch capacity through explicit owner-approved cleanup or capacity increase; then prepare 096 and 097 on isolated temporary branches, inspect/fix DDL failures, apply to UAT only, backtest RLS/runtime permissions and workflows, update the UAT manifest to the exact applied ledger, and rerun the full regression/CI on the final head.
+
+
+## 15. P17-A and P17-E UAT implementation and acceptance (2026-11-22)
+
+**Database implementation status: APPLIED TO UAT.** Migration 096 and 097 were applied in one transaction to Neon UAT branch `br-young-boat-b3re832d` (project `purple-base-63944903`, database `neondb`). Both exact SHA-256 values were recorded in `public.migration_history` and reconciled against the new 001–097 manifest with 97/97 exact matches and zero mismatches:
+- 096 `096_p17a_maritime_source_governance_ingestion.sql`: `13de94dd16eb6101635a13759456bca89bed27c7147d98bbd36d8e4f93653702`
+- 097 `097_p17e_project_maritime_workflows.sql`: `814a5bd26e44909de56e2d40bf561cd420dc6c5784310be18012c6064385f0f1`
+
+### 15.1 P17-A accepted UAT schema and controls
+- Source registry, source/field rights, ingestion run ledger, payload staging, provider quota usage and provider health tables exist with RLS, explicit grants and admin-only policies.
+- Database triggers enforce current/evidenced rights on source enablement, source-level purpose rights on field permissions, and current approved rights on staging. Quota configuration must be paired; ingestion counters and external record IDs are constrained.
+- API supports source registration with quota windows, rights approval/revocation, field-purpose permissions, idempotent run scheduling, quota enforcement, repeated staging while a run is queued/running, review/quarantine, run completion and provider-health logging.
+- Isolated UAT-copy backtests passed: Platform Admin visibility vs non-admin denial; internal-only rights accepted while customer-display rights were rejected; unapproved source enablement denied; staging under blocked rights denied; quota limit reached at configured threshold; repeated staging supported without opening rights bypass.
+
+### 15.2 P17-E accepted UAT schema and controls
+- Project-scoped voyage version/idempotency, composite Project-parent constraints for nominations and port calls, workflow event audit, narrow permission grants and selected-Project RLS are installed.
+- Nomination transitions are constrained and require a different reviewer from the nominator. Port-call identity is immutable; actual arrival/berth/departure events require the dedicated confirmation permission and explicit actual timestamp. Port/terminal/voyage/vessel linkage is checked. No AIS event or port-call record grants clearance, berth or loading authority.
+- Isolated UAT-copy backtests passed: Shipping Agent create/nominate/manage but no voyage update; PM view/create/update/review/manage but no actual confirmation; Master of Loading and Terminal Representative confirmation grants; unrelated Viewer denial; same-Project voyage/nomination/port-call writes; independent nomination review; planned port call and authorized actual milestone; self-review and unauthorized actual milestone denied; cross-Project reads and writes denied.
+- PM voyage-view was added to both database role allowlist and role catalogue after the initial permission-matrix backtest identified its absence. Master of Loading voyage-create was removed from the role template to keep it read/confirm-only.
+
+### 15.3 UAT verification evidence and boundaries
+- UAT ledger now has 97 rows: 16 baseline entries and 81 applied migrations. Latest is 097; the exact 001–097 manifest is `migration_history_manifest_uat_001_097.json`.
+- Post-apply role permission checks on `app_runtime_secure` passed. Viewer reads of voyages, nominations and port calls returned zero rows. Existing UAT operational fixtures remain: 1 voyage, 1 nomination and 1 port call. New P17-A source/ingestion tables and maritime workflow-event table remain empty, as no external provider or operational data has been activated/imported.
+- GitHub Unit Tests and Dependency Audit Evidence passed on implementation head `427fd5ab60aa0d3672db352ebfa5626ab90388d1`. The suite includes P17 contract tests, backend/frontend typechecks and frontend build.
+- Live HTTP/browser UAT and Vercel deployment were not run; deployment remains frozen by the existing owner instruction. Therefore the database/RLS and CI contract gates are accepted, while live deployed endpoint acceptance remains a separate release gate.
+- A dedicated isolated validation branch `p17a-e-uat-validation-20261122` was created from UAT before application and retained for test evidence. Synthetic validation records were written only to that branch, never to UAT.
+
+**P17-A / P17-E result:** database migrations, UAT ledger reconciliation, role/RLS backtests and repository contract/CI gates PASS. Provider onboarding/live feed, deployed HTTP/browser acceptance, and production release are intentionally not claimed or activated.

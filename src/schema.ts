@@ -65,7 +65,7 @@ export const role_permissions = pgTable("role_permissions", {
   granted_at: timestamp("granted_at").defaultNow(),
 });
 
-export const projects = pgTable("projects", {
+// Explicit annotations break the circular Project <-> contract_programs foreign-key type inference in Drizzle.\nexport const projects: any = pgTable("projects", {
   id: uuid("id").defaultRandom().primaryKey(),
   contract_program_id: uuid("contract_program_id").references((): AnyPgColumn => contract_programs.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
@@ -181,7 +181,7 @@ export const contracts = pgTable("contracts", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-export const contract_programs = pgTable("contract_programs", {
+export const contract_programs: any = pgTable("contract_programs", {
   id: uuid("id").defaultRandom().primaryKey(),
   project_id: uuid("project_id").references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),

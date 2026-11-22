@@ -1,0 +1,209 @@
+{
+  "schema_version": "p17b-pke-seed-candidates-v1",
+  "generated_at": "2026-11-22",
+  "target_environment": "staging_only",
+  "import_policy": "DO_NOT_IMPORT until source rights and entity evidence are independently approved",
+  "identity_policy": "external UML/UNLOCODE/national identifiers are crosswalks, never internal primary keys",
+  "capacity_policy": "kernel input MT/day is not PKE output MT/day; never convert without an evidenced yield factor",
+  "candidates": [
+    {
+      "candidate_id": "pke-company-001",
+      "entity_type": "processor_candidate",
+      "legal_name": "PT Usaha Inti Padang",
+      "country_code": "ID",
+      "region": "Padang, Sumatera Barat",
+      "facility_type": "unknown_pending_kcp_evidence",
+      "evidence": {
+        "source_class": "government_historical_report",
+        "source_name": "BKP Padang Annual Report 2022",
+        "source_url": "https://karantinaindonesia.go.id/",
+        "claim": "Listed among PKE companies under BKP Class I Padang in 2022",
+        "claim_scope": "historical PKE company association only"
+      },
+      "status": "candidate_requires_current_identity_and_site_validation",
+      "confidence": "medium",
+      "rights_status": "manual_reference_only_pending_review"
+    },
+    {
+      "candidate_id": "pke-company-002",
+      "entity_type": "processor_candidate",
+      "legal_name": "PT Wira Inno Mas",
+      "country_code": "ID",
+      "region": "Padang, Sumatera Barat",
+      "facility_type": "unknown_pending_kcp_evidence",
+      "evidence": {
+        "source_class": "government_historical_report",
+        "source_name": "BKP Padang Annual Report 2022",
+        "source_url": "https://karantinaindonesia.go.id/",
+        "claim": "Listed among PKE companies under BKP Class I Padang in 2022",
+        "claim_scope": "historical PKE company association only"
+      },
+      "status": "candidate_requires_current_identity_and_site_validation",
+      "confidence": "medium",
+      "rights_status": "manual_reference_only_pending_review"
+    },
+    {
+      "candidate_id": "pke-company-003",
+      "entity_type": "processor_candidate",
+      "legal_name": "PT Bina Pratama Sakato Jaya",
+      "country_code": "ID",
+      "region": "Padang, Sumatera Barat",
+      "facility_type": "unknown_pending_kcp_evidence",
+      "evidence": {
+        "source_class": "government_historical_report",
+        "source_name": "BKP Padang Annual Report 2022",
+        "source_url": "https://karantinaindonesia.go.id/",
+        "claim": "Listed among PKE companies under BKP Class I Padang in 2022",
+        "claim_scope": "historical PKE company association only"
+      },
+      "status": "candidate_requires_current_identity_and_site_validation",
+      "confidence": "medium",
+      "rights_status": "manual_reference_only_pending_review"
+    },
+    {
+      "candidate_id": "pke-facility-001",
+      "entity_type": "facility_candidate",
+      "legal_name": "PT Karya Serasi Jaya Abadi (KSJA)",
+      "country_code": "ID",
+      "region": "Tebing Tinggi, Sumatera Utara",
+      "facility_type": "kernel_crushing_plant_candidate",
+      "evidence": {
+        "source_class": "company_disclosure",
+        "source_name": "STA Resources company facility disclosure",
+        "source_url": "https://www.staresources.com/",
+        "claim": "Company disclosure describes KCP and 600 MT/day kernel input capacity, producing CPKO and PKE",
+        "claim_scope": "kernel input capacity only; site address, active status and current capacity need verification"
+      },
+      "status": "candidate_requires_site_coordinates_and_current_operating_validation",
+      "confidence": "medium",
+      "capacity": {
+        "value": 600,
+        "unit": "MT/day",
+        "basis": "kernel_input",
+        "pke_output_capacity": null
+      },
+      "rights_status": "manual_reference_only_pending_review"
+    },
+    {
+      "candidate_id": "pke-facility-002",
+      "entity_type": "facility_candidate",
+      "legal_name": "PT Sinar Jaya Inti Mulya (SJIM)",
+      "country_code": "ID",
+      "region": "Lampung and Baamang, Kotawaringin Timur, Kalimantan Tengah",
+      "facility_type": "kernel_crushing_plant_candidate",
+      "evidence": {
+        "source_class": "company_disclosure",
+        "source_name": "SJIM company facility disclosure",
+        "source_url": "https://www.sjim.co.id/",
+        "claim": "Company disclosure describes kernel processing facilities in Lampung and Baamang and PKE as a product",
+        "claim_scope": "two site identities must be separated and geocoded; capacities are kernel input capacity"
+      },
+      "status": "candidate_requires_site_split_and_current_validation",
+      "confidence": "medium",
+      "capacity": {
+        "value": null,
+        "unit": "MT/day",
+        "basis": "not_imported_without_site_specific_source",
+        "pke_output_capacity": null
+      },
+      "rights_status": "manual_reference_only_pending_review"
+    },
+    {
+      "candidate_id": "pke-facility-003",
+      "entity_type": "facility_candidate",
+      "legal_name": "Citra Borneo Utama KCP",
+      "country_code": "ID",
+      "region": "Kotawaringin Barat, Kalimantan Tengah",
+      "facility_type": "kernel_crushing_plant_candidate",
+      "evidence": {
+        "source_class": "company_disclosure",
+        "source_name": "Citra Borneo Utama company disclosure",
+        "source_url": "https://www.citraborneo.co.id/",
+        "claim": "Company disclosure describes KCP with 600 MT/day kernel input capacity and PKE as product",
+        "claim_scope": "exact facility site and active status require confirmation"
+      },
+      "status": "candidate_requires_site_coordinates_and_current_validation",
+      "confidence": "medium",
+      "capacity": {
+        "value": 600,
+        "unit": "MT/day",
+        "basis": "kernel_input",
+        "pke_output_capacity": null
+      },
+      "rights_status": "manual_reference_only_pending_review"
+    },
+    {
+      "candidate_id": "pke-facility-004",
+      "entity_type": "facility_candidate",
+      "legal_name": "PT REA Kaltim Plantations - Cakra Oil Mill KCP",
+      "country_code": "ID",
+      "region": "Kutai Kartanegara, Kalimantan Timur",
+      "facility_type": "kernel_crushing_plant_candidate",
+      "evidence": {
+        "source_class": "company_report_and_certification_listing",
+        "source_name": "REA Kaltim company reports and RSPO SCCS certificate listing",
+        "source_url": "https://www.rea.co.id/",
+        "claim": "Company disclosures identify Cakra and Satria as KCP facilities; historical report includes PKE",
+        "claim_scope": "certificate validity, active status and facility-specific coordinates must be revalidated"
+      },
+      "status": "candidate_requires_certificate_and_current_operating_validation",
+      "confidence": "medium",
+      "capacity": {
+        "value": 90,
+        "unit": "MT/hour",
+        "basis": "mill_capacity_reported_for_Cakra; verify whether this refers to kernel crushing throughput",
+        "pke_output_capacity": null
+      },
+      "rights_status": "manual_reference_only_pending_review"
+    }
+  ],
+  "shipment_evidence": [
+    {
+      "evidence_id": "pke-shipment-001",
+      "event_date": "2026-01-15",
+      "product": "PKE",
+      "quantity_mt": 3200.625,
+      "export_destination": "China",
+      "origin_port": "Pelabuhan Laut Belang-Belang, Mamuju, Sulawesi Barat",
+      "company": "PT Awana Sawit Lestari",
+      "vessel": "MV Brother 36",
+      "source_class": "government_quarantine_release",
+      "source_url": "https://karantinaindonesia.go.id/",
+      "claim_scope": "single export shipment; does not prove KCP ownership or permanent port loading capacity",
+      "status": "historical_shipment_evidence"
+    },
+    {
+      "evidence_id": "pke-shipment-002",
+      "event_date": "2026-07-17",
+      "product": "PKE",
+      "quantity_mt": 7800,
+      "origin_logistics_node": "Pulau Baai, Bengkulu",
+      "transit_port": "Pelabuhan Panjang, Lampung",
+      "export_destination": "New Zealand",
+      "source_class": "government_quarantine_release",
+      "source_url": "https://karantinaindonesia.go.id/",
+      "claim_scope": "shipment corridor evidence only; not a permanent PKS-port road route or loading-service confirmation",
+      "status": "historical_shipment_evidence"
+    },
+    {
+      "evidence_id": "pke-shipment-003",
+      "event_date": "2026-07-03",
+      "product": "PKE",
+      "quantity_mt": 14000,
+      "origin_region": "Lampung",
+      "export_destination": "New Zealand",
+      "company": null,
+      "source_class": "government_quarantine_release",
+      "source_url": "https://karantinaindonesia.go.id/",
+      "claim_scope": "export event with exporter unnamed; do not create a company record",
+      "status": "historical_shipment_evidence"
+    }
+  ],
+  "excluded_from_canonical_import": [
+    "ADM and buyer supply-chain mill lists unless each entry is independently proven to be a KCP producing PKE",
+    "unattributed regional export aggregates as company/facility records",
+    "straight-line distance as road distance",
+    "historical capacity values as current operational capacity",
+    "shipment exporter as KCP owner without documentary evidence"
+  ]
+}

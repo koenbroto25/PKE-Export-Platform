@@ -41,7 +41,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   const buyerProjection=path.startsWith("/api/v1/buyer/");
   const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:scenarios|simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|buyer-visibility-grants(?:\/|$)|loading-operations(?:\/|$))/.test(path);
   const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);
-  const p17SchemaBackedRead=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:scenarios|simulation-scenarios|change-requests)(?:\/|$)|buyer-visibility-grant-candidates(?:\/|$)|buyer-visibility-grants(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|maritime-workflow-events(?:\/|$)|loading-operations(?:\/|$)|vessel-positions(?:\/|$)|p17-control-tower(?:\/|$)|vessels\/[^/]+\/advisory-screening(?:\/|$))/.test(path);
+  const p17SchemaBackedRead=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:scenarios|simulation-scenarios|change-requests)(?:\/|$)|buyer-visibility-grant-candidates(?:\/|$)|buyer-visibility-grants(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|maritime-workflow-events(?:\/|$)|loading-operations(?:\/|$)|vessel-positions(?:\/|$)|p17-control-tower(?:\/|$))/.test(path);
   const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating);
   if(!protectedPath)return next();
   const migrationFiles=[

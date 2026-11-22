@@ -47,6 +47,7 @@ ALTER TABLE public.loading_operations
       AND laytime_start_at IS NOT NULL AND laytime_end_at IS NOT NULL
       AND laytime_start_at>=notice_of_readiness_at AND laytime_end_at>=laytime_start_at AND allowed_hours IS NOT NULL AND allowed_hours>=0
       AND NULLIF(btrim(COALESCE(evidence_object_key,'')),'') IS NOT NULL
+      AND evidence_object_key !~* '^https?://' AND evidence_object_key !~ '(^/|(^|/)\.\.(/|$))'
       AND evidence_sha256 ~ '^[0-9a-f]{64}$')
   ),
   CONSTRAINT loading_acceptance_review_ck CHECK(

@@ -214,6 +214,39 @@ CREATE TRIGGER p18_regulatory_source_verification_guard
 BEFORE INSERT OR UPDATE ON public.regulatory_sources
 FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_source_verification();
 
+CREATE OR REPLACE FUNCTION public.p18_guard_country_requirement_verification()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+  IF TG_OP='UPDATE' AND OLD.verification_status='verified' AND
+     ROW(NEW.country_code,NEW.product_id,NEW.document_type_id,NEW.regulatory_source_id,
+         NEW.importing_authority,NEW.mandatory,NEW.effective_from,NEW.effective_to,
+         NEW.official_source_url,NEW.condition_schema)
+     IS DISTINCT FROM
+     ROW(OLD.country_code,OLD.product_id,OLD.document_type_id,OLD.regulatory_source_id,
+         OLD.importing_authority,OLD.mandatory,OLD.effective_from,OLD.effective_to,
+         OLD.official_source_url,OLD.condition_schema) THEN
+    RAISE EXCEPTION 'Verified country requirement is immutable; create a new version' USING ERRCODE='23514';
+  END IF;
+  IF NEW.verification_status='verified' THEN
+    IF NEW.verified_by IS NULL OR NEW.verified_by=NEW.created_by THEN
+      RAISE EXCEPTION 'Independent reviewer required for country requirement verification' USING ERRCODE='23514';
+    END IF;
+    IF NEW.regulatory_source_id IS NULL OR NOT EXISTS(
+      SELECT 1 FROM public.regulatory_sources s WHERE s.id=NEW.regulatory_source_id AND s.verification_status='verified'
+    ) THEN
+      RAISE EXCEPTION 'Country requirement must reference a verified regulatory source' USING ERRCODE='23514';
+    END IF;
+    NEW.last_verified_at=COALESCE(NEW.last_verified_at,now());
+  END IF;
+  NEW.updated_at=now();
+  RETURN NEW;
+END $;
+
+DROP TRIGGER IF EXISTS p18_country_requirement_verification_guard ON public.country_export_document_requirements;
+CREATE TRIGGER p18_country_requirement_verification_guard
+BEFORE INSERT OR UPDATE ON public.country_export_document_requirements
+FOR EACH ROW EXECUTE FUNCTION public.p18_guard_country_requirement_verification();
+
 CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_rule_version_lifecycle()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -262,6 +295,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_rules' AND policyname='p18_regulatory_rules_insert') THEN RAISE EXCEPTION 'P18 rule insert policy missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='regulatory_rule_versions' AND policyname='p18_regulatory_rule_versions_insert') THEN RAISE EXCEPTION 'P18 version insert policy missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_regulatory_rule_version_lifecycle_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 immutable version trigger missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='p18_country_requirement_verification_guard' AND NOT tgisinternal) THEN RAISE EXCEPTION 'P18 country requirement verification trigger missing'; END IF;
 END
 $verify$;
 

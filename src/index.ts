@@ -4029,6 +4029,40 @@ async function requireP16ReadAccess(req: express.Request, res: express.Response,
 }
 
 
+
+// P17 Production-compatible read-only shipment evidence projections.
+app.get("/api/v1/projects/:projectId/shipments/:shipmentId/timeline", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = String(req.params.projectId || "");
+  const shipmentId = String(req.params.shipmentId || "");
+  if (!p16UuidPattern.test(projectId) || !p16UuidPattern.test(shipmentId)) return res.status(400).json({ error: "Valid Project and shipment ids are required." });
+  if (!(await requireProjectPermission(req, res, projectId, "shipment.view"))) return;
+  try {
+    const shipment = await req.db.query("SELECT id, project_id, shipment_code, status FROM public.shipments WHERE id=$1::uuid AND project_id=$2::uuid", [shipmentId, projectId]);
+    if (!shipment.rows.length) return res.status(404).json({ error: "Shipment not found in this Project." });
+    const events = await req.db.query(
+      "SELECT id,event_type,status,event_timestamp,recorded_at,quantity_delta,unit_code,source,evidence_object_key,reason,metadata FROM public.shipment_events WHERE shipment_id=$1::uuid AND project_id=$2::uuid ORDER BY event_timestamp ASC,recorded_at ASC,id ASC LIMIT 500",
+      [shipmentId, projectId],
+    );
+    return res.json({ projectId, shipment: shipment.rows[0], events: events.rows, readOnly: true });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
+app.get("/api/v1/projects/:projectId/loading-operations/:operationId/tickets", requireAuth, async (req: express.Request, res: express.Response) => {
+  const projectId = String(req.params.projectId || "");
+  const operationId = String(req.params.operationId || "");
+  if (!p16UuidPattern.test(projectId) || !p16UuidPattern.test(operationId)) return res.status(400).json({ error: "Valid Project and loading operation ids are required." });
+  if (!(await requireProjectPermission(req, res, projectId, "shipment.view"))) return;
+  try {
+    const operation = await req.db.query("SELECT id,project_id,vessel_id,port_id,quantity,status,started_at,completed_at FROM public.loading_operations WHERE id=$1::uuid AND project_id=$2::uuid", [operationId, projectId]);
+    if (!operation.rows.length) return res.status(404).json({ error: "Loading operation not found in this Project." });
+    const tickets = await req.db.query(
+      "SELECT id,loading_operation_id,lot_id,ticket_number,ticket_type,quantity,unit_code,measured_at,object_key,sha256_checksum,verified_by,verified_at,status FROM public.loading_tickets WHERE loading_operation_id=$1::uuid AND project_id=$2::uuid ORDER BY measured_at ASC,created_at ASC LIMIT 500",
+      [operationId, projectId],
+    );
+    return res.json({ projectId, operation: operation.rows[0], tickets: tickets.rows, readOnly: true });
+  } catch { return res.status(500).json(internalServerErrorPayload()); }
+});
+
 app.get("/api/v1/ports", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = typeof req.query.projectId === "string" ? req.query.projectId : "";
   if (!(await requireP16ReadAccess(req, res, projectId, "port.view"))) return;

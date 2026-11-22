@@ -216,3 +216,25 @@ describe("P17-B Platform Admin identity and geospatial review UI",()=>{
   expect(API).toContain("PORT_GEO_MAKER_CHECKER");
  });
 });
+
+describe("P17 Production-safe read projections",()=>{
+ const MAIN=readFileSync(join(ROOT,"src","index.ts"),"utf8");
+ const APP=readFileSync(join(ROOT,"frontend","src","App.tsx"),"utf8");
+ const PAGE=readFileSync(join(ROOT,"frontend","src","role-permissions.ts"),"utf8");
+ const PORT=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");
+ it("reads shipment events and loading tickets using Project-scoped SQL predicates",()=>{
+  expect(MAIN).toContain("/api/v1/projects/:projectId/shipments/:shipmentId/timeline");
+  expect(MAIN).toContain("/api/v1/projects/:projectId/loading-operations/:operationId/tickets");
+  expect(MAIN).toContain("WHERE shipment_id=$1::uuid AND project_id=$2::uuid");
+  expect(MAIN).toContain("WHERE loading_operation_id=$1::uuid AND project_id=$2::uuid");
+ });
+ it("mounts the maritime workspace and gates it by Project permissions",()=>{
+  expect(APP).toContain("MaritimeOperationsWorkspace");
+  expect(APP).toContain("/maritime-operations");
+  expect(PAGE).toContain("'maritime-operations'");
+ });
+ it("discloses the buyer identity/grant blocker and preliminary assessment limitation",()=>{
+  expect(APP).toContain("identitas Neon Auth belum dipetakan");
+  expect(PORT).toContain("tidak pernah menjadi izin sandar atau navigasi");
+ });
+});

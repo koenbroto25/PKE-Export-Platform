@@ -14,9 +14,10 @@ import RoleDashboardPage from './RoleDashboardPage';
 import P1WorkflowWorkbench from './P1WorkflowWorkbench';
 import MasterDataChangeRequests from './MasterDataChangeRequests';
 import PortNetworkPage from './PortNetworkPage';
+import MaritimeOperationsWorkspace from './MaritimeOperationsWorkspace';
 
 type AnyRecord = Record<string, any>;
-type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network';
+type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network' | 'maritime-operations';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -26,6 +27,7 @@ const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDa
   { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'Workspace' },
   { to: '/pks-sites', key: 'pks-sites', label: 'PKS & Supplier', icon: Building2, group: 'Workspace' },
   { to: '/port-network', key: 'port-network', label: 'Pelabuhan & Gudang', icon: Ship, group: 'Workspace' },
+  { to: '/maritime-operations', key: 'maritime-operations', label: 'Voyage & Kapal', icon: Ship, group: 'Eksekusi' },
   { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'Workspace' },
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'Eksekusi' },
   { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow P1', icon: Workflow, group: 'Eksekusi' },
@@ -188,6 +190,7 @@ function App() {
             <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/pks-sites" element={<RoleGuard allowedKeys={['pks-sites']} activeUser={workspaceUser}><PksSitesPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/port-network" element={<RoleGuard allowedKeys={['port-network']} activeUser={workspaceUser}><PortNetworkPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
+            <Route path="/maritime-operations" element={<RoleGuard allowedKeys={['maritime-operations']} activeUser={workspaceUser}><MaritimeOperationsWorkspace projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/projects/create" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectWizardPage onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id" element={<RoleGuard allowedKeys={['project-detail']} activeUser={workspaceUser}><ProjectDetailPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/projects/:id/edit" element={<RoleGuard allowedKeys={['project-edit']} activeUser={workspaceUser}><ProjectEditPage onNotice={notify} /></RoleGuard>} />
@@ -1414,6 +1417,7 @@ function PaymentInstructionsPage({ onNotice }: { onNotice: (kind: 'success' | 'e
 
 function BuyerWorkspacePage({ projectId, onNotice }: { projectId: string; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   return <>
+    <div className="inline-warning"><CircleAlert size={17} /> Buyer Export Portal belum aktif: identitas Neon Auth belum dipetakan secara terverifikasi ke buyer master, dan endpoint buyer-scoped dengan visibility grant belum tersedia pada runtime. Data kontrak, shipment, posisi kapal dan dokumen ditahan. BuyerId dari URL/query/email bukan dasar otorisasi.</div>
     <PageTitle eyebrow="BUYER PORTAL" title="Workspace Buyer" subtitle="Lihat kontrak, pengiriman, dan dokumen yang dibagikan untuk buyer." />
     <div className="metric-grid three"><Metric label="Kontrak aktif" value="—" foot="Tidak ada data dummy" icon={BriefcaseBusiness} tone="navy" /><Metric label="Pengiriman" value="—" foot="Menunggu data nyata" icon={Truck} tone="blue" /><Metric label="Dokumen dibagikan" value="—" foot="Tidak ada dummy" icon={FileCheck2} tone="green" /></div>
     <Card><PanelHeading title="Kontrak Saya" description="Kontrak yang terikat pada buyer ini." /><div className="empty-state"><CircleAlert size={24} /><div className="empty-title">Tidak ada data kontrak</div><div className="empty-desc">Data kontrak hanya ditampilkan setelah buyer ditetapkan pada project dan memiliki sharing grant yang sah.</div></div></Card>

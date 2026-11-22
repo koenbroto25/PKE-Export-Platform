@@ -2,7 +2,7 @@ export type WorkspacePageKey =
   | 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance'
   | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations'
   | 'cash-advances' | 'payment-instructions' | 'my-work' | 'project-detail' | 'project-edit' | 'project-configuration' | 'project-roles' | 'project-members' | 'buyer' | 'supplier' | 'transporter'
-  | 'warehouse' | 'warehouse_manager' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network';
+  | 'warehouse' | 'warehouse_manager' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network' | 'maritime-operations';
 
 export interface WorkspaceAccessUser {
   platformAdmin?: boolean;
@@ -37,6 +37,7 @@ const PAGE_PERMISSION_REQUIREMENTS: Record<string, readonly string[]> = {
   funder: ['funder.view'],
   'pks-sites': ['pks.site.view'],
   'port-network': ['port.view', 'warehouse.view', 'documents.view', 'documents.create', 'documents.update', 'pke.logistics.master.view', 'pke.logistics.master.change_request.manage'],
+  'maritime-operations': ['voyage.view', 'vessel.view', 'vessel.nomination.review', 'shipping.view', 'shipment.view'],
   'p1-workflows': ['procurement.po.view','procurement.commitment.view','procurement.commitment.manage','procurement.po.manage','procurement.match.view','operations.view','quality.sample.view','quality.result.view','quality.release.view','hse.inspection.view','hse.action.view','dispatch.view','shipping.view','shipping.survey.view','shipping.ack.view','shipping.laytime.view','lc.view','audit.finding.view','audit.finding.respond'],
 };
 
@@ -80,6 +81,7 @@ function hasAuthorizedRoleForPage(user: WorkspaceAccessUser, allowedRoles: Set<s
 export function hasPageAccess(pageKey: WorkspacePageKey | string, user: WorkspaceAccessUser): boolean {
   if (pageKey === 'notifications') return true;
   if (pageKey === 'port-network') return user.platformAdmin === true || hasAnyProjectPermission(PAGE_PERMISSION_REQUIREMENTS['port-network'], user);
+  if (pageKey === 'maritime-operations') return Boolean(user.selectedProjectId) && (user.platformAdmin === true || hasAnyProjectPermission(PAGE_PERMISSION_REQUIREMENTS['maritime-operations'], user));
   if (pageKey === 'access') return user.platformAdmin === true || hasAnyProjectPermission(['project.members.view', 'project.members.manage', 'project.roles.manage'], user);
   if (pageKey === 'project-detail') return hasProjectPermission('project.view', user);
   if (pageKey === 'project-edit') return hasProjectPermission('project.update', user);
@@ -122,6 +124,6 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
 }
 
 export function visiblePageKeys(user: WorkspaceAccessUser): WorkspacePageKey[] {
-  const keys: WorkspacePageKey[] = ['dashboard', 'projects', 'contracts', 'operations', 'finance', 'compliance', 'journal-entries', 'shipment-allocations', 'cash-advances', 'payment-instructions', 'reports', 'notifications', 'access', 'buyer', 'supplier', 'transporter', 'warehouse', 'funder', 'p1-workflows', 'pks-sites', 'port-network'];
+  const keys: WorkspacePageKey[] = ['dashboard', 'projects', 'contracts', 'operations', 'finance', 'compliance', 'journal-entries', 'shipment-allocations', 'cash-advances', 'payment-instructions', 'reports', 'notifications', 'access', 'buyer', 'supplier', 'transporter', 'warehouse', 'funder', 'p1-workflows', 'pks-sites', 'port-network', 'maritime-operations'];
   return keys.filter(key => hasPageAccess(key, user));
 }

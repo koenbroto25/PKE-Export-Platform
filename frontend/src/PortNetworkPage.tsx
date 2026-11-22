@@ -437,7 +437,7 @@ function PortDetail({ data }: { data: Row | null }) {
         <Fact label="Terverifikasi pada" value={port.verified_at ? new Date(port.verified_at).toLocaleString("id-ID") : "Belum diverifikasi"} />
       </div>
       {groups.map(([title, rows]) => <div className="p16-group" key={title}><h3>{title} <span>{rows.length}</span></h3>{rows.length ? rows.map(row => <div className="p16-record" key={row.id}><div><strong>{row.name || row.channel_name || row.anchorage_code || row.berth_code || row.service_type || row.equipment_type || row.feature_type || row.authority_name || "Record"}</strong><small>{row.depth_value ? `${row.depth_value} ${row.depth_unit || "m"} · datum: ${row.vertical_datum || row.depth_datum || "tidak dicantumkan"}` : row.source_reference || row.source_authority || "Sumber belum dicantumkan"}</small></div><Status value={row.effective_verification_status || row.quality_status || row.approval_status || row.verification_status || row.status || row.condition_status} /></div>) : <p className="p16-muted">Belum ada record.</p>}</div>)}
-      <p className="p16-warning">Kompatibilitas kapal belum dihitung di workspace ini. Kedalaman tanpa datum, tanggal survei dan sumber otoritatif tidak boleh dipakai sebagai dasar keputusan operasional.</p>
+      <p className="p16-warning">Screening kompatibilitas kapal tersedia pada formulir di atas. Hasil hanya advisory: data kapal/port tanpa sumber, datum, tanggal survei, batas operasional, atau observasi pasang-surut yang masih berlaku akan menghasilkan insufficient_data/manual_review_required dan tidak pernah menjadi izin sandar atau navigasi.</p>
     </div>
   );
 }

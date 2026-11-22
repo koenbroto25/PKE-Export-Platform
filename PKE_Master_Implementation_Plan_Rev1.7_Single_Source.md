@@ -10536,3 +10536,47 @@ P15 engineering implementation and UAT database/security backtests are complete.
 - Two pre-existing contract tests were updated to assert the new RLS-safe resolver boundary and preserve Funder isolation checks; final branch CI is green.
 - Current UAT ledger remains 95 rows (79 applied, 16 baselined, 0 pending); Production ledger remains 53 rows. No test document, depth/tide observation, object, or one-shot credential remains.
 - No merge or Vercel deployment was performed; browser UAT remains deferred.
+
+
+---
+
+## 56.55 — P17 Indonesia maritime open-data integration plan (2026-11-22)
+
+**Status: OWNER-ACCEPTED PLAN / IMPLEMENTATION NOT STARTED.** The detailed, P17-only execution specification is maintained in `docs/P17_MARITIME_OPEN_DATA_INTEGRATION_PLAN.md` and is normative for P17 implementation. This section supplements—not replaces—§7, §17.2–17.4, Sprint 08 and the accepted Indonesia-only requirements in §56.43.
+
+### A. Source strategy and licensing boundary
+- Initial open-data candidates: Kemenhub MaritimHub Data Master Pelabuhan for the official port-master candidate; BMKG Maritime API for forecast/warning data actually exposed by documented endpoints; HOTOSM/HDX Indonesia Sea Ports for a separately attributed ODbL community geometry layer.
+- Supplementary official references: Hubla/PPID for SBNP, SROP, VTS and navigation-district documents; BIG/Pushidrosal/IHDC only where access, currency and reuse rights are confirmed; UNECE UN/LOCODE for versioned identifier cross-reference.
+- Free access is not blanket commercial redistribution permission. Record endpoint-specific access, commercial use, display, redistribution, derivative, caching, retention, attribution, quota and termination terms before activation. Unknown rights fail closed.
+- HOTOSM/OSM geometry remains distinct from official Kemenhub port identity and operational limits. ODbL attribution/share-alike implications and map-tile/style rights require review. MapLibre is a renderer, not a map-data or tile provider.
+- BMKG fields (including tide/current/visibility) are integrated only where the selected endpoint actually exposes them for the required area and forecast horizon. Store units, issue/validity timestamps and freshness; forecast is not observation or clearance.
+- AIS provider choices are conditional: VesselAPI free tier is a capped technical trial and customer-facing display requires provider approval; AISHub/AIS Friends require receiver contribution; Data Docked trial credits are not a permanent free tier; Telkomsat sandbox is not proof of a production API or redistribution right. No subscription, receiver, hardware or provider contract is authorized.
+
+### B. Architecture and implementation order
+1. Read-only UAT/source/API/RLS/permission/buyer-identity inventory; reuse existing P16/P17 schema and avoid duplicate tables.
+2. MaritimHub port-master staging, versioned import, idempotent reconciliation and conflict review.
+3. HOTOSM geometry layer with ODbL obligations and separate provenance.
+4. BMKG server-side adapter, cache, issue/validity and stale-state handling.
+5. Vessel identity and provider-neutral AIS adapter, Indonesia-only coverage assessment, freshness and manual agent milestone fallback.
+6. Project-scoped voyage, nomination, port compatibility, shipment timeline and loading/quantity reconciliation.
+7. Verified buyer identity/grant isolation, Buyer Shipment 360, Shipping Agent workspace and evidence-based Export/Vessel Readiness Control Tower.
+8. Provider, data-quality, role/RLS, IDOR, workflow and full P0–P16 regression backtests.
+
+### C. Non-negotiable constraints
+- No duplicate schema; inspect live UAT catalog and migration history before proposing DDL. Current reported UAT migration ledger after P16 is 95 rows; verify before naming a next migration (096 is not yet prepared or approved).
+- Port depth, berth/channel limits, SBNP status, clearance and terminal capacity require current authoritative evidence; never infer them from community geometry.
+- AIS is Indonesia-only situational awareness. No global feed, safety-of-life use, automatic arrival/clearance or loading authorization from AIS.
+- Buyer identity is derived from authenticated principal and verified buyer grants; never trust browser-supplied buyer_id. API and RLS both enforce Project/object scope.
+- Production remains untouched; Vercel deployment/environment changes remain frozen; PR #2 remains OPEN/DRAFT and unmerged; no paid service, hardware or subscription.
+
+### D. Acceptance gates
+- Source-rights register and data-field mapping approved for each enabled source.
+- Port imports are versioned, idempotent and reconciled; missing/invalid/conflicting data is not silently promoted.
+- Weather and AIS freshness, outage, timestamp, unit, duplicate and invalid-payload tests pass.
+- Manual voyage/ETA/port-call workflow works with AIS providers disabled.
+- Vessel nomination maker-checker, port compatibility fail-closed rules, shipment event idempotency and quantity reconciliation pass.
+- Buyer IDOR, cross-Project, cross-buyer, revoked/expired grant and private-document tests pass.
+- READY/AT RISK/NOT READY is evidence/checklist-driven; AIS alone cannot produce READY.
+- Full P0–P16 regression, cleanup and evidence matrix complete. External rights/coverage dependencies remain explicitly BLOCKED_EXTERNAL rather than being falsely marked PASS.
+
+**Next action:** P17-1 read-only inventory and gap matrix. No Migration 096 or provider activation until that evidence exists. Vercel/deployment work remains excluded.

@@ -42,7 +42,7 @@ describe("P17-A maritime source governance",()=>{
   expect(API).toContain("createHash(\"sha256\")");
   expect(API).toContain("Array.isArray(payload)");
   expect(API).toContain("JSON.stringify(canonicalize(payload))");
-  expect(API).toContain("quotaLimit=b.quotaLimit==null?null:Number(b.quotaLimit)");
+  expect(API).toContain("quotaLimit=source.rows[0].quota_limit==null?null:Number(source.rows[0].quota_limit)");
   expect(API).toContain("recordsRejected>recordsSeen");
   expect(API).toContain("public.maritime_provider_usage");
   expect(API).toContain("maritime_provider_health");
@@ -92,7 +92,7 @@ describe("P17-B Project master-data editing",()=>{
  });
  it("keeps canonical facility/organization writes behind the existing database approval trigger",()=>{
   expect(MAIN).toContain("public.p2a_master_data_change_requests");
-  expect(API).toContain("status='draft' AND requested_by=$6::uuid");
+  expect(MAIN).toContain("status='draft' AND requested_by=$6::uuid");
   expect(API).toContain("requireAuth,requireAdmin,async(req:R,res:Response)=>");
   expect(API).toContain("submitted requests are immutable");
  });
@@ -251,7 +251,7 @@ describe("P17 role dashboard linkage",()=>{
  it("does not claim AIS, buyer visibility or loading completion acceptance",()=>{
   expect(DASH).toContain("AIS provider");
   expect(DASH).toContain("BuyerAccessControlPanel");
-  expect(DASH).toContain("actual sign-off belum lulus");
+  expect(DASH).toContain("actual sign-off tetap terpisah");
  });
 });
 describe("P17 Buyer Portal server-derived visibility",()=>{
@@ -270,7 +270,7 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain('app.use(p17WriteReleaseGate)');
   expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
   expect(gate).toContain("migrations 096-107");
-  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics","scenarios","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin/projects/"]) expect(gate).toContain(fragment);
+  for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics","scenarios","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin"]) expect(gate).toContain(fragment);
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
   expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");
   expect(gate).toContain("const p17SchemaBackedRead=");

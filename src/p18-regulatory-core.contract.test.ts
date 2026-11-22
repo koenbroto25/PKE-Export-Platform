@@ -31,6 +31,8 @@ describe("P18 regulatory core contracts",()=>{
   expect(api).toContain("status='approved' AND upload_verified_at IS NOT NULL");
   expect(api).toContain("storage_bucket='pke-private-documents' AND legal_hold=false");
   expect(api).toContain("sha256:d.sha256_checksum");
+  expect(api).toContain("reason_code");
+  expect(api).toContain("PRODUCT_HS_CLASSIFICATION_REQUIRED");
  });
  it("exposes governed source, rule, document and country requirement lifecycle APIs",()=>{
   for(const route of ['/api/v1/regulatory-sources','/api/v1/regulatory-rules','/api/v1/regulatory-rule-versions/:versionId/approve','/api/v1/regulatory-rule-versions/:versionId/activate','/api/v1/country-document-requirements','/api/v1/export-document-types'])
@@ -39,7 +41,7 @@ describe("P18 regulatory core contracts",()=>{
   expect(api).toContain('p18_guard_regulatory_rule_version_lifecycle');
  });
  it("defines runtime RLS write policies and immutable review guards in migration 111",()=>{
-  for(const token of ['p18_regulatory_sources_insert','p18_regulatory_rules_insert','p18_regulatory_rule_versions_insert','p18_export_document_types_insert','p18_country_document_requirements_insert','p18_country_requirement_verification_guard','p18_regulatory_rule_version_lifecycle_guard'])
+  for(const token of ['reason_code text','p18_regulatory_assessment_review_guard','p18_regulatory_assessment_result_review_guard','p18_regulatory_sources_insert','p18_regulatory_rules_insert','p18_regulatory_rule_versions_insert','p18_export_document_types_insert','p18_country_document_requirements_insert','p18_country_requirement_verification_guard','p18_regulatory_rule_version_lifecycle_guard'])
    expect(migration).toContain(token);
  });
  it("maps the Regulatory Compliance Officer role to least-privilege permissions",()=>{

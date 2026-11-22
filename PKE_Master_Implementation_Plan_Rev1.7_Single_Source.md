@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.23 — P17 evidence integrity, Buyer portal and logistics prioritization
+# Master Implementation Plan Rev2.24 — P17 source regression and frontend build acceptance
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.23 (22 November 2026 — P17 private evidence verification, Buyer portal visibility, AIS freshness and PKS-port capability ranking)  
+**Revision:** 2.24 (22 November 2026 — P17 source regression, backend/frontend typecheck and build acceptance)  
 
 **Tanggal dokumen:** 22 November 2026  
 
@@ -8456,7 +8456,17 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - PostgreSQL EXPLAIN succeeded for the PKS-to-port capability query, Project Control Tower existing-schema queries, Admin Control Tower queries, P17-C vessel/terminal advisory queries, and existing loading-ticket/segment aggregates.
 - Read-only Production preflight for the dynamic gate found 0/12 P17 migrations applied, 24/40 protected tables present (all present tables had RLS and policies), and 2/9 required permissions present. The gate therefore correctly remains closed.
 - The loading-operation GET query was adjusted to use NULL::text AS unit_code until migration 107 exists; its pre-migration query plan succeeded.
-- Static source assertions and migration atomicity checks were expanded. Root npm test, TypeScript build, frontend build and API runtime acceptance have not been executed in this tranche; no test PASS is claimed.
+- GitHub Actions Unit Tests workflow run 45020377606 completed successfully on commit `efed1b0bd50b30fa350d738155a05cc8ed79ab61`: offline security/unit tests PASS; Production migration ledger/release-gate checks PASS; applied Migration 052 and backup evidence checks PASS; prepared Migration 054/055 contract checks PASS; migration-runner dry-run PASS; backend build PASS; backend API typecheck PASS; frontend typecheck PASS; frontend build PASS. This is source/build acceptance only, not P17 Production API runtime acceptance.
 - No Production SQL mutation, migration execution, role/RLS change, provider connection, Buyer grant, merge or Vercel deployment was performed. Vercel remains skipped.
 
 **P17 status: IN PROGRESS — NOT ALL PASS.** External rights/provider evidence, owner-authorized Production release of migrations 096–107, real Buyer identity/grants, real loading evidence and executable regression remain release blockers.
+
+
+### P17 source regression closure — CI run 45020377606
+- Corrected stale P17 contract assertions to follow the actual route-module boundary, current API error codes, explicit Buyer identity flag, current Control Tower response shape, and migration 107 trigger naming.
+- Removed a duplicated trailing SQL fragment from migration 107; migration now has one BEGIN/COMMIT boundary and one loading-operation unit guard definition.
+- Fixed Buyer shipment metric type in App.tsx; the final frontend TypeScript check and build passed.
+- Final source commit validated by CI: `efed1b0bd50b30fa350d738155a05cc8ed79ab61`. Unit/security tests, backend build/typecheck, frontend typecheck/build, migration runner dry-run and pre-existing Production ledger checks all passed.
+- Production read-only preflight remains 0/12 P17 migrations applied; protected schema/RLS and role-permission requirements are incomplete. P17 mutations and Buyer schema-backed surfaces remain fail-closed. No P17 migrations were applied, no Production data was changed, no external provider credentials/rights were fabricated, no merge/deployment was run, and Vercel remains skipped.
+
+**P17 source-level status: PASS for current CI suite and frontend/backend builds. Overall operational release: IN PROGRESS — blocked on owner-authorized Production migration release, external source/AIS rights and credentials, verified port/PKS/terminal/warehouse evidence, real Buyer identity/grants, and real survey/ticket/NOR/laytime evidence plus post-release API acceptance.**

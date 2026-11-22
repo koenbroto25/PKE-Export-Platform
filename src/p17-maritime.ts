@@ -110,12 +110,12 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   const b=req.body||{},sourceCode=str(b.sourceCode,64),external=str(b.externalRecordId,240),port=str(b.portId,64);
   const reference=str(b.sourceReference,1000),method=str(b.matchMethod,30)||"manual";
   const confidence=b.matchConfidence==null?null:Number(b.matchConfidence);
-  const snapshot=b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:{};
+  const snapshot=b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:null;
   const evidenceHash=str(b.evidenceSha256,64)||null;
   if(!sourceCode||!external||!uuidPattern.test(port)||reference.length<8||
     !["manual","official_code","unlocode","name_location","coordinate","fuzzy_candidate"].includes(method)||
     !Number.isFinite(confidence??0)||(confidence!==null&&(confidence<0||confidence>1))||
-    (evidenceHash!==null&&!/^[a-f0-9]{64}$/.test(evidenceHash)))
+    (!snapshot||Object.keys(snapshot).length===0||JSON.stringify(snapshot).length>65536||!evidenceHash||!/^[a-f0-9]{64}$/.test(evidenceHash)||createHash("sha256").update(JSON.stringify(canonicalize(snapshot))).digest("hex")!==evidenceHash))
     return bad(res,400,"PORT_CROSSWALK_INVALID","Source, external identity, canonical port, supported match method, source reference and valid confidence/evidence are required.");
   try{
    const q=await req.db.query(

@@ -6,6 +6,7 @@ on:
       - phase0/reconcile-source-20261117
       - f1/project-scoped-cob-20261119
       - p17b/operational-readiness-20261122
+      - p18/regulatory-core-20261123
   workflow_dispatch:
   pull_request:
     branches:

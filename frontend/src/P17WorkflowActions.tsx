@@ -2,16 +2,16 @@ import { useState, type FormEvent } from "react";
 import { post, patch } from "./api";
 
 type Row=Record<string,any>;
-type Props={projectId:string;permissions:string[];voyages:Row[];nominations:Row[];onChanged:()=>void};
+type Props={projectId:string;permissions:string[];platformAdmin?:boolean;voyages:Row[];nominations:Row[];onChanged:()=>void};
 const localNow=()=>{const d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,16);};
-export default function P17WorkflowActions({projectId,permissions,voyages,nominations,onChanged}:Props){
+export default function P17WorkflowActions({projectId,permissions,platformAdmin=false,voyages,nominations,onChanged}:Props){
  const [voyageCode,setVoyageCode]=useState(""),[vesselId,setVesselId]=useState("");
  const [shipmentId,setShipmentId]=useState(""),[nominationVesselId,setNominationVesselId]=useState(""),[nominationVoyageId,setNominationVoyageId]=useState("");
  const [portVoyageId,setPortVoyageId]=useState(""),[portId,setPortId]=useState(""),[eventType,setEventType]=useState("planned_arrival"),[eventAt,setEventAt]=useState(localNow());
  const [decision,setDecision]=useState("identity_verified"),[decisionNote,setDecisionNote]=useState("");
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
  const run=async(fn:()=>Promise<unknown>,success:string)=>{setBusy(true);setError("");setMessage("");try{await fn();setMessage(success);onChanged();}catch(e){setError(e instanceof Error?e.message:"Permintaan P17 gagal.");}finally{setBusy(false);}};
- const canCreateVoyage=permissions.includes("voyage.create"),canNominate=permissions.includes("vessel.nominate"),canReview=permissions.includes("vessel.nomination.review"),canManageCall=permissions.includes("vessel.port_call.manage"),canConfirmCall=permissions.includes("vessel.port_call.confirm");
+ const canCreateVoyage=platformAdmin||permissions.includes("voyage.create"),canNominate=platformAdmin||permissions.includes("vessel.nominate"),canReview=platformAdmin||permissions.includes("vessel.nomination.review"),canManageCall=platformAdmin||permissions.includes("vessel.port_call.manage"),canConfirmCall=platformAdmin||permissions.includes("vessel.port_call.confirm");
  const portCallEvents=[...(canManageCall?["planned_arrival","eta_update","cancelled"]:[]),...(canConfirmCall?["arrived","berthed","departed"]:[])];
  const effectiveEventType=portCallEvents.includes(eventType)?eventType:(portCallEvents[0]||"planned_arrival");
  const submitVoyage=(e:FormEvent)=>{e.preventDefault();void run(()=>post("/projects/"+encodeURIComponent(projectId)+"/voyages",{voyageCode:voyageCode.trim(),vesselId:vesselId.trim()||null,idempotencyKey:crypto.randomUUID()}),"Voyage dibuat.");};

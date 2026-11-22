@@ -167,6 +167,9 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    const t=await req.db.query("SELECT id,port_id,terminal_code,name,status,verified_at,cargo_types,operating_restrictions,source_reference FROM public.port_terminals WHERE id=$1::uuid AND port_id=$2::uuid",[terminal,port]);
    if(!v.rows.length||!t.rows.length)return bad(res,404,"VESSEL_OR_TERMINAL_NOT_FOUND","Active vessel and terminal at the selected port are required.");
    const vesselRow=v.rows[0],terminalRow=t.rows[0],limits=terminalRow.operating_restrictions||{};
+   const known=(x:unknown)=>x!==null&&x!==undefined&&x!==""&&Number.isFinite(Number(x));
+   const vesselCargo=JSON.stringify(vesselRow.cargo_capabilities||{});
+   const terminalCargo=Array.isArray(terminalRow.cargo_types)?terminalRow.cargo_types.join(" "):"";
    const checks=[
     {code:"vessel_master_verified",status:vesselRow.verification_status==="verified"&&!!vesselRow.verified_at?"evidenced":"unknown"},
     {code:"terminal_master_verified",status:terminalRow.status==="verified"&&!!terminalRow.verified_at?"evidenced":"unknown"},

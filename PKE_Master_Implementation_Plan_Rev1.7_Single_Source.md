@@ -8438,3 +8438,23 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 
 **P17 status remains IN PROGRESS — NOT ALL PASS.** This source tranche implements the outstanding code paths and records the exact gates; it does not substitute for executable regression, authorized schema release or real operational evidence.
 
+
+## 55.30 P17 evidence integrity and portal hardening — 22 November 2026
+
+### Implemented source changes
+- Rebuilt migrations 106 and 107 as single atomic transactions after detecting and removing duplicated migration tails. All migrations 096–107 now have one BEGIN/COMMIT block in source.
+- Migration 106 preserves legacy global position reads only for legacy rows and restricts source-backed AIS reads to accepted, Project-linked, current-rights observations. Independent rejection remains possible after source rights expire.
+- AIS ingestion requires a canonical raw payload object, server-recomputed canonical SHA-256, field allowlist, normalized-field equality, MMSI match, source rights and field-purpose permissions. Source metadata controls freshness SLA and delayed grace; no SLA means unknown.
+- Migration 107 adds verified evidence file size, one pending acceptance version per operation/type, immutable evidence and reviewer stamps, and database-side rejection of quantity acceptance when operation, verified tickets and completed segments do not match.
+- P17 loading workflow now uses private object storage presigning under the Project/operation/type namespace; the server downloads/recomputes actual object size and SHA-256 before inserting the acceptance record. The UI uploads the file rather than trusting a typed object key/hash.
+- Loading operation GET remains schema-compatible before migration 107; unit assignment and acceptance show unavailable until the required schema is released.
+- PKE route projection lists all verified active PKS routes for operating palm-oil/kernel-crushing sites, marks shipment destinations and alternatives, checks PKE cargo terminals, loading equipment and verified warehouse evidence, and ranks evidence candidates before other routes by distance.
+- Buyer Portal visibility is derived by /api/v1/me from an active explicit Neon Auth mapping and active supported grant. It is cross-Project and does not require Project membership. Buyer milestone UI uses a restricted server projection without internal reason fields.
+
+### Read-only validation performed
+- PostgreSQL EXPLAIN succeeded for the PKS-to-port capability query, Project Control Tower existing-schema queries, Admin Control Tower queries, P17-C vessel/terminal advisory queries, and existing loading-ticket/segment aggregates.
+- The loading-operation GET query was adjusted to use NULL::text AS unit_code until migration 107 exists; its pre-migration query plan succeeded.
+- Static source assertions and migration atomicity checks were expanded. Root npm test, TypeScript build, frontend build and API runtime acceptance have not been executed in this tranche; no test PASS is claimed.
+- No Production SQL mutation, migration execution, role/RLS change, provider connection, Buyer grant, merge or Vercel deployment was performed. Vercel remains skipped.
+
+**P17 status: IN PROGRESS — NOT ALL PASS.** External rights/provider evidence, owner-authorized Production release of migrations 096–107, real Buyer identity/grants, real loading evidence and executable regression remain release blockers.

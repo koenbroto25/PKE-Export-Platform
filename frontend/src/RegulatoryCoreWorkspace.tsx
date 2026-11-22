@@ -27,6 +27,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
   const [assessmentDetail,setAssessmentDetail]=useState<AnyRecord|null>(null);
   const [reviewReason,setReviewReason]=useState("Reviewed against verified source and attached Project evidence.");
   const [ruleReviewReason,setRuleReviewReason]=useState("Rule source or interpretation requires revision before approval.");
+  const [versionTarget,setVersionTarget]=useState<string>("");
   const [loading,setLoading]=useState(false);
   const [busy,setBusy]=useState(false);
   const [sourceForm,setSourceForm]=useState({sourceId:"",title:"",issuingAuthority:"",jurisdiction:"ID",effectiveDate:today,officialUrl:"",sha256Checksum:""});
@@ -66,7 +67,8 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
       const conditions=JSON.parse(ruleForm.conditions);const documents=JSON.parse(ruleForm.documents);
       if(!Array.isArray(conditions)||!Array.isArray(documents))throw new Error("Conditions dan documents harus berupa JSON array.");
       const payload={...ruleForm,conditions,documents};delete (payload as AnyRecord).conditionsText;
-      await post("/regulatory-rules",payload);onNotice("success","Rule dan draft version berhasil dibuat.");setRuleForm(v=>({...v,ruleCode:"",title:"",summary:""}));await refresh();
+      if(versionTarget) await post(`/regulatory-rules/${encodeURIComponent(versionTarget)}/versions`,payload); else await post("/regulatory-rules",payload);
+      onNotice("success",versionTarget?"Draft rule version baru berhasil dibuat.":"Rule dan draft version berhasil dibuat.");setVersionTarget("");setRuleForm(v=>({...v,ruleCode:"",title:"",summary:""}));await refresh();
     }catch(e){onNotice("error",e instanceof Error?e.message:"Rule gagal dibuat.");}finally{setBusy(false);}
   };
   const transitionRule=async(versionId:string,action:"submit-review"|"approve"|"reject"|"activate")=>{
@@ -112,7 +114,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
       <div className="activity-list">{sources.map(s=><div className="activity-item" key={s.id}><div className="activity-copy"><strong>{s.title}</strong><span>{s.sourceId} · {s.issuingAuthority} · {s.jurisdiction}</span><small>{s.verificationStatus} · {s.officialUrl||"URL belum tersedia"}</small></div>{canSourceManage&&["pending","reviewed"].includes(s.verificationStatus)&&<button className="secondary-button" disabled={busy||s.createdBy===activeUser?.id} onClick={()=>void reviewSource(s)}>Verify (independent)</button>}</div>)}{!sources.length&&<p className="muted">Belum ada sumber yang dapat ditampilkan.</p>}</div>
     </section>}
     {canRuleView&&<section className="card">
-      <h3>Regulatory Rules & Version Lifecycle</h3>
+      <h3>Regulatory Rules & Version Lifecycle</h3>{versionTarget&&<p className="muted">Membuat versi baru untuk rule {versionTarget}. Versi efektif saat ini tetap berlaku sampai versi baru diaktifkan.</p>}
       {canRuleManage&&<form className="form-grid" onSubmit={submitRule}>
         <label>Rule code<input required value={ruleForm.ruleCode} onChange={e=>setRuleForm(v=>({...v,ruleCode:e.target.value}))}/></label>
         <label>Judul<input required value={ruleForm.title} onChange={e=>setRuleForm(v=>({...v,title:e.target.value}))}/></label>
@@ -126,7 +128,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label>Required documents JSON<textarea rows={4} value={ruleForm.documents} onChange={e=>setRuleForm(v=>({...v,documents:e.target.value}))}/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Create draft rule version</button></div>
       </form>}
-      {canRuleManage&&<label>Alasan penolakan versi rule<input value={ruleReviewReason} onChange={e=>setRuleReviewReason(e.target.value)}/></label>}<div className="activity-list">{rules.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.rule_code} · {r.title}</strong><span>{r.jurisdiction} · {r.subject_type} · {r.status}</span><small>v{r.version_number||"—"} · {r.version_status||"no active version"} · Source: {r.source_id||"—"}</small></div>{canRuleManage&&r.active_version_id&&<div className="form-actions"><button className="secondary-button" disabled={busy||r.version_status!=="draft"} onClick={()=>void transitionRule(r.active_version_id,"submit-review")}>Submit review</button><button className="secondary-button" disabled={busy||r.version_status!=="under_review"||r.version_created_by===activeUser?.id} onClick={()=>void transitionRule(r.active_version_id,"approve")}>Approve</button><button className="secondary-button" disabled={busy||r.version_status!=="under_review"||r.version_created_by===activeUser?.id} onClick={()=>void transitionRule(r.active_version_id,"reject")}>Reject</button><button className="secondary-button" disabled={busy||r.version_status!=="approved"} onClick={()=>void transitionRule(r.active_version_id,"activate")}>Activate</button></div>}</div>)}{!rules.length&&<p className="muted">Belum ada rule yang dapat ditampilkan.</p>}</div>
+      {canRuleManage&&<label>Alasan penolakan versi rule<input value={ruleReviewReason} onChange={e=>setRuleReviewReason(e.target.value)}/></label>}<div className="activity-list">{rules.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.rule_code} · {r.title}</strong><span>{r.jurisdiction} · {r.subject_type} · {r.status}</span><small>v{r.version_number||"—"} · {r.version_status||"no active version"} · Source: {r.source_id||"—"}</small></div>{canRuleManage&&r.version_id&&<div className="form-actions"><button className="secondary-button" disabled={busy||r.version_status!=="draft"} onClick={()=>void transitionRule(r.version_id,"submit-review")}>Submit review</button><button className="secondary-button" disabled={busy||r.version_status!=="under_review"||r.version_created_by===activeUser?.id} onClick={()=>void transitionRule(r.version_id,"approve")}>Approve</button><button className="secondary-button" disabled={busy||r.version_status!=="under_review"||r.version_created_by===activeUser?.id} onClick={()=>void transitionRule(r.version_id,"reject")}>Reject</button><button className="secondary-button" disabled={busy||r.version_status!=="approved"} onClick={()=>void transitionRule(r.version_id,"activate")}>Activate</button></div>}<button className="secondary-button" disabled={busy} onClick={()=>{setVersionTarget(r.id);setRuleForm(v=>({...v,ruleCode:r.rule_code,title:r.title,jurisdiction:r.jurisdiction,subjectType:r.subject_type,sourceId:"",outcome:r.outcome||"require",summary:r.rule_summary||""}));}}>New version</button></div>)}{!rules.length&&<p className="muted">Belum ada rule yang dapat ditampilkan.</p>}</div>
     </section>}
     {canDocView&&<section className="card">
       <h3>Export Document Catalog & Country Requirements</h3>

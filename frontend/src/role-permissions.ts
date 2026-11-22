@@ -10,6 +10,7 @@ export interface WorkspaceAccessUser {
   projectPermissions?: string[];
   projectPermissionsLoading?: boolean;
   projectPermissionsError?: string;
+  buyerPortalEnabled?: boolean;
   projectMemberships?: Array<{
     isActive?: boolean;
     projectId?: string;
@@ -99,6 +100,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   if (pageKey === 'funder') return activeProjectRoleCodes(user).includes('funder') && hasProjectPermission('funder.view', user);
   if (pageKey === 'pks-sites') return user.platformAdmin === true || hasProjectPermission('pks.site.view', user);
   if (pageKey === 'p1-workflows') return hasAnyProjectPermission(PAGE_PERMISSION_REQUIREMENTS['p1-workflows'], user);
+  if (pageKey === 'buyer') return user.buyerPortalEnabled === true;
   if (!user.selectedProjectId || user.projectPermissionsLoading || user.projectPermissionsError) {
     return pageKey === 'dashboard' && hasActiveProjectMembership(user);
   }
@@ -108,7 +110,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
     return hasSelectedProjectMembership(user);
   }
   const permissions = new Set(user.projectPermissions || []);
-  if (pageKey === 'buyer') return permissions.has('buyer.shipment.view'); // API additionally requires verified Neon Auth → Buyer mapping and active scoped grants.
+  if (pageKey === 'buyer') return user.buyerPortalEnabled === true; // /me requires verified mapping and at least one active grant.
   if (pageKey === 'maritime-operations') return ['voyage.view', 'vessel.view', 'vessel.nomination.review', 'shipping.view', 'shipment.view'].some(permission => permissions.has(permission));
   if (pageKey === 'supplier') return permissions.has('supplier.view') && permissions.has('shipment.view');
   if (pageKey === 'transporter') return permissions.has('record_truck_trips') && permissions.has('verify_checkpoints');

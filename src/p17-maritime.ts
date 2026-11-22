@@ -135,7 +135,64 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   catch{return bad(res,500,"PROVIDER_HEALTH_FAILED","Unable to record provider health.");}
  });
 
- // P17-E: voyages, nomination maker-checker and port-call planning/confirmation.
+ 
+ // P17-B/P15 master-data change requests: PM can propose facility/organization edits
+ // inside a Project; canonical master rows remain Platform Admin controlled.
+ app.get("/api/v1/projects/:projectId/master-data-change-requests",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||"");
+  if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");
+  const canView=await requireProjectPermission(req,res,p,"pks.master_data.change_request.view");
+  if(!canView)return;
+  try{
+   const q=await req.db.query("SELECT * FROM public.p2a_master_data_change_requests WHERE project_id=$1::uuid ORDER BY created_at DESC LIMIT 200",[p]);
+   return res.json({requests:q.rows});
+  }catch{return bad(res,500,"MASTER_DATA_REQUEST_LIST_FAILED","Unable to load master-data change requests.");}
+ });
+ app.post("/api/v1/projects/:projectId/master-data-change-requests",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),b=req.body??{},entity=str(b.entityType,24),operation=str(b.operation,16),
+   reason=str(b.requestReason,2000),sourceType=str(b.sourceType||"manual",32),sourceRef=str(b.sourceReference,500),
+   target=str(b.targetId,36),sourceUrl=str(b.sourceUrl,1000),proposal=b.proposedData;
+  if(!uuidPattern.test(p)||!["organization","facility"].includes(entity)||!["create","update"].includes(operation)||
+    (operation==="update"&&!uuidPattern.test(target))||(operation==="create"&&target)||
+    !reason||reason.length<10||!sourceRef||sourceRef.length<2||
+    !["manual","public_reference","official_document","buyer_confirmed"].includes(sourceType)||
+    (sourceUrl&&!/^https?:\/\//i.test(sourceUrl))||!proposal||typeof proposal!=="object"||Array.isArray(proposal)||!Object.keys(proposal).length)
+    return bad(res,400,"INVALID_MASTER_DATA_REQUEST","Project, entity, operation, proposal, reason and source reference are required.");
+  if(!(await requireProjectPermission(req,res,p,"pks.master_data.change_request.manage")))return;
+  try{
+   const q=await req.db.query("INSERT INTO public.p2a_master_data_change_requests(project_id,entity_type,operation,target_id,proposed_data,request_reason,source_type,source_reference,source_url,source_snapshot,requested_by) VALUES($1::uuid,$2,$3,$4::uuid,$5::jsonb,$6,$7,$8,$9,$10::jsonb,$11::uuid) RETURNING *",
+    [p,entity,operation,target||null,JSON.stringify(proposal),reason,sourceType,sourceRef,sourceUrl||null,JSON.stringify(b.sourceSnapshot&&typeof b.sourceSnapshot==="object"&&!Array.isArray(b.sourceSnapshot)?b.sourceSnapshot:{}),req.user?.id]);
+   return res.status(201).json({request:q.rows[0]});
+  }catch(e:any){if(e?.code==="42501")return bad(res,403,"MASTER_DATA_REQUEST_FORBIDDEN","Master-data change request permission is required.");if(e?.code==="23503")return bad(res,422,"MASTER_DATA_TARGET_INVALID","Target record or Project is invalid.");return bad(res,500,"MASTER_DATA_REQUEST_CREATE_FAILED","Unable to create master-data change request.");}
+ });
+ app.patch("/api/v1/projects/:projectId/master-data-change-requests/:requestId",requireAuth,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),id=String(req.params.requestId||""),b=req.body??{};
+  if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"INVALID_MASTER_DATA_REQUEST","Valid Project and request ids are required.");
+  if(!(await requireProjectPermission(req,res,p,"pks.master_data.change_request.manage")))return;
+  const submit=b.submit===true;
+  const reason=b.requestReason===undefined?null:str(b.requestReason,2000);
+  const proposal=b.proposedData;
+  if(!submit&&((reason!==null&&reason.length<10)||(proposal!==undefined&&(!proposal||typeof proposal!=="object"||Array.isArray(proposal)||!Object.keys(proposal).length))))
+   return bad(res,400,"INVALID_MASTER_DATA_DRAFT","Draft proposal and reason are invalid.");
+  try{
+   const q=await req.db.query("UPDATE public.p2a_master_data_change_requests SET proposed_data=COALESCE($3::jsonb,proposed_data),request_reason=COALESCE($4,request_reason),status=CASE WHEN $5 THEN 'submitted' ELSE status END,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND status='draft' AND requested_by=$6::uuid RETURNING *",
+    [id,p,proposal===undefined?null:JSON.stringify(proposal),reason,submit,req.user?.id]);
+   if(!q.rows.length)return bad(res,404,"MASTER_DATA_DRAFT_NOT_FOUND","Editable draft not found; submitted requests are immutable.");
+   return res.json({request:q.rows[0]});
+  }catch(e:any){if(e?.code==="42501")return bad(res,403,"MASTER_DATA_REQUEST_FORBIDDEN","Only the requester may edit or submit their own draft.");return bad(res,500,"MASTER_DATA_REQUEST_UPDATE_FAILED","Unable to update master-data request.");}
+ });
+ app.patch("/api/v1/admin/projects/:projectId/master-data-change-requests/:requestId/decision",requireAuth,requireAdmin,async(req:R,res:Response)=>{
+  const p=String(req.params.projectId||""),id=String(req.params.requestId||""),status=str(req.body?.status,16),note=str(req.body?.decisionNote,2000);
+  if(!uuidPattern.test(p)||!uuidPattern.test(id)||!["approved","rejected"].includes(status)||(status==="rejected"&&note.length<5))
+   return bad(res,400,"INVALID_MASTER_DATA_DECISION","Valid decision and substantive rejection note are required.");
+  try{
+   const q=await req.db.query("UPDATE public.p2a_master_data_change_requests SET status=$3,decision_note=$4,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND status='submitted' RETURNING *",[id,p,status,note||null]);
+   if(!q.rows.length)return bad(res,404,"SUBMITTED_MASTER_DATA_REQUEST_NOT_FOUND","Submitted request not found.");
+   return res.json({request:q.rows[0]});
+  }catch(e:any){if(e?.code==="42501")return bad(res,403,"MASTER_DATA_DECISION_FORBIDDEN","Only an independent Platform Admin may decide a submitted request.");if(e?.code==="23514"||e?.code==="40001")return bad(res,409,"MASTER_DATA_DECISION_CONFLICT","Request could not be applied; refresh the canonical record and resubmit.");return bad(res,500,"MASTER_DATA_DECISION_FAILED","Unable to decide master-data request.");}
+ });
+
+// P17-E: voyages, nomination maker-checker and port-call planning/confirmation.
  app.get("/api/v1/projects/:projectId/voyages",requireAuth,async(req:R,res:Response)=>{
   const p=String(req.params.projectId||"");if(!uuidPattern.test(p))return bad(res,400,"INVALID_PROJECT","Valid Project id required.");if(!(await requireProjectPermission(req,res,p,"voyage.view")))return;
   try{const q=await req.db.query("SELECT v.*,ve.name vessel_name,op.name origin_port_name,dp.name destination_port_name FROM public.voyages v LEFT JOIN public.vessels ve ON ve.id=v.vessel_id LEFT JOIN public.ports op ON op.id=v.origin_port_id LEFT JOIN public.ports dp ON dp.id=v.destination_port_id WHERE v.project_id=$1::uuid ORDER BY v.created_at DESC LIMIT 200",[p]);return res.json({voyages:q.rows});}catch{return bad(res,500,"VOYAGE_LIST_FAILED","Unable to load voyages.");}

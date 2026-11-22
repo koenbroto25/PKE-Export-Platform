@@ -2558,7 +2558,12 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
     const available=new Set<string>(docs.rows.map((d:any)=>String(d.document_type_code)).filter(Boolean));
     const snapshot={...inputSnapshot,assessment:{projectId,entityType,entityId,targetCountry,shipmentId,assessedAt:new Date().toISOString()}};
     const rules=Array.from(grouped.values()) as RegulatoryRuleInput[];
-    const results=rules.map(rule=>{\n      const result=evaluateRegulatoryRule(rule,snapshot,available);\n      const requiredCodes=new Set((rule.requiredDocuments??[]).map((d:any)=>d.documentCode).filter(Boolean));\n      result.evidence=docs.rows.filter((d:any)=>requiredCodes.has(d.document_type_code)).map((d:any)=>({documentId:d.id,documentTypeCode:d.document_type_code,sha256:d.sha256_checksum,objectKey:d.object_key,uploadedAt:d.uploaded_at,expiryDate:d.expiry_date}));\n      return result;\n    });
+    const results=rules.map(rule=>{
+      const result=evaluateRegulatoryRule(rule,snapshot,available);
+      const requiredCodes=new Set((rule.requiredDocuments??[]).map((d:any)=>d.documentCode).filter(Boolean));
+      result.evidence=docs.rows.filter((d:any)=>requiredCodes.has(d.document_type_code)).map((d:any)=>({documentId:d.id,documentTypeCode:d.document_type_code,sha256:d.sha256_checksum,objectKey:d.object_key,uploadedAt:d.uploaded_at,expiryDate:d.expiry_date}));
+      return result;
+    });
     const summary=summarizeRegulatoryAssessment(results);
     const inserted=await req.db.query(
       `INSERT INTO public.regulatory_assessments

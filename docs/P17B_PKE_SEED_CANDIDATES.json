@@ -16,7 +16,7 @@
       "evidence": {
         "source_class": "government_historical_report",
         "source_name": "BKP Padang Annual Report 2022",
-        "source_url": "https://karantinaindonesia.go.id/",
+        "source_url": "https://ppid.karantinaindonesia.go.id/doc/10/Laporan%20Tahunan%20BKP%20Padang%20Tahun%202022_compressed.pdf",
         "claim": "Listed among PKE companies under BKP Class I Padang in 2022",
         "claim_scope": "historical PKE company association only"
       },
@@ -34,7 +34,7 @@
       "evidence": {
         "source_class": "government_historical_report",
         "source_name": "BKP Padang Annual Report 2022",
-        "source_url": "https://karantinaindonesia.go.id/",
+        "source_url": "https://ppid.karantinaindonesia.go.id/doc/10/Laporan%20Tahunan%20BKP%20Padang%20Tahun%202022_compressed.pdf",
         "claim": "Listed among PKE companies under BKP Class I Padang in 2022",
         "claim_scope": "historical PKE company association only"
       },
@@ -52,7 +52,7 @@
       "evidence": {
         "source_class": "government_historical_report",
         "source_name": "BKP Padang Annual Report 2022",
-        "source_url": "https://karantinaindonesia.go.id/",
+        "source_url": "https://ppid.karantinaindonesia.go.id/doc/10/Laporan%20Tahunan%20BKP%20Padang%20Tahun%202022_compressed.pdf",
         "claim": "Listed among PKE companies under BKP Class I Padang in 2022",
         "claim_scope": "historical PKE company association only"
       },
@@ -70,7 +70,7 @@
       "evidence": {
         "source_class": "company_disclosure",
         "source_name": "STA Resources company facility disclosure",
-        "source_url": "https://www.staresources.com/",
+        "source_url": "https://www.sta.co.id/page/kernel-crushing-plant/en",
         "claim": "Company disclosure describes KCP and 600 MT/day kernel input capacity, producing CPKO and PKE",
         "claim_scope": "kernel input capacity only; site address, active status and current capacity need verification"
       },
@@ -94,7 +94,7 @@
       "evidence": {
         "source_class": "company_disclosure",
         "source_name": "SJIM company facility disclosure",
-        "source_url": "https://www.sjim.co.id/",
+        "source_url": "https://sjai.co.id/sinar-jaya-inti-mulya/",
         "claim": "Company disclosure describes kernel processing facilities in Lampung and Baamang and PKE as a product",
         "claim_scope": "two site identities must be separated and geocoded; capacities are kernel input capacity"
       },
@@ -165,7 +165,7 @@
       "evidence": {
         "source_class": "company_report_and_certification_listing",
         "source_name": "REA Kaltim company reports and RSPO SCCS certificate listing",
-        "source_url": "https://www.rea.co.id/",
+        "source_url": "https://www.rea.co.id/index.php/business/palm-oil-mills-and-kernel-crushing-plants",
         "claim": "Company disclosures identify Cakra and Satria as KCP facilities; historical report includes PKE",
         "claim_scope": "certificate validity, active status and facility-specific coordinates must be revalidated"
       },
@@ -191,7 +191,7 @@
       "company": "PT Awana Sawit Lestari",
       "vessel": "MV Brother 36",
       "source_class": "government_quarantine_release",
-      "source_url": "https://karantinaindonesia.go.id/",
+      "source_url": "https://ppid.karantinaindonesia.go.id/doc/10/Laporan%20Tahunan%20BKP%20Padang%20Tahun%202022_compressed.pdf",
       "claim_scope": "single export shipment; does not prove KCP ownership or permanent port loading capacity",
       "status": "historical_shipment_evidence"
     },
@@ -204,7 +204,7 @@
       "transit_port": "Pelabuhan Panjang, Lampung",
       "export_destination": "New Zealand",
       "source_class": "government_quarantine_release",
-      "source_url": "https://karantinaindonesia.go.id/",
+      "source_url": "https://ppid.karantinaindonesia.go.id/doc/10/Laporan%20Tahunan%20BKP%20Padang%20Tahun%202022_compressed.pdf",
       "claim_scope": "shipment corridor evidence only; not a permanent PKS-port road route or loading-service confirmation",
       "status": "historical_shipment_evidence"
     },
@@ -217,7 +217,7 @@
       "export_destination": "New Zealand",
       "company": null,
       "source_class": "government_quarantine_release",
-      "source_url": "https://karantinaindonesia.go.id/",
+      "source_url": "https://ppid.karantinaindonesia.go.id/doc/10/Laporan%20Tahunan%20BKP%20Padang%20Tahun%202022_compressed.pdf",
       "claim_scope": "export event with exporter unnamed; do not create a company record",
       "status": "historical_shipment_evidence"
     }

@@ -1920,6 +1920,15 @@ async function requireProjectDocumentPermission(
   return requireProjectPermission(req, res, projectId, permissionCode);
 }
 
+async function requireAnyProjectPermission(req: express.Request,res: express.Response,permissionCode: string): Promise<boolean> {
+  const {rows}=await req.db.query("SELECT public.pke_has_any_project_permission($1::text) AS allowed",[permissionCode]);
+  if(rows[0]?.allowed!==true){
+    res.status(403).json({error:"Regulatory permission required.",code:"REGULATORY_PERMISSION_REQUIRED",permission:permissionCode});
+    return false;
+  }
+  return true;
+}
+
 async function findExplicitProjectPermission(req: express.Request, projectId: string, permissionCodes: string[]): Promise<any | null> {
   const principalId=req.user?.id; if(!principalId) return null;
   const {rows}=await req.db.query(
@@ -2192,6 +2201,199 @@ app.get("/api/v1/regulatory-knowledge", requireAuth, requireAdmin, async (req: e
   }
 });
 
+
+// Regulatory Source Registry and rule lifecycle (global catalog, permission-gated).
+app.get("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const canView=await requireAnyProjectPermission(req,res,"regulatory.source.view");
+  if(!canView) return;
+  try{
+    const {rows}=await req.db.query(
+      `SELECT id,source_id,title,issuing_authority,jurisdiction,document_type,regulation_number,
+              article_annex_section,publication_date,effective_date,expiry_repeal_date,status,
+              official_url,source_checksum,source_checksum_sha256,verification_status,
+              reviewer_id,last_reviewed,created_by,created_at,updated_at
+         FROM public.regulatory_sources ORDER BY created_at DESC LIMIT 500`,
+    );
+    return res.json({sources:rows});
+  }catch(error:any){
+    req.logger?.error?.("Regulatory source registry read failed",error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.source.manage"))) return;
+  const b=req.body??{};
+  const sourceId=typeof b.sourceId==="string"?b.sourceId.trim():"";
+  const title=typeof b.title==="string"?b.title.trim():"";
+  const issuingAuthority=typeof b.issuingAuthority==="string"?b.issuingAuthority.trim():"";
+  const jurisdiction=typeof b.jurisdiction==="string"?b.jurisdiction.trim().toUpperCase():"";
+  const effectiveDate=typeof b.effectiveDate==="string"?b.effectiveDate:"";
+  const officialUrl=typeof b.officialUrl==="string"?b.officialUrl.trim():"";
+  if(!sourceId||sourceId.length>120||!title||title.length>500||!issuingAuthority||!jurisdiction||!/^([A-Z]{2}|GLOBAL)$/.test(jurisdiction)||!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)||!/^https:\/\//i.test(officialUrl))
+    return res.status(400).json({error:"Source ID, title, issuing authority, jurisdiction, effective date and HTTPS official URL are required."});
+  try{
+    const {rows}=await req.db.query(
+      `INSERT INTO public.regulatory_sources
+        (source_id,title,issuing_authority,jurisdiction,document_type,regulation_number,article_annex_section,
+         publication_date,effective_date,expiry_repeal_date,status,official_url,source_checksum,source_checksum_sha256,
+         verification_status,access_rights,source_type,created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9::timestamptz,$10::timestamptz,'draft',$11,$12,$12,'pending',$13,$14,$15::uuid)
+       RETURNING id,source_id,title,jurisdiction,status,verification_status,created_by,created_at`,
+      [sourceId,title,issuingAuthority,jurisdiction,b.documentType??null,b.regulationNumber??null,b.articleAnnexSection??null,b.publicationDate??null,effectiveDate,b.expiryDate??null,officialUrl,b.sha256Checksum??null,b.accessRights??"unknown",b.sourceType??"regulation",req.user?.id??null],
+    );
+    return res.status(201).json({source:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23505") return res.status(409).json({error:"Source ID already exists.",code:"REGULATORY_SOURCE_DUPLICATE"});
+    if(error?.code==="23514"||error?.code==="23503") return res.status(422).json({error:"Source metadata failed database validation."});
+    req.logger?.error?.("Regulatory source create failed",error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/regulatory-sources/:id/review",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.source.manage"))) return;
+  const decision=req.body?.decision;
+  if(!["reviewed","verified","rejected"].includes(decision)) return res.status(400).json({error:"Decision must be reviewed, verified, or rejected."});
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.regulatory_sources SET verification_status=$1,reviewer_id=$2::uuid,
+              last_reviewed=now(),updated_at=now()
+        WHERE id=$3::uuid AND (created_by IS NULL OR created_by<>$2::uuid)
+        RETURNING id,source_id,verification_status,reviewer_id,last_reviewed`,
+      [decision,req.user?.id??null,req.params.id],
+    );
+    if(!rows.length) return res.status(409).json({error:"Source missing or maker-checker independence failed.",code:"REGULATORY_SOURCE_REVIEW_CONFLICT"});
+    return res.json({source:rows[0]});
+  }catch(error:any){
+    if(error?.code==="23514") return res.status(422).json({error:"Source verification requires an HTTPS official URL and SHA-256 checksum."});
+    req.logger?.error?.("Regulatory source review failed",error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.view"))) return;
+  try{
+    const {rows}=await req.db.query(
+      `SELECT r.id,r.rule_code,r.title,r.jurisdiction,r.subject_type,r.scope,r.status,r.active_version_id,
+              r.created_by,r.reviewed_by,r.reviewed_at,r.created_at,r.updated_at,
+              v.version_number,v.status AS version_status,v.outcome,v.rule_summary,v.effective_from,v.effective_to,
+              v.regulatory_source_id,s.source_id,s.title AS source_title,s.verification_status
+         FROM public.regulatory_rules r
+         LEFT JOIN public.regulatory_rule_versions v ON v.id=r.active_version_id
+         LEFT JOIN public.regulatory_sources s ON s.id=v.regulatory_source_id
+        ORDER BY r.jurisdiction,r.rule_code LIMIT 500`,
+    );
+    return res.json({rules:rows});
+  }catch(error:any){
+    req.logger?.error?.("Regulatory rule registry read failed",error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
+  const b=req.body??{};
+  const ruleCode=typeof b.ruleCode==="string"?b.ruleCode.trim():"";
+  const title=typeof b.title==="string"?b.title.trim():"";
+  const jurisdiction=typeof b.jurisdiction==="string"?b.jurisdiction.trim().toUpperCase():"";
+  const subjectType=typeof b.subjectType==="string"?b.subjectType.trim():"";
+  const sourceId=typeof b.sourceId==="string"?b.sourceId:"";
+  const outcome=b.outcome;
+  const effectiveFrom=typeof b.effectiveFrom==="string"?b.effectiveFrom:"";
+  const conditions=Array.isArray(b.conditions)?b.conditions:[];
+  const documents=Array.isArray(b.documents)?b.documents:[];
+  if(!ruleCode||ruleCode.length>120||!title||!/^([A-Z]{2}|GLOBAL)$/.test(jurisdiction)||!["shipment","product","project","all"].includes(subjectType)||!["require","prohibit","allow","manual_review","informational"].includes(outcome)||!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)||!sourceId)
+    return res.status(400).json({error:"Valid rule identity, jurisdiction, subject type, outcome, source and effective date are required."});
+  if(conditions.length>100||documents.length>100) return res.status(400).json({error:"Rule condition/document limits exceeded."});
+  try{
+    const source=await req.db.query("SELECT id,official_url,source_checksum,source_checksum_sha256 FROM public.regulatory_sources WHERE id=$1::uuid",[sourceId]);
+    if(!source.rows.length) return res.status(422).json({error:"Regulatory source not found or not visible to this role."});
+    const rule=await req.db.query(
+      `INSERT INTO public.regulatory_rules(rule_code,title,jurisdiction,subject_type,scope,status,created_by)
+       VALUES($1,$2,$3,$4,$5::jsonb,'draft',$6::uuid) RETURNING id`,
+      [ruleCode,title,jurisdiction,subjectType,JSON.stringify(b.scope??{}),req.user?.id??null],
+    );
+    const version=await req.db.query(
+      `INSERT INTO public.regulatory_rule_versions
+       (rule_id,version_number,regulatory_source_id,source_locator,source_url_snapshot,source_checksum,
+        rule_summary,condition_schema,outcome,risk_category,effective_from,status,created_by)
+       VALUES($1::uuid,1,$2::uuid,$3,$4,$5,$6,$7::jsonb,$8,$9,$10::date,'draft',$11::uuid)
+       RETURNING id,rule_id,version_number,status`,
+      [rule.rows[0].id,sourceId,b.sourceLocator??null,source.rows[0].official_url,source.rows[0].source_checksum_sha256??source.rows[0].source_checksum??null,String(b.summary??title),JSON.stringify({conditions}),outcome,b.riskCategory??null,effectiveFrom,req.user?.id??null],
+    );
+    await req.db.query("UPDATE public.regulatory_rules SET active_version_id=$1::uuid WHERE id=$2::uuid",[version.rows[0].id,rule.rows[0].id]);
+    for(const condition of conditions){
+      if(typeof condition?.fieldPath!=="string"||!["eq","ne","in","not_in","gt","gte","lt","lte","between","contains","exists"].includes(condition.operator))
+        return res.status(400).json({error:"Invalid rule condition.",code:"REGULATORY_CONDITION_INVALID"});
+      await req.db.query(
+        `INSERT INTO public.regulatory_rule_conditions(rule_version_id,field_path,operator,comparison_value,is_mandatory,condition_group)
+         VALUES($1::uuid,$2,$3,$4::jsonb,$5,$6)`,
+        [version.rows[0].id,condition.fieldPath,condition.operator,JSON.stringify(condition.value),condition.isMandatory!==false,Number.isInteger(condition.conditionGroup)?condition.conditionGroup:1],
+      );
+    }
+    for(const document of documents){
+      const docType=await req.db.query("SELECT id FROM public.export_document_types WHERE document_code=$1 AND is_active=true",[document?.documentCode]);
+      if(!docType.rows.length) return res.status(422).json({error:"Unknown or inactive export document code.",code:"REGULATORY_DOCUMENT_TYPE_UNKNOWN"});
+      await req.db.query(
+        `INSERT INTO public.regulatory_rule_documents(rule_version_id,document_type_id,requirement_kind,issuing_authority,holder_party,presentation_point,validity_days,condition_schema)
+         VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8::jsonb)`,
+        [version.rows[0].id,docType.rows[0].id,document.requirementKind??"mandatory",document.issuingAuthority??null,document.holderParty??null,document.presentationPoint??null,document.validityDays??null,JSON.stringify(document.conditionSchema??{})],
+      );
+    }
+    return res.status(201).json({ruleId:rule.rows[0].id,version:version.rows[0]});
+  }catch(error:any){
+    if(error?.code==="23505") return res.status(409).json({error:"Rule code or version already exists.",code:"REGULATORY_RULE_DUPLICATE"});
+    if(error?.code==="23514"||error?.code==="23503") return res.status(422).json({error:"Rule version failed schema validation."});
+    req.logger?.error?.("Regulatory rule create failed",error);
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/regulatory-rule-versions/:versionId/submit-review",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
+  try{
+    const {rows}=await req.db.query(`UPDATE public.regulatory_rule_versions SET status='under_review',updated_at=now()
+      WHERE id=$1::uuid AND status='draft' RETURNING id,rule_id,status`,[req.params.versionId]);
+    if(!rows.length) return res.status(409).json({error:"Only a draft rule version can be submitted for review."});
+    await req.db.query("UPDATE public.regulatory_rules SET status='under_review',updated_at=now() WHERE id=$1::uuid",[rows[0].rule_id]);
+    return res.json({version:rows[0]});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.patch("/api/v1/regulatory-rule-versions/:versionId/approve",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.regulatory_rule_versions v SET status='approved',approved_by=$1::uuid,approved_at=now(),updated_at=now()
+        FROM public.regulatory_sources s WHERE v.id=$2::uuid AND v.status='under_review'
+          AND s.id=v.regulatory_source_id AND s.verification_status='verified'
+          AND v.created_by IS DISTINCT FROM $1::uuid
+        RETURNING v.id,v.rule_id,v.status,v.approved_by,v.approved_at`,
+      [req.user?.id??null,req.params.versionId],
+    );
+    if(!rows.length) return res.status(409).json({error:"Approval denied: source must be verified and reviewer must differ from maker.",code:"REGULATORY_MAKER_CHECKER_REQUIRED"});
+    await req.db.query("UPDATE public.regulatory_rules SET status='approved',reviewed_by=$1::uuid,reviewed_at=now() WHERE id=$2::uuid",[req.user?.id??null,rows[0].rule_id]);
+    return res.json({version:rows[0]});
+  }catch(error:any){if(error?.code==="23514") return res.status(409).json({error:"Independent approval constraint failed."});return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.patch("/api/v1/regulatory-rule-versions/:versionId/activate",requireAuth,async(req:express.Request,res:express.Response)=>{
+  if(!(await requireAnyProjectPermission(req,res,"regulatory.rule.manage"))) return;
+  try{
+    const {rows}=await req.db.query(
+      `UPDATE public.regulatory_rule_versions SET status='effective',updated_at=now()
+        WHERE id=$1::uuid AND status='approved' AND approved_by IS NOT NULL
+          AND effective_from<=CURRENT_DATE AND (effective_to IS NULL OR effective_to>=CURRENT_DATE)
+        RETURNING id,rule_id,status`,
+      [req.params.versionId],
+    );
+    if(!rows.length) return res.status(409).json({error:"Only approved versions within their effective date window can be activated."});
+    await req.db.query("UPDATE public.regulatory_rules SET status='effective',active_version_id=$1::uuid,updated_at=now() WHERE id=$1::uuid",[rows[0].id]);
+    return res.json({version:rows[0]});
+  }catch(error:any){if(error?.code==="23505") return res.status(409).json({error:"Another effective version already exists for this rule."});return res.status(500).json(internalServerErrorPayload());}
+});
 
 // Deterministic Regulatory Core assessment. No RAG or conversational AI is used here.
 app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, async (req: express.Request, res: express.Response) => {

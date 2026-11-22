@@ -181,7 +181,7 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
     </form>
    </details>}
   </>}
-  {canManage&&<details className="p17b-editor">
+  {canManage&&<details className="p17b-editor" open={requestFormOpen} onToggle={e=>setRequestFormOpen(e.currentTarget.open)}>
    <summary>Ajukan perubahan master kanonis (PM draft / Admin approval)</summary>
    <form onSubmit={createRequest}>
     <div className="p17b-form-grid">

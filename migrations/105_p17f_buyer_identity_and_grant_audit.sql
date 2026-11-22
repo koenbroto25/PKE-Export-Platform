@@ -185,7 +185,7 @@ CREATE POLICY shipment_events_buyer_milestones_read
         AND g.project_id=shipment_events.project_id
         AND (g.shipment_id IS NULL OR g.shipment_id=shipment_events.shipment_id)
         AND g.status='active' AND (g.expires_at IS NULL OR g.expires_at>now())
-        AND g.scope IN ('summary','milestones')
+        AND g.scope='milestones'
     )
   );
 

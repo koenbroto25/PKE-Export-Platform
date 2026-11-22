@@ -44,6 +44,7 @@ describe("P17-B port identity and PKS-linked geospatial governance",()=>{
  it("prioritizes only verified road routes with verified PKE loading capability",()=>{
   expect(MAIN).toContain("AS is_primary_reference");
   expect(MAIN).toContain("pke_loading_service_verified");
+  expect(MAIN).toContain('"distance_method","route_geometry_feature_id"');
   expect(MAIN).toContain("distance_method IN ('road_network','operator_quote','gps_track')");
   expect(MAIN).toContain("ps.verification_evidence_sha256 ~ '^[0-9a-f]{64}$'");
   expect(MAIN).toContain("ls.evidence_sha256 ~ '^[0-9a-f]{64}$'");

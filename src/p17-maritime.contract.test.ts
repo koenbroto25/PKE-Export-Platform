@@ -337,6 +337,8 @@ describe("P17-F Buyer identity and visibility",()=>{
   expect(M105).toContain("shipments_buyer_summary_read");
   expect(M105).toContain("buyer_auth_mapping_project_grant_manager_read");
   expect(API).toContain("buyer-visibility-grant-candidates");
+  expect(API).toContain("BUYER_GRANT_EXPIRY_FAILED");
+  expect(readFileSync(join(ROOT,"frontend","src","RoleDashboardPage.tsx"),"utf8")).toContain("expireGrants");
   expect(readFileSync(join(ROOT,"frontend","src","RoleDashboardPage.tsx"),"utf8")).toContain("BuyerAccessControlPanel");
   expect(API).toContain("/api/v1/admin/buyer-auth-mappings");
   expect(API).toContain("/buyer-visibility-grants");

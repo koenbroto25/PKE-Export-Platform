@@ -64,7 +64,11 @@ INSERT INTO public.permissions(name,code,description,is_active)
 VALUES
  ('Review loading survey evidence','shipping.survey.review','Independently review loading survey evidence',true),
  ('Verify laytime evidence','shipping.laytime.verify','Independently verify actual laytime evidence',true),
- ('Reconcile loading quantity','loading.quantity.reconcile','Reconcile verified tickets, segments and loading quantity',true)
+ ('Reconcile loading quantity','loading.quantity.reconcile','Reconcile verified tickets, segments and loading quantity',true),
+ ('View loading survey evidence','shipping.survey.view','View Project loading survey evidence',true),
+ ('Submit loading survey evidence','shipping.survey.submit','Submit independent loading survey evidence',true),
+ ('View laytime evidence','shipping.laytime.view','View Project laytime evidence',true),
+ ('Manage laytime evidence','shipping.laytime.manage','Submit laytime evidence for independent verification',true)
 ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=true,updated_at=now();
 
 -- Role permission assignment is also reflected in src/role-catalogue.ts.
@@ -73,8 +77,11 @@ SELECT pr.project_id,pr.id,p.id
 FROM public.project_roles pr
 JOIN public.permissions p ON p.code IN ('shipping.survey.review','shipping.laytime.verify','loading.quantity.reconcile')
 WHERE pr.is_active=true AND (
-  (pr.role_code='pm' AND p.code IN ('shipping.survey.review','shipping.laytime.verify','loading.quantity.reconcile'))
-  OR (pr.role_code='loading_supervisor' AND p.code='loading.quantity.reconcile')
+  (pr.role_code='pm' AND p.code IN ('shipping.survey.view','shipping.survey.review','shipping.laytime.view','shipping.laytime.verify','loading.quantity.reconcile'))
+  OR (pr.role_code='loading_supervisor' AND p.code IN ('shipping.laytime.view','shipping.laytime.manage','loading.quantity.reconcile'))
+  OR (pr.role_code='marine_surveyor' AND p.code IN ('shipping.survey.view','shipping.survey.submit'))
+  OR (pr.role_code='shipping_agent' AND p.code IN ('shipping.laytime.view','shipping.laytime.manage'))
+  OR (pr.role_code='master_of_loading' AND p.code IN ('shipping.laytime.view','shipping.laytime.manage'))
 )
 ON CONFLICT(project_role_id,permission_id) DO NOTHING;
 

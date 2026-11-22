@@ -87,3 +87,42 @@
 .p16-assessment{border:1px solid var(--border,#dce1e8);border-radius:9px;padding:10px;background:var(--surface-2,#f5f7fa);font-size:12px}
 .p16-assessment p{margin:4px 0 0;color:var(--muted,#687386);font-size:11px}
 @media(max-width:700px){.p16-form-grid{grid-template-columns:1fr}.p16-header-actions{width:100%}}
+
+
+/* P17-B Project-scoped PKE logistics scenario workbench */
+.p17b-workbench{margin:1.25rem 0;padding:1.25rem;border:1px solid var(--border,#d8dee8);border-radius:16px;background:var(--surface,#fff);display:grid;gap:1rem}
+.p17b-workbench__header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+.p17b-workbench h2,.p17b-workbench h3{margin:.15rem 0 .5rem}
+.p17b-workbench p{margin:.35rem 0;color:var(--muted,#64748b)}
+.p17b-eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.08em;color:var(--muted,#64748b)}
+.p17b-simulation-badge,.p17b-unverified,.p17b-request-status{display:inline-flex;align-items:center;border:1px solid #d6a84f;border-radius:999px;padding:.22rem .58rem;font-size:.72rem;font-weight:700;color:#805b12;background:#fff8e8}
+.p17b-scenario-picker{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.p17b-scenario-picker select{min-width:min(32rem,100%)}
+.p17b-chain{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+.p17b-node{border:1px solid var(--border,#d8dee8);border-radius:12px;padding:.85rem;display:flex;flex-direction:column;gap:.45rem;min-width:0}
+.p17b-node strong{line-height:1.35}
+.p17b-node small,.p17b-edge-list small,.p17b-requests small{color:var(--muted,#64748b);overflow-wrap:anywhere}
+.p17b-node__type{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#64748b);font-weight:700}
+.p17b-unverified{align-self:flex-start;border-color:#d6dce5;color:#596579;background:#f5f7fa}
+.p17b-edge-list,.p17b-evidence,.p17b-requests,.p17b-editor{border-top:1px solid var(--border,#d8dee8);padding-top:.9rem}
+.p17b-edge-list>div{display:flex;justify-content:space-between;gap:1rem;padding:.45rem 0;border-bottom:1px solid var(--border,#e7ebf0)}
+.p17b-evidence>div,.p17b-requests article{padding:.75rem 0;border-bottom:1px solid var(--border,#e7ebf0)}
+.p17b-warning{border-left:3px solid #d6a84f;padding:.55rem .75rem;background:#fffaf0;color:#795b24!important}
+.p17b-editor summary{cursor:pointer;font-weight:700;padding:.35rem 0}
+.p17b-editor form{display:grid;gap:.75rem;margin-top:.75rem}
+.p17b-editor label{display:grid;gap:.35rem;font-weight:600}
+.p17b-editor textarea{width:100%;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;min-height:7rem;resize:vertical}
+.p17b-editor input,.p17b-editor select,.p17b-scenario-picker select{max-width:100%;padding:.55rem .65rem;border:1px solid var(--border,#cbd5e1);border-radius:8px;background:var(--surface,#fff);color:inherit}
+.p17b-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.p17b-editor button,.p17b-scenario-picker button,.p17b-requests button{border:1px solid var(--border,#cbd5e1);border-radius:8px;padding:.5rem .75rem;background:var(--surface,#fff);font-weight:600;cursor:pointer}
+.p17b-editor button:disabled,.p17b-requests button:disabled{opacity:.55;cursor:not-allowed}
+.p17b-requests article>div:first-child{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.p17b-request-status--submitted{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+.p17b-request-status--approved{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.p17b-request-status--rejected{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+.p17b-admin-decision{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.65rem}
+.p17b-admin-decision input{flex:1;min-width:15rem;padding:.5rem;border:1px solid var(--border,#cbd5e1);border-radius:8px}
+.p17b-alert{padding:.7rem .85rem;border-radius:8px;background:#eff6ff;color:#1e40af}
+.p17b-alert--error{background:#fef2f2;color:#991b1b}
+.p17b-empty{padding:.9rem;border:1px dashed var(--border,#cbd5e1);border-radius:8px;color:var(--muted,#64748b)}
+@media(max-width:760px){.p17b-chain{grid-template-columns:1fr}.p17b-form-grid{grid-template-columns:1fr}.p17b-edge-list>div{display:grid}.p17b-workbench{padding:.85rem}}

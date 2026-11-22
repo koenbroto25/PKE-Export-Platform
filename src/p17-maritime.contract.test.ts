@@ -209,6 +209,8 @@ describe("P17-B Platform Admin identity and geospatial review UI",()=>{
   expect(IDENTITY_UI).toContain("Catatan review minimal 5 karakter");
   expect(IDENTITY_UI).toContain("reviewStatus:status");
   expect(API).toContain("PORT_CROSSWALK_MAKER_CHECKER");
+  expect(API).toContain("JSON.stringify(canonicalize(snapshot))");
+  expect(API).toContain("Object.keys(snapshot).length===0");
   expect(API).toContain("PORT_GEO_MAKER_CHECKER");
  });
 });

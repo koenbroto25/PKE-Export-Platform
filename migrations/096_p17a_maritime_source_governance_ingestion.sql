@@ -1,4 +1,6 @@
 -- P17-A: fail-closed maritime source governance and auditable ingestion foundation.
+BEGIN;
+
 -- UAT-only rollout. Provider credentials are external secret references; never store secret values here.
 CREATE TABLE public.maritime_data_sources (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -224,3 +226,4 @@ REVOKE ALL ON public.maritime_data_sources,public.maritime_source_field_permissi
 GRANT SELECT,INSERT,UPDATE ON public.maritime_data_sources,public.maritime_source_field_permissions,
   public.maritime_ingestion_runs,public.maritime_ingestion_staging,public.maritime_provider_usage,
   public.maritime_provider_health TO app_runtime_secure;
+COMMIT;

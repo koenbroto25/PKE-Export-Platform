@@ -255,7 +255,7 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
   expect(gate).toContain("migrations 096-107");
   for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics/","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin/projects/"]) expect(gate).toContain(fragment);
-  expect(gate).toContain('if(!["POST","PUT","PATCH","DELETE"].includes(req.method)) return next()');
+  expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");\n  expect(gate).toContain("if(schemaAdmin||buyerProjection||((p17ProjectWorkflow||p17AdminProjectWorkflow)&&mutating))");
  });
  it("does not install a broad /projects write block",()=>{
   const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));

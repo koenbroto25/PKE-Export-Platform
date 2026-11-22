@@ -6,6 +6,8 @@ ALTER TABLE public.regulatory_sources
   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id);
 ALTER TABLE public.regulatory_rule_versions
   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id);
+ALTER TABLE public.country_export_document_requirements
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id);
 
 INSERT INTO public.permissions(name,code,description,is_active)
 VALUES
@@ -15,7 +17,9 @@ VALUES
  ('Manage Regulatory Rules','regulatory.rule.manage','Create and maintain regulatory rule lifecycle and independent review decisions.',true),
  ('Create Regulatory Rule Versions','regulatory.rule.version.create','Create immutable draft versions of regulatory rules.',true),
  ('Assess Regulatory Compliance','compliance.assess','Run and persist Project-scoped deterministic regulatory assessments.',true),
- ('View Regulatory Compliance','compliance.view','View Project-scoped regulatory assessments and results.',true)
+ ('View Regulatory Compliance','compliance.view','View Project-scoped regulatory assessments and results.',true),
+ ('View Regulatory Document Catalog','regulatory.document.view','View export document types and verified country requirements.',true),
+ ('Manage Regulatory Document Catalog','regulatory.document.manage','Create and maintain document catalog and country requirements for independent verification.',true)
 ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=true;
 
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
@@ -23,7 +27,7 @@ SELECT 'regulatory_compliance_officer',p.code
 FROM public.permissions p
 WHERE p.code IN ('project.view','documents.view','compliance.view','compliance.assess',
  'regulatory.source.view','regulatory.source.manage','regulatory.rule.view',
- 'regulatory.rule.manage','regulatory.rule.version.create')
+ 'regulatory.rule.manage','regulatory.rule.version.create','regulatory.document.view','regulatory.document.manage')
 ON CONFLICT(role_code,permission_code) DO NOTHING;
 
 DROP POLICY IF EXISTS pke_regulatory_sources_read ON public.regulatory_sources;
@@ -118,6 +122,65 @@ WITH CHECK (
   public.pke_has_any_project_permission('regulatory.rule.version.create')
   AND EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status='draft')
 );
+
+DROP POLICY IF EXISTS pke_scope_select ON public.regulatory_rule_conditions;
+CREATE POLICY pke_scope_select ON public.regulatory_rule_conditions
+FOR SELECT TO app_runtime_secure
+USING (
+  (EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('approved','effective')))
+  AND (public.pke_has_any_project_permission('regulatory.rule.view')
+    OR public.pke_has_any_project_permission('compliance.view')
+    OR public.pke_has_any_project_permission('regulatory.rule.manage'))
+);
+
+DROP POLICY IF EXISTS pke_scope_select ON public.regulatory_rule_documents;
+CREATE POLICY pke_scope_select ON public.regulatory_rule_documents
+FOR SELECT TO app_runtime_secure
+USING (
+  (EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('approved','effective')))
+  AND (public.pke_has_any_project_permission('regulatory.rule.view')
+    OR public.pke_has_any_project_permission('compliance.view')
+    OR public.pke_has_any_project_permission('regulatory.rule.manage'))
+);
+
+DROP POLICY IF EXISTS pke_country_document_requirements_read ON public.country_export_document_requirements;
+CREATE POLICY pke_country_document_requirements_read ON public.country_export_document_requirements
+FOR SELECT TO app_runtime_secure
+USING (
+  (status IN ('verified','active') AND public.pke_has_any_project_access())
+  OR public.pke_has_any_project_permission('regulatory.document.manage')
+);
+
+DROP POLICY IF EXISTS pke_export_document_types_member_read ON public.export_document_types;
+CREATE POLICY pke_export_document_types_member_read ON public.export_document_types
+FOR SELECT TO app_runtime_secure
+USING (public.pke_has_any_project_access() OR public.pke_has_any_project_permission('regulatory.document.manage'));
+
+DROP POLICY IF EXISTS p18_export_document_types_insert ON public.export_document_types;
+CREATE POLICY p18_export_document_types_insert ON public.export_document_types
+FOR INSERT TO app_runtime_secure
+WITH CHECK (public.pke_has_any_project_permission('regulatory.document.manage'));
+
+DROP POLICY IF EXISTS p18_export_document_types_update ON public.export_document_types;
+CREATE POLICY p18_export_document_types_update ON public.export_document_types
+FOR UPDATE TO app_runtime_secure
+USING (public.pke_has_any_project_permission('regulatory.document.manage'))
+WITH CHECK (public.pke_has_any_project_permission('regulatory.document.manage'));
+
+DROP POLICY IF EXISTS p18_country_document_requirements_insert ON public.country_export_document_requirements;
+CREATE POLICY p18_country_document_requirements_insert ON public.country_export_document_requirements
+FOR INSERT TO app_runtime_secure
+WITH CHECK (
+  public.pke_has_any_project_permission('regulatory.document.manage')
+  AND status='draft' AND verification_status='pending' AND verified_by IS NULL
+  AND (created_by IS NULL OR created_by=public.pke_current_user_id())
+);
+
+DROP POLICY IF EXISTS p18_country_document_requirements_update ON public.country_export_document_requirements;
+CREATE POLICY p18_country_document_requirements_update ON public.country_export_document_requirements
+FOR UPDATE TO app_runtime_secure
+USING (public.pke_has_any_project_permission('regulatory.document.manage'))
+WITH CHECK (public.pke_has_any_project_permission('regulatory.document.manage'));
 
 CREATE OR REPLACE FUNCTION public.p18_guard_regulatory_source_verification()
 RETURNS trigger LANGUAGE plpgsql AS $$

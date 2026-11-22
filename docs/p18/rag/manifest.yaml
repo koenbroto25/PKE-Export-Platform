@@ -1,0 +1,33 @@
+corpus_id: P18-PKE-REGULATORY-SEED-20261123
+retrieved_at: 2026-11-23
+product_scope: [PKE, PKM]
+jurisdictions: [ID, CN, PK, INTERNATIONAL]
+source_count: 9
+rag_document_count: 4
+chunk_count: 14
+source_records: docs/p18/sources/
+rag_documents: docs/p18/rag/
+normalized_chunks: docs/p18/rag/chunks.jsonl
+processing:
+  representation: concise_paraphrase_with_source_locator
+  chunking: semantic_heading_chunks
+  embedding_status: not_generated
+  database_ingestion_status: not_started
+  binary_source_mirror: not_available_in_this_capture
+quality_gates:
+  - prefer_official_primary_sources
+  - record_jurisdiction_and_effective_dates
+  - mark_superseded_and_historical_sources
+  - distinguish_food_from_feed_scope
+  - do_not_infer_PKE_HS_mapping
+  - do_not_make_automatic_legal_conclusions
+  - require_source_locator
+  - require_human_legal_review_before_rule_activation
+open_research:
+  - obtain_complete_official_Permendag_16_2026_text_and_annex
+  - obtain_and_extract_KMK_33_MK_BC_2026_annex_HS_rows
+  - verify_Indonesia_BT​​KI_classification_for_PKE
+  - reconcile_current_China_MARA_feed_import_rules_and_PKE_category
+  - verify_Indonesia_China_bilateral_feed_quarantine_protocol
+  - obtain_current_consolidated_Pakistan_Import_Policy_Order_and_2026_SROs
+  - validate_Pakistan_tariff_230660001000_with_customs_broker

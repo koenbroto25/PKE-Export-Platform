@@ -424,7 +424,7 @@ describe("P17-E loading acceptance database invariants",()=>{
   expect((M107.match(/\bBEGIN;/g)||[])).toHaveLength(1);
   expect((M107.match(/\bCOMMIT;/g)||[])).toHaveLength(1);
   expect((M107.match(/CREATE TABLE/g)||[])).toHaveLength(1);
-  expect(M107).toContain("DECLARE\\n  operation_quantity numeric;");
+  expect(M107).toContain("DECLARE\n  operation_quantity numeric;");
   expect(M107).toContain("Quantity reconciliation with variance cannot be accepted");
   expect(M107).toContain("NEW.reviewed_by IS DISTINCT FROM public.pke_current_user_id()");
  });

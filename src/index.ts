@@ -2942,7 +2942,7 @@ app.patch("/api/v1/projects/:projectId/document-requirements/:requirementId",req
     return res.status(400).json({error:"A boolean isRequired value and documented override reason (minimum 10 characters) are required."});
   try{
     const {rows}=await req.db.query(
-      `UPDATE public.project_export_document_requirements SET is_required=$1,override_reason=$2,
+      `UPDATE public.project_export_document_requirements SET is_required=$1,status=CASE WHEN $1 THEN 'pending' ELSE 'waived' END,override_reason=$2,
         overridden_by=$3::uuid,updated_at=now()
         WHERE id=$4::uuid AND project_id=$5::uuid RETURNING *`,
       [isRequired,overrideReason.trim(),req.user?.id??null,req.params.requirementId,projectId],

@@ -493,3 +493,99 @@ Release boundaries:
 The next permitted engineering action is P17-1: perform a read-only inventory of the current UAT schema, migrations, API routes, frontend surfaces, permission catalogue, RLS and buyer identity mapping. Do not prepare Migration 096 until that inventory proves a schema gap and the exact SQL is reviewed. Do not begin provider ingestion until the source-rights register is complete for the relevant source.
 
 This plan intentionally separates free/public access from commercial reuse rights. MaritimHub, BMKG and HOTOSM are the initial source candidates; AIS remains replaceable and conditional. P17 must deliver useful port, weather, manual voyage and readiness workflows even if every external AIS provider is disabled.
+
+
+---
+
+## 13. P17 full audit findings and final revision baseline (2026-11-22)
+
+**Audit status: COMPLETE. Documentation revision is authorized. Implementation remains NOT STARTED.** This section supersedes the earlier P17-1 next-action wording in §12. The one-time full audit was performed against GitHub branch `f1/project-scoped-cob-20261119` and Neon UAT project `purple-base-63944903`, branch `br-young-boat-b3re832d`, database `neondb`. All database inspection was read-only. No schema, data, role, credential, provider, deployment, or Production change was made.
+
+### 13.1 Verified baseline and evidence boundary
+
+- UAT `public.migration_history`: 95 rows; 79 applied, 16 baseline entries, 0 pending. The 95 ledger rows were compared with `migration_history_manifest_uat_001_095.json`; ID, filename, SHA-256 and status matched for every row. Latest migration is `095_p16_document_project_context_resolver.sql`. Migration 096 has not been created, approved, or applied.
+- Existing branch HEAD at audit start: `5a556518691ca0d680f227d05a4e007a5945a717`. Unit Tests and Dependency Audit Evidence workflows both completed successfully on that HEAD. This is repository CI evidence, not P17 acceptance evidence.
+- P16 schema already includes ports, terminals, berths, channels, anchorages, depth/tide observations, loading services, equipment, operating limits, vessels, vessel identifiers, vessel tracking positions, voyages, vessel port calls, nominations, port assessments, shipments, shipment events, transport legs, buyers and buyer visibility grants. Reuse these entities; do not recreate them.
+- UAT sample counts at audit time: ports 1; vessels 1; vessel tracking positions 1; voyages 1; vessel port calls 1; vessel nominations 1; shipments 1; transport legs 1; buyers 1. Port terminals, berths, channels, anchorages, depth/tide observations, vessel identifiers, port assessments, shipment events and buyer visibility grants had zero rows. These are test-data counts, not proof of production completeness.
+
+### 13.2 Confirmed architecture gaps
+
+The UAT catalog did not show dedicated P17 tables for a maritime provider/source rights registry, provider ingestion runs and health/quota tracking, marine weather/wave/current/wind forecast records, or a versioned geospatial port layer and external port-ID crosswalk. Existing `regulatory_sources` is a regulatory-document catalogue, not a provider registry. Existing `knowledge_ingestion_runs` is tied to knowledge document versions, not AIS/BMKG/port dataset ingestion. Existing `tracking_events` is truck/checker GPS evidence and must not be reused as vessel AIS. Existing `port_tide_observations` may be reused only for compatible tide forecast/observed records; it is not a general marine forecast table.
+
+PostGIS was not present in the UAT extension inventory. Do not assume spatial SQL support. Prefer a separately versioned GeoJSON/reference geometry layer initially; any PostGIS enablement must be separately justified, approved, and tested.
+
+### 13.3 API and workflow gaps
+
+Existing P16 API read surfaces include ports, vessels, port routes, depth/tide observations and vessel-port assessments. The source audit did not identify complete API workflows for voyage lifecycle, vessel nomination, port-call confirmation, AIS ingestion/provider health, BMKG forecast ingestion, or Buyer shipment visibility driven by active visibility grants. Tables existing in the database do not imply that API/workflow acceptance exists.
+
+The role allowlist contains `vessel.view`, `voyage.view` for selected roles and existing shipping/port permissions, but `vessel.nominate` was not found in the inspected allowlist. RLS is enabled on the inspected P16 maritime tables; however, `vessel_port_calls`, `vessel_tracking_positions` and `vessel_nominations` showed read policies without the complete controlled write workflow required by P17. Add narrowly scoped permissions and server-side write paths; never grant broad direct table writes to all shipping roles.
+
+### 13.4 Buyer identity and isolation — P0 blocker
+
+The existing Buyer workspace in `frontend/src/App.tsx` is a placeholder. The current buyer-project discovery surface is project-membership oriented and does not establish buyer identity by itself. The inspected schema has `buyers`, `buyer_parties` and `buyer_visibility_grants`, but no verified user-to-buyer membership binding was identified. The grant table has RLS, but the inspected permission function path does not establish active buyer-grant scope as the authoritative boundary for every Buyer object. A browser-supplied `buyerId` must never authorize access.
+
+Required target identity chain: authenticated principal → PKE user → verified buyer organization/membership → buyer → project/shipment → active, scoped, unexpired, non-revoked visibility grant. API and RLS must both enforce this relationship. Grants must distinguish shipment summary, milestones, vessel tracking, documents, financial milestones and other approved scopes. Revocation and expiry must deny access immediately. Buyer must never inherit general Finance or internal Project permissions through a portal shortcut.
+
+### 13.5 Provider/data-source decisions
+
+- MaritimHub is a candidate for port-master reconciliation, not permission to silently overwrite PKE master data. Validate the exact resource's currency, schema completeness, commercial display/reuse rights and terms. The inspected sample included missing external identifiers/coordinates and inactive records; missing fields must remain unknown and require review.
+- BMKG documented maritime endpoints are the preferred first forecast adapter. Use only fields actually returned for the selected endpoint/area/horizon. Preserve UTC issue/valid times, units, forecast-vs-observation semantics and freshness. Forecast does not replace verified tide/depth/clearance evidence.
+- HOTOSM/HDX port geometry is a distinct community geometry layer with ODbL/attribution obligations. It is not the authority for port identity, depth, navigation restrictions, clearance or terminal capacity. Keep provenance and licensing boundaries separate.
+- AIS provider remains conditional. VesselAPI free-tier limits and customer-facing display restrictions require written provider approval. AISHub requires compliant receiver contribution and imposes redistribution limits on raw messages/positions/tracks. No AIS source is approved as an unrestricted production feed by this plan. No paid API, subscription, receiver, hardware or contract is authorized.
+- SBNP/SROP/VTS and BIG/Pushidrosal/IHDC materials remain source candidates subject to access, currency, and reuse-right review. UN/LOCODE is a versioned cross-reference, not a replacement for national port master identity.
+
+### 13.6 Final revision workstreams and implementation gates
+
+| Workstream | Priority | Required outcome | Exit gate |
+|---|---|---|---|
+| P17-A Source governance and ingestion foundation | P0 | Provider registry, rights register, ingestion audit, idempotency, quota/health, staging and secret handling | Every enabled source has approved rights/field mapping; import is auditable and replay-safe |
+| P17-B Port master and geospatial reconciliation | P0 | MaritimHub staging, external-ID crosswalk, conflict review, versioned separate GeoJSON layer | No silent master overwrite; conflicts and missing values remain visible |
+| P17-C BMKG forecast adapter | P1 | Marine forecast/warning adapters, UTC/unit normalization, freshness and stale-state | Endpoint-specific field coverage and forecast-vs-observed tests pass |
+| P17-D Vessel identity and AIS abstraction | P1 | Provider-neutral adapter, IMO/MMSI validation, freshness, quota, outage and manual fallback | Rights approved; duplicate/out-of-order/mismatch and provider outage tests pass |
+| P17-E Voyage, nomination, port-call and loading workflow | P1 | Project-scoped lifecycle APIs, narrowly scoped permissions, maker-checker, confirmed milestones | Wrong-project/role denial, idempotency, evidence and quantity reconciliation pass |
+| P17-F Buyer identity and grant-based visibility | P0 | Verified membership mapping, scope-specific grants, API + RLS enforcement, real Buyer workspace | Cross-buyer/project IDOR, expiry, revocation and document isolation tests pass |
+| P17-G Maritime Control Tower | P2 | Port, forecast, vessel, voyage, port-call, readiness and provider-health surfaces | Data source/time/freshness and confidence are visible; no misleading live state |
+| P17-H Security, regression and acceptance | Gate | Automated evidence matrix and full P0–P16 regression | Every internally controllable acceptance test passes; external rights/coverage remain explicit BLOCKED_EXTERNAL |
+
+### 13.7 Candidate migration sequence — not yet authorized
+
+The sequence below is a planning hypothesis only. Exact boundaries and numbers must be revalidated against the live ledger and final DDL before any migration is authored. No migration is approved by this document.
+
+1. Candidate 096: maritime source/provider registry and ingestion audit.
+2. Candidate 097: port-source crosswalk and versioned geospatial layer.
+3. Candidate 098: marine forecast and warning model.
+4. Candidate 099: provider-neutral AIS ingestion and trusted write path.
+5. Candidate 100: voyage, nomination and port-call permission/API support.
+6. Candidate 101: Buyer identity mapping and grant-based RLS/API.
+7. Candidate 102+: only if backtest evidence proves additional schema changes are needed.
+
+No duplicate P16 entities. Every migration requires exact SQL review, dependency/constraint/index/RLS analysis, SHA-256, dry-run, backup/recovery plan, UAT-only apply, runtime-role tests, and manifest/plan update.
+
+### 13.8 Final acceptance matrix
+
+| Test family | Required negative and positive cases |
+|---|---|
+| Source rights | Unknown/expired/withdrawn rights fail closed; only approved use cases activate |
+| Ingestion | Repeat import, changed source, missing fields, duplicates, rollback, partial failure and checksum evidence |
+| Provider resilience | 429, 5xx, timeout, circuit breaker, quota exhaustion, stale source and recovery |
+| Port reconciliation | Duplicate official code, coordinate conflict, inactive source, missing coordinate and human approval |
+| Geospatial | ODbL attribution, layer separation, invalid geometry, versioning and no authority inference |
+| BMKG | UTC conversion, unit conversion, missing fields, expired forecast, forecast/observation separation |
+| AIS | IMO/MMSI mismatch, duplicate/out-of-order data, stale position, no coverage, provider outage and manual fallback |
+| Maritime workflow | Wrong Project, wrong role, maker-checker, unconfirmed arrival, port compatibility unknown and loading variance |
+| Buyer security | Buyer IDOR, cross-buyer/project substitution, inactive membership, expired/revoked grant and document scope |
+| Regression | Existing P0–P16 tests, API contracts, typecheck, build, migration dry-run and RLS runtime tests |
+
+P17 may be accepted only when all internally controllable tests pass and external licensing/coverage dependencies are labelled `BLOCKED_EXTERNAL`, not falsely represented as live integration. AIS must never independently authorize arrival, clearance, berth assignment or loading. P17 readiness must be evidence/checklist-driven and fail closed for mandatory missing evidence.
+
+### 13.9 Operating boundaries and current status
+
+- Scope of this revision: documentation only, on the existing authorized branch.
+- Neon: UAT read-only audit completed; no database change.
+- Production: no DDL, DML, role grants, credentials, imports or provider activation.
+- Vercel: deployment and environment changes remain frozen.
+- GitHub: PR #2 remains OPEN / DRAFT and unmerged.
+- Browser UAT/JWT: remains deferred; do not claim it passed.
+- No paid API, subscription, receiver, hardware, provider contract or AIS feed activation.
+
+**Final P17 status: FULL AUDIT COMPLETE → DOCUMENTATION REVISION BASELINE → IMPLEMENTATION NOT STARTED.** The next engineering step after these documents are verified is P17-A detailed source-registry/ingestion schema design and P17-F Buyer identity/grant design review before implementation. P17-B/C can proceed with approved source rights and staging boundaries. Do not begin provider ingestion or create Migration 096 solely because it appears in the candidate sequence.

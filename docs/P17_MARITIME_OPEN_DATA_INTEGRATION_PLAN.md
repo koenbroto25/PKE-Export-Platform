@@ -641,3 +641,37 @@ P17 may be accepted only when all internally controllable tests pass and externa
 - A dedicated isolated validation branch `p17a-e-uat-validation-20261122` was created from UAT before application and retained for test evidence. Synthetic validation records were written only to that branch, never to UAT.
 
 **P17-A / P17-E result:** database migrations, UAT ledger reconciliation, role/RLS backtests and repository contract/CI gates PASS. Provider onboarding/live feed, deployed HTTP/browser acceptance, and production release are intentionally not claimed or activated.
+
+
+## 16. P17-B port master, PKS linkage and geospatial layer (22 November 2026)
+
+
+**Scope decision:** PKE export suitability and PKS-to-port land logistics are the primary ranking dimensions. The national port register may contain all known ports, but only a port with verified PKE loading capability and a verified road route from an operational, verified PKS can become a primary operational reference. Proximity alone is not proof of export suitability.
+
+### 16.1 Existing P16 entities reused
+- `public.ports` remains the canonical national port identity; UN/LOCODE, national code, coordinates, authority/operator, source and verification fields are reused.
+- `public.pks_sites` remains the canonical PKS/KCP/facility master and is linked to `partner_organizations` through `organization_id`. Producer/company records are not duplicated into a new port table.
+- `public.pks_port_routes` remains the PKS–port relationship, including road/river/sea/multimodal mode, distance, travel time, provenance and independent verification.
+- `public.warehouses`, `port_terminals` and `port_loading_services` remain the port-side warehouse/terminal/loading-capability records.
+
+### 16.2 Migration 098
+Migration `098_p17b_port_identity_geospatial.sql` was applied to Neon UAT branch `br-young-boat-b3re832d` (project `purple-base-63944903`, database `neondb`). SHA-256: `d5e035f92ac2f679111ff717724c1683aa4666574c8aae5e830e501301179445`.
+- `port_external_id_crosswalk` maps source-specific external port identifiers to canonical P16 ports, with confidence/match method, source snapshot, evidence and independent match review.
+- `port_geospatial_features` stores separately versioned GeoJSON for port/terminal/PKS points and boundaries, road access and route features, including geometry checksum, dataset version, license and attribution. This is not a PostGIS dependency and does not silently replace canonical coordinates.
+- Existing `pks_port_routes` gained a nullable geometry-feature reference and explicit distance-method field; the verified road-route priority index supports PKS-first lookup.
+- Both new tables have forced RLS. Crosswalk is Platform Admin-only; geospatial reads are constrained by selected Project port/route linkage. No bulk external data was imported.
+
+### 16.3 PKE-specific route ranking
+The `GET /api/v1/port-routes` response now exposes `pke_loading_service_verified`, `verified_warehouse_count`, `is_primary_reference`, PKS operating/verification status and port verification status. A primary reference requires all of: road mode, active verified route with distance, active operational verified PKS, active verified port, and an active verified loading service whose cargo type is explicitly PKE / Palm Kernel Expeller (including normalized material synonyms). Otherwise it remains a candidate and is never labelled primary. Results are ordered road-first, verified-first and shortest distance first within the PKS grouping.
+- Port proximity is not calculated from straight-line distance and represented as road distance. A route must identify its method (`road_network`, `operator_quote`, `gps_track`, etc.) and source.
+- Verified port warehouses are surfaced as a supporting indicator, not a substitute for verified storage capacity, handling mode or product compatibility.
+- UI route panel now labels only fully eligible rows as “Rujukan utama PKE” and explains why unverified or incomplete candidates are not promoted.
+
+### 16.4 Validation boundary
+- UAT migration ledger is now 98 rows: 16 baseline and 82 applied. Exact manifest: `migration_history_manifest_uat_001_098.json`.
+- Post-apply catalog checks confirmed both new tables, forced RLS, the expected policies, route geometry/distance columns and migration 098 hash/ledger entry.
+- Runtime-role spot checks confirmed the new tables return no rows to an unrelated PM principal and no data is exposed without an eligible Project relationship. No real records were inserted; UAT port/PKS fixtures remain test fixtures.
+- P17-B API and UI contract tests were added. Full CI and role-backed data-positive/negative integration tests remain required before declaring P17-B fully accepted.
+- Provider activation, bulk import, Production changes, Vercel deployment and PR merge remain out of scope. External source rights must be approved in P17-A before any dataset can be staged/promoted.
+
+**P17-B status:** database foundation applied; route prioritization API/UI implemented; full CI and positive/negative data-backed acceptance pending. No national port catalogue or producer list is yet represented as complete/verified.

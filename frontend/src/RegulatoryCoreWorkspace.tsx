@@ -152,7 +152,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
         <label><input type="checkbox" checked={countryForm.mandatory} onChange={e=>setCountryForm(v=>({...v,mandatory:e.target.checked}))}/> Mandatory</label>
         <label>Notes<input value={countryForm.notes} onChange={e=>setCountryForm(v=>({...v,notes:e.target.value}))}/></label>
         <div className="form-actions"><button className="primary-button" disabled={busy}>Tambah country requirement draft</button></div>
-      </form>}/>}
+      </form>}
       <div className="activity-list">{countryReqs.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.country_code} · {r.document_code} · {r.document_name}</strong><span>{r.status} / {r.verification_status} · v{r.version_no}</span><small>Source: {r.source_id||"—"} · berlaku {String(r.effective_from||"").slice(0,10)}</small></div>{canDocManage&&["pending","reviewed"].includes(r.verification_status)&&<button className="secondary-button" disabled={busy||r.created_by===activeUser?.id||!r.regulatory_source_id} onClick={()=>void reviewCountryRequirement(r.id)}>Verify (independent)</button>}{canAddProjectRequirement&&r.status==="active"&&r.verification_status==="verified"&&<button className="secondary-button" disabled={busy} onClick={()=>void addCountryRequirement(r.id)}>Add to active Project</button>}</div>)}{!countryReqs.length&&<p className="muted">Belum ada country requirement.</p>}</div>
       <p className="muted">{docTypes.length} document types · {countryReqs.length} country requirements</p>
     </section>}

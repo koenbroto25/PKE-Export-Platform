@@ -110,7 +110,6 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
     return hasSelectedProjectMembership(user);
   }
   const permissions = new Set(user.projectPermissions || []);
-  if (pageKey === 'buyer') return user.buyerPortalEnabled === true; // /me requires verified mapping and at least one active grant.
   if (pageKey === 'maritime-operations') return ['voyage.view', 'vessel.view', 'vessel.nomination.review', 'shipping.view', 'shipment.view'].some(permission => permissions.has(permission));
   if (pageKey === 'supplier') return permissions.has('supplier.view') && permissions.has('shipment.view');
   if (pageKey === 'transporter') return permissions.has('record_truck_trips') && permissions.has('verify_checkpoints');

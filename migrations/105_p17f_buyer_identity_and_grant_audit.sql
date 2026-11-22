@@ -143,6 +143,13 @@ CREATE POLICY buyers_verified_mapping_self_read
     )
   );
 
+CREATE POLICY buyer_visibility_grants_project_manager_read
+  ON public.buyer_visibility_grants FOR SELECT TO app_runtime_secure
+  USING (
+    project_id=NULLIF(current_setting('app.current_project_id',true),'')::uuid
+    AND public.pke_has_project_permission(project_id,'buyer.visibility.manage')
+  );
+
 CREATE POLICY buyer_visibility_grants_buyer_read
   ON public.buyer_visibility_grants FOR SELECT TO app_runtime_secure
   USING (

@@ -10657,3 +10657,13 @@ Migration 098 `098_p17b_port_identity_geospatial.sql` is applied to Neon UAT onl
 The port-route API/UI now prioritizes only a road route with non-null distance, a declared road-network/operator-quote/GPS-track method, current SHA-256/source evidence and verification stamps on the route, an operational PKS with current verification evidence, a port with current verification evidence, and an active PKE loading service with current verification evidence. Other ports remain in the national master/candidate pool but cannot be promoted as PKE primary references solely because they are nearby. Warehouse count is an indicator only; actual storage capacity and compatibility still need evidence.
 
 UAT ledger: 98 rows (16 baseline, 82 applied), reconciled in `migration_history_manifest_uat_001_098.json`. Schema/RLS spot checks pass; UAT fixtures remain synthetic/test data. P17-B contract tests were added; full CI and data-backed positive/negative acceptance remain pending. Do not claim complete national port coverage or producer directory. No provider activation, Production change, Vercel deployment or PR merge.
+
+
+## 56.60 — P17-B acceptance evidence and remaining release gates (22 November 2026)
+
+
+P17-B migration 098 is applied to UAT and the exact 001–098 manifest reconciles 98/98 entries with zero mismatches. Schema/catalog/RLS checks pass. Isolated validation branch backtests passed crosswalk and GeoJSON positive writes/reviews, database denial of incomplete reviewer stamps and malformed GeoJSON, and runtime role visibility (Platform Admin can read synthetic test rows; PM cannot read global crosswalk or unlinked geometry). No synthetic test data was written to UAT.
+
+Final code head `d0fa87b8611ceae2d6fb82e6aa2bf0d2378edad3`: GitHub Unit Tests PASS (46 files, 416 tests), migration dry-run PASS, backend API typecheck PASS, frontend typecheck/build PASS, Dependency Audit Evidence PASS. Route-priority SQL executed successfully against UAT and returned zero rows because there is no verified route data yet.
+
+**P17-B database, API contract and CI gates: PASS.** Live authenticated HTTP/browser UAT, Project-positive geo visibility with a real approved port relationship, external source-rights approval, national port import/reconciliation, and producer-company onboarding remain pending. Do not claim a verified national port or producer directory. Vercel/Production/PR merge and external provider activation remain unchanged.

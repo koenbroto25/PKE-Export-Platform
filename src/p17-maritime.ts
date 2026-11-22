@@ -57,7 +57,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  });
  // P17-A: registry, rights, run ledger and staging. Provider execution is intentionally separate.
  app.get("/api/v1/admin/maritime/sources",requireAuth,requireAdmin,async(req:R,res:Response)=>{
-  try{const q=await req.db.query("SELECT id,source_code,provider_name,source_class,dataset_code,endpoint_url,terms_url,license_code,access_method,rights_status,commercial_use_allowed,internal_processing_allowed,customer_display_allowed,redistribution_allowed,derivative_use_allowed,caching_allowed,retention_days,attribution_text,rights_reviewed_at,rights_expires_at,enabled,quota_limit,quota_window_seconds FROM public.maritime_data_sources ORDER BY source_code");return res.json({sources:q.rows});}
+  try{const q=await req.db.query("SELECT id,source_code,provider_name,source_class,dataset_code,endpoint_url,terms_url,license_code,access_method,rights_status,commercial_use_allowed,internal_processing_allowed,customer_display_allowed,redistribution_allowed,derivative_use_allowed,caching_allowed,retention_days,attribution_text,rights_evidence_url,metadata,rights_reviewed_at,rights_expires_at,enabled,quota_limit,quota_window_seconds FROM public.maritime_data_sources ORDER BY source_code");return res.json({sources:q.rows});}
   catch{return bad(res,500,"SOURCE_LIST_FAILED","Unable to load maritime sources.");}
  });
  app.post("/api/v1/admin/maritime/sources",requireAuth,requireAdmin,async(req:R,res:Response)=>{

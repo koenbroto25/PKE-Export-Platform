@@ -9,7 +9,7 @@ const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const hashFile = (name) => hash(fs.readFileSync(path.join(migrationsDir, name)));
 const fail = (message) => { console.error("FAIL: " + message); process.exitCode = 1; };
 const historyBase = readJson("migration_history_manifest_001_056.json");
-const historyCurrent = readJson("migration_history_manifest_001_070.json");
+const historyCurrent = readJson("migration_history_manifest_001_071.json");
 const uat = readJson("migration_history_manifest_uat_001_110.json");
 const release = readJson("migration_release_manifest_p17_096_109.json");
 const p17d110 = readJson("migration_release_manifest_p17d_110.json");
@@ -21,8 +21,8 @@ if (historyBase.project_id !== "purple-base-63944903" || historyBase.branch_id !
   fail("Production pre-P17 baseline manifest must pin exactly ledger 001-056.");
 }
 if (historyCurrent.project_id !== "purple-base-63944903" || historyCurrent.branch_id !== "br-damp-shape-b3xlh4nr" ||
-    historyCurrent.database !== "neondb" || historyCurrent.applied_count !== 70 || historyCurrent.entries?.length !== 70 ||
-    historyCurrent.entries[69]?.filename !== "109_p17f_buyer_self_read_rls_recursion_fix.sql") {
+    historyCurrent.database !== "neondb" || historyCurrent.applied_count !== 71 || historyCurrent.entries?.length !== 71 ||
+    historyCurrent.entries[70]?.filename !== "110_p17d_vessel_position_runtime_rls_fix.sql") {
   fail("Current Production manifest must reconcile exactly ledger 001-070.");
 }
 if (uat.purpose !== "verified_uat_history_only_not_production_history" || uat.branch_id !== "br-young-boat-b3re832d" ||
@@ -37,14 +37,18 @@ if (release.purpose !== "production_p17_release_package_exact_sql_hashes_owner_a
   fail("P17 Production release manifest target/scope mismatch.");
 }
 
-if (p17d110.purpose !== "production_p17d_runtime_rls_correction_owner_approval_required" ||
+if (p17d110.purpose !== "production_p17d_runtime_rls_correction_applied" ||
     p17d110.project_id !== "purple-base-63944903" || p17d110.branch_id !== "br-damp-shape-b3xlh4nr" ||
-    p17d110.starting_history_count !== 70 || p17d110.expected_first_ledger_id !== 71 ||
-    p17d110.expected_last_ledger_id !== 71 || p17d110.owner_approval?.status !== "pending" ||
-    p17d110.migrations?.length !== 1 || p17d110.migrations[0]?.status !== "pending" ||
-    p17d110.migrations[0]?.requires_owner_approval !== true ||
+    p17d110.owner_approval?.status !== "approved" || p17d110.production_application?.ledger_id !== 71 ||
+    p17d110.migrations?.length !== 1 || p17d110.migrations[0]?.status !== "applied" ||
+    p17d110.migrations[0]?.production_applied !== true ||
     hashFile("110_p17d_vessel_position_runtime_rls_fix.sql") !== p17d110.migrations[0]?.sha256) {
-  fail("P17-D migration 110 must remain exactly pinned and owner-gated for Production.");
+  fail("P17-D migration 110 must match its approved Production application and exact source hash.");
+}
+const production110 = historyCurrent.entries[70];
+if (production110?.id !== 71 || production110?.filename !== "110_p17d_vessel_position_runtime_rls_fix.sql" ||
+    production110?.sha256 !== p17d110.migrations[0]?.sha256 || production110?.status !== "applied") {
+  fail("Production ledger manifest does not reconcile migration 110 at ID 71.");
 }
 
 for (let i = 0; i < 56; i++) {
@@ -84,4 +88,4 @@ if (!ais || ais.sha256!==hashFile("110_p17d_vessel_position_runtime_rls_fix.sql"
 for (const guard of ["pg_advisory_lock(424242)","LIVE VERIFY PASS","P17 096-109 are already applied","P17 096-109 applied at IDs 57-70"]) {
   if (!runner.includes(guard)) fail("P17 release verifier missing required guard: "+guard);
 }
-if (!process.exitCode) console.log("P17 release package PASS: Production ledger 001-070, pre-release baseline 001-056, UAT 001-110, 096-109 exact hashes and migration 110 UAT fix verified.");
+if (!process.exitCode) console.log("P17 release package PASS: Production ledger 001-071, pre-release baseline 001-056, UAT 001-110, P17 096-109 exact hashes and Production-applied migration 110 verified.");

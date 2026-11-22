@@ -666,8 +666,8 @@ app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(r
   const status=str(req.body?.reviewStatus,30);
   if(!["accepted","rejected","quarantined"].includes(status))return bad(res,400,"MARITIME_STAGING_REVIEW_INVALID","Supported review status is required.");
   try{
-   const q=await req.db.query("UPDATE public.maritime_ingestion_staging SET review_status=$2,reviewed_by=req_user_id(),reviewed_at=now() WHERE id=$1::uuid AND review_status='pending' RETURNING *",[id,status]);
-   if(!q.rows.length)return bad(res,404,"MARITIME_STAGING_NOT_REVIEWABLE","Staged record not found or already reviewed.");
+   const q=await req.db.query("UPDATE public.maritime_ingestion_staging st SET review_status=$2,reviewed_by=req_user_id(),reviewed_at=now() FROM public.maritime_ingestion_runs r WHERE st.id=$1::uuid AND st.run_id=r.id AND st.review_status='pending' AND r.triggered_by<>req_user_id() RETURNING st.*",[id,status]);
+   if(!q.rows.length)return bad(res,409,"MARITIME_STAGING_MAKER_CHECKER","Staging must be pending and reviewed by an administrator independent from the run creator.");
    return res.json({staging:q.rows[0]});
   }catch(e:any){
    if(e?.code==="23514"||e?.code==="42501")return bad(res,409,"MARITIME_STAGING_REVIEW_REJECTED","Database rejected staging review.");

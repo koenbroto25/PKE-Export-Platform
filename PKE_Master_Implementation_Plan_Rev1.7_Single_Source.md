@@ -8584,3 +8584,16 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Loading survey, quantity reconciliation, NOR and laytime acceptance remain unavailable until genuine private evidence is uploaded and independently reviewed.
 - Vercel deployment and browser UAT remain skipped per owner instruction. Authenticated HTTP/API acceptance is still a separate application-level gate.
 - Therefore the P17 database foundation 096–109 is applied and its available runtime backtests pass, but P17 is **not yet fully operational/application complete** until migration 110 is owner-approved/applied and the external evidence/identity/API gates are satisfied. Do not label business production ready.
+
+
+## P17-D corrective migration 110 — Production applied (2026-11-23)
+
+- Owner explicitly approved `110_p17d_vessel_position_runtime_rls_fix.sql` for Neon Production with SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`.
+- Applied atomically to Production project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, database `neondb`, migration ledger ID 71. Live ledger row SHA-256 and status `applied` verified.
+- Added `p17d_vessel_position_ingest_admin_insert` and `p17d_vessel_position_independent_review_update` runtime policies. Confirmed RLS enabled, `app_runtime_secure` INSERT/UPDATE table privileges, PM permission allowlist and two active PM project-role permission assignments.
+- Production rollback-safe runtime backtest: PM permission resolves for Project A; PM cannot change the existing legacy pending row with `source_id IS NULL`; Platform Admin cannot ingest an observation without a licensed source. Backtest completed without persistent test rows or mutations.
+- Current Production ledger manifest is `migration_history_manifest_001_071.json`; prior `migration_history_manifest_001_070.json` is retained as the pre-110 snapshot. `migration_release_manifest_p17d_110.json` records owner approval and applied state.
+- UAT positive backtest remains the proof for the licensed-source happy path: synthetic rights-approved source, admin ingestion, independent PM acceptance, payload immutability and project visibility all passed in a rollback-only transaction.
+- Production still has zero enabled maritime/AIS providers and zero source-linked positions. The one legacy pending row remains unlinked and cannot be reviewed as licensed AIS. No provider credentials or legal rights were invented or activated.
+
+**P17 database migrations 096–110 are now applied.** This closes the migration 110 database/RLS blocker. P17 is not declared fully operational or application-production-ready: real provider rights/credentials, verified PKS-port-route evidence, Buyer identity mapping, loading evidence and authenticated HTTP/API acceptance remain external/application gates. Vercel deployment and browser UAT remain skipped per owner instruction.

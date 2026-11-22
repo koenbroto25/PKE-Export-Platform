@@ -156,6 +156,15 @@ FOR EACH ROW EXECUTE FUNCTION public.pke_guard_loading_operation_unit();
 CREATE OR REPLACE FUNCTION public.pke_guard_loading_operation_acceptance()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
 AS $function$
+DECLARE
+  operation_quantity numeric;
+  operation_unit text;
+  verified_quantity numeric;
+  verified_count integer;
+  verified_unit_count integer;
+  completed_quantity numeric;
+  completed_count integer;
+  completed_unit_count integer;
 BEGIN
   IF TG_OP='INSERT' THEN
     IF NEW.submitted_by IS DISTINCT FROM public.pke_current_user_id()

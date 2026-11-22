@@ -263,6 +263,8 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
   expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");
   expect(gate).toContain("const p17SchemaBackedRead=");
+  for(const readPath of ["buyer-visibility-grant-candidates","voyages","vessel-nominations","vessel-port-calls","loading-operations","vessel-positions","p17-control-tower","advisory-screening"])expect(gate).toContain(readPath);
+  expect(gate).toContain("/api/v1/admin/p17-control-tower");
   expect(gate).toContain("migration_history");
   expect(gate).toContain("status='applied'");
   expect(gate).toContain("relrowsecurity");

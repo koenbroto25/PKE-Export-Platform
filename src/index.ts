@@ -1920,6 +1920,15 @@ async function requireProjectDocumentPermission(
   return requireProjectPermission(req, res, projectId, permissionCode);
 }
 
+async function recordRegulatoryAudit(req: express.Request,action: string,targetType: string,targetId: string,projectId: string|null=null,reason: string|null=null,before: unknown=null,after: unknown=null): Promise<void> {
+  await req.db.query(
+    `INSERT INTO public.audit_events
+      (actor_user_id,actor_type,actor_role,permission_code,action,target_type,target_id,project_id,source,reason,before_snapshot,after_snapshot,metadata,outcome)
+     VALUES($1::uuid,'user',$2,$3,$4,$5,$6::uuid,$7::uuid,'p18_regulatory_core',$8,$9::jsonb,$10::jsonb,$11::jsonb,'success')`,
+    [req.user?.id??null,req.user?.role??null,action.startsWith("source")?"regulatory.source.manage":action.startsWith("rule")?"regulatory.rule.manage":"compliance.assess",action,targetType,targetId,projectId,reason,before?JSON.stringify(before):null,after?JSON.stringify(after):null,JSON.stringify({phase:"P18",branch:"p18/regulatory-core-20261123"})],
+  );
+}
+
 async function requireAnyProjectPermission(req: express.Request,res: express.Response,permissionCode: string): Promise<boolean> {
   const {rows}=await req.db.query("SELECT public.pke_has_any_project_permission($1::text) AS allowed",[permissionCode]);
   if(rows[0]?.allowed!==true){
@@ -2242,6 +2251,7 @@ app.post("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:
        RETURNING id,source_id,title,jurisdiction,status,verification_status,created_by,created_at`,
       [sourceId,title,issuingAuthority,jurisdiction,b.documentType??null,b.regulationNumber??null,b.articleAnnexSection??null,b.publicationDate??null,effectiveDate,b.expiryDate??null,officialUrl,b.sha256Checksum??null,b.accessRights??"unknown",b.sourceType??"regulation",req.user?.id??null],
     );
+    await recordRegulatoryAudit(req,"source.created","regulatory_source",rows[0].id,null,"Source metadata created in pending verification state",null,rows[0]);
     return res.status(201).json({source:rows[0]});
   }catch(error:any){
     if(error?.code==="23505") return res.status(409).json({error:"Source ID already exists.",code:"REGULATORY_SOURCE_DUPLICATE"});
@@ -2264,6 +2274,7 @@ app.patch("/api/v1/regulatory-sources/:id/review",requireAuth,async(req:express.
       [decision,req.user?.id??null,req.params.id],
     );
     if(!rows.length) return res.status(409).json({error:"Source missing or maker-checker independence failed.",code:"REGULATORY_SOURCE_REVIEW_CONFLICT"});
+    await recordRegulatoryAudit(req,"source.reviewed","regulatory_source",rows[0].id,null,"Independent source review: "+decision,null,rows[0]);
     return res.json({source:rows[0]});
   }catch(error:any){
     if(error?.code==="23514") return res.status(422).json({error:"Source verification requires an HTTPS official URL and SHA-256 checksum."});
@@ -2342,6 +2353,7 @@ app.post("/api/v1/regulatory-rules",requireAuth,async(req:express.Request,res:ex
         [version.rows[0].id,docType.rows[0].id,document.requirementKind??"mandatory",document.issuingAuthority??null,document.holderParty??null,document.presentationPoint??null,document.validityDays??null,JSON.stringify(document.conditionSchema??{})],
       );
     }
+    await recordRegulatoryAudit(req,"rule.created","regulatory_rule",rule.rows[0].id,null,"Rule and draft version created",null,{ruleId:rule.rows[0].id,version:version.rows[0]});
     return res.status(201).json({ruleId:rule.rows[0].id,version:version.rows[0]});
   }catch(error:any){
     if(error?.code==="23505") return res.status(409).json({error:"Rule code or version already exists.",code:"REGULATORY_RULE_DUPLICATE"});
@@ -2358,6 +2370,7 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/submit-review",requireAut
       WHERE id=$1::uuid AND status='draft' RETURNING id,rule_id,status`,[req.params.versionId]);
     if(!rows.length) return res.status(409).json({error:"Only a draft rule version can be submitted for review."});
     await req.db.query("UPDATE public.regulatory_rules SET status='under_review',updated_at=now() WHERE id=$1::uuid",[rows[0].rule_id]);
+    await recordRegulatoryAudit(req,"rule.submitted_for_review","regulatory_rule_version",rows[0].id,null,"Rule version submitted for independent review",null,rows[0]);
     return res.json({version:rows[0]});
   }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
 });
@@ -2375,6 +2388,7 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/approve",requireAuth,asyn
     );
     if(!rows.length) return res.status(409).json({error:"Approval denied: source must be verified and reviewer must differ from maker.",code:"REGULATORY_MAKER_CHECKER_REQUIRED"});
     await req.db.query("UPDATE public.regulatory_rules SET status='approved',reviewed_by=$1::uuid,reviewed_at=now() WHERE id=$2::uuid",[req.user?.id??null,rows[0].rule_id]);
+    await recordRegulatoryAudit(req,"rule.approved","regulatory_rule_version",rows[0].id,null,"Independent rule approval",null,rows[0]);
     return res.json({version:rows[0]});
   }catch(error:any){if(error?.code==="23514") return res.status(409).json({error:"Independent approval constraint failed."});return res.status(500).json(internalServerErrorPayload());}
 });
@@ -2391,6 +2405,7 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/activate",requireAuth,asy
     );
     if(!rows.length) return res.status(409).json({error:"Only approved versions within their effective date window can be activated."});
     await req.db.query("UPDATE public.regulatory_rules SET status='effective',active_version_id=$1::uuid,updated_at=now() WHERE id=$2::uuid",[rows[0].id,rows[0].rule_id]);
+    await recordRegulatoryAudit(req,"rule.activated","regulatory_rule_version",rows[0].id,null,"Approved version activated within effective date window",null,rows[0]);
     return res.json({version:rows[0]});
   }catch(error:any){if(error?.code==="23505") return res.status(409).json({error:"Another effective version already exists for this rule."});return res.status(500).json(internalServerErrorPayload());}
 });
@@ -2472,6 +2487,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       [projectId,shipmentId,productId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify(rules.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode}))),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
     );
     const assessment=inserted.rows[0];
+    await recordRegulatoryAudit(req,"assessment.created","regulatory_assessment",assessment.id,projectId,"Deterministic assessment created from Project-owned shipment snapshot",null,{overallStatus:summary.overallStatus,ruleCount:rules.length});
     for(const result of results){
       await req.db.query(
         `INSERT INTO public.regulatory_assessment_results
@@ -2564,6 +2580,7 @@ app.patch("/api/v1/projects/:projectId/regulatory-assessments/:assessmentId/revi
         RETURNING id,overall_status,failed_count,pending_count,reviewed_by,reviewed_at`,
       [overall,counts.failed,counts.pending,req.user?.id??null,req.params.assessmentId,projectId],
     );
+    await recordRegulatoryAudit(req,"assessment.reviewed","regulatory_assessment",req.params.assessmentId,projectId,"Independent assessment result review",null,updatedAssessment.rows[0]);
     return res.json({assessment:updatedAssessment.rows[0]});
   }catch(error:any){
     if(error?.code==="42501") return res.status(403).json({error:"Assessment review permission denied."});

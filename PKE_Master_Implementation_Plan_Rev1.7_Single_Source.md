@@ -8403,3 +8403,8 @@ Read-only inspection of canonical Production confirmed:
 6. Run unit/contract, backend compile, frontend typecheck/build and API read-only acceptance without invoking Vercel. No browser UAT is implied by this addendum.
 
 **Overall P17 status: IN PROGRESS — NOT ALL PASS.** The application release, external-data/legal gates, buyer identity/grants and operational end-to-end acceptance have not passed. No Production mutation, migration execution, PR merge or deployment was performed.
+
+
+## 55.28 P17 migration atomicity correction — 22 November 2026
+
+Source review found migrations 096, 097 and 098 were not wrapped in explicit transactions, while migrations 099–103 were. This is corrected in the P17 branch by enclosing each of 096–098 in a single BEGIN/COMMIT transaction. The P17 contract suite now pins transaction closure for all eight migrations. This is a source-only correction; no migration was executed against canonical Production. Before any future Production release, exact SHA-256 values must be regenerated and the full SQL dependency/preflight review repeated because transaction wrappers change the migration hashes. Vercel deployment remains skipped by owner instruction.

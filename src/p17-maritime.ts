@@ -473,7 +473,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
 
 // P17-E: Project-scoped voyages, nominations and port calls. Every mutation is permission-gated.
  app.get("/api/v1/projects/:projectId/voyages",requireAuth,async(req:R,res:Response)=>{
-  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"voyage.view"))return;
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["voyage.view","vessel.view","shipping.view"]))return;
   try{const q=await req.db.query("SELECT * FROM public.voyages WHERE project_id=$1::uuid ORDER BY COALESCE(planned_departure_at,actual_departure_at,start_date) DESC NULLS LAST",[p]);return res.json({voyages:q.rows});}
   catch{return bad(res,500,"VOYAGE_READ_FAILED","Unable to read Project voyages.");}
  });
@@ -492,7 +492,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   catch{return bad(res,500,"VOYAGE_UPDATE_FAILED","Unable to update voyage.");}
  });
  app.get("/api/v1/projects/:projectId/vessel-nominations",requireAuth,async(req:R,res:Response)=>{
-  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"vessel.nominate"))return;
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["vessel.view","vessel.nominate","vessel.nomination.review"]))return;
   try{const q=await req.db.query("SELECT * FROM public.vessel_nominations WHERE project_id=$1::uuid ORDER BY created_at DESC",[p]);return res.json({nominations:q.rows});}
   catch{return bad(res,500,"NOMINATION_READ_FAILED","Unable to read Project nominations.");}
  });
@@ -525,7 +525,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"NOMINATION_DECISION_REJECTED","Nomination decision guard rejected this transition.");return bad(res,500,"NOMINATION_DECISION_FAILED","Unable to decide nomination.");}
  });
  app.get("/api/v1/projects/:projectId/vessel-port-calls",requireAuth,async(req:R,res:Response)=>{
-  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"vessel.view"))return;
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["vessel.view","shipping.view"]))return;
   try{const q=await req.db.query("SELECT c.* FROM public.vessel_port_calls c JOIN public.voyages v ON v.id=c.voyage_id WHERE v.project_id=$1::uuid ORDER BY c.predicted_at DESC NULLS LAST",[p]);return res.json({portCalls:q.rows});}
   catch{return bad(res,500,"PORT_CALL_READ_FAILED","Unable to read Project port calls.");}
  });

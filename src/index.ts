@@ -503,6 +503,7 @@ app.get("/api/v1/me", requireAuth, async (req: express.Request, res: express.Res
           JOIN public.buyer_visibility_grants g ON g.buyer_id=b.id
           WHERE m.user_id=$1::uuid AND m.mapping_status='active'
             AND g.status='active' AND (g.expires_at IS NULL OR g.expires_at>now())
+            AND g.scope IN ('summary','milestones')
         ) AS enabled`,[userId]);
         buyerPortalEnabled=buyerAccess.rows[0]?.enabled===true;
       }

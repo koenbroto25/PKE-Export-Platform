@@ -89,12 +89,17 @@ function App() {
       : Promise.resolve({ projectId, permissions: [] }),
     [projectId, activeUser?.id, pkeIdentity.loading],
   );
+  const buyerAccess = useLoad<{ identityMapped?: boolean } | null>(
+    () => activeUser && !pkeIdentity.loading ? get('/buyer/shipments') : Promise.resolve(null),
+    [activeUser?.id, pkeIdentity.loading],
+  );
   const workspaceUser: AnyRecord | undefined = activeUser ? {
     ...activeUser,
     selectedProjectId: projectId,
     projectPermissions: projectAccess.data?.projectId === projectId ? projectAccess.data.permissions || [] : [],
     projectPermissionsLoading: Boolean(projectId && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
     projectPermissionsError: projectAccess.error,
+    buyerPortalEnabled: buyerAccess.data?.identityMapped === true,
   } : activeUser;
   const selectedMembership = workspaceUser?.projectMemberships?.find((membership: AnyRecord) => membership.projectId === projectId && membership.isActive === true);
   const selectedProjectRoles = (selectedMembership?.roleAssignments || [])

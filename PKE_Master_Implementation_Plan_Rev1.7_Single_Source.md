@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.35 — P17 staging maker-checker correction and technical handoff
+# Master Implementation Plan Rev2.36 — P17 Production reconciliation and validation run
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.35 (23 November 2026 — P17 staging reviewer independence enforced; source promotion and technical work remain active)  
+**Revision:** 2.36 (23 November 2026 — Production ledger and external-gate reconciliation; technical validation run requested)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8687,3 +8687,23 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Added a regression contract assertion for the run-creator/reviewer separation. This corrects a real gap found while checking the schema against the new ingestion UI.
 - Removed the empty-object default payload from the ingestion UI. The form now requires the user to paste actual provider records; the placeholder is explicitly illustrative and not submitted automatically.
 - No staging records, provider sources or business data were created in Production. Current Production read-only counts remain unchanged: ledger 71; enabled sources 0; linked AIS positions 0; Buyer mappings/grants 0; Project PKS links 0.
+
+
+**P17 Production reconciliation and validation run — 23 November 2026**
+
+- Re-read the active branch source and its unit-test workflow. The workflow `.github/workflows/unit-tests.yml` is configured for push on this P17 branch and runs root `npm test`, release migration verifiers, migration dry-run, backend build, API TypeScript check, frontend typecheck and frontend build. It does not deploy to Vercel or run browser UAT.
+- Resolved the active branch head from GitHub comparison: `4cafa7e1d9cb9e56bc30eeab2bdce6e6cf9992c6`. The commit has no GitHub Actions workflow run returned by the PR-filtered workflow lookup; combined commit status shows only the Vercel build-rate-limit failure. That Vercel result is not an application test result. Do not claim CI pass until a push-triggered Actions run is observed.
+- Requeried canonical Neon Production `purple-base-63944903 / br-damp-shape-b3xlh4nr / neondb` read-only. Migration ledger latest rows 67–71 are sequential and migration 110 is Applied at ID 71 with SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`.
+- Rechecked actual Production counts using the canonical table names: enabled maritime providers 0; source-linked vessel positions 0; Buyer Auth mappings 0; Buyer visibility grants 0; Project–PKS participation links 0. These zero values are intentional and must not be replaced with fabricated fixtures.
+- A diagnostic probe against a guessed vessel-position table name failed with PostgreSQL 42P01; it was read-only and made no changes. The verified source table is `public.vessel_tracking_positions`.
+- The current source now includes typed staging promotion only for accepted port identity and port geometry records, with source-rights and field-purpose checks, candidate-only writes, and `canonicalMasterChanged=false`. Other entity types are deliberately rejected until a typed target schema and governance path exist; do not create generic JSON-to-master promotion.
+- Staging review now checks `maritime_ingestion_runs.triggered_by <> req_user_id()`, enforcing independent review against the run creator. The UI no longer submits an empty-object placeholder as a provider record.
+- No new Production migration, business data mutation, provider activation, Buyer grant, or deployment was performed during this validation pass.
+
+**Validation state and remaining technical closure**
+- Source/contract inspection confirms the P17 route registrations, admin-protected provider governance and staging routes, typed candidate promotion guards, Buyer mapping/grant endpoints, Project-scoped maritime workflows, loading survey/reconciliation/laytime checks, and Control Tower projection are present in source.
+- The existing `src/p17-maritime.contract.test.ts` is source-contract coverage; it is not a substitute for runtime authenticated HTTP tests. Runtime positive/negative auth, Project-context and IDOR acceptance across P17-A–G is still not independently evidenced. Do not report it as passed.
+- Full root tests, backend build/API typecheck, frontend typecheck/build remain pending a fresh Actions run on the current branch head. If the push-triggered workflow does not start, investigate Actions permissions/configuration; do not substitute Vercel.
+- Control Tower KPI/query semantics still require a test against controlled fixtures or a safe rollback-only test surface. Production has no business records to validate live KPI totals; keep missing data as unknown/not available rather than numeric zero where the source is absent.
+- External owner/company activation items remain separate: AIS provider license/contract and API credentials; verified PKS–port–terminal–warehouse–road source evidence; real Buyer Neon Auth identity and approved visibility scope; genuine survey/tally/tickets/NOR/laytime evidence; legal/compliance approval. None blocks further code, contract tests, admin UX, fail-closed behavior or non-production validation.
+- Continue to skip Vercel deployment and browser UAT until the owner explicitly changes that instruction.

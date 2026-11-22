@@ -127,10 +127,14 @@ DROP POLICY IF EXISTS pke_scope_select ON public.regulatory_rule_conditions;
 CREATE POLICY pke_scope_select ON public.regulatory_rule_conditions
 FOR SELECT TO app_runtime_secure
 USING (
-  (EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('approved','effective')))
-  AND (public.pke_has_any_project_permission('regulatory.rule.view')
-    OR public.pke_has_any_project_permission('compliance.view')
-    OR public.pke_has_any_project_permission('regulatory.rule.manage'))
+  (
+    EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('approved','effective'))
+    AND (public.pke_has_any_project_permission('regulatory.rule.view') OR public.pke_has_any_project_permission('compliance.view'))
+  )
+  OR (
+    EXISTS (SELECT 1 FROM public.regulatory_rule_versions v WHERE v.id=rule_version_id AND v.status IN ('draft','under_review','rejected'))
+    AND public.pke_has_any_project_permission('regulatory.rule.manage')
+  )
 );
 
 DROP POLICY IF EXISTS pke_scope_select ON public.regulatory_rule_documents;

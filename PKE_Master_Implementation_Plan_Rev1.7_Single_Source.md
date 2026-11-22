@@ -1,6 +1,6 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.37 — P17 Production reconciliation and validation run
+# Master Implementation Plan Rev2.38 — P17 Production reconciliation and validation run
 
 
 
@@ -8820,3 +8820,14 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Any legal-source content or rule seeded as verified/effective without authorized human/legal confirmation.
 
 P19 remains unopened. It is to be specified only after the reduced-scope P18 acceptance is complete.
+
+
+## P18 validation update — Rev2.38 (2026-11-23)
+
+- Latest GitHub Actions run: **PASS** — run `45056977116`, commit `c9764b1b1f8abe75b48ccf4b57e5d50ec3fb73fa`.
+- Root test suite: **49 test files / 506 tests passed**.
+- Production migration-ledger verification, Migration 052/054/055 release guards, P17 migration dry-run, backend build, API TypeScript check, frontend typecheck and frontend build: **all passed**.
+- P18 static release verifier passed, including exact migration hash pin and no-Production-application guard.
+- Migration 111 SHA-256 remains `ba66ddbaa08b5ee8f59ab8be6f62e0393eb17b05e2590b302e8e27fb92e91bcd`.
+
+**Remaining mandatory acceptance gate:** Migration 111 has not been executed on a Neon validation branch or Production. The database mutation tools require the user to explicitly identify and authorize the target branch; the broad request to complete P18 does not identify that target. Therefore no schema writes were made. Post-migration RLS, Project isolation, maker-checker and runtime API backtests remain blocked on that explicit target approval. Do not mark P18 complete until those backtests pass.

@@ -1307,3 +1307,13 @@ No Production migration, DDL/DML, branch, merge or deployment was performed. The
 - Two pre-existing contract tests were updated to assert the new RLS-safe resolver boundary and preserve Funder isolation checks; final branch CI is green.
 - Current UAT ledger remains 95 rows (79 applied, 16 baselined, 0 pending); Production ledger remains 53 rows. No test document, depth/tide observation, object, or one-shot credential remains.
 - No merge or Vercel deployment was performed; browser UAT remains deferred.
+
+
+## P17 documentation baseline — 2026-11-22
+- Added the P17-only execution specification `docs/P17_MARITIME_OPEN_DATA_INTEGRATION_PLAN.md` and normative Master Implementation Plan addendum §56.55.
+- Scope is limited to Indonesia maritime data: MaritimHub port-master candidate, BMKG documented marine forecast/warning endpoints, HOTOSM/HDX ODbL geometry, official SBNP/SROP/VTS references where reusable, and a provider-neutral/conditional AIS strategy.
+- Explicitly distinguishes free endpoint access from commercial display, redistribution, caching, retention and derivative-work rights. Unknown rights fail closed; AIS free tiers/community feeds/sandboxes are not assumed to be permanent unrestricted production feeds.
+- P17 execution order is documented: read-only UAT schema/API/RLS/permission/buyer-identity inventory; port master and geospatial reconciliation; BMKG adapter; vessel identity/AIS abstraction; voyage/nomination/compatibility/shipment/loading workflows; buyer portal/control tower; full security and P0–P16 regression backtest.
+- No source implementation, migration, Neon database change, provider credential, subscription, receiver/hardware purchase, Vercel deployment, PR merge or Production change is authorized or claimed by this documentation update.
+- Current reported UAT migration ledger after P16 is 95 rows; verify live ledger and schema before preparing any next migration. Migration 096 is not prepared or approved.
+- P17 status: **PLAN ACCEPTED / IMPLEMENTATION NOT STARTED**. Next action is P17-1 read-only inventory and schema/API/permission gap matrix.

@@ -9,7 +9,7 @@ _recovery/
 backups/
 *.dump
 *.backup
-*.sql
+# Retain SQL source migrations: contract tests and release verifiers read these files.
 *.sql.gz
 *.zip
 *.pem

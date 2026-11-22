@@ -62,6 +62,8 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
   const [routes, setRoutes] = useState<Row[]>([]);
   const [selectedVesselId, setSelectedVesselId] = useState("");
   const [selectedBerthId, setSelectedBerthId] = useState("");
+  const [selectedTerminalId, setSelectedTerminalId] = useState("");
+  const [p17Advisory, setP17Advisory] = useState<Row | null>(null);
   const [assessment, setAssessment] = useState<Row | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
 

@@ -44,7 +44,7 @@ ALTER TABLE public.loading_operations
     OR
     (acceptance_type='laytime' AND notice_of_readiness_at IS NOT NULL
       AND laytime_start_at IS NOT NULL AND laytime_end_at IS NOT NULL
-      AND laytime_end_at>=laytime_start_at AND allowed_hours IS NOT NULL AND allowed_hours>=0
+      AND laytime_start_at>=notice_of_readiness_at AND laytime_end_at>=laytime_start_at AND allowed_hours IS NOT NULL AND allowed_hours>=0
       AND NULLIF(btrim(COALESCE(evidence_object_key,'')),'') IS NOT NULL
       AND evidence_sha256 ~ '^[0-9a-f]{64}$')
   ),
@@ -121,6 +121,12 @@ CREATE OR REPLACE FUNCTION public.pke_guard_loading_operation_acceptance()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
 AS $function$
 BEGIN
+  IF TG_OP='INSERT' AND (
+    NEW.review_status<>'pending' OR NEW.reviewed_by IS NOT NULL OR NEW.reviewed_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'Loading acceptance must be submitted pending review'
+      USING ERRCODE='23514';
+  END IF;
   IF TG_OP='UPDATE' AND (
     NEW.project_id IS DISTINCT FROM OLD.project_id
     OR NEW.loading_operation_id IS DISTINCT FROM OLD.loading_operation_id
@@ -149,6 +155,7 @@ BEGIN
   END IF;
   IF NEW.review_status<>'pending' THEN
     IF NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL
+       OR NEW.reviewed_by IS DISTINCT FROM public.pke_current_user_id()
        OR NEW.reviewed_by=NEW.submitted_by
        OR length(btrim(COALESCE(NEW.review_note,'')))<5 THEN
       RAISE EXCEPTION 'Independent loading acceptance review is required'

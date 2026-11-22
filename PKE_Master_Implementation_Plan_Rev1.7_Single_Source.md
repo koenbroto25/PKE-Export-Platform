@@ -8413,3 +8413,25 @@ Read-only inspection of canonical Production confirmed:
 ## 55.28 P17 migration atomicity correction — 22 November 2026
 
 Source review found migrations 096, 097 and 098 were not wrapped in explicit transactions, while migrations 099–103 were. This is corrected in the P17 branch by enclosing each of 096–098 in a single BEGIN/COMMIT transaction. The P17 contract suite now pins transaction closure for all eight migrations. This is a source-only correction; no migration was executed against canonical Production. Before any future Production release, exact SHA-256 values must be regenerated and the full SQL dependency/preflight review repeated because transaction wrappers change the migration hashes. Vercel deployment remains skipped by owner instruction.
+
+
+## 55.29 P17 source completion tranche and remaining release gates — 22 November 2026
+
+### Source changes on p17b/operational-readiness-20261122
+
+- Expanded the P17 route gate: schema-backed Admin maritime and Buyer surfaces fail closed; P17 Project mutations (voyage, nomination, port call, simulation/change request, Buyer grant and loading acceptance) return 503 until the complete 096–107 schema/RLS release. Existing safe Project GET projections remain permission-checked.
+- Added migration 104 for nomination submission/withdrawal/version guard; migration 105 for verified Buyer identity mapping, grant audit and RLS; migration 106 for source-rights-governed AIS observations on the existing vessel tracking master; migration 107 for loading operation unit locking, survey, verified ticket/segment quantity reconciliation and laytime evidence.
+- Added P17-A staging payload hash verification and array rejection; P17-B nearest verified PKS-to-port route ordering; P17-C advisory vessel/terminal screening; P17-D AIS ingest/review/freshness API and UI; P17-E loading acceptance APIs and workspace; P17-F Admin identity/PM grant/expiry controls and Buyer projection UI; P17-G Project and Admin Control Tower API/UI.
+- Updated role catalogue and source-level permission assignment for Buyer grant management, survey review, laytime verification and quantity reconciliation.
+- Updated this Master Plan to Rev2.22. The latest Master Plan source update is commit 82f228e59f276bbc02e2ce670bd03afeb219d6ae on the P17 branch.
+
+### Verification and safety facts
+
+- These are source changes only. Migrations 096–107 have not been applied to canonical Production. No Production role/RLS changes, business records, Buyer mappings/grants, AIS provider credentials or source payloads were written.
+- The migration set now contains twelve P17 migrations (096–107). Any future release must recompute SHA-256 from the final committed file bytes and rerun dependency/constraint/RLS preflight; historical Git blob SHAs are not release SHA-256 values.
+- Static contract assertions were expanded, but root npm test, backend TypeScript/build, frontend typecheck/build and API runtime acceptance were not executed in this tranche. No PASS is claimed for those checks.
+- Vercel deployment/build remains skipped by owner instruction. Browser UAT remains skipped. No merge or Production release occurred.
+- External blockers remain: legal/source rights, licensed AIS provider contract and credentials, national port/PKS/terminal/warehouse evidence, owner authorization for the exact Production migration set, real Buyer identity and grants, and real survey/ticket/segment/NOR/laytime evidence.
+
+**P17 status remains IN PROGRESS — NOT ALL PASS.** This source tranche implements the outstanding code paths and records the exact gates; it does not substitute for executable regression, authorized schema release or real operational evidence.
+

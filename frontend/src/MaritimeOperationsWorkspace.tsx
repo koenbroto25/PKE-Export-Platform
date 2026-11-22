@@ -16,7 +16,8 @@ function LoadingAcceptancePanel({projectId,permissions}:{projectId:string;permis
  useEffect(()=>{setSelected("");void reload();},[projectId]);
  useEffect(()=>{if(!selected){setData(null);return;}let alive=true;setData(null);setError("");get<Row>(base+"/"+encodeURIComponent(selected)+"/acceptances").then(r=>{if(alive)setData(r);}).catch(e=>{if(alive)setError(e instanceof Error?e.message:"Acceptance evidence belum tersedia.");});return()=>{alive=false;};},[projectId,selected]);
  const current=operations.find(o=>o.id===selected);
- const canUnit=permissions.includes("shipping.update"),canSurvey=permissions.includes("shipping.survey.submit"),canQty=permissions.includes("loading.quantity.reconcile"),canLaytime=permissions.includes("shipping.laytime.manage");\n const verifiedQuantity=data?.quantityReconciliation?.verifiedTicketQuantity;
+ const canUnit=permissions.includes("shipping.update"),canSurvey=permissions.includes("shipping.survey.submit"),canQty=permissions.includes("loading.quantity.reconcile"),canLaytime=permissions.includes("shipping.laytime.manage");
+ const verifiedQuantity=data?.quantityReconciliation?.verifiedTicketQuantity;
  useEffect(()=>{if(type==="survey"&&!canSurvey)setType(canQty?"quantity_reconciliation":canLaytime?"laytime":"survey");if(current?.unit_code)setUnitCode(current.unit_code);if(type==="quantity_reconciliation"&&verifiedQuantity!=null)setQuantity(String(verifiedQuantity));},[type,canSurvey,canQty,canLaytime,current?.unit_code,verifiedQuantity]);
  const canSubmit=type==="survey"?canSurvey:type==="quantity_reconciliation"?canQty:canLaytime;
  async function assignUnit(){if(!selected||!unit.trim())return;setBusy(true);setMessage("");try{await patch(base+"/"+encodeURIComponent(selected)+"/unit",{unitCode:unit.trim().toUpperCase()});setMessage("Unit loading ditetapkan.");await reload();}catch(e){setMessage(e instanceof Error?e.message:"Unit tidak dapat ditetapkan.");}finally{setBusy(false);}}

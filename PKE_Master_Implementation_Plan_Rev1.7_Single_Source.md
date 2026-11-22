@@ -10645,3 +10645,15 @@ Post-apply UAT runtime-role permission checks passed; Viewer reads returned zero
 **Acceptance boundary:** UAT migration/schema/RLS backtests and CI contract gates PASS. Live HTTP/browser endpoint acceptance and Vercel deployment were not run because deployment remains frozen by prior instruction; no Production changes, PR merge or provider activation occurred. The isolated validation branch `p17a-e-uat-validation-20261122` is retained with synthetic test fixtures only.
 
 See `docs/P17_MARITIME_OPEN_DATA_INTEGRATION_PLAN.md` §15 and `migration_history_manifest_uat_001_097.json` for the full evidence record.
+
+
+## 56.59 — P17-B port master and PKS-first export logistics (22 November 2026)
+
+
+P17-B adopts the PKE export operating model: canonical port identity must connect to palm-oil producer/PKS identity, and route recommendations must prioritize road access from an operational PKS to a port with verified PKE loading capability. Reuse P16 `ports`, `pks_sites`, `pks_port_routes`, `warehouses`, `port_terminals` and `port_loading_services`; `pks_sites.organization_id` links facilities to the producer/operator organization. Do not create a parallel port or company master.
+
+Migration 098 `098_p17b_port_identity_geospatial.sql` is applied to Neon UAT only, SHA-256 `d5e035f92ac2f679111ff717724c1683aa4666574c8aae5e830e501301179445`. It adds source-specific port-ID crosswalk and a separately versioned, attributed GeoJSON layer, then adds a route-geometry reference and distance method to the existing PKS–port route relation. Crosswalk is Platform Admin-only; geospatial reads require selected Project port/route scope. No PostGIS extension is required and no external data was imported.
+
+The port-route API/UI now prioritizes only a verified road route with distance, active operational verified PKS, active verified port and active verified PKE loading service. Other ports remain in the national master/candidate pool but cannot be promoted as PKE primary references solely because they are nearby. Warehouse count is an indicator only; actual storage capacity and compatibility still need evidence.
+
+UAT ledger: 98 rows (16 baseline, 82 applied), reconciled in `migration_history_manifest_uat_001_098.json`. Schema/RLS spot checks pass; UAT fixtures remain synthetic/test data. P17-B contract tests were added; full CI and data-backed positive/negative acceptance remain pending. Do not claim complete national port coverage or producer directory. No provider activation, Production change, Vercel deployment or PR merge.

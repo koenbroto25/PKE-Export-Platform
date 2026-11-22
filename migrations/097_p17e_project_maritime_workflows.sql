@@ -101,6 +101,7 @@ USING (project_id=NULLIF(current_setting('app.current_project_id',true),'')::uui
     OR public.pke_has_project_permission(project_id,'shipping.view')));
 CREATE POLICY maritime_workflow_events_project_insert ON public.maritime_workflow_events FOR INSERT TO app_runtime_secure
 WITH CHECK (project_id=NULLIF(current_setting('app.current_project_id',true),'')::uuid
+  AND actor_id=public.pke_current_user_id()
   AND (public.pke_has_project_permission(project_id,'voyage.create')
     OR public.pke_has_project_permission(project_id,'voyage.update')
     OR public.pke_has_project_permission(project_id,'vessel.nominate')
@@ -162,7 +163,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog
 AS $function$
 BEGIN
   IF NEW.project_id IS DISTINCT FROM OLD.project_id OR NEW.shipment_id IS DISTINCT FROM OLD.shipment_id
-     OR NEW.vessel_id IS DISTINCT FROM OLD.vessel_id OR NEW.nominated_by IS DISTINCT FROM OLD.nominated_by THEN
+     OR NEW.vessel_id IS DISTINCT FROM OLD.vessel_id OR NEW.voyage_id IS DISTINCT FROM OLD.voyage_id OR NEW.nominated_by IS DISTINCT FROM OLD.nominated_by THEN
     RAISE EXCEPTION 'Nomination identity and Project scope are immutable' USING ERRCODE='23514';
   END IF;
   IF NEW.nomination_status IS DISTINCT FROM OLD.nomination_status THEN
@@ -181,6 +182,9 @@ BEGIN
         RAISE EXCEPTION 'Invalid vessel nomination transition' USING ERRCODE='23514';
       END IF;
     ELSIF NEW.nomination_status IN ('changed','withdrawn') THEN
+      IF NOT public.pke_has_project_permission(NEW.project_id,'vessel.nominate') OR NEW.nominated_by IS DISTINCT FROM public.pke_current_user_id() THEN
+        RAISE EXCEPTION 'Only the nominator may change or withdraw a nomination' USING ERRCODE='42501';
+      END IF;
       IF OLD.nomination_status NOT IN ('draft','submitted','identity_verified','port_screened','documents_checked','approved_for_internal_planning') THEN
         RAISE EXCEPTION 'Nomination cannot be changed or withdrawn from its current state' USING ERRCODE='23514';
       END IF;

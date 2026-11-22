@@ -2247,7 +2247,8 @@ app.get("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:e
               reviewer_id,last_reviewed,created_by,created_at,updated_at
          FROM public.regulatory_sources ORDER BY created_at DESC LIMIT 500`,
     );
-    return res.json({sources:rows.map((r:any)=>({id:r.id,sourceId:r.source_id,title:r.title,issuingAuthority:r.issuing_authority,jurisdiction:r.jurisdiction,documentType:r.document_type,regulationNumber:r.regulation_number,effectiveDate:r.effective_date,expiryRepealDate:r.expiry_repeal_date,status:r.status,officialUrl:r.official_url,sourceChecksum:r.source_checksum_sha256??r.source_checksum,verificationStatus:r.verification_status,reviewerId:r.reviewer_id,lastReviewed:r.last_reviewed,createdBy:r.created_by,createdAt:r.created_at}))});
+    const mapped=rows.map((r:any)=>({id:r.id,sourceId:r.source_id,title:r.title,issuingAuthority:r.issuing_authority,jurisdiction:r.jurisdiction,documentType:r.document_type,regulationNumber:r.regulation_number,effectiveDate:r.effective_date,expiryRepealDate:r.expiry_repeal_date,status:r.status,officialUrl:r.official_url,sourceChecksum:r.source_checksum_sha256??r.source_checksum,verificationStatus:r.verification_status,reviewerId:r.reviewer_id,lastReviewed:r.last_reviewed,createdBy:r.created_by,createdAt:r.created_at}));
+    return res.json({sources:mapped,regulatorySources:mapped});
   }catch(error:any){
     req.logger?.error?.("Regulatory source registry read failed",error);
     return res.status(500).json(internalServerErrorPayload());
@@ -2809,7 +2810,7 @@ app.get("/api/v1/export-document-types",requireAuth,async(req:express.Request,re
   if(!(await requireAnyProjectPermission(req,res,"regulatory.document.view"))) return;
   try{
     const {rows}=await req.db.query("SELECT id,document_code,document_name,document_category,description,is_active FROM public.export_document_types ORDER BY document_code LIMIT 500");
-    return res.json({documentTypes:rows});
+    return res.json({documentTypes:rows,exportDocumentTypes:rows.map((r:any)=>({...r,documentTypeId:r.id}))});
   }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
 });
 
@@ -6275,114 +6276,7 @@ app.patch("/api/v1/payment-instructions/:id", requireAuth, paymentExecutionOutOf
 // Export compliance document routes (P08)
 // ============================================
 
-// Regulatory sources
-app.get("/api/v1/regulatory-sources", requireAuth, async (req: express.Request, res: express.Response) => {
-  try {
-    const { rows } = await req.db.query(
-      `SELECT id, source_id, title, issuing_authority, jurisdiction, document_type,
-              regulation_number, article_annex_section, publication_date, effective_date,
-              expiry_repeal_date, status, official_url, source_file_reference, source_checksum,
-              date_retrieved, last_reviewed, reviewer_id, verification_status,
-              created_at, updated_at
-       FROM regulatory_sources ORDER BY created_at DESC LIMIT 200`,
-    );
-    res.json({ regulatorySources: rows.map((r: any) => ({
-      id: r.id,
-      sourceId: r.source_id,
-      title: r.title,
-      issuingAuthority: r.issuing_authority,
-      jurisdiction: r.jurisdiction,
-      documentType: r.document_type,
-      regulationNumber: r.regulation_number,
-      articleAnnexSection: r.article_annex_section,
-      publicationDate: r.publication_date,
-      effectiveDate: r.effective_date,
-      expiryRepealDate: r.expiry_repeal_date,
-      status: r.status,
-      officialUrl: r.official_url,
-      sourceFileReference: r.source_file_reference,
-      sourceChecksum: r.source_checksum,
-      dateRetrieved: r.date_retrieved,
-      lastReviewed: r.last_reviewed,
-      reviewerId: r.reviewer_id,
-      verificationStatus: r.verification_status,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    })) });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load regulatory sources" });
-  }
-});
-
-app.post("/api/v1/regulatory-sources", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { sourceId, title, issuingAuthority, jurisdiction, documentType, regulationNumber,
-    articleAnnexSection, publicationDate, effectiveDate, expiryRepealDate, status,
-    officialUrl, sourceFileReference, sourceChecksum, dateRetrieved, lastReviewed,
-    verificationStatus } = req.body ?? {};
-  if (!sourceId || !title || !issuingAuthority || !jurisdiction || !effectiveDate) {
-    return res.status(400).json({ error: "Required fields: sourceId, title, issuingAuthority, jurisdiction, effectiveDate" });
-  }
-  try {
-    const reviewerId = req.user?.id || null;
-    const { rows } = await req.db.query(
-      `INSERT INTO regulatory_sources (source_id, title, issuing_authority, jurisdiction,
-        document_type, regulation_number, article_annex_section, publication_date,
-        effective_date, expiry_repeal_date, status, official_url, source_file_reference,
-        source_checksum, date_retrieved, last_reviewed, reviewer_id, verification_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-       RETURNING *`,
-      [sourceId, title, issuingAuthority, jurisdiction, documentType || null, regulationNumber || null,
-        articleAnnexSection || null, publicationDate || null, effectiveDate,
-        expiryRepealDate || null, status || "draft", officialUrl || null,
-        sourceFileReference || null, sourceChecksum || null, dateRetrieved || null,
-        lastReviewed || null, reviewerId, verificationStatus || "pending"],
-    );
-    res.status(201).json({ regulatorySource: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create regulatory source" });
-  }
-});
-
-// Export document types
-// Export document types
-// ============================================
-app.get("/api/v1/export-document-types", requireAuth, async (req: express.Request, res: express.Response) => {
-  try {
-    const { rows } = await req.db.query(
-      "SELECT id, document_type_id, document_name, document_category, description, is_active, created_at, updated_at FROM export_document_types ORDER BY created_at DESC LIMIT 200",
-    );
-    res.json({ exportDocumentTypes: rows.map((r: any) => ({
-      id: r.id,
-      documentTypeId: r.document_type_id,
-      documentName: r.document_name,
-      documentCategory: r.document_category,
-      description: r.description,
-      isActive: r.is_active,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    })) });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load export document types" });
-  }
-});
-
-app.post("/api/v1/export-document-types", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const { documentTypeId, documentName, documentCategory, description } = req.body ?? {};
-  if (!documentTypeId || !documentName) {
-    return res.status(400).json({ error: "Required fields: documentTypeId, documentName" });
-  }
-  try {
-    const { rows } = await req.db.query(
-      `INSERT INTO export_document_types (document_type_id, document_name, document_category, description)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [documentTypeId, documentName, documentCategory || null, description || null],
-    );
-    res.status(201).json({ documentType: rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create export document type" });
-  }
-});
-
+// Legacy country export requirement read surface retained below for compatibility.
 // Country export document requirements
 app.get("/api/v1/country-export-document-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
   try {

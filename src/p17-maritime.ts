@@ -280,7 +280,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
 // P17-E: Project-scoped voyages, nominations and port calls. Every mutation is permission-gated.
  app.get("/api/v1/projects/:projectId/voyages",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"voyage.view"))return;
-  try{const q=await req.db.query("SELECT * FROM public.voyages WHERE project_id=$1::uuid ORDER BY created_at DESC",[p]);return res.json({voyages:q.rows});}
+  try{const q=await req.db.query("SELECT * FROM public.voyages WHERE project_id=$1::uuid ORDER BY COALESCE(planned_departure_at,actual_departure_at,start_date) DESC NULLS LAST",[p]);return res.json({voyages:q.rows});}
   catch{return bad(res,500,"VOYAGE_READ_FAILED","Unable to read Project voyages.");}
  });
  app.post("/api/v1/projects/:projectId/voyages",requireAuth,async(req:R,res:Response)=>{
@@ -309,12 +309,26 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   try{const q=await req.db.query("INSERT INTO public.vessel_nominations(project_id,shipment_id,vessel_id,voyage_id,nominated_by,idempotency_key) SELECT $1::uuid,$2::uuid,$3::uuid,$4::uuid,req_user_id(),$5 WHERE EXISTS(SELECT 1 FROM public.shipments WHERE id=$2::uuid AND project_id=$1::uuid) RETURNING *",[p,shipment,vessel,b.voyageId||null,key]);if(!q.rows.length)return bad(res,422,"SHIPMENT_OUTSIDE_PROJECT","Shipment does not belong to this Project.");return res.status(201).json({nomination:q.rows[0]});}
   catch(e:any){if(e?.code==="23505")return bad(res,409,"NOMINATION_DUPLICATE","Nomination already exists.");return bad(res,500,"NOMINATION_CREATE_FAILED","Unable to create nomination.");}
  });
+ app.patch("/api/v1/projects/:projectId/vessel-nominations/:id/submit",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,id=req.params.id;if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"NOMINATION_ID_INVALID","Invalid Project or nomination ID.");if(!await requireProjectAccess(req,res,p,"vessel.nominate"))return;
+  const version=Number(req.body?.expectedVersion);
+  if(!Number.isInteger(version)||version<1)return bad(res,400,"NOMINATION_VERSION_REQUIRED","Expected version is required.");
+  try{const q=await req.db.query("UPDATE public.vessel_nominations SET nomination_status='submitted',submitted_at=now(),version=version+1,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND nominated_by=req_user_id() AND nomination_status='draft' AND version=$3 RETURNING *",[id,p,version]);if(!q.rows.length)return bad(res,409,"NOMINATION_SUBMIT_CONFLICT","Only the nominator may submit a current draft.");return res.json({nomination:q.rows[0],operationalClearance:false});}
+  catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"NOMINATION_SUBMIT_REJECTED","Nomination submission guard rejected this transition.");return bad(res,500,"NOMINATION_SUBMIT_FAILED","Unable to submit nomination.");}
+ });
+ app.patch("/api/v1/projects/:projectId/vessel-nominations/:id/withdraw",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,id=req.params.id;if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"NOMINATION_ID_INVALID","Invalid Project or nomination ID.");if(!await requireProjectAccess(req,res,p,"vessel.nominate"))return;
+  const version=Number(req.body?.expectedVersion),note=str(req.body?.decisionNote,2000);
+  if(!Number.isInteger(version)||version<1||note.length<5)return bad(res,400,"NOMINATION_WITHDRAW_INPUT_INVALID","Expected version and withdrawal reason are required.");
+  try{const q=await req.db.query("UPDATE public.vessel_nominations SET nomination_status='withdrawn',decision_note=$4,version=version+1,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND nominated_by=req_user_id() AND nomination_status IN ('draft','submitted','identity_verified','port_screened','documents_checked','approved_for_internal_planning') AND version=$3 RETURNING *",[id,p,version,note]);if(!q.rows.length)return bad(res,409,"NOMINATION_WITHDRAW_CONFLICT","Only the nominator may withdraw a current nomination.");return res.json({nomination:q.rows[0],operationalClearance:false});}
+  catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"NOMINATION_WITHDRAW_REJECTED","Nomination withdrawal guard rejected this transition.");return bad(res,500,"NOMINATION_WITHDRAW_FAILED","Unable to withdraw nomination.");}
+ });
  app.patch("/api/v1/projects/:projectId/vessel-nominations/:id/decision",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId,id=req.params.id;if(!uuidPattern.test(p)||!uuidPattern.test(id))return bad(res,400,"NOMINATION_ID_INVALID","Invalid Project or nomination ID.");if(!await requireProjectAccess(req,res,p,"vessel.nomination.review"))return;
-  const status=str(req.body?.status,40),note=str(req.body?.decisionNote,2000);
-  if(!["identity_verified","port_screened","documents_checked","approved_for_internal_planning","rejected","withdrawn"].includes(status))return bad(res,400,"NOMINATION_STATUS_INVALID","Unsupported nomination decision.");
-  try{const q=await req.db.query("UPDATE public.vessel_nominations SET nomination_status=$3,reviewed_by=req_user_id(),reviewed_at=now(),reason=$4,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND nominated_by<>req_user_id() AND nomination_status IN ('submitted','identity_verified','port_screened','documents_checked') RETURNING *",[id,p,status,note||null]);if(!q.rows.length)return bad(res,409,"MAKER_CHECKER_REQUIRED","Independent reviewer and a reviewable nomination are required.");return res.json({nomination:q.rows[0],operationalClearance:false});}
-  catch{return bad(res,500,"NOMINATION_DECISION_FAILED","Unable to decide nomination.");}
+  const status=str(req.body?.status,40),note=str(req.body?.decisionNote,2000),version=Number(req.body?.expectedVersion);
+  if(!["identity_verified","port_screened","documents_checked","approved_for_internal_planning","rejected"].includes(status)||note.length<5||!Number.isInteger(version)||version<1)return bad(res,400,"NOMINATION_DECISION_INVALID","Supported review state, substantive decision note and expected version are required.");
+  try{const q=await req.db.query("UPDATE public.vessel_nominations SET nomination_status=$3,reviewed_by=req_user_id(),reviewed_at=now(),decision_note=$4,version=version+1,updated_at=now() WHERE id=$1::uuid AND project_id=$2::uuid AND nominated_by<>req_user_id() AND nomination_status IN ('submitted','identity_verified','port_screened','documents_checked') AND version=$5 RETURNING *",[id,p,status,note,version]);if(!q.rows.length)return bad(res,409,"MAKER_CHECKER_REQUIRED","Independent reviewer, expected version and a reviewable nomination are required.");return res.json({nomination:q.rows[0],operationalClearance:false});}
+  catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"NOMINATION_DECISION_REJECTED","Nomination decision guard rejected this transition.");return bad(res,500,"NOMINATION_DECISION_FAILED","Unable to decide nomination.");}
  });
  app.get("/api/v1/projects/:projectId/vessel-port-calls",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"vessel.view"))return;
@@ -322,10 +336,13 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   catch{return bad(res,500,"PORT_CALL_READ_FAILED","Unable to read Project port calls.");}
  });
  app.post("/api/v1/projects/:projectId/vessel-port-calls",requireAuth,async(req:R,res:Response)=>{
-  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"vessel.port_call.manage"))return;
-  const b=req.body||{},voy=str(b.voyageId,64),port=str(b.portId,64),event=str(b.eventType,40),predicted=time(b.predictedAt),actual=time(b.actualAt);
-  if(!uuidPattern.test(voy)||!uuidPattern.test(port)||!["planned_arrival","eta_update","arrived","berthed","departed","cancelled"].includes(event)||(!predicted&&!actual))return bad(res,400,"PORT_CALL_INPUT_INVALID","Voyage, port, event type and valid time are required.");
-  try{const q=await req.db.query("INSERT INTO public.vessel_port_calls(voyage_id,vessel_id,port_id,event_type,predicted_at,actual_at,status) SELECT $1::uuid,v.vessel_id,$2::uuid,$3,$4::timestamptz,$5::timestamptz,CASE WHEN $5::timestamptz IS NOT NULL THEN 'actual' ELSE 'predicted' END FROM public.voyages v WHERE v.id=$1::uuid AND v.project_id=$6::uuid RETURNING *",[voy,port,event,predicted,actual,p]);if(!q.rows.length)return bad(res,422,"PORT_CALL_VOYAGE_MISMATCH","Voyage does not belong to this Project.");return res.status(201).json({portCall:q.rows[0],operationalClearance:false});}
-  catch(e:any){if(e?.code==="23514"||e?.code==="42501")return bad(res,409,"PORT_CALL_GUARD_REJECTED","Route or independent confirmation guard rejected event.");if(e?.code==="23503")return bad(res,422,"PORT_CALL_REFERENCE_INVALID","Port-call references are invalid.");return bad(res,500,"PORT_CALL_CREATE_FAILED","Unable to create port call.");}
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");
+  const b=req.body||{},voy=str(b.voyageId,64),port=str(b.portId,64),event=str(b.eventType,40),key=str(b.idempotencyKey,128),predicted=time(b.predictedAt),actual=time(b.actualAt);
+  const isActual=["arrived","berthed","departed"].includes(event),isPredicted=["planned_arrival","eta_update"].includes(event);
+  const permission=isActual?"vessel.port_call.confirm":"vessel.port_call.manage";
+  if(!await requireProjectAccess(req,res,p,permission))return;
+  if(!uuidPattern.test(voy)||!uuidPattern.test(port)||!key||(!isActual&&!isPredicted&&event!=="cancelled")||(isActual&&!actual)||(isPredicted&&!predicted)||(event==="cancelled"&&!predicted&&!actual))return bad(res,400,"PORT_CALL_INPUT_INVALID","Valid voyage, port, idempotency key and event-specific timestamp are required.");
+  try{const q=await req.db.query("INSERT INTO public.vessel_port_calls(project_id,voyage_id,vessel_id,port_id,event_type,predicted_at,actual_at,status,created_by,idempotency_key) SELECT $6::uuid,$1::uuid,v.vessel_id,$2::uuid,$3,$4::timestamptz,$5::timestamptz,CASE WHEN $3='cancelled' THEN 'cancelled' WHEN $5::timestamptz IS NOT NULL THEN 'actual' ELSE 'predicted' END,req_user_id(),$7 FROM public.voyages v WHERE v.id=$1::uuid AND v.project_id=$6::uuid RETURNING *",[voy,port,event,predicted,actual,p,key]);if(!q.rows.length)return bad(res,422,"PORT_CALL_VOYAGE_MISMATCH","Voyage does not belong to this Project.");return res.status(201).json({portCall:q.rows[0],operationalClearance:false});}
+  catch(e:any){if(e?.code==="23505")return bad(res,409,"PORT_CALL_DUPLICATE","Port-call idempotency key already exists.");if(e?.code==="23514"||e?.code==="42501")return bad(res,409,"PORT_CALL_GUARD_REJECTED","Route or independent confirmation guard rejected event.");if(e?.code==="23503")return bad(res,422,"PORT_CALL_REFERENCE_INVALID","Port-call references are invalid.");return bad(res,500,"PORT_CALL_CREATE_FAILED","Unable to create port call.");}
  });
 }

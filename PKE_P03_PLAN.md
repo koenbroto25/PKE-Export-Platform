@@ -1384,3 +1384,9 @@ P17-B database/API contract/CI acceptance PASS. Live authenticated HTTP/browser 
 
 
 PKE primary route designation now requires a verified processor company linked to the PKS/KCP through `pks_sites.organization_id`. The API returns company legal name and verification status. Missing or unverified producer identity prevents primary designation. Existing `partner_organizations` and `pks_sites` are reused; no duplicate producer table. The complete route SQL query was executed on UAT and returned zero rows (no verified routes yet). CI for the final source head is pending.
+
+
+## P17-B PKE facility-type gate — 22 November 2026
+
+
+Primary PKE route now requires a KCP or integrated mill facility type, not a palm-oil mill by assumption, plus a verified linked processor company and explicit verified PKE loading capability at the port. This is the conservative operating gate until the producer directory is reconciled.

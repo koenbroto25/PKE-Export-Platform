@@ -123,3 +123,15 @@ describe("P17-B isolated logistics simulation graph",()=>{
   expect(SIM).toContain("pke_has_project_permission(project_id,'pke.logistics.master.change_request.manage')");
  });
 });
+
+describe("P17-B logistics change scope and stale snapshot guard",()=>{
+ const SCOPE=readFileSync(join(ROOT,"migrations","102_p17b_logistics_request_scope_guard.sql"),"utf8");
+ it("checks project scope for each canonical logistics target",()=>{
+  for(const guard of ["pke_p16_project_port_permission","pke_p16_project_warehouse_permission","project_pks_site_participation","route.estimate","port.view","warehouse.view"])expect(SCOPE).toContain(guard);
+ });
+ it("rejects stale snapshots before approval",()=>{
+  expect(SCOPE).toContain("Logistics master target changed since proposal creation");
+  expect(SCOPE).toContain("p17b_logistics_change_00_scope_guard");
+  expect(SCOPE).toContain("p17b_logistics_change_scope_insert");
+ });
+});

@@ -2222,6 +2222,20 @@ app.get("/api/v1/regulatory-knowledge", requireAuth, requireAdmin, async (req: e
 
 
 // Regulatory Source Registry and rule lifecycle (global catalog, permission-gated).
+app.get("/api/v1/regulatory-audit-events",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const allowed=await requireAnyProjectPermission(req,res,"regulatory.source.view");
+  if(!allowed) return;
+  try{
+    const {rows}=await req.db.query(
+      `SELECT id,actor_user_id,actor_role,permission_code,action,target_type,target_id,project_id,
+              source,reason,before_snapshot,after_snapshot,metadata,outcome,occurred_at
+         FROM public.audit_events WHERE source='p18_regulatory_core'
+        ORDER BY occurred_at DESC LIMIT 500`,
+    );
+    return res.json({events:rows});
+  }catch(error:any){return res.status(500).json(internalServerErrorPayload());}
+});
+
 app.get("/api/v1/regulatory-sources",requireAuth,async(req:express.Request,res:express.Response)=>{
   const canView=await requireAnyProjectPermission(req,res,"regulatory.source.view");
   if(!canView) return;
@@ -2657,7 +2671,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       [projectId,shipmentId,productId,productHsClassificationId,typeof inputSnapshot.shipment.originCountry==="string"?inputSnapshot.shipment.originCountry:null,targetCountry,JSON.stringify(snapshot),JSON.stringify({rules:rules.map((r:any)=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,source:r.source,versionNumber:r.versionNumber,summary:r.summary})),coverageWarnings}),summary.overallStatus,summary.failedCount,summary.pendingCount,req.user?.id??null],
     );
     const assessment=inserted.rows[0];
-    await recordRegulatoryAudit(req,"assessment.created","regulatory_assessment",assessment.id,projectId,"Deterministic assessment created from Project-owned shipment snapshot",null,{overallStatus:summary.overallStatus,ruleCount:rules.length});
+    await recordRegulatoryAudit(req,"assessment.created","regulatory_assessment",assessment.id,projectId,"Deterministic assessment created from Project-owned shipment snapshot",null,{overallStatus:summary.overallStatus,ruleCount:rules.length,coverageWarnings,results:results.map(r=>({ruleVersionId:r.ruleVersionId,ruleCode:r.ruleCode,resultStatus:r.resultStatus,reason:r.reason}))});
     for(const result of results){
       await req.db.query(
         `INSERT INTO public.regulatory_assessment_results

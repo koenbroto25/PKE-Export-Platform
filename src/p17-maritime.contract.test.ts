@@ -275,3 +275,27 @@ describe("P17 migration atomicity",()=>{
   expect(sql.trimEnd()).toMatch(/COMMIT;$/);
  });
 });
+
+describe("P17-A/B API/database schema alignment",()=>{
+ it("persists migration-096 rights and field-purpose evidence without exposing secret references",()=>{
+  for(const col of ["commercial_use_allowed","internal_processing_allowed","customer_display_allowed","redistribution_allowed","derivative_use_allowed","caching_allowed","retention_days","terms_url","rights_evidence_url","attribution_text","rights_expires_at","evidence_reference","reviewed_by","reviewed_at"])expect(API).toContain(col);
+  expect(API).not.toContain("credential_secret_ref");
+ });
+ it("uses migration-096 ingestion columns and quota/field-purpose controls",()=>{
+  for(const col of ["dataset_code","run_status","started_at","triggered_by","entity_type","raw_payload","review_status","details","checked_by","maritime_provider_usage","SOURCE_QUOTA_EXHAUSTED","MARITIME_FIELD_PURPOSE_BLOCKED"])expect(API).toContain(col);
+  expect(API).not.toContain("maritime_ingestion_runs(source_id,idempotency_key,status");
+  expect(API).not.toContain("maritime_ingestion_staging(run_id,external_record_id,payload");
+  expect(API).not.toContain("maritime_provider_health(source_id,health_status,latency_ms,message");
+ });
+ it("aligns P17-B response keys and database review enums",()=>{
+  expect(API).toContain("return res.json({crosswalk:q.rows})");
+  expect(API).toContain("return res.json({features:q.rows})");
+  expect(API).toContain('["matched","rejected","superseded"]');
+  expect(API).toContain('["verified","rejected","superseded"]');
+ });
+ it("uses the per-request RLS transaction and never checks out another pool connection",()=>{
+  expect(API).not.toContain("req.db.connect()");
+  expect(API).not.toContain('req.db.query("BEGIN")');
+  expect(API).not.toContain('req.db.query("COMMIT")');
+ });
+});

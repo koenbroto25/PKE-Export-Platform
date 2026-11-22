@@ -2571,7 +2571,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
               v.source_url_snapshot,v.source_checksum,v.rule_summary,v.outcome,v.risk_category,
               v.effective_from,v.effective_to,v.status AS version_status,
               c.field_path,c.operator,c.comparison_value,c.is_mandatory,c.condition_group,
-              edt.document_code,rd.requirement_kind
+              edt.document_code,rd.requirement_kind,rd.condition_schema
          FROM public.regulatory_rules r
          JOIN public.regulatory_rule_versions v ON v.id=r.active_version_id AND v.rule_id=r.id
          JOIN public.regulatory_sources s ON s.id=v.regulatory_source_id
@@ -2590,10 +2590,10 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
       if(!grouped.has(row.version_id)) grouped.set(row.version_id,{ruleVersionId:row.version_id,ruleCode:row.rule_code,title:row.title,outcome:row.outcome,subjectType:row.subject_type,conditions:[],requiredDocuments:[],source:{id:row.regulatory_source_id,locator:row.source_locator,url:row.source_url_snapshot,checksum:row.source_checksum},versionNumber:row.version_number,summary:row.rule_summary});
       const rule=grouped.get(row.version_id);
       if(row.field_path) rule.conditions.push({field_path:row.field_path,operator:row.operator,comparison_value:row.comparison_value,is_mandatory:row.is_mandatory,condition_group:row.condition_group});
-      if(row.document_code&&!rule.requiredDocuments.some((d:any)=>d.documentCode===row.document_code)) rule.requiredDocuments.push({documentCode:row.document_code,requirementKind:row.requirement_kind});
+      if(row.document_code&&!rule.requiredDocuments.some((d:any)=>d.documentCode===row.document_code)) rule.requiredDocuments.push({documentCode:row.document_code,requirementKind:row.requirement_kind,conditionSchema:row.condition_schema});
     }
     const docs=await req.db.query(
-      `SELECT DISTINCT d.id,COALESCE(d.document_type_code,edt.document_code) AS document_type_code,
+      `SELECT DISTINCT d.id,COALESCE(edt.document_code,d.document_type_code) AS document_type_code,
               d.sha256_checksum,d.object_key,d.uploaded_at,d.expiry_date
          FROM public.project_export_documents d
          JOIN public.project_export_document_requirements pr ON pr.id=d.project_requirement_id AND pr.project_id=d.project_id
@@ -2630,7 +2630,7 @@ app.post("/api/v1/projects/:projectId/regulatory-assessments", requireAuth, asyn
         result=evaluateRegulatoryRule(rule,snapshot,available);
       }
       const requiredCodes=new Set((rule.requiredDocuments??[]).map((d:any)=>d.documentCode).filter(Boolean));
-      result.evidence=[...(result.evidence??[]),...docs.rows.filter((d:any)=>requiredCodes.has(d.document_type_code)).map((d:any)=>({documentId:d.id,documentTypeCode:d.document_type_code,sha256:d.sha256_checksum,objectKey:d.object_key,uploadedAt:d.uploaded_at,expiryDate:d.expiry_date}))];
+      result.evidence=[...(result.evidence??[]),...docs.rows.filter((d:any)=>requiredCodes.has(d.document_type_code)).map((d:any)=>({documentId:d.id,documentTypeCode:d.document_type_code,sha256:d.sha256_checksum,uploadedAt:d.uploaded_at,expiryDate:d.expiry_date}))];
       return result;
     });
     const computedSummary=summarizeRegulatoryAssessment(results);

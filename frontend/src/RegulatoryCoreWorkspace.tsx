@@ -22,6 +22,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
   const [docTypes,setDocTypes]=useState<AnyRecord[]>([]);
   const [countryReqs,setCountryReqs]=useState<AnyRecord[]>([]);
   const [assessments,setAssessments]=useState<AnyRecord[]>([]);
+  const [auditEvents,setAuditEvents]=useState<AnyRecord[]>([]);
   const [selectedAssessment,setSelectedAssessment]=useState<string>("");
   const [assessmentDetail,setAssessmentDetail]=useState<AnyRecord|null>(null);
   const [reviewReason,setReviewReason]=useState("Reviewed against verified source and attached Project evidence.");
@@ -35,7 +36,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
     setLoading(true);
     try{
       const jobs:Promise<any>[]=[];
-      if(canSourceView) jobs.push(get<{sources?:AnyRecord[]}>("/regulatory-sources").then(r=>setSources(r.sources||[])));
+      if(canSourceView){jobs.push(get<{sources?:AnyRecord[]}>("/regulatory-sources").then(r=>setSources(r.sources||[])));jobs.push(get<{events?:AnyRecord[]}>("/regulatory-audit-events").then(r=>setAuditEvents(r.events||[])));}
       if(canRuleView) jobs.push(get<{rules?:AnyRecord[]}>("/regulatory-rules").then(r=>setRules(r.rules||[])));
       if(canDocView){
         jobs.push(get<{documentTypes?:AnyRecord[]}>("/export-document-types").then(r=>setDocTypes(r.documentTypes||[])));
@@ -148,6 +149,7 @@ export default function RegulatoryCoreWorkspace({projectId,activeUser,onNotice}:
       <div className="activity-list">{countryReqs.map(r=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.country_code} · {r.document_code} · {r.document_name}</strong><span>{r.status} / {r.verification_status} · v{r.version_no}</span><small>Source: {r.source_id||"—"} · berlaku {String(r.effective_from||"").slice(0,10)}</small></div>{canDocManage&&r.verification_status==="pending"&&<button className="secondary-button" disabled={busy||r.created_by===activeUser?.id||!r.regulatory_source_id} onClick={()=>void reviewCountryRequirement(r.id)}>Verify (independent)</button>}</div>)}{!countryReqs.length&&<p className="muted">Belum ada country requirement.</p>}</div>
       <p className="muted">{docTypes.length} document types · {countryReqs.length} country requirements</p>
     </section>}
+    {canSourceView&&<section className="card"><h3>Regulatory Audit Trail</h3><div className="activity-list">{auditEvents.map(a=><div className="activity-item" key={a.id}><div className="activity-copy"><strong>{a.action} · {a.target_type}</strong><span>{a.reason}</span><small>{a.actor_user_id} · {new Date(a.occurred_at).toLocaleString()}</small></div></div>)}{!auditEvents.length&&<p className="muted">Belum ada aktivitas Regulatory Core.</p>}</div></section>}
     {canAssess&&<section className="card"><h3>Riwayat Regulatory Assessment</h3><div className="activity-list">{assessments.map(a=><div className="activity-item" key={a.id}><div className="activity-copy"><strong>{a.destination_country||"—"} · {a.overall_status}</strong><span>Shipment {a.shipment_id} · {String(a.assessment_date).slice(0,10)}</span><small>Failed: {a.failed_count} · Pending: {a.pending_count} · Assessed by: {a.assessed_by}</small></div><button className="secondary-button" onClick={()=>void openAssessment(a.id)}>Detail / review</button></div>)}{!assessments.length&&<p className="muted">Belum ada assessment untuk Project aktif.</p>}</div>
       {assessmentDetail?.assessment&&<div className="assessment-review"><h4>Assessment detail · {assessmentDetail.assessment.overall_status}</h4><p className="muted">Assessment maker: {assessmentDetail.assessment.assessed_by}. Maker tidak boleh menjadi reviewer.</p><label>Alasan review<input value={reviewReason} onChange={e=>setReviewReason(e.target.value)} /></label>{(assessmentDetail.results||[]).map((r:AnyRecord)=><div className="activity-item" key={r.id}><div className="activity-copy"><strong>{r.rule_code} · v{r.version_number} · {r.result_status}</strong><span>{r.reason}</span><small>Source: {r.source_id} · {r.source_title} · {r.official_url}</small></div>{["pending","manual_review"].includes(r.result_status)&&<div className="form-actions"><button className="secondary-button" disabled={busy||assessmentDetail.assessment.assessed_by===activeUser?.id} onClick={()=>void reviewAssessment(r.id,"pass")}>Mark pass</button><button className="secondary-button" disabled={busy||assessmentDetail.assessment.assessed_by===activeUser?.id} onClick={()=>void reviewAssessment(r.id,"fail")}>Mark fail</button><button className="secondary-button" disabled={busy||assessmentDetail.assessment.assessed_by===activeUser?.id} onClick={()=>void reviewAssessment(r.id,"not_applicable")}>Not applicable</button></div>}</div>)}</div>}
     </section>}

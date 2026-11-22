@@ -748,3 +748,11 @@ Source links:
 - No Vercel deployment, PR merge, paid AIS subscription, hardware or external provider activation.
 - Do not approve source rights, infer PKE capability, populate road distance/time, or promote candidates without evidence and the required independent review.
 - Simulation nodes remain `simulation_only=true`, `verification_status=unverified`, and ineligible for dispatch, ranking or export commitment.
+
+## 18. P17-B operational workbench follow-up (22 November 2026)
+
+- Added Platform Admin source registry/rights/field-purpose/activation UI and protected crosswalk/GeoJSON review queue to the Pelabuhan & Gudang workspace.
+- Added PM/Admin creation of Project-scoped logistics simulation scenarios. The default graph is complete but all nodes remain unverified and all unknown operational values remain NULL; it is not dispatchable or rank-eligible.
+- Added static contract coverage for the new workbench entry points. Full `npm test`, backend build, frontend typecheck/build and live browser/API acceptance are intentionally held until the remaining P17 implementation work is complete, per the current owner sequencing instruction.
+- Source metadata is staged in UAT as ten disabled candidates. No rights are approved, no field permissions are allowed, no provider is called, and no external payload is ingested.
+- Remaining P17-B data work is externally gated by dataset rights, company/operator confirmation, actual road-network evidence, PKE terminal acceptance and warehouse capacity evidence. Do not manufacture data to close these gates.

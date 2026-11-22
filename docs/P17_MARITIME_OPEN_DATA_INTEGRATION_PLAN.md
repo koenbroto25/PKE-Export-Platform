@@ -697,3 +697,9 @@ The `GET /api/v1/port-routes` response now exposes `pke_loading_service_verified
 The PKS-to-port route is not treated as a complete export-supply relationship unless the PKS site is linked through `pks_sites.organization_id` to a current verified `partner_organizations` record of type `processor`. The route API returns the producer legal name and a `producer_company_verified` flag. `is_primary_reference` now requires the linked processor organization to be active, verified, time-stamped and supported by verification source/evidence SHA-256, in addition to the verified PKS, route, port and PKE loading-service gates. This deliberately prevents an unlinked or unverified company from being represented as a confirmed PKE producer.
 
 The existing organization taxonomy already supports `processor`; the PKS taxonomy already supports `kernel_crushing_plant` and `integrated_mill_kcp`. This is the canonical relationship for the future producer directory; do not create a duplicate producer table unless a later data-model gap is demonstrated. The full route query was executed against UAT after the change and returned zero rows (expected because UAT has no verified route/company fixture). CI must be rerun on the final head.
+
+
+### 16.7 PKE-producing facility type gate
+
+
+The primary route also requires `pks_sites.facility_type` to be `kernel_crushing_plant` or `integrated_mill_kcp`; a standalone `palm_oil_mill` is not assumed to produce PKE. The loading-service material classifier accepts normalized PKE / Palm Kernel Expeller and recorded cake/meal synonyms, including underscore-form codes. The primary reference therefore requires the linked verified processor company, actual KCP/integrated facility type, verified road route, verified port and explicit verified PKE loading service together. This is intentionally conservative until the producer directory and product records are reconciled.

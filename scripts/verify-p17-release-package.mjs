@@ -23,7 +23,7 @@ if (historyBase.project_id !== "purple-base-63944903" || historyBase.branch_id !
 if (historyCurrent.project_id !== "purple-base-63944903" || historyCurrent.branch_id !== "br-damp-shape-b3xlh4nr" ||
     historyCurrent.database !== "neondb" || historyCurrent.applied_count !== 71 || historyCurrent.entries?.length !== 71 ||
     historyCurrent.entries[70]?.filename !== "110_p17d_vessel_position_runtime_rls_fix.sql") {
-  fail("Current Production manifest must reconcile exactly ledger 001-070.");
+  fail("Current Production manifest must reconcile exactly ledger 001-071.");
 }
 if (uat.purpose !== "verified_uat_history_only_not_production_history" || uat.branch_id !== "br-young-boat-b3re832d" ||
     uat.ledger_row_count !== 110 || uat.applied_count !== 94 || uat.entries?.length !== 110 ||

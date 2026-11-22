@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.34 — P17 typed source promotion and technical handoff
+# Master Implementation Plan Rev2.35 — P17 staging maker-checker correction and technical handoff
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.34 (23 November 2026 — P17 accepted port staging promotes to typed pending candidates; technical work remains active)  
+**Revision:** 2.35 (23 November 2026 — P17 staging reviewer independence enforced; source promotion and technical work remain active)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8680,3 +8680,10 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - These changes are source-level only. No new Production migration, data row, source enablement or business master mutation was performed. No current Actions run certifies these edits; the Vercel build-rate-limit status remains skipped.
 
 **Remaining technical closure:** add typed promotion for additional supported entity types only where schema and governance are explicit; ensure accepted staging cannot be self-reviewed; add authenticated runtime API/IDOR and Project-scope tests; run the complete root tests, backend build/typecheck and frontend typecheck/build through a non-deployment CI path. Owner/provider evidence remains separate and is not a reason to pause this work.
+
+
+**P17 staging maker-checker hardening — 23 November 2026**
+- Schema inspection of migration 096 confirmed staging rows do not carry their own creator field; the originating actor is recorded as maritime_ingestion_runs.triggered_by. The staging review API now updates a pending row only when the reviewer differs from that run creator. A failed match returns explicit 409 maker-checker rejection rather than pretending the record is missing.
+- Added a regression contract assertion for the run-creator/reviewer separation. This corrects a real gap found while checking the schema against the new ingestion UI.
+- Removed the empty-object default payload from the ingestion UI. The form now requires the user to paste actual provider records; the placeholder is explicitly illustrative and not submitted automatically.
+- No staging records, provider sources or business data were created in Production. Current Production read-only counts remain unchanged: ledger 71; enabled sources 0; linked AIS positions 0; Buyer mappings/grants 0; Project PKS links 0.

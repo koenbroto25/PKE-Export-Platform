@@ -106,9 +106,9 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
     scenarioCode:code,scenarioName:name,graph:blankSimulationGraph,sourceEvidence:[],assumptions:blankSimulationAssumptions
    });
    setNewScenarioOpen(false);setNewScenarioCode("");setNewScenarioName("");
-   if(result.scenario?.id)setSelectedId(String(result.scenario.id));
    setNotice("Skenario simulasi baru dibuat. Seluruh node tetap non-kanonis dan belum diverifikasi.");
    await refresh();
+   if(result.scenario?.id)setSelectedId(String(result.scenario.id));
   }catch(e:any){setError(e?.message||"Skenario simulasi baru gagal dibuat.");}
   finally{setBusy(false);}
  }
@@ -185,14 +185,14 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
    <button type="button" onClick={()=>void refresh()} disabled={busy}>Muat ulang</button>
    {canManage&&<button type="button" onClick={()=>setNewScenarioOpen(v=>!v)} disabled={busy}>Buat simulasi</button>}
   </div>
-  {!selected?<div className="p17b-empty">Belum ada simulasi logistik untuk Project ini.</div>
-   {canManage&&newScenarioOpen&&<form className="p17b-editor" onSubmit={createScenario}>
+  {{canManage&&newScenarioOpen&&<form className="p17b-editor" onSubmit={createScenario}>
     <h3>Buat simulasi rantai PKE</h3>
     <p>Graph awal berisi enam node dan lima relasi wajib. Semua nilai operasional tetap kosong, unverified dan tidak dapat dipakai untuk dispatch.</p>
     <label>Kode skenario<input required maxLength={80} value={newScenarioCode} onChange={e=>setNewScenarioCode(e.target.value)} placeholder="SIM-PKE-PROJECT-001"/></label>
     <label>Nama skenario<input required maxLength={200} value={newScenarioName} onChange={e=>setNewScenarioName(e.target.value)} placeholder="Simulasi rantai PKS ke pelabuhan"/></label>
     <button type="submit" disabled={busy||!newScenarioCode.trim()||!newScenarioName.trim()}>{busy?"Membuat…":"Buat skenario simulasi"}</button>
-   </form>}:<>
+   </form>}
+  {!selected?<div className="p17b-empty">Belum ada simulasi logistik untuk Project ini.</div>:<>
    <div className="p17b-chain">
     {nodes.map((node:Row,i:number)=><div className="p17b-node" key={node.id}>
      <div className="p17b-node__type">{nodeLabels[node.type]||node.type}</div>

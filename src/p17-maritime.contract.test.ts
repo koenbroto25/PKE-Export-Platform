@@ -518,6 +518,7 @@ describe("P17-C advisory vessel and terminal compatibility",()=>{
   expect(API).toContain("operationalClearance:false");
   expect(API).toContain("insufficient_verified_data");
   expect(API).toContain("exceeds_advisory_limit");
+  expect(API).toContain("PORT_PERMISSION_REQUIRED");
  });
  it("exposes the advisory screen in the Port Network UI",()=>{
   const ui=readFileSync(join(ROOT,"frontend","src","PortNetworkPage.tsx"),"utf8");

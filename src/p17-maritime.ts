@@ -206,7 +206,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"AIS_POSITION_REVIEW_REJECTED","Current source rights or maker-checker guard rejected this review.");return bad(res,500,"AIS_POSITION_REVIEW_FAILED","Unable to review AIS observation.");}
  });
  app.get("/api/v1/projects/:projectId/vessel-positions",requireAuth,async(req:R,res:Response)=>{
-  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["vessel.view","shipping.view"]))return;
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["vessel.view","shipping.view","vessel.position.view"]))return;
   try{
    const exists=await req.db.query("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='vessel_tracking_positions' AND column_name='source_id') AS ready");
    if(exists.rows[0]?.ready!==true)return bad(res,503,"AIS_SCHEMA_NOT_RELEASED","AIS observation schema is not released on this database.");

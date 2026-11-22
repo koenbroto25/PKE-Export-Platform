@@ -55,7 +55,36 @@ CREATE POLICY vessel_tracking_accepted_project_read
 CREATE OR REPLACE FUNCTION public.pke_guard_vessel_tracking_source_evidence()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog','public'
 AS $function$
+DECLARE
+  required_fields text[] := ARRAY['mmsi','latitude','longitude','observed_at'];
 BEGIN
+  IF TG_OP='INSERT' AND NEW.source_id IS NOT NULL THEN
+    IF NEW.sog_knots IS NOT NULL THEN required_fields:=array_append(required_fields,'sog_knots'); END IF;
+    IF NEW.cog_degrees IS NOT NULL THEN required_fields:=array_append(required_fields,'cog_degrees'); END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.maritime_data_sources s
+      WHERE s.id=NEW.source_id AND s.source_class='ais' AND s.source_code=NEW.provider_code
+        AND s.enabled IS TRUE AND s.rights_status='approved'
+        AND s.internal_processing_allowed IS TRUE AND s.rights_expires_at>now()
+        AND s.rights_reviewed_by IS NOT NULL AND s.rights_reviewed_at IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'AIS ingestion requires an enabled source with current approved internal-processing rights'
+        USING ERRCODE='42501';
+    END IF;
+    IF NOT EXISTS(SELECT 1 FROM public.vessels v WHERE v.id=NEW.vessel_id AND v.mmsi=NEW.mmsi AND v.is_active IS TRUE) THEN
+      RAISE EXCEPTION 'AIS MMSI must match the active canonical vessel master'
+        USING ERRCODE='23514';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.maritime_source_field_permissions f
+      WHERE f.source_id=NEW.source_id AND f.purpose_code='internal_operations'
+        AND f.allowed IS TRUE AND f.field_code=ANY(required_fields)
+      GROUP BY f.source_id HAVING COUNT(DISTINCT f.field_code)=cardinality(required_fields)
+    ) THEN
+      RAISE EXCEPTION 'AIS source field-purpose permissions are incomplete'
+        USING ERRCODE='42501';
+    END IF;
+  END IF;
   IF TG_OP='UPDATE' AND (
     NEW.source_id IS DISTINCT FROM OLD.source_id
     OR NEW.vessel_id IS DISTINCT FROM OLD.vessel_id

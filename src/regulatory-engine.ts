@@ -1,7 +1,7 @@
 export type RegulatoryOperator = "eq"|"ne"|"in"|"not_in"|"gt"|"gte"|"lt"|"lte"|"between"|"contains"|"exists";
 export interface RegulatoryCondition { field_path:string; operator:RegulatoryOperator; comparison_value:unknown; is_mandatory?:boolean; condition_group?:number; }
 export interface RegulatoryRuleInput { ruleVersionId:string; ruleCode:string; title:string; outcome:"require"|"prohibit"|"allow"|"manual_review"|"informational"; conditions:RegulatoryCondition[]; requiredDocuments?:unknown[]; }
-export interface RegulatoryEvaluation { ruleVersionId:string; ruleCode:string; resultStatus:"pass"|"fail"|"pending"|"manual_review"; reason:string; requiredDocuments:unknown[]; missingDocuments:unknown[]; evidence:unknown[]; }
+export interface RegulatoryEvaluation { ruleVersionId:string; ruleCode:string; resultStatus:"pass"|"fail"|"pending"|"manual_review"|"not_applicable"; reason:string; requiredDocuments:unknown[]; missingDocuments:unknown[]; evidence:unknown[]; }
 const getPath=(value:unknown,path:string):unknown=>{
   if(!/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(path)) return undefined;
   return path.split(".").reduce<unknown>((current,key)=>current && typeof current==="object" && !Array.isArray(current) ? (current as Record<string,unknown>)[key] : undefined,value);
@@ -34,7 +34,7 @@ export function evaluateRegulatoryRule(rule:RegulatoryRuleInput,input:Record<str
   const mandatory=required.filter(d=>d.requirementKind!=="optional");
   const missing=mandatory.filter(d=>!d.documentCode||!availableDocumentCodes.has(d.documentCode));
   if(matched===null) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:rule.outcome==="manual_review"?"manual_review":"pending",reason:"Rule has no executable conditions; human review is required.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
-  if(!matched) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"not_applicable" as never,reason:"Rule conditions did not match the supplied assessment snapshot.",requiredDocuments:required,missingDocuments:[],evidence:[]};
+  if(!matched) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"not_applicable",reason:"Rule conditions did not match the supplied assessment snapshot.",requiredDocuments:required,missingDocuments:[],evidence:[]};
   if(rule.outcome==="manual_review") return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"manual_review",reason:"Matched rule explicitly requires human review.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
   if(rule.outcome==="prohibit") return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"fail",reason:"Matched prohibitive regulatory rule.",requiredDocuments:required,missingDocuments:missing,evidence:[]};
   if(rule.outcome==="require"&&missing.length) return {ruleVersionId:rule.ruleVersionId,ruleCode:rule.ruleCode,resultStatus:"fail",reason:"One or more mandatory documents are not present in the verified document set.",requiredDocuments:required,missingDocuments:missing,evidence:[]};

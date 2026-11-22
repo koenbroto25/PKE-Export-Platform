@@ -44,7 +44,8 @@ CREATE TABLE public.loading_operation_acceptances (
   CONSTRAINT loading_acceptance_payload_ck CHECK(
     (acceptance_type IN ('survey','quantity_reconciliation')
       AND quantity IS NOT NULL AND quantity>0
-      AND unit_code IS NOT NULL AND unit_code ~ '^[A-Z0-9._-]{2,12}
+      AND unit_code IS NOT NULL AND unit_code ~ '^[A-Z0-9._-]{2,12}$')
+    OR
     (acceptance_type='laytime'
       AND notice_of_readiness_at IS NOT NULL
       AND laytime_start_at IS NOT NULL AND laytime_end_at IS NOT NULL

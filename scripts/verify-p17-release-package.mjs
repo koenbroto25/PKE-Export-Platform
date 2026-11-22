@@ -38,10 +38,11 @@ if (release.purpose !== "production_p17_release_package_exact_sql_hashes_owner_a
 }
 
 function removeTransactionWrapper(sql) {
-  const begin = /^\s*(?:--[^\r\n]*(?:\r?\n|$))*BEGIN;\s*/i;
-  const commit = /\s*COMMIT;\s*$/i;
-  if (!begin.test(sql) || !commit.test(sql)) throw new Error("transaction wrapper missing");
-  return sql.replace(begin, "").replace(commit, "");
+  const normalized = sql.replace(/\r\n/g, "\n");
+  if (!/\nBEGIN;\n\n/.test(normalized) || !/COMMIT;\n?$/.test(normalized)) {
+    throw new Error("transaction wrapper missing");
+  }
+  return normalized.replace(/\nBEGIN;\n\n/, "\n").replace(/COMMIT;\n?$/, "");
 }
 
 for (let i = 0; i < release.migrations.length; i++) {

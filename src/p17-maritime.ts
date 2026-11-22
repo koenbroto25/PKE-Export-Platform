@@ -291,6 +291,11 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
    return res.json({mappings:mappings.rows,eligibleUsers:users.rows,eligibleBuyers:buyers.rows,identityMatching:"explicit_user_id_only"});
   }catch{return bad(res,503,"BUYER_MAPPING_SCHEMA_NOT_RELEASED","Buyer mapping schema is not released on this database.");}
  });
+ app.get("/api/v1/projects/:projectId/buyer-visibility-grant-candidates",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"buyer.visibility.manage"))return;
+  try{const ready=await req.db.query("SELECT to_regclass('public.buyer_auth_user_mappings') IS NOT NULL AS ready");if(ready.rows[0]?.ready!==true)return bad(res,503,"BUYER_MAPPING_SCHEMA_NOT_RELEASED","Verified Buyer mapping schema is not released.");const buyers=await req.db.query("SELECT b.id,b.name,b.code FROM public.buyers b JOIN public.buyer_auth_user_mappings m ON m.buyer_id=b.id AND m.mapping_status='active' WHERE b.is_active IS TRUE ORDER BY b.name");const shipments=await req.db.query("SELECT id,shipment_code FROM public.shipments WHERE project_id=$1::uuid ORDER BY shipment_code",[p]);return res.json({buyers:buyers.rows,shipments:shipments.rows});}
+  catch{return bad(res,500,"BUYER_GRANT_CANDIDATES_FAILED","Unable to load verified Buyer grant candidates.");}
+ });
  app.get("/api/v1/projects/:projectId/buyer-visibility-grants",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAccess(req,res,p,"buyer.visibility.manage"))return;
   try{const q=await req.db.query("SELECT g.id,g.project_id,g.buyer_id,b.name AS buyer_name,g.shipment_id,s.shipment_code,g.scope,g.status,g.granted_by,g.granted_at,g.expires_at,g.revoked_by,g.revoked_at,g.reason FROM public.buyer_visibility_grants g JOIN public.buyers b ON b.id=g.buyer_id LEFT JOIN public.shipments s ON s.id=g.shipment_id AND s.project_id=g.project_id WHERE g.project_id=$1::uuid ORDER BY g.created_at DESC",[p]);return res.json({grants:q.rows});}

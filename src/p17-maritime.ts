@@ -9,7 +9,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
  // Production schema is still at migration 053. Block P17 mutations until 096-103
  // and their RLS/policy acceptance are explicitly released on canonical Production.
  const p17WriteReleaseGate:RequestHandler=(req,res,next)=>{
-  if(!["POST","PUT","PATCH","DELETE"].includes(req.method)) return next();
+  if(!["POST","PUT","PATCH","DELETE"].includes(req.method)&&!((req.path||"").startsWith("/api/v1/buyer/"))) return next();
   const path=req.path||"";
   const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$))/.test(path);
   const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);

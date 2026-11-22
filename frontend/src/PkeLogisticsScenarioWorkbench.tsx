@@ -201,6 +201,7 @@ export default function PkeLogisticsScenarioWorkbench({projectId,activeUser}:Pro
    {!requests.length?<div className="p17b-empty">Belum ada permintaan perubahan untuk Project ini.</div>:requests.map((r:Row)=><article key={r.id}>
     <div><strong>{nodeLabels[r.entity_type]||r.entity_type} · {r.operation}</strong><span className={"p17b-request-status p17b-request-status--"+r.status}>{r.status}</span></div>
     <p>{r.request_reason}</p><small>{r.source_reference} · {r.created_at?new Date(r.created_at).toLocaleString("id-ID"):""}</small>
+    <details className="p17b-proposal-detail"><summary>Lihat proposal dan bukti</summary><pre>{JSON.stringify(r.proposed_data||{},null,2)}</pre>{r.target_id&&<small>Target: {r.target_id}</small>}{r.source_url&&<p><a href={r.source_url} target="_blank" rel="noreferrer">Buka bukti sumber</a></p>}</details>
     {r.status==="draft"&&r.requested_by===activeUser?.id&&<div className="p17b-request-actions"><button type="button" disabled={busy} onClick={()=>editRequest(r)}>Edit draft</button><button type="button" disabled={busy} onClick={()=>void submitRequest(r.id)}>Kirim untuk review</button></div>}
     {canReview&&r.status==="submitted"&&<div className="p17b-admin-decision">
      <input value={decisionNotes[r.id]||""} onChange={e=>setDecisionNotes(v=>({...v,[r.id]:e.target.value}))} placeholder="Catatan keputusan / alasan penolakan"/>

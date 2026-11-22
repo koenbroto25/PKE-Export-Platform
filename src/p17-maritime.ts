@@ -16,9 +16,9 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   const mutating=["POST","PUT","PATCH","DELETE"].includes(req.method);
   const schemaAdmin=path.startsWith("/api/v1/admin/maritime/")||path.startsWith("/api/v1/admin/buyer-auth-mappings")||path.startsWith("/api/v1/admin/buyer-visibility-grants");
   const buyerProjection=path.startsWith("/api/v1/buyer/");
-  const p17ProjectWorkflow=/^\\/api\\/v1\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/(?:simulation-scenarios|change-requests)(?:\\/|$)|voyages(?:\\/|$)|vessel-nominations(?:\\/|$)|vessel-port-calls(?:\\/|$)|buyer-visibility-grants(?:\\/|$)|loading-operations(?:\\/|$))/.test(path);
-  const p17AdminProjectWorkflow=/^\\/api\\/v1\\/admin\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/change-requests(?:\\/|$))/.test(path);
-  const p17SchemaBackedRead=/^\\/api\\/v1\\/projects\\/[^/]+\\/(?:master-data-change-requests(?:\\/|$)|pke-logistics\\/(?:simulation-scenarios|change-requests)(?:\\/|$)|buyer-visibility-grants(?:\\/|$))/.test(path);
+  const p17ProjectWorkflow=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|buyer-visibility-grants(?:\/|$)|loading-operations(?:\/|$))/.test(path);
+  const p17AdminProjectWorkflow=/^\/api\/v1\/admin\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/change-requests(?:\/|$))/.test(path);
+  const p17SchemaBackedRead=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:simulation-scenarios|change-requests)(?:\/|$)|buyer-visibility-grants(?:\/|$))/.test(path);
   const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating);
   if(!protectedPath)return next();
   const migrationFiles=[

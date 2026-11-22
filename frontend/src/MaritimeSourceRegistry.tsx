@@ -18,7 +18,7 @@ const makeRights=(s:Source):RightsDraft=>({
  derivativeUseAllowed:s.derivative_use_allowed===true,
  cachingAllowed:s.caching_allowed===true,
  retentionDays:s.retention_days==null?"":String(s.retention_days),
- termsUrl:String(s.terms_url||""),rightsEvidenceUrl:"",
+ termsUrl:String(s.terms_url||""),rightsEvidenceUrl:String(s.rights_evidence_url||""),
  attributionText:String(s.attribution_text||""),
  rightsExpiresAt:s.rights_expires_at?new Date(s.rights_expires_at).toISOString().slice(0,16):""
 });

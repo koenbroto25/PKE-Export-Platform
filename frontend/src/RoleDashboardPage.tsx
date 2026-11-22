@@ -22,7 +22,8 @@ type DashboardData = {
   arInvoices?: RecordData[];
   cashAdvances?: RecordData[];
   journalEntries?: RecordData[];
-  projectReport?: RecordData;\n  p17AdminControlTower?: RecordData;
+  projectReport?: RecordData;
+  p17AdminControlTower?: RecordData;
 };
 type LoadState = { data: DashboardData; loading: boolean; errors: string[] };
 
@@ -100,7 +101,8 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   const load = useCallback(async () => {
     setState(current => ({ ...current, loading: true, errors: [] }));
     const requests: Array<[keyof DashboardData, string, boolean]> = [
-      ['projects', '/projects', true],\n      ['p17AdminControlTower', '/admin/p17-control-tower', activeUser?.platformAdmin === true],
+      ['projects', '/projects', true],
+      ['p17AdminControlTower', '/admin/p17-control-tower', activeUser?.platformAdmin === true],
       ['portfolio', '/reports/portfolio', false],
       ['workItems', `/projects/${encodeURIComponent(projectId)}/work-items`, Boolean(projectId && canViewTasks)],
       ['contracts', `/contracts?projectId=${encodeURIComponent(projectId)}`, Boolean(projectId && canViewContracts)],

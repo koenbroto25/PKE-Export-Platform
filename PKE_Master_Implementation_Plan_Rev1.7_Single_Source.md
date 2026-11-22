@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.25 — P17 UAT migration validation and Buyer RLS hardening
+# Master Implementation Plan Rev2.26 — P17 project-context UAT acceptance and migration ledger reconciliation
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.25 (22 November 2026 — P17 UAT migration 104–109, Buyer RLS recursion fixes and runtime-role acceptance)  
+**Revision:** 2.26 (22 November 2026 — P17 project-context PM/viewer acceptance, simulation/change-request write-path and ledger reconciliation)  
 
 **Tanggal dokumen:** 22 November 2026  
 
@@ -8484,7 +8484,7 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
   2. `buyers_verified_mapping_self_read` queried `buyers` from a policy on `buyers` itself.
 - Added and applied migration 108 `108_p17f_buyer_mapping_rls_recursion_fix.sql` (SHA-256 `feccb0230f18c6cea51f7ed1e5d10223cbe7bb63476f147f7040cbebb1324d17`) to make mapping self-read independent from Buyer-row RLS.
 - Added and applied migration 109 `109_p17f_buyer_self_read_rls_recursion_fix.sql` (SHA-256 `c02c4ebbdc0d2932c6eee66590262c970fad12d6c494d34cc0dde513c4d6b125`) to validate the active outer Buyer row without querying `buyers` recursively.
-- Reconciled `migration_history_manifest_uat_001_103.json` through ledger ID 109. The manifest remains explicitly UAT-only.
+- Created `migration_history_manifest_uat_001_109.json` with ledger IDs through 109 and retained `migration_history_manifest_uat_001_103.json` as the historical 103-row snapshot. Both manifests are explicitly UAT-only.
 
 **UAT acceptance evidence:**
 - Migration ledger IDs 96–109 exist and are marked applied. Migrations 104–109 match the current branch SQL SHA-256 values.
@@ -8500,3 +8500,18 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Vercel deployment and browser UAT remain skipped as instructed.
 
 **Status after this tranche:** P17-E/F UAT database migrations 104–109 and runtime-role RLS read probes PASS. Overall P17 is NOT COMPLETE: full authenticated API acceptance with project/user context, P17-A/B/C/D/E/F/G end-to-end workflow acceptance, current 096–098 source reconciliation, Production release package, external source/AIS rights, real Buyer identity/grants, verified port/PKS/terminal/warehouse evidence, and genuine loading/survey/NOR/laytime evidence remain open. These external data and authorization gates must remain fail-closed.
+
+
+### P17 project-context and maker workflow acceptance — 22 November 2026
+
+- GitHub Actions Unit Tests run `45036679425` completed successfully on commit `6b98c15131effd0e9ee70241573ce1d37b2753ba`: offline security/unit tests, Production ledger/release-gate checks, backup/Migration 052 checks, prepared 054/055 contract checks, migration-runner dry-run, backend build/typecheck and frontend typecheck/build all PASS. This run includes the new P17-F RLS recursion contract assertions.
+- Runtime-role read probes with no request context returned zero rows without errors across 15 protected P17/Buyer/shipment tables.
+- With an existing UAT PM assignment and real Project context, the runtime role confirmed permissions for P17 logistics view/change requests, Buyer visibility management, voyage view, nomination review, port-call management, survey view/review and laytime view. The PM could read the existing UAT voyage, nomination, port call, loading operation, loading ticket and loading segment rows (one row each).
+- With an existing UAT viewer assignment and Project context, the runtime role returned false for P17 logistics view/change request, Buyer visibility management and survey review permissions; the protected tables returned no visible rows.
+- PM maker-path acceptance: an insert into `p17b_logistics_change_requests` with a valid draft port-create request succeeded under the PM context; a valid six-node/five-edge PKE Kumai simulation scenario also passed the graph guard and audit trigger. Both were enclosed in SAVEPOINTs and rolled back; no test records persisted.
+- Post-rollback UAT counts remain zero for the temporary change-request test and temporary simulation acceptance record. The existing `SIM-PKE-KUMAI-001` scenario remains simulation-only and explicitly unverified.
+- The first PM simulation test reused the existing scenario code and was rejected by the unique constraint; no row was written. The successful second attempt used a unique UAT-only acceptance code and was rolled back. This confirms the uniqueness guard is active.
+- Buyer Portal remains closed by design: no Buyer identity mapping and no visibility grants exist in UAT. The existing PM fixture user has no linked Neon Auth identity. No fake Buyer grant was created.
+- The P17-E read path under PM context returned existing UAT voyage, nomination, port-call, loading-operation, ticket and segment records without RLS errors. Actual survey/laytime acceptance remains empty because no real private evidence object or independent reviewer decision was supplied.
+
+**Updated P17 status:** UAT migration 104–109, Buyer RLS recursion correction, protected-table no-context reads, PM/viewer permission separation, PM draft change request and simulation maker path, P17-E project-scoped read path, CI unit/security/build acceptance: PASS. Overall P17 and Production rollout remain NOT COMPLETE. Outstanding gates include current source-history reconciliation for migrations 096–098, exact Production release package/manifest/runner approval, authenticated API HTTP acceptance, external data rights and credentials, real PKS/port/terminal/warehouse/road evidence, live AIS permission and freshness, Buyer Neon Auth mapping/grants, and genuine loading survey/quantity/NOR/laytime evidence with independent acceptance. No Production migrations or business data were changed; Vercel/browser UAT remain skipped.

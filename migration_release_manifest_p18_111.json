@@ -12,7 +12,7 @@
   "owner_approval": {
     "status": "approved_for_isolated_validation_only",
     "required": false,
-    "approved_sha256": "00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21",
+    "approved_sha256": "e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904",
     "approval_scope": "isolated_validation_branch_only",
     "production_application_requires_separate_explicit_approval": true
   },

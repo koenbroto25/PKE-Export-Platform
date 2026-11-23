@@ -20,7 +20,7 @@ describe("P18 regulatory core contracts",()=>{
   expect(api).toContain('WHERE s.id=$1::uuid AND s.project_id=$2::uuid');
   expect(api).toContain('destination_port_verification_status!=="verified"');
   expect(api).toContain('REGULATORY_DESTINATION_UNRESOLVED');
-  expect(api).toContain('r.jurisdiction IN ($1,\\'GLOBAL\\')');
+  expect(api).toContain("r.jurisdiction IN ($1,'GLOBAL')");
  });
  it("loads only effective rules backed by verified sources and active dates",()=>{
   expect(api).toContain("r.status='effective' AND v.status='effective'");

@@ -9591,3 +9591,17 @@ Complete technical application surfaces that can be completed without external c
 - P18 UAT/Production promotion: **BLOCKED_OWNER — 111/112 are isolated-only and no broader authorization is implied**.
 - P18 isolated engineering baseline: **PASS — exact ledger 111/112 and hashes confirmed**.
 
+### 40.3 P20-B release-gate source/Production policy mismatch — 23 November 2026
+
+**FACT — VERIFIED by source inspection and read-only Production catalog queries**
+
+- P17 runtime gate in `src/p17-maritime.ts` requires four AIS predicates: three policy names `p17d_vessel_position_admin_pending_select`, `p17d_vessel_position_admin_review_update`, `p17d_vessel_position_project_review_select`, and legacy `pke_scope_select` restricted to source_id NULL with current Project context and the Project permission helper.
+- Production `pg_policies` reports the three dedicated policy predicates as 0/3. It reports the fourth legacy predicate as 0 for the exact gate expression because the current legacy policy is `source_id IS NULL AND pke_has_any_project_permission(...)`, which has no active Project context check and uses the global permission helper. This is the unsafe global fallback the runtime gate is explicitly intended to reject.
+- Migration 110 SQL and live Production policy catalog instead show: `p17d_vessel_position_ingest_admin_insert`, `p17d_vessel_position_independent_review_update`, `vessel_tracking_accepted_project_read`, and legacy `pke_scope_select`. These do not satisfy the names/predicates expected by the gate.
+- The protected table inventory is 40/40 present, with RLS enabled and at least one policy. The 4 required security-definer functions exist. The 2 required role-policy guard triggers exist. These checks pass independently.
+- This is a **source/release mismatch**: Migration 110's exact hash is recorded as applied on Production and UAT, but the live schema does not satisfy the later runtime gate's four expected predicates. Migration 110's source-level contract test only asserts the two INSERT/UPDATE policy names; it does not assert the three review policy names that the current gate expects.
+- Do not disable or weaken `p17WriteReleaseGate`, do not re-label this gate as passed, and do not modify Production/UAT. A new corrective migration or gate design decision requires a new reviewed SQL artifact, exact SHA-256, and separate explicit owner approval for each target.
+- P20 action: retain P17 APIs fail-closed; create a reviewed candidate correction with static SQL contract and rollback-safe isolated validation only if/when an owner-approved permitted validation target is available. The canonical Production/UAT targets remain read-only.
+
+**Updated status:** P17 Migration 110 application = PASS; P17 route runtime release gate = BLOCKED by policy predicate mismatch; no Production/UAT change authorized or performed.
+

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "purpose": "p17d_legacy_position_project_scope_correction_prepared",
+  "project_id": "purple-base-63944903",
+  "branch_id": "br-damp-shape-b3xlh4nr",
+  "database": "neondb",
+  "starting_history_manifest": "migration_history_manifest_001_071.json",
+  "expected_current_last_ledger_id": 71,
+  "expected_next_ledger_id": 72,
+  "release_scope": "Correct legacy AIS position SELECT scope and restore pending-observation SELECT/UPDATE paths for Platform Admin and Project reviewers",
+  "owner_approval": {
+    "status": "pending",
+    "exact_sha256": "bbea252c93e3cd2876f2377f26c2f33a0a1c8ea51e89fe2b944238595b9edf59",
+    "approval_reference": null
+  },
+  "migration": {
+    "filename": "110a_p17d_legacy_position_project_scope.sql",
+    "sha256": "bbea252c93e3cd2876f2377f26c2f33a0a1c8ea51e89fe2b944238595b9edf59",
+    "status": "prepared",
+    "source_sha_verified": true,
+    "production_applied": false
+  },
+  "production_preflight": {
+    "last_ledger_id": 71,
+    "legacy_pending_rows": 1,
+    "source_linked_positions": 0,
+    "enabled_maritime_sources": 0,
+    "note": "Read-only audit only; no SQL from this package has been applied."
+  },
+  "production_application": {
+    "status": "not_applied",
+    "ledger_id": null,
+    "atomic": null,
+    "verified_at": null
+  }
+}

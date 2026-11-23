@@ -258,11 +258,15 @@ describe("P19 operational assurance: frontend-to-API boundary", () => {
   });
 
   it("keeps out-of-scope payment execution endpoints explicitly disabled", () => {
-    const start = INDEX_SRC.indexOf('app.post("/api/v1/payment-instructions"');
-    const end = INDEX_SRC.indexOf('app.', start + 20);
-    const route = INDEX_SRC.slice(start, end);
-    expect(route).toContain("paymentExecutionOutOfScope");
-    expect(route).toContain("status(410)");
+    const start = INDEX_SRC.indexOf("const paymentExecutionOutOfScope");
+    const end = INDEX_SRC.indexOf('app.get("/api/v1/payment-instructions"', start);
+    const handler = INDEX_SRC.slice(start, end);
+    expect(handler).toContain("res.status(410)");
+    expect(handler).toContain("PAYMENT_EXECUTION_OUT_OF_SCOPE");
+    expect(handler).toContain("available: false");
+    expect(INDEX_SRC).toContain('app.get("/api/v1/payment-instructions", requireAuth, paymentExecutionOutOfScope)');
+    expect(INDEX_SRC).toContain('app.post("/api/v1/payment-instructions", requireAuth, paymentExecutionOutOfScope)');
+    expect(INDEX_SRC).toContain('app.patch("/api/v1/payment-instructions/:id", requireAuth, paymentExecutionOutOfScope)');
   });
 
   it("traces critical business journeys from UI to API and existing database domains", () => {

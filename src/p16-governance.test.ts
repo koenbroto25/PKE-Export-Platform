@@ -164,6 +164,14 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(uploadRoute).toContain("documents\\/");
     expect(uploadRoute).toContain("public.project_export_document_requirements");
     expect(uploadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.create")');
+    expect(uploadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
+    const registerStart = API.indexOf('app.post("/api/v1/projects/:projectId/documents"');
+    const reviewStart = API.indexOf('app.patch("/api/v1/documents/:id"', registerStart);
+    const registerRoute = API.slice(registerStart, reviewStart);
+    expect(registerRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.create")');
+    expect(registerRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
+    expect(registerRoute).toContain('set_config("app.current_permission_code"');
+
     expect(downloadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
     expect(downloadRoute).toContain("public.project_export_documents");
     expect(downloadRoute).toContain("upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL");

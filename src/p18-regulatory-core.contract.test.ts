@@ -63,6 +63,7 @@ describe("P18 regulatory core contracts",()=>{
   expect(lifecycleMigration).toContain("pke_regulatory_rule_version_guard");
   expect(lifecycleMigration).toContain("p18_has_regulatory_permission('regulatory.rule.manage')");
   expect(lifecycleMigration).toContain("OLD.status='under_review' AND NEW.status='rejected'");
+  expect(lifecycleMigration).toContain("OLD.created_by IS DISTINCT FROM public.pke_current_user_id()");
   expect(lifecycleMigration).toContain("OLD.status='under_review' AND NEW.status IN ('approved','draft')");
   expect(lifecycleMigration).toContain("NEW.approved_by IS NOT DISTINCT FROM OLD.created_by");
   expect(lifecycleMigration).toContain("src.official_url !~* '^https://'");

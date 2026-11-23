@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 const ROOT = __dirname;
 const INDEX_SRC = readFileSync(join(ROOT, "index.ts"), "utf8");
+const P17_SRC = readFileSync(join(ROOT, "p17-maritime.ts"), "utf8");
 const AUTH_SRC = readFileSync(join(ROOT, "auth.ts"), "utf8");
 const DEMO_MODE_SRC = readFileSync(join(ROOT, "demo", "mode.ts"), "utf8");
 const DEMO_ROUTES_SRC = readFileSync(join(ROOT, "demo", "routes.ts"), "utf8");
@@ -23,6 +24,7 @@ function registrations(source: string): RouteRegistration[] {
 
 describe("P19 operational assurance: API security boundary", () => {
   const routes = registrations(INDEX_SRC);
+  const p17Routes = registrations(P17_SRC);
   const authMount = INDEX_SRC.indexOf('app.use("/api/v1", async');
   const rlsMarker = INDEX_SRC.indexOf("// P03_RLS_REQUEST_TRANSACTION_MIDDLEWARE");
   const rlsMount = INDEX_SRC.indexOf('app.use("/api/v1", async', authMount + 1);
@@ -57,12 +59,34 @@ describe("P19 operational assurance: API security boundary", () => {
     expect(INDEX_SRC).toContain("app.get(\"/api/v1/health\"");
   });
 
-  it("keeps every registered API route under the versioned API prefix and prevents duplicate handlers", () => {
-    expect(routes.length).toBeGreaterThanOrEqual(220);
-    expect(routes.every((route) => route.path.startsWith("/api/v1"))).toBe(true);
-    const handlers = routes.filter((route) => route.method !== "USE");
+  it("keeps all API route modules under the versioned prefix and prevents cross-module duplicates", () => {
+    const handlers = [
+      ...routes.filter((route) => route.method !== "USE"),
+      ...p17Routes.filter((route) => route.method !== "USE"),
+    ];
+    expect(handlers.length).toBeGreaterThanOrEqual(290);
+    expect(handlers.every((route) => route.path.startsWith("/api/v1"))).toBe(true);
     const keys = handlers.map((route) => `${route.method} ${route.path}`);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("mounts the P17 route module after global auth/RLS and its release gate before P17 handlers", () => {
+    const p17Mount = INDEX_SRC.indexOf("registerP17MaritimeRoutes(app");
+    const releaseGateMount = P17_SRC.indexOf("app.use(p17WriteReleaseGate)");
+    const firstP17Handler = P17_SRC.search(/app\\.(get|post|put|patch|delete)\\s*\\(/i);
+    expect(p17Mount).toBeGreaterThan(rlsMount);
+    expect(releaseGateMount).toBeGreaterThan(0);
+    expect(firstP17Handler).toBeGreaterThan(releaseGateMount);
+    const p17Writes = p17Routes.filter((route) => ["POST", "PUT", "PATCH", "DELETE"].includes(route.method));
+    const guards = ["requireProjectAccess", "requireProjectAnyAccess", "requireProjectPermission", "requireAdmin", "pke_is_platform_admin"];
+    const missing: string[] = [];
+    for (const route of p17Writes) {
+      const end = p17Routes.find((candidate) => candidate.at > route.at)?.at ?? P17_SRC.length;
+      const block = P17_SRC.slice(route.at, end);
+      if (!guards.some((guard) => block.includes(guard))) missing.push(`${route.method} ${route.path}`);
+    }
+    expect(p17Writes.length).toBeGreaterThan(30);
+    expect(missing).toEqual([]);
   });
 
   it("places every business route after both global security middleware mounts", () => {

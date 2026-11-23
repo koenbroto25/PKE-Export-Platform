@@ -314,7 +314,9 @@ describe("P17-D legacy AIS Project-scope correction",()=>{
   expect(M113).toContain("source_id IS NULL");
   expect(M113).toContain("app.current_project_id");
   expect(M113).toContain("pke_has_project_permission");
-  expect(M113).not.toContain("pke_has_any_project_permission");
+  const policyDefinition=M113.slice(M113.indexOf("CREATE POLICY"),M113.indexOf("DO $verify$"));
+  expect(policyDefinition).not.toContain("pke_has_any_project_permission");
+  expect(M113).toContain("position('pke_has_any_project_permission' IN policy_expression)");
   expect(M113).toContain("vessel.position.view");
   expect(M113).toContain("COMMIT;");
  });

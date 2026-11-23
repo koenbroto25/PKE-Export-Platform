@@ -56,7 +56,7 @@ function makeHarness(){
   activeUserId=user?.id||null;
   let nextCalled=false;
   await gate!(req,res,()=>{nextCalled=true;});
-  if(!nextCalled)return {req,res};
+  if(!nextCalled)throw new Error("P17 gate rejected: "+JSON.stringify(res.body)+"; queries="+queries.join(" || "));
   const [auth,handler]=route.handlers;
   let handlerPromise:Promise<any>|undefined;
   auth(req,res,()=>{handlerPromise=Promise.resolve(handler(req,res));});

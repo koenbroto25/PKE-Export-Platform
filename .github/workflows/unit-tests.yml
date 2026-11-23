@@ -40,6 +40,8 @@ jobs:
         run: npm run verify:migration-054
       - name: Verify prepared Migration 055 PM governance RLS contract
         run: npm run verify:migration-055
+      - name: Verify prepared P17-D 110a AIS Project-scope correction
+        run: npm run verify:p17d-110a
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
       - name: Build backend application

@@ -9462,3 +9462,106 @@ P19 code-level acceptance is complete on the isolated branch. The following are 
 
 No Production or original UAT migration/data writes were made. No migration 111, 112 or 110a was applied. Do not merge this branch to `main` without a separate explicit instruction.
 
+---
+
+# Rev2.57 — P20 continuation charter and verified release-boundary reconciliation (23 November 2026)
+
+## 39. P20 — PKE Technical Completion & Controlled Operational Readiness
+
+### 39.1 Phase status and authority
+
+- Phase: P20 — PKE Technical Completion & Controlled Operational Readiness.
+- Status: CHARTER BASELINED — EXECUTION IN PROGRESS.
+- Working branch: `p20/platform-continuation-20261123`, created from P19 head `cfc0d2679fa1cc1cfdf91e099c077bd8e54fd38d`.
+- This is the single active scope definition for P20. It does not supersede P01–P19 specifications and does not authorize Production/UAT schema or business-data writes.
+- Vercel Preview/Production deployments, deployment retries, hosted deployment checks and browser UAT remain excluded. No Vercel workflow, Preview action or deployment configuration change is in scope.
+- Canonical Neon Production and original UAT remain read-only. No new Neon branch, local/Docker database or test database is permitted.
+- External licenses, source documents, real Buyer identities and operational evidence are activation inputs, not reasons to stop provider-neutral adapters, admin workflows, validation or fail-closed controls.
+
+### 39.2 Verified baseline and evidence corrections
+
+FACT — VERIFIED from GitHub source and workflow records in this execution:
+
+1. P19 branch head is `cfc0d2679fa1cc1cfdf91e099c077bd8e54fd38d`. Unit Tests workflow run `45151344240` completed successfully on source commit `4a350c288c4a6ddd6a72858411e7ef8ac5c71349`. The two later commits `d3c0450b3afd82a1e2b6115989178888c5486aeb` and `cfc0d2679fa1cc1cfdf91e099c077bd8e54fd38d` are documentation-only. This run remains evidence for the tested code SHA, not for any later code changes.
+2. `migration_release_manifest_p17d_110.json`, `migration_history_manifest_001_071.json`, `scripts/verify-p17-release-package.mjs` and `scripts/apply-p17-migrations.mjs` pin Migration 110 SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46` at Production ledger ID 71 with status `applied`. This contradicts stale wording in P19 §38.3/§38.5 that says Migration 110a is unapplied. Treat the repository release package as reported applied evidence; perform fresh read-only live ledger/policy verification before declaring the P17 runtime gate clear.
+3. Migration 111 SHA-256 `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and Migration 112 SHA-256 `00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21` are recorded as applied only on isolated P18 validation branch `br-winter-butterfly-b3tnsao9`. The manifest records no Production application. These exact hashes do not authorize original UAT or Production promotion.
+4. Existing P18 React workspace is present and mounted. It provides source registry, rule-version lifecycle, document catalog/country-requirement review and Project compliance assessment. It explicitly excludes RAG/chatbot.
+5. The P19 Unit Tests workflow definition inspected in this session contains test, verifier, dry-run, build and typecheck jobs, and no deployment job or Vercel action. For future validation, inspect the actual workflow definition before triggering it; do not infer that other repository integrations are inert.
+
+### 39.3 P20 objective
+
+Complete technical application surfaces that can be completed without external credentials, live business records, deployment quota or Production/UAT writes, then produce a truthful evidence-backed operational readiness decision. Engineering completion must never be represented as legal or commercial readiness to export.
+
+### 39.4 Workstreams and execution order
+
+**P20-A — Baseline reconciliation and release-gate truth**
+- Reconcile P17 Migration 110 live ledger row/hash and all four AIS runtime policy predicates using read-only Production catalog/ledger queries.
+- Reconcile P18 original UAT and Production migration counts, exact ledger rows, table/policy/function/trigger prerequisites read-only.
+- Correct stale Migration 110 statements in this master plan.
+- Keep evidence labels distinct: code pass, isolated DB pass, live UAT/Production state, deployment deferred.
+
+**P20-B — Authenticated API contract and IDOR acceptance without deployment**
+- Build a deterministic in-process HTTP/API harness around existing Express route registration or extracted route services.
+- Cover missing identity, inactive identity, wrong Project, expired/deactivated membership, unauthorized/authorized role, validation errors, idempotent retry, optimistic version conflict, transaction rollback and generic error envelope.
+- Exercise high-risk P1 work items, P2A supplier/product/quality, P16 documents/storage, P17 source/vessel/voyage/Buyer visibility/loading, P18 rules/sources/documents/assessment and finance boundaries.
+- Use mocks for Neon Auth, PostgreSQL and storage only where live non-production execution is prohibited. Mock tests are API contract simulations, not proof of live RLS.
+- No business fixtures persisted to Production or original UAT.
+
+**P20-C — P17 source staging and controlled canonical promotion**
+- Audit supported staging entity types and ensure each promotion has typed target mapping, active source rights, field-purpose permission, source attribution, payload checksum, duplicate/external-ID resolution and independent approval.
+- Add typed candidate/change-request promotion only for entities with an existing unambiguous schema and review lifecycle. Never mutate canonical port, PKS, vessel or Buyer master directly from provider staging.
+- Keep AIS ingestion disabled unless verified licence, field purpose, territory, retention and credentials exist. Advisory data never means operational clearance.
+
+**P20-D — P18 evidence-source readiness (RAG preparation only)**
+- Build a controlled source register and ingestion-readiness workflow around official URL, jurisdiction, title/type, issuer, publication/effective/expiry dates, SHA-256, retrieval timestamp, language, access rights, review status, reviewer identity and supersession.
+- Define safe processing contracts for file type/size, checksum, duplicate detection, page count, OCR status, extraction confidence, chunk provenance, version binding and quarantine.
+- Design provider-neutral interfaces for OCR, chunking, embeddings, hybrid retrieval and LLM access. Add configuration validation, interfaces, mocks and tests only.
+- Do not crawl or collect live sources, download restricted documents, run OCR on a corpus, create embeddings/vector data, ingest into Neon/Production/UAT, or expose chatbot answers until the owner separately approves source list, rights, corpus and target.
+- No Gemini API calls, new provider credentials or API billing activation.
+
+**P20-E — Observability, recovery and operator controls**
+- Keep provider health/freshness/quota/rights states distinct: unknown, unavailable, rights_blocked, quota_exhausted, stale and degraded must not become zero or healthy implicitly.
+- Add health/readiness semantics and log-redaction contracts. Never log SQL, tokens, credentials, exception messages/stacks or sensitive query payloads.
+- Improve operator-facing status/empty/error states and keep the runbook/checklist in this single master plan.
+- Inspect backup/restore evidence and scripts. Do not claim a restore drill without a permitted target and actual artifact.
+
+**P20-F — Regression and closure**
+- Run root `npm test`, dedicated P19/P20 contracts, migration release verifiers/dry-runs, backend build/API typecheck and frontend typecheck/build through GitHub Actions only where the workflow contents prove no deployment job is triggered.
+- Validate workflow `head_sha`, conclusion and job/step list. Exclude Vercel status contexts. A successful run on an older SHA does not certify later commits.
+- Fix code/test/build failures in the same work branch and rerun; stop only at a precise external/owner gate.
+- No pull request or merge to `main` without a separate explicit instruction.
+
+### 39.5 P20 acceptance matrix
+
+| Gate | Acceptance | Evidence class |
+|---|---|---|
+| P20-A release truth | P17 110 exact live ledger/hash/policy predicates reconciled; P18 UAT/Production state reconciled | Read-only live database + release manifests |
+| P20-B API contracts | High-risk auth/IDOR/Project/role/version/idempotency/error paths pass | In-process API contracts; mocks labelled |
+| P20-C staging promotion | Supported promotion paths typed, provenance-bound, rights-gated and independently reviewed | Source + automated tests |
+| P20-D RAG readiness | Source governance and processing interfaces/tests implemented; no unapproved corpus/data ingestion | Source + contract tests |
+| P20-E operations | Health/freshness/logging/recovery semantics deterministic and truthful | Source + automated tests; backup evidence separate |
+| P20-F full CI | Offline tests, verifiers, builds and typechecks pass on exact final SHA | GitHub Actions non-deployment run |
+| Vercel/browser UAT | Excluded by owner instruction | DEFERRED, not passed |
+| UAT/Production migration promotion | Separate exact-hash approval and explicit target permission required | BLOCKED_OWNER |
+| Business production readiness | Real source rights, partner evidence, legal/accounting sign-off, operational UAT and go-live approval required | BLOCKED_EXTERNAL / BLOCKED_OWNER |
+
+### 39.6 P20 risk register
+
+| Risk | Mitigation |
+|---|---|
+| Conflicting historical release statements | Prefer exact SQL hash, release manifest and live read-only ledger; document mismatches |
+| Mock API tests mistaken for RLS proof | Label evidence class; do not upgrade mock pass to live DB pass |
+| Staging promotion pollutes canonical master | Typed review candidates only; no direct canonical mutation |
+| RAG ingests unlicensed or obsolete sources | Source register, rights/reviewer gate and quarantine; no live corpus ingestion in this scope |
+| Stale regulatory rule presented as current | Effective-date, source-version, checksum and supersession checks |
+| Automatic deployment integration triggered | Avoid Vercel/deploy workflows and PR previews; inspect workflow before CI triggers |
+| Unapproved database mutation | Keep UAT/Production read-only; exact-hash approval for migration |
+
+## 40. P20 Living Execution Ledger — 23 November 2026
+
+- P20 branch created: `p20/platform-continuation-20261123`, starting from P19 head `cfc0d2679fa1cc1cfdf91e099c077bd8e54fd38d`.
+- P19 CI run `45151344240` verified successful on code SHA `4a350c288c4a6ddd6a72858411e7ef8ac5c71349`; later commits through P19 head are documentation-only.
+- Migration 110 release manifest and migration verifier report Production applied at ledger ID 71, SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`. P19 stale wording requires correction after live read-only reconciliation.
+- Migration 111/112 remain isolated-validation-only with hashes `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and `00b52dcbb51a706402cfeb2039f2451b56241eda43c7bd2a43d4fc2ec4fa21`.
+- Existing P18 Regulatory Core UI and contract tests are present. RAG ingestion/OCR/embeddings/chatbot remain excluded from active behavior.
+- No Vercel/deployment action invoked. No Production/UAT database connection or write occurred during this P20 charter baseline. No migration applied.

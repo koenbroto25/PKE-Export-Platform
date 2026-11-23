@@ -8970,3 +8970,15 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - CI for the Migration 111-only state passed 507 tests, static release verification, migration dry-run, backend build/API typecheck, frontend typecheck and frontend build. This does not validate the new Migration 112 candidate.
 - P18 remains NOT COMPLETE until Migration 112 exact-hash approval, isolated application/backtests, updated full CI, and API/UI integration acceptance pass.
 - Production and original UAT remain untouched. RAG ingestion/chatbot, Vercel deployment and P19 remain excluded.
+
+
+### P18 Migration 112 candidate pinned and CI acceptance — Rev2.46 (2026-11-23)
+
+- Migration 112 exact SHA-256 was emitted by GitHub Actions and pinned in the release manifest: `86f27d5ab23c0fc59c81bcd45cf671161d700a0704a7221829d977e60cd8a40`.
+- Migration 112 purpose: repair legacy database lifecycle trigger compatibility so `regulatory.rule.manage` can advance governed parent-rule and version states; retain source provenance requirements, independent maker-checker approval/rejection, immutable approved/effective version content, and retained history.
+- API approval route now sets the selected approved version pointer when there is no existing effective version. If an effective version already exists, it remains selected until the replacement is explicitly activated.
+- P18 contract tests were repaired and expanded. Latest full CI run on commit `fbf0502031075cb16c2408b4820560fbe3b478fd` passed: **49 test files / 509 tests**, P1/P17/P18 release verifiers, P17 migration dry-run, backend build, backend API typecheck, frontend typecheck and frontend build.
+- Migration 112 has not been applied to the validation branch or any other Neon branch. Owner approval must name the exact SHA above before the isolated validation application and database backtests.
+- Migration 111 remains applied only to isolated validation branch `br-winter-butterfly-b3tnsao9`; its approval remains limited to that branch. Migration 111 and 112 are not approved for Production by these approvals.
+- P18 remains NOT COMPLETE until Migration 112 is approved/applied on the isolated branch, non-admin regulatory officer lifecycle, independent approve/reject, active-version replacement and rollback tests pass, and the latest CI is green.
+- Production and original UAT remain untouched. RAG ingestion/chatbot, Vercel deployment and P19 remain excluded.

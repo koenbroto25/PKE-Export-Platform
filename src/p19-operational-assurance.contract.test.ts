@@ -89,9 +89,9 @@ describe("P19 operational assurance: API security boundary", () => {
       "project_members",
     ];
     const missing: string[] = [];
-    for (let i = 0; i < writes.length; i += 1) {
-      const route = writes[i];
-      const end = writes[i + 1]?.at ?? INDEX_SRC.length;
+    for (const route of writes) {
+      const nextRegistration = routes.find((candidate) => candidate.at > route.at);
+      const end = nextRegistration?.at ?? INDEX_SRC.length;
       const handlerBlock = INDEX_SRC.slice(route.at, end);
       if (!authorizationSignals.some((signal) => handlerBlock.includes(signal))) {
         missing.push(`${route.method} ${route.path}`);

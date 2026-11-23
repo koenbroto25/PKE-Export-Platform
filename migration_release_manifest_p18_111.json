@@ -63,6 +63,8 @@
     "automated_unit_tests": "passed; GitHub Actions run 45090795264 on commit 0ec32aadebd0ea2ed030fe765bdd36fd53d6ea80; unit/security tests, release gates, migration dry-run, backend build/API typecheck, frontend typecheck/build all successful; suite 49 files / 509 tests",
     "api_ui_integration_regression": "pending isolated runtime API/UI acceptance and non-admin Regulatory Compliance Officer membership/permission backtest",
     "production_rls_backtest": "not run; Production must remain untouched until separate release authorization",
-    "rule_lifecycle_compatibility": "passed; exact approved checksum verified; migration 112 applied atomically on isolated validation branch; independent approval/effective and rejection lifecycle backtests passed in rollback-only transaction; synthetic source/rule/version fixtures rolled back"
+    "rule_lifecycle_compatibility": "passed; exact approved checksum verified; migration 112 applied atomically on isolated validation branch; independent approval/effective and rejection lifecycle backtests passed in rollback-only transaction; synthetic source/rule/version fixtures rolled back",
+    "non_admin_officer_permission": "passed; existing non-admin PM membership was temporarily assigned the Regulatory Compliance Officer project role and allowlisted permissions inside rollback-only transaction; permitted regulatory rule/source/document management, denied unrelated finance payment execution; fixtures rolled back",
+    "release_verifier": "corrected to accept exact-hash approved Migration 112 applied only on isolated validation branch; initial CI caught stale pending-approval expectation; rerun pending"
   }
 }

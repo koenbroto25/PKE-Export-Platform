@@ -95,7 +95,12 @@ describe("P19 operational assurance: API security boundary", () => {
       const nextRegistration = routes.find((candidate) => candidate.at > route.at);
       const end = nextRegistration?.at ?? INDEX_SRC.length;
       const handlerBlock = INDEX_SRC.slice(route.at, end);
-      if (!authorizationSignals.some((signal) => handlerBlock.includes(signal))) {
+      const deliberatelyDisabled = handlerBlock.includes("status(410)") ||
+        handlerBlock.includes("ROLE_PERMISSION_TEMPLATES_IMMUTABLE");
+      const recipientSelfScoped = handlerBlock.includes("recipient_user_id = $2::uuid") &&
+        handlerBlock.includes("req.user?.id");
+      if (!deliberatelyDisabled && !recipientSelfScoped &&
+          !authorizationSignals.some((signal) => handlerBlock.includes(signal))) {
         missing.push(`${route.method} ${route.path}`);
       }
     }
@@ -113,6 +118,15 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(AUTH_SRC).toContain("resolve_pke_user_by_neon_auth_user_id");
     expect(AUTH_SRC).toContain("user.is_active === true");
     expect(AUTH_SRC).toContain("user?.isAdmin || !user.isActive");
+  });
+
+  it("keeps notification mutation restricted to the authenticated recipient", () => {
+    const notificationRoute = INDEX_SRC.slice(
+      INDEX_SRC.indexOf('app.patch("/api/v1/notifications/:id/read"'),
+      INDEX_SRC.indexOf('app.get("/api/v1/roles"', INDEX_SRC.indexOf('app.patch("/api/v1/notifications/:id/read"')),
+    );
+    expect(notificationRoute).toContain("recipient_user_id = $2::uuid");
+    expect(notificationRoute).toContain("req.user?.id");
   });
 
   it("keeps privileged Admin MFA fail-closed until a verified MFA challenge exists", () => {

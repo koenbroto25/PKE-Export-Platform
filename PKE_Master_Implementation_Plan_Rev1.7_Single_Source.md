@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.54 — P19 notification RLS correction
+# Master Implementation Plan Rev2.55 — P19 cross-module route and reliability assurance
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.54 (23 November 2026 — P19 notification RLS correction and route assurance)  
+**Revision:** 2.55 (23 November 2026 — P19 cross-module route and reliability assurance)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -9310,4 +9310,78 @@ Target checked: project `purple-base-63944903`, Production branch `br-damp-shape
 - P19-3 notification path: **CORRECTED IN CODE; automated execution pending**.
 - Remaining P19-1 critical journey matrix, P19-3 broader workflow/document lifecycle, P19-4 reliability controls, and P19-5 full non-Vercel regression remain open.
 - P17 Production Migration 110a remains a separate cross-phase security gate. It is not fixed or applied by P19 work.
+
+
+
+---
+
+# Rev2.55 — P19 cross-module route and reliability assurance (23 November 2026)
+
+## 37. P19 cross-module API inventory and reliability correction
+
+### 37.1 Complete backend route-module inventory — FACT, static source inspection
+
+- The initial 235 registrations in `src/index.ts` include 233 handlers plus the two global `/api/v1` middleware mounts.
+- `src/p17-maritime.ts` contributes another 58 API handlers. It is mounted by `registerP17MaritimeRoutes(app, ...)` after the global auth and transaction-scoped RLS middleware.
+- Combined inventory: **291 API handlers** across the two route modules. All use `/api/v1`; no duplicate method/path handler was found across the modules.
+- Combined write-method inventory: 167 handlers (130 in `src/index.ts`, including the signed Neon Auth webhook; 37 in the P17 module). The 166 non-webhook write handlers are behind global auth/RLS. P17's additional `p17WriteReleaseGate` is registered before the P17 route handlers.
+- P17 route module static review: 37 write handlers; all had a route-level project permission, Admin or platform-admin authorization check. P17 gate is fail-closed for missing migration, RLS, permission catalogue or role allowlist prerequisites.
+- P19 contract test now includes both `src/index.ts` and `src/p17-maritime.ts`, checking combined route uniqueness/prefix, P17 mount order, P17 release gate order, and route-level write authorization signals.
+
+### 37.2 P17 Production release gate — FACT, read-only database backtest
+
+Read-only queries on canonical Production returned:
+
+| Gate | Expected | Actual | Result |
+|---|---:|---:|---|
+| P17 migrations 096–107 applied | 12 | 12 | PASS |
+| P17 protected tables found with RLS and policy | 40 | 40; unsafe 0 | PASS |
+| Required P17 permissions active | 11 | 11 | PASS |
+| Required P17 role-permission allowlist entries | 21 | 21 | PASS |
+
+- The code's P17 runtime schema-release gate has its declared prerequisites in Production according to this read-only snapshot.
+- This does not clear P17 Migration 110a. The legacy global `source_id IS NULL` vessel-position policy remains a separate P17 Production security blocker until the exact-hash owner-approved correction is applied.
+
+### 37.3 Notification write-path correction — source implementation
+
+- P19 corrected `POST /api/v1/notifications` to require project scope, active `project.members.manage` permission, a valid recipient UUID, and a recipient whose Project membership is active, not deactivated and not expired.
+- The route now aligns with the existing `user_notifications` RLS INSERT policy and no longer writes to `notification_deliveries`, whose RLS is enabled with no runtime policy. This avoids a guaranteed RLS denial/transaction rollback on that second insert.
+- No database policy was loosened, and no Production data or schema was changed.
+
+### 37.4 Runtime log sanitization — source implementation
+
+- Static log review found raw PostgreSQL/exception objects being passed to Winston on request transaction setup/finalization and shutdown failures. This contradicted the central error-handling rule that exception messages/stacks must not be persisted.
+- Added `safeErrorMetadata(error)`, which emits only exception type and error code, and replaced the raw error-object log calls for RLS transaction and shutdown failures.
+- The centralized HTTP error response remains generic; no SQL text, exception message, stack, token, query string or client IP is added to these logs.
+
+### 37.5 Static validation and CI status
+
+- A direct source-level simulation of the P19 contract assertions returned no failures:
+  - 291 combined API handlers; no duplicate method/path and no non-`/api/v1` route.
+  - 4 pre-auth exceptions, all reviewed.
+  - 37 P17 write routes with route-level project/Admin/platform-admin guards.
+  - 129 `src/index.ts` post-auth/RLS write routes with project/role/domain permission, self-recipient or explicitly disabled classification.
+  - 23/23 frontend navigation destinations map to React Router routes.
+  - Notification route RLS alignment and sanitized error-log assertions satisfied.
+- This source-level simulation is not a Vitest run or build.
+- GitHub combined commit status for `fb5424034a363be3190384bc1e1d4218ccf5bbba` surfaced only the Vercel status context, which is excluded under owner instruction. No non-Vercel CI PASS was surfaced. Do not treat the Vercel failure as a P19 test failure, and do not treat missing CI as a PASS.
+- Actual `npm test`, `npm run verify:p19-assurance`, backend build/API typecheck and frontend typecheck/build remain pending an approved non-Vercel execution path.
+- No PR was opened, no Vercel deployment/Preview action was initiated, and no Neon migration/data write occurred.
+
+### 37.6 Updated P19 acceptance matrix
+
+| Work item | Status |
+|---|---|
+| P19-0 baseline inventory | PASS — static source + read-only Production catalog |
+| P19-2 API route/auth topology | PASS — 291 handlers, static |
+| P17 route release-gate prerequisites | PASS — read-only Production checks |
+| P19-3 notification RLS mismatch | FIXED IN CODE — tests pending |
+| P19-4 runtime error-log sanitization | FIXED IN CODE — tests pending |
+| Frontend navigation-to-route mapping | PASS — static 23/23 |
+| Critical end-to-end business journey matrix | IN PROGRESS |
+| Document/evidence lifecycle and object storage failure paths | PENDING |
+| Maker-checker, idempotency and concurrency review across domains | PENDING |
+| Full non-Vercel tests/build/typecheck | PENDING |
+| P17 Migration 110a Production correction | BLOCKED — separate P17 exact-hash owner approval |
+| Vercel deployment and browser UAT | DEFERRED — owner instruction |
 

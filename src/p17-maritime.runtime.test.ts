@@ -34,7 +34,7 @@ function makeHarness(){
  let activeUserId:string|null=null;
  const db:any={query:async(sql:string,params:any[]=[] )=>{
   queries.push(sql);
-  if(sql.includes("FROM public.migration_history"))return {rows:[{applied_count:15}]};
+  if(sql.includes("FROM public.migration_history"))return {rows:[{applied_count:16}]};
   if(sql.includes("p17d_vessel_position_admin_review_update"))return {rows:[{policy_count:5}]};
   if(sql.includes("p.polname='pke_scope_select'"))return {rows:[{safe_policy_count:1}]};
   if(sql.includes("pg_class")&&sql.includes("policy_count"))return {rows:[{found_count:40,unsafe_count:0}]};
@@ -88,6 +88,7 @@ describe("P17-D authenticated runtime API acceptance",()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,pendingUser,{projectId:projectA});
   expect(res.statusCode).toBe(200);expect(res.body.projectId).toBe(projectA);expect(res.body.observations).toHaveLength(1);
   expect(h.queries.some(q=>q.includes("g.project_id=$1::uuid"))).toBe(true);
+  expect(h.queries.some(q=>q.includes("110a_p17d_legacy_position_project_scope.sql"))).toBe(true);
  });
  it("returns an empty queue for a different Project rather than leaking the first Project's observation",async()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,{...pendingUser,projectId:projectB},{projectId:projectB});

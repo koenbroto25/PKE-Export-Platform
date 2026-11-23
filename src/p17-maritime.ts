@@ -77,6 +77,15 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   );
   if(Number(permissionTriggers.rows[0]?.trigger_count)!==2)
     return bad(res,503,"P17_ROLE_GUARD_BLOCKED","P17 role allowlist enforcement triggers are incomplete; protected APIs remain unavailable.");
+  const legacyPositionPolicies=await req.db.query(
+    "SELECT COUNT(*) FILTER(WHERE policyname='p17d_vessel_position_admin_pending_select' AND cmd='SELECT')::int AS admin_pending_select, COUNT(*) FILTER(WHERE policyname='p17d_vessel_position_admin_review_update' AND cmd='UPDATE')::int AS admin_review_update, COUNT(*) FILTER(WHERE policyname='p17d_vessel_position_project_review_select' AND cmd='SELECT')::int AS project_review_select, COUNT(*) FILTER(WHERE policyname='pke_scope_select' AND cmd='SELECT' AND COALESCE(qual,'') LIKE '%pke_has_project_permission%' AND COALESCE(qual,'') NOT LIKE '%pke_has_any_project_permission%' AND COALESCE(qual,'') LIKE '%app.current_project_id%' AND COALESCE(qual,'') LIKE '%source_id IS NULL%')::int AS project_scoped_legacy_select FROM pg_policies WHERE schemaname='public' AND tablename='vessel_tracking_positions'"
+  );
+  const legacyPositionReady=legacyPositionPolicies.rows[0];
+  if(Number(legacyPositionReady?.admin_pending_select)!==1 ||
+     Number(legacyPositionReady?.admin_review_update)!==1 ||
+     Number(legacyPositionReady?.project_review_select)!==1 ||
+     Number(legacyPositionReady?.project_scoped_legacy_select)!==1)
+    return bad(res,503,"P17_LEGACY_POSITION_SCOPE_BLOCKED","P17 legacy AIS positions are not fully Project scoped; apply and verify the exact approved corrective migration before enabling protected APIs.");
   return next();
   }catch{
     return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema/RLS release state could not be verified; protected APIs remain fail-closed.");

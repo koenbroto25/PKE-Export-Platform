@@ -33,7 +33,7 @@
     {
       "ledger_id": 73,
       "filename": "112_p18_regulatory_rule_lifecycle_compatibility.sql",
-      "sha256": "86f27d5ab23c0fc59c81bcd45cf671161d700a0704a7221829d977e60cd8a40",
+      "sha256": "86f27d5ab23c0fc59c81bcd45cf671161d700a0704a7221829d977e60cd8a40e",
       "status": "candidate_pending_exact_hash_approval",
       "source_sha_verified": true,
       "production_applied": false,

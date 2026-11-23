@@ -91,10 +91,10 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     if(Number(legacyPositionPolicy.rows[0]?.safe_policy_count)!==1)
       return bad(res,503,"P17_AIS_PROJECT_SCOPE_BLOCKED","Legacy AIS position reads are not protected by the Project-scoped RLS policy; protected APIs remain unavailable.");
     const pendingReviewPolicies=await req.db.query(
-      "SELECT COUNT(*)::int AS policy_count FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='vessel_tracking_positions' AND p.polname=ANY($1::text[]) AND p.polcmd='r'",
+      "SELECT COUNT(*)::int AS policy_count FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='vessel_tracking_positions' AND ((p.polname=ANY($1::text[]) AND p.polcmd='r') OR (p.polname='p17d_vessel_position_admin_review_update' AND p.polcmd='w'))",
       [["p17d_vessel_position_admin_pending_select","p17d_vessel_position_project_review_select"]]
     );
-    if(Number(pendingReviewPolicies.rows[0]?.policy_count)!==2)
+    if(Number(pendingReviewPolicies.rows[0]?.policy_count)!==3)
       return bad(res,503,"P17_AIS_REVIEW_READ_BLOCKED","Admin and Project reviewer pending-AIS read policies are incomplete; protected APIs remain unavailable.");
     const requiredPermissions=["buyer.shipment.view","buyer.visibility.manage","documents.view","loading.quantity.reconcile","pke.logistics.master.change_request.manage","pke.logistics.master.view","port.view","shipping.laytime.manage","shipping.laytime.verify","shipping.laytime.view","shipping.survey.review","shipping.survey.submit","shipping.survey.view","shipping.update","shipping.view","vessel.nominate","vessel.nomination.review","vessel.port_call.confirm","vessel.port_call.manage","vessel.position.review","vessel.position.view","vessel.view","voyage.create","voyage.update","voyage.view","workflow.view"];
     const permissionsResult=await req.db.query("SELECT COUNT(*)::int AS permission_count FROM public.permissions WHERE code=ANY($1::text[]) AND is_active IS TRUE",[requiredPermissions]);

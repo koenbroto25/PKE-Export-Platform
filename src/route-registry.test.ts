@@ -18,15 +18,19 @@ function registerRoutes(src: string): { method: string; path: string }[] {
 }
 
 describe("API route registry (regression)", () => {
-  it("registers P2-A Project product requirement CRUD with Admin-only approval", () => {
+  it("registers Project product specification snapshots against the existing schema", () => {
     const set = new Set(registerRoutes(INDEX_SRC).map((r) => `${r.method} ${r.path}`));
     expect(set.has("GET /api/v1/projects/:projectId/product-requirements")).toBe(true);
     expect(set.has("POST /api/v1/projects/:projectId/product-requirements")).toBe(true);
     expect(set.has("PATCH /api/v1/projects/:projectId/product-requirements/:requirementId")).toBe(true);
-    expect(INDEX_SRC).toContain('"product.requirement.view"');
-    expect(INDEX_SRC).toContain('"product.requirement.manage"');
-    expect(INDEX_SRC).toContain("Only Platform Admin may approve Project product requirements.");
-    expect(INDEX_SRC).toContain("project_product_requirements");
+    expect(INDEX_SRC).toContain('"product_specs.view"');
+    expect(INDEX_SRC).toContain('"product_specs.create"');
+    expect(INDEX_SRC).toContain('"product_specs.update"');
+    expect(INDEX_SRC).toContain("public.project_product_specifications");
+    expect(INDEX_SRC).toContain("contract_specification_snapshot");
+    expect(INDEX_SRC).toContain("MASTER_SPEC_APPROVAL_REQUIRED");
+    expect(INDEX_SRC).toContain("APPROVED_SPEC_SNAPSHOT_IMMUTABLE");
+    expect(INDEX_SRC).not.toContain("project_product_requirements");
   });
 
   it("registers P2-A facility catalog and public candidate CRUD with Project permission gates", () => {
@@ -113,9 +117,9 @@ describe("API route registry (regression)", () => {
     expect(duplicates).toEqual([]);
   });
 
-  it("keeps the two required /api/v1 middleware mounts (auth + RLS transaction)", () => {
+  it("keeps the three required /api/v1 middleware mounts (auth + RLS transaction + phase schema gates)", () => {
     const mounts = registerRoutes(INDEX_SRC).filter((r) => r.method === "USE" && r.path === "/api/v1");
-    expect(mounts).toHaveLength(2);
+    expect(mounts).toHaveLength(3);
   });
 
   it("keeps one correct handler per reconciled method+path", () => {

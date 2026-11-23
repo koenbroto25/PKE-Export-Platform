@@ -549,7 +549,7 @@ function phaseSchemaGateForPath(path: string): PhaseSchemaGateSpec | null {
       ],
     };
   }
-  if (/^\/api\/v1\/(?:regulatory-sources|regulatory-rules|regulatory-rule-versions|regulatory-audit-events|country-export-document-requirements|export-document-types|projects\/[^/]+\/regulatory-assessments)(?:\/|$)/.test(path)) {
+  if (/^\/api\/v1\/(?:regulatory-knowledge|regulatory-sources|regulatory-rules|regulatory-rule-versions|regulatory-audit-events|country-document-requirements|country-export-document-requirements|export-document-types|projects\/[^/]+\/regulatory-assessments)(?:\/|$)/.test(path)) {
     return {
       code: "P18_REGULATORY_SCHEMA_BLOCKED",
       error: "P18 Regulatory Core schema, lifecycle guards and authorization policies are not released on this database.",

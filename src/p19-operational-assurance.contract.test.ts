@@ -10,6 +10,11 @@ const DEMO_MODE_SRC = readFileSync(join(ROOT, "demo", "mode.ts"), "utf8");
 const DEMO_ROUTES_SRC = readFileSync(join(ROOT, "demo", "routes.ts"), "utf8");
 const FRONTEND_APP_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "App.tsx"), "utf8");
 const FRONTEND_API_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "api.ts"), "utf8");
+const FRONTEND_P1_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "P1WorkflowWorkbench.tsx"), "utf8");
+const FRONTEND_PORT_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
+const FRONTEND_MARITIME_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "MaritimeOperationsWorkspace.tsx"), "utf8");
+const FRONTEND_REGULATORY_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "RegulatoryCoreWorkspace.tsx"), "utf8");
+const FRONTEND_ROLE_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "RoleDashboardPage.tsx"), "utf8");
 
 type RouteRegistration = { method: string; path: string; at: number };
 const ROUTE_RE = /app\.(get|post|put|patch|delete|use)\s*\(\s*["'`]([^"'`]+)["'`]/gi;
@@ -206,6 +211,80 @@ describe("P19 operational assurance: frontend-to-API boundary", () => {
     expect(navPaths.every((path) => routePaths.includes(path))).toBe(true);
     expect(FRONTEND_APP_SRC).toContain("RoleGuard allowedKeys=");
     expect(FRONTEND_APP_SRC).toContain("visiblePageKeys(workspaceUser || {})");
+  });
+
+  it("traces critical business journeys from UI to API and existing database domains", () => {
+    const journeys = [
+      {
+        name: "PKS/supplier qualification",
+        ui: ["/pks-sites", "pks-candidates", "product-requirements"],
+        api: ["/api/v1/projects/:projectId/pks-sites", "/api/v1/projects/:projectId/pks-candidates", "/api/v1/projects/:projectId/product-requirements"],
+        tables: ["pks_sites", "project_pks_site_participation", "project_product_specifications"],
+        frontend: FRONTEND_APP_SRC,
+        backend: INDEX_SRC,
+      },
+      {
+        name: "P1 procurement and operational workflow",
+        ui: ["p1-workflows", "/p1-workflows"],
+        api: ["/api/v1/projects/:projectId/p1-workflows", "/api/v1/projects/:projectId/p1-workflows/:id/transition", "/api/v1/projects/:projectId/p1-workflows/:id/evidence"],
+        tables: ["p1_domain_records", "p1_domain_events", "p1_domain_evidence"],
+        frontend: FRONTEND_P1_SRC,
+        backend: INDEX_SRC,
+      },
+      {
+        name: "Truck, warehouse and inventory",
+        ui: ["/truck-trips", "/warehouse-receipts", "/inventory-lots", "/inventory-movements"],
+        api: ["/api/v1/truck-trips", "/api/v1/warehouse-receipts", "/api/v1/inventory-lots", "/api/v1/inventory-movements"],
+        tables: ["truck_trips", "warehouse_receipts", "inventory_lots", "inventory_movements"],
+        frontend: FRONTEND_APP_SRC,
+        backend: INDEX_SRC,
+      },
+      {
+        name: "Port and warehouse network",
+        ui: ["/ports", "/warehouses", "/p16/master/"],
+        api: ["/api/v1/ports", "/api/v1/warehouses", "/api/v1/p16/master/:resource"],
+        tables: ["ports", "warehouses", "pks_port_routes", "port_depth_observations", "port_tide_observations"],
+        frontend: FRONTEND_PORT_SRC,
+        backend: INDEX_SRC,
+      },
+      {
+        name: "Voyage, vessel and loading",
+        ui: ["/voyages", "/vessel-nominations", "/vessel-port-calls", "/loading-operations", "/vessel-positions"],
+        api: ["/api/v1/projects/:projectId/voyages", "/api/v1/projects/:projectId/vessel-nominations", "/api/v1/projects/:projectId/vessel-port-calls", "/api/v1/projects/:projectId/loading-operations", "/api/v1/projects/:projectId/vessel-positions"],
+        tables: ["voyages", "vessel_nominations", "vessel_port_calls", "loading_operations", "vessel_tracking_positions"],
+        frontend: FRONTEND_MARITIME_SRC,
+        backend: P17_SRC,
+      },
+      {
+        name: "Export documents and regulatory assessment",
+        ui: ["/regulatory-sources", "/regulatory-rules", "/regulatory-assessments", "/projects/"],
+        api: ["/api/v1/regulatory-sources", "/api/v1/regulatory-rules", "/api/v1/projects/:projectId/regulatory-assessments"],
+        tables: ["project_export_documents", "regulatory_sources", "regulatory_rules", "regulatory_rule_versions", "regulatory_assessments"],
+        frontend: FRONTEND_REGULATORY_SRC,
+        backend: INDEX_SRC,
+      },
+      {
+        name: "Finance and accounting",
+        ui: ["/cash-advances", "/payment-instructions", "/journal-entries", "/ap-invoices", "/ar-invoices", "/fx-rates", "/fx-exposure"],
+        api: ["/api/v1/cash-advances", "/api/v1/payment-instructions", "/api/v1/journal-entries", "/api/v1/ap-invoices", "/api/v1/ar-invoices", "/api/v1/fx-rates", "/api/v1/fx-exposure"],
+        tables: ["cash_advances", "payment_instructions", "journal_entries", "ap_invoices", "ar_invoices", "fx_exposures"],
+        frontend: FRONTEND_APP_SRC,
+        backend: INDEX_SRC,
+      },
+      {
+        name: "Buyer identity and shipment visibility",
+        ui: ["/buyer/shipments", "buyer-visibility-grants", "buyer-auth-mappings"],
+        api: ["/api/v1/buyer/shipments", "/api/v1/projects/:projectId/buyer-visibility-grants"],
+        tables: ["buyer_auth_user_mappings", "buyer_visibility_grants", "shipments"],
+        frontend: FRONTEND_ROLE_SRC,
+        backend: P17_SRC,
+      },
+    ];
+    for (const journey of journeys) {
+      for (const path of journey.ui) expect(journey.frontend, journey.name).toContain(path);
+      for (const path of journey.api) expect(journey.backend, journey.name).toContain(path);
+      for (const table of journey.tables) expect(journey.backend, journey.name).toContain(table);
+    }
   });
 
   it("sends the authenticated session token through the shared API client and keeps DB secrets server-side", () => {

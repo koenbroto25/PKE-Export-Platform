@@ -163,6 +163,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(uploadRoute).toContain("keyPattern");
     expect(uploadRoute).toContain("documents\\/");
     expect(uploadRoute).toContain("public.project_export_document_requirements");
+    expect(uploadRoute).toContain("DOCUMENT_OBJECT_KEY_ALREADY_REGISTERED");
     expect(uploadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.create")');
     expect(uploadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
     const registerStart = API.indexOf('app.post("/api/v1/projects/:projectId/documents"');
@@ -171,6 +172,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(registerRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.create")');
     expect(registerRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
     expect(registerRoute).toContain("set_config('app.current_permission_code'");
+    expect(registerRoute).toContain("DOCUMENT_OBJECT_KEY_ALREADY_REGISTERED");
 
     expect(downloadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
     expect(downloadRoute).toContain("public.project_export_documents");

@@ -3573,46 +3573,68 @@ app.get("/api/v1/storage/status", requireAuth, async (_req: express.Request, res
 
 app.post("/api/v1/storage/presigned-upload", requireAuth, async (req: express.Request, res: express.Response) => {
   const { objectKey, mimeType, contentLength, filename } = req.body ?? {};
-  if (!objectKey || !mimeType || contentLength === undefined) {
+  if (typeof objectKey !== "string" || !mimeType || contentLength === undefined) {
     return res.status(400).json({ error: "Required fields: objectKey, mimeType, contentLength" });
   }
-  const key = String(objectKey);
-  const m = /^projects\/([0-9a-fA-F-]{36})\//.exec(key);
-  if (!m) return res.status(400).json({ error: "Object key must be namespaced to a project", code: "INVALID_OBJECT_KEY" });
-  if (!(await requireProjectDocumentPermission(req, res, m[1], "documents.create"))) return;
+  const key = objectKey;
+  const keyPattern = /^projects\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/documents\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-[A-Za-z0-9._-]{1,120})$/i;
+  const match = keyPattern.exec(key);
+  if (!match) return res.status(400).json({ error: "Object key must identify an existing Project document requirement and a unique file key.", code: "INVALID_OBJECT_KEY" });
+  const projectId = match[1];
+  const requirementId = match[2];
+  if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.create"))) return;
   const status = privateStorage.status();
-  if (!status.available) {
-    return res.status(503).json({ error: "Object storage unavailable", code: "STORAGE_UNAVAILABLE", reason: status.reason, bucket: status.bucket });
+  if (!status.available || status.bucket !== "pke-private-documents") {
+    return res.status(503).json({ error: "Private object storage is unavailable or bucket does not match.", code: "STORAGE_UNAVAILABLE" });
   }
   const keyCheck = privateStorage.validateObjectKey(key);
   if (!keyCheck.ok) return res.status(400).json({ error: keyCheck.reason, code: "INVALID_OBJECT_KEY" });
   const metaCheck = privateStorage.validateFileMetadata({ mimeType, contentLength, filename });
   if (!metaCheck.ok) return res.status(400).json({ error: metaCheck.reason, code: "INVALID_FILE_METADATA" });
   try {
+    const requirement = await req.db.query(
+      "SELECT id FROM public.project_export_document_requirements WHERE id=$1::uuid AND project_id=$2::uuid",
+      [requirementId, projectId],
+    );
+    if (!requirement.rows.length) return res.status(404).json({ error: "Project document requirement not found." });
     const upload = await privateStorage.presignedUpload(key, mimeType, contentLength);
-    res.json({ upload });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+    return res.json({ upload });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 
 app.get("/api/v1/storage/presigned-download/*objectKey", requireAuth, async (req: express.Request, res: express.Response) => {
   const rawParam = (req.params as any).objectKey;
   const rawKey = Array.isArray(rawParam) ? rawParam.join("/") : (typeof rawParam === "string" ? rawParam : (typeof req.query.objectKey === "string" ? req.query.objectKey : ""));
-  const objectKey = decodeURIComponent(String(rawKey || ""));
+  let objectKey = "";
+  try { objectKey = decodeURIComponent(String(rawKey || "")); }
+  catch { return res.status(400).json({ error: "Invalid object key encoding.", code: "INVALID_OBJECT_KEY" }); }
   if (!objectKey) return res.status(400).json({ error: "objectKey is required" });
-  const m = /^projects\/([0-9a-fA-F-]{36})\//.exec(objectKey);
-  if (!m) return res.status(400).json({ error: "Invalid object key namespace", code: "INVALID_OBJECT_KEY" });
-  if (!(await requireProjectDocumentPermission(req, res, m[1], "documents.view"))) return;
+  const keyPattern = /^projects\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/documents\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-[A-Za-z0-9._-]{1,120})$/i;
+  const match = keyPattern.exec(objectKey);
+  if (!match) return res.status(400).json({ error: "Invalid private Project document key.", code: "INVALID_OBJECT_KEY" });
+  const projectId = match[1];
+  const requirementId = match[2];
+  if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.view"))) return;
   const status = privateStorage.status();
-  if (!status.available) {
-    return res.status(503).json({ error: "Object storage unavailable", code: "STORAGE_UNAVAILABLE", reason: status.reason, bucket: status.bucket });
+  if (!status.available || status.bucket !== "pke-private-documents") {
+    return res.status(503).json({ error: "Private object storage is unavailable or bucket does not match.", code: "STORAGE_UNAVAILABLE" });
   }
   try {
+    const document = await req.db.query(
+      `SELECT id FROM public.project_export_documents
+        WHERE project_id=$1::uuid AND project_requirement_id=$2::uuid
+          AND object_key=$3 AND file_reference=$3 AND storage_bucket=$4
+          AND upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL
+        LIMIT 1`,
+      [projectId, requirementId, objectKey, status.bucket],
+    );
+    if (!document.rows.length) return res.status(404).json({ error: "Verified Project document not found.", code: "DOCUMENT_NOT_FOUND" });
     const download = await privateStorage.presignedDownload(objectKey);
-    res.json({ download });
-  } catch (error) {
-    res.status(500).json(internalServerErrorPayload());
+    return res.json({ download });
+  } catch {
+    return res.status(500).json(internalServerErrorPayload());
   }
 });
 

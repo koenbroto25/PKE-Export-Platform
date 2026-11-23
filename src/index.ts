@@ -868,7 +868,7 @@ app.get("/api/v1/projects/:projectId/pks-sites/catalog", requireAuth, async (req
 });
 
 app.get("/api/v1/projects/:projectId/product-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId } = req.params;
+  const projectId = typeof req.params.projectId === "string" ? req.params.projectId : "";
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuid.test(projectId)) return res.status(400).json({ error: "Invalid Project ID." });
   if (!(await requireProjectPermission(req, res, projectId, "product_specs.view"))) return;
@@ -918,7 +918,7 @@ app.get("/api/v1/projects/:projectId/product-requirements", requireAuth, async (
 });
 
 app.post("/api/v1/projects/:projectId/product-requirements", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId } = req.params;
+  const projectId = typeof req.params.projectId === "string" ? req.params.projectId : "";
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuid.test(projectId)) return res.status(400).json({ error: "Invalid Project ID." });
   if (!(await requireProjectPermission(req, res, projectId, "product_specs.create"))) return;
@@ -1005,7 +1005,8 @@ app.post("/api/v1/projects/:projectId/product-requirements", requireAuth, async 
 });
 
 app.patch("/api/v1/projects/:projectId/product-requirements/:requirementId", requireAuth, async (req: express.Request, res: express.Response) => {
-  const { projectId, requirementId } = req.params;
+  const projectId = typeof req.params.projectId === "string" ? req.params.projectId : "";
+  const requirementId = typeof req.params.requirementId === "string" ? req.params.requirementId : "";
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuid.test(projectId) || !uuid.test(requirementId)) return res.status(400).json({ error: "Invalid Project or product specification ID." });
   if (!(await requireProjectPermission(req, res, projectId, "product_specs.view"))) return;

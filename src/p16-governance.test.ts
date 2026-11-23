@@ -20,6 +20,7 @@ const MIGRATION_093 = readFileSync(join(ROOT, "..", "migrations", "093_p16_admin
 const MIGRATION_094 = readFileSync(join(ROOT, "..", "migrations", "094_p16_rls_safe_permission_context.sql"), "utf8");
 const MIGRATION_095 = readFileSync(join(ROOT, "..", "migrations", "095_p16_document_project_context_resolver.sql"), "utf8");
 const UI = readFileSync(join(ROOT, "..", "frontend", "src", "PortNetworkPage.tsx"), "utf8");
+const APP_UI = readFileSync(join(ROOT, "..", "frontend", "src", "App.tsx"), "utf8");
 const UAT_MANIFEST = JSON.parse(readFileSync(join(ROOT, "..", "migration_history_manifest_uat_001_095.json"), "utf8"));
 
 describe("P16 Port, Warehouse and Vessel governance", () => {
@@ -168,8 +169,8 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(downloadRoute).toContain("upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL");
     expect(downloadRoute).toContain("file_reference=$3");
     expect(API).toContain("storedFilenamePattern");
-    expect(UI).toContain("documents/\u0024{doc.projectRequirementId}/\u0024{crypto.randomUUID()}-\u0024{safeName}");
-    expect(UI).toContain("Pilih persyaratan dokumen Project sebelum mengunggah file.");
+    expect(APP_UI).toContain("documents/${doc.projectRequirementId}/${crypto.randomUUID()}-${safeName}");
+    expect(APP_UI).toContain("Pilih persyaratan dokumen Project sebelum mengunggah file.");
   });
 
   it("routes document officer uploads and Admin review through selected-Project evidence controls", () => {

@@ -8949,3 +8949,24 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - Production RLS backtest and Production Migration 111 application were deliberately not run. Original UAT remains unchanged at migration 110. Production remains untouched at its previously verified migration ledger 71.
 - This approval is limited to isolated validation and does not authorize Production or original-UAT application.
 - Explicitly deferred scope remains RAG document collection/ingestion, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini integration, Vercel deployment and P19.
+
+
+### P18 lifecycle integration defect and corrective migration — Rev2.45 (2026-11-23)
+
+**New acceptance blocker discovered by database backtest**
+- Direct lifecycle backtest exposed legacy database trigger incompatibility: `pke_regulatory_rule_guard()` and `pke_regulatory_rule_version_guard()` allowed lifecycle status changes only for Platform Admin, while the new P18 API and Regulatory Compliance Officer role authorize the `regulatory.rule.manage` permission. This would make the non-admin governed workflow fail at the database layer.
+- The same backtest exposed two API/DB integration defects: the rule-rejection path needs an explicit supported parent transition back to draft, and the approval route must set the selected approved version pointer when no prior effective version exists. Without that pointer, the existing parent-rule trigger rejects an approved rule.
+- A corrected lifecycle probe with two distinct Platform Admin fixtures successfully traversed draft → under_review → approved → effective after supplying the required active-version pointer. The probe was deliberately rolled back and left no test rows. Self-approval remained rejected by the P18 maker-checker trigger.
+- The legacy version trigger also rejected the API's under_review → rejected transition. This is included in the corrective migration and rejection must be performed by a reviewer distinct from the version maker.
+
+**Corrective implementation staged**
+- Added candidate Migration 112 `migrations/112_p18_regulatory_rule_lifecycle_compatibility.sql` to make the existing parent-rule and version triggers permission-aware while preserving immutable identity/version content, effective-source provenance, SHA-256 source evidence, valid state transitions, independent approval/rejection and retained history.
+- Updated the rule approval API to set `active_version_id` to the newly approved version only when there is no previously effective version; an existing effective version remains active until explicit activation of its replacement.
+- Added contract tests for lifecycle trigger compatibility, independent rejection and the parent selected-version pointer.
+- Migration 112 is a candidate only. Its exact SHA-256 has not yet been approved and it has not been applied to Neon. The previous Migration 111 hash approval remains scoped to the isolated validation branch and does not authorize Production.
+
+**Current gates**
+- Migration 111 isolated database/RLS/source and assessment maker-checker tests pass.
+- CI for the Migration 111-only state passed 507 tests, static release verification, migration dry-run, backend build/API typecheck, frontend typecheck and frontend build. This does not validate the new Migration 112 candidate.
+- P18 remains NOT COMPLETE until Migration 112 exact-hash approval, isolated application/backtests, updated full CI, and API/UI integration acceptance pass.
+- Production and original UAT remain untouched. RAG ingestion/chatbot, Vercel deployment and P19 remain excluded.

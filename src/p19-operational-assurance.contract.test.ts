@@ -7,6 +7,8 @@ const INDEX_SRC = readFileSync(join(ROOT, "index.ts"), "utf8");
 const AUTH_SRC = readFileSync(join(ROOT, "auth.ts"), "utf8");
 const DEMO_MODE_SRC = readFileSync(join(ROOT, "demo", "mode.ts"), "utf8");
 const DEMO_ROUTES_SRC = readFileSync(join(ROOT, "demo", "routes.ts"), "utf8");
+const FRONTEND_APP_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "App.tsx"), "utf8");
+const FRONTEND_API_SRC = readFileSync(join(ROOT, "..", "frontend", "src", "api.ts"), "utf8");
 
 type RouteRegistration = { method: string; path: string; at: number };
 const ROUTE_RE = /app\.(get|post|put|patch|delete|use)\s*\(\s*["'`]([^"'`]+)["'`]/gi;
@@ -125,5 +127,24 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(DEMO_ROUTES_SRC).toContain('app.use("/api/v1", (req: Request, res: Response, next) => demoRequireAuth(req, res, next))');
     expect(DEMO_ROUTES_SRC).toContain('app.post("/api/v1/demo/reset", demoRequireAuth');
     expect(INDEX_SRC).toContain('app.listen(Number(PORT) || 3000, "127.0.0.1"');
+  });
+});
+
+describe("P19 operational assurance: frontend-to-API boundary", () => {
+  it("keeps every visible navigation destination backed by a registered guarded route", () => {
+    const navPaths = [...FRONTEND_APP_SRC.matchAll(/\\{\\s*to:\\s*["']([^"']+)["'],\\s*key:/g)].map((match) => match[1]);
+    const routePaths = [...FRONTEND_APP_SRC.matchAll(/<Route\\s+path=["']([^"']+)["']/g)].map((match) => match[1]);
+    expect(navPaths.length).toBeGreaterThanOrEqual(20);
+    expect(new Set(navPaths).size).toBe(navPaths.length);
+    expect(navPaths.every((path) => routePaths.includes(path))).toBe(true);
+    expect(FRONTEND_APP_SRC).toContain("RoleGuard allowedKeys=");
+    expect(FRONTEND_APP_SRC).toContain("visiblePageKeys(workspaceUser || {})");
+  });
+
+  it("sends the authenticated session token through the shared API client and keeps DB secrets server-side", () => {
+    expect(FRONTEND_API_SRC).toContain("getBearerToken()");
+    expect(FRONTEND_API_SRC).toContain("headers.set('Authorization', `Bearer ${token}`)");
+    expect(FRONTEND_API_SRC).toContain("fetch(`${API_BASE}");
+    expect(FRONTEND_API_SRC).not.toMatch(/VITE_(DATABASE_URL|NEON_DATABASE_URL|NEON_AUTH_SECRET)/i);
   });
 });

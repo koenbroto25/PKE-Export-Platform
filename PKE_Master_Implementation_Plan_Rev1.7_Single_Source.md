@@ -8924,3 +8924,28 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - The previously approved hash `9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6` remains unapplied and is superseded. No migration has been committed to the validation database.
 - Fresh validation branch remains `p18-validation-111-corrected-20261123` (`br-winter-butterfly-b3tnsao9`), parent UAT `br-young-boat-b3re832d`, database `neondb`.
 - Production and original UAT remain untouched. P18 remains NOT COMPLETE pending approval of this new exact hash, successful clean migration application, and full regression/CI evidence.
+
+
+### P18 isolated migration and security backtest — Rev2.44 (2026-11-23)
+
+**Owner approval and controlled execution**
+- Owner explicitly approved SHA-256 `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` for isolated validation only.
+- Re-fetched the Migration 111 source from the P18 branch and confirmed it contains the corrected tagged PostgreSQL dollar quote, the self-contained officer role seed before allowlist insertion, and the runtime helper EXECUTE grant.
+- Fresh validation clone `p18-validation-111-corrected-20261123` (`br-winter-butterfly-b3tnsao9`) was confirmed at migration 110 with no pre-seeded officer role. Migration 111 and its exact approved SHA ledger entry were applied in one transaction; all 69 SQL/ledger statements completed.
+- Post-apply checks: exact migration ledger/hash 1; 13 P18 policies; 5 P18 triggers; 6 P18 functions; 9 permission catalogue entries; 15 officer allowlist entries; officer role seed 1; RLS enabled on regulatory_sources and regulatory_rules; runtime EXECUTE grant present.
+
+**Runtime and maker-checker evidence**
+- Connected as `app_runtime_secure`: no authenticated identity → source manage denied and zero source rows.
+- PM fixture `10000000-0000-4000-8000-000000000001` → source manage/view denied and zero source rows.
+- Platform Admin fixture `10000000-0000-4000-8000-000000000099` → source manage/view authorized; one pre-existing source row visible.
+- Regulatory source self-verification was rejected by `p18_guard_regulatory_source_verification` with SQLSTATE 23514.
+- Assessment maker self-review was rejected by `p18_guard_regulatory_assessment_review` with SQLSTATE 23514.
+- Both intentionally failing backtest transactions rolled back; post-checks confirmed zero residual test rows. An earlier failed setup attempt also rolled back without leaving a fixture.
+- An attempted `SET ROLE app_runtime_secure` from the database owner was rejected by PostgreSQL membership rules; runtime tests were then correctly rerun using a direct connection as `app_runtime_secure`.
+
+**Remaining gates — P18 NOT COMPLETE**
+- GitHub Actions has not yet surfaced a workflow run for commit `6f4bc0a1cf685068007452ca6145cc591736b372`; the old 506-test run is stale and is not accepted as current evidence.
+- API/UI end-to-end integration and broader regression acceptance are still pending.
+- Production RLS backtest and Production Migration 111 application were deliberately not run. Original UAT remains unchanged at migration 110. Production remains untouched at its previously verified migration ledger 71.
+- This approval is limited to isolated validation and does not authorize Production or original-UAT application.
+- Explicitly deferred scope remains RAG document collection/ingestion, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini integration, Vercel deployment and P19.

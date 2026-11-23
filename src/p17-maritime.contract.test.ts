@@ -300,6 +300,9 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("pke_has_project_permission");
   expect(gate).toContain("pke_has_any_project_permission");
   expect(gate).toContain("app.current_project_id");
+  expect(gate).toContain("P17_AIS_REVIEW_READ_BLOCKED");
+  expect(gate).toContain("p17d_vessel_position_admin_pending_select");
+  expect(gate).toContain("p17d_vessel_position_project_review_select");
   expect(gate).toContain("vessel.position.review");
   for(const permission of ["documents.view","workflow.view","port.view","shipping.update","shipping.view","vessel.nominate","vessel.nomination.review","vessel.port_call.confirm","vessel.port_call.manage","vessel.position.view","vessel.view","voyage.create","voyage.update","voyage.view"]) expect(gate).toContain(permission);
   expect(gate).toContain("terminal_representative");
@@ -338,6 +341,9 @@ describe("P17-D legacy AIS Project-scope correction",()=>{
   expect(policyDefinition).not.toContain("pke_has_any_project_permission");
   expect(M110A).toContain("position('pke_has_any_project_permission' IN policy_expression)");
   expect(M110A).toContain("vessel.position.view");
+  expect(M110A).toContain("p17d_vessel_position_admin_pending_select");
+  expect(M110A).toContain("p17d_vessel_position_project_review_select");
+  expect(M110A).toContain("vessel.position.review");
   expect(M110A).toContain("COMMIT;");
  });
 });
@@ -452,6 +458,19 @@ describe("P17-G Project export control tower",()=>{
   expect(API).toContain("aisPositionsAreLastKnownNotLive:true");
   expect(API).toContain("operationalClearance:false");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Project Export Control Tower");
+ });
+});
+
+describe("P17-D Project reviewer workflow",()=>{
+ it("provides Project-scoped pending queue, independent decision API and PM UI",()=>{
+  expect(API).toContain("/api/v1/projects/:projectId/vessel-positions/review-queue");
+  expect(API).toContain("/api/v1/projects/:projectId/vessel-positions/:positionId/review");
+  expect(API).toContain("vessel.position.review");
+  expect(API).toContain("created_by<>req_user_id()");
+  const ui=readFileSync(join(ROOT,"frontend","src","P17AisProjectReviewPanel.tsx"),"utf8");
+  expect(ui).toContain("/review-queue");
+  expect(ui).toContain("/review");
+  expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("P17AisProjectReviewPanel");
  });
 });
 

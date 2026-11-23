@@ -12,7 +12,7 @@ const M106=readFileSync(join(ROOT,"migrations","106_p17d_vessel_position_observa
 const M107=readFileSync(join(ROOT,"migrations","107_p17e_loading_survey_reconciliation_laytime.sql"),"utf8");
 const M108=readFileSync(join(ROOT,"migrations","108_p17f_buyer_mapping_rls_recursion_fix.sql"),"utf8");
 const M109=readFileSync(join(ROOT,"migrations","109_p17f_buyer_self_read_rls_recursion_fix.sql"),"utf8");
-const M113=readFileSync(join(ROOT,"migrations","110a_p17d_legacy_position_project_scope.sql"),"utf8");
+const M110A=readFileSync(join(ROOT,"migrations","110a_p17d_legacy_position_project_scope.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
@@ -313,19 +313,25 @@ describe("P17 schema release safety gate",()=>{
 
 describe("P17-D legacy AIS Project-scope correction",()=>{
  it("replaces the global legacy read policy with a current-Project permission check",()=>{
-  expect(M113).toContain("DROP POLICY IF EXISTS pke_scope_select");
-  expect(M113).toContain("source_id IS NULL");
-  expect(M113).toContain("app.current_project_id");
-  expect(M113).toContain("pke_has_project_permission");
-  const policyDefinition=M113.slice(M113.indexOf("CREATE POLICY"),M113.indexOf("DO $verify$"));
+  expect(M110A).toContain("DROP POLICY IF EXISTS pke_scope_select");
+  expect(M110A).toContain("source_id IS NULL");
+  expect(M110A).toContain("app.current_project_id");
+  expect(M110A).toContain("pke_has_project_permission");
+  const policyDefinition=M110A.slice(M110A.indexOf("CREATE POLICY"),M110A.indexOf("DO $verify$"));
   expect(policyDefinition).not.toContain("pke_has_any_project_permission");
-  expect(M113).toContain("position('pke_has_any_project_permission' IN policy_expression)");
-  expect(M113).toContain("vessel.position.view");
-  expect(M113).toContain("COMMIT;");
+  expect(M110A).toContain("position('pke_has_any_project_permission' IN policy_expression)");
+  expect(M110A).toContain("vessel.position.view");
+  expect(M110A).toContain("COMMIT;");
  });
 });
 
 describe("P17 migration atomicity",()=>{
+ it("wraps migration 110a in one explicit transaction",()=>{
+  expect(M110A.trimStart()).toMatch(/^--[\\s\\S]*?BEGIN;/);
+  expect(M110A.trimEnd()).toMatch(/COMMIT;$/);
+  expect((M110A.match(/^BEGIN;\\s*$/gim)||[]).length).toBe(1);
+  expect((M110A.match(/^COMMIT;\\s*$/gim)||[]).length).toBe(1);
+ });
  it.each([
   ["096",A],
   ["097",E],

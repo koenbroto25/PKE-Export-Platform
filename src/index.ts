@@ -3845,20 +3845,17 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
   if (!senderId) return res.status(401).json({ error: "Authenticated principal required" });
   try {
     const recipientId = typeof recipient === "string" && recipient ? recipient : senderId;
-    let scopedProjectId: string | null = null;
-    if (projectId) {
-      if (typeof projectId !== "string") return res.status(400).json({ error: "Invalid projectId" });
-      scopedProjectId = projectId;
-      if (!(await requireProjectPermission(req, res, scopedProjectId, "project.members.manage"))) return;
-      if (recipientId !== senderId) {
-        const { rows: memberRows } = await req.db.query(
-          `SELECT 1 FROM project_members WHERE project_id = $1::uuid AND user_id = $2::uuid AND is_active = true LIMIT 1`,
-          [scopedProjectId, recipientId],
-        );
-        if (memberRows.length === 0) return res.status(403).json({ error: "Forbidden", code: "RECIPIENT_OUT_OF_SCOPE" });
-      }
-    } else if (recipientId !== senderId) {
-      if (!req.user?.isAdmin) return res.status(403).json({ error: "Forbidden", code: "RECIPIENT_OUT_OF_SCOPE" });
+    if (typeof projectId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) {
+      return res.status(400).json({ error: "A valid projectId is required for project-scoped notifications.", code: "PROJECT_SCOPE_REQUIRED" });
+    }
+    const scopedProjectId: string = projectId;
+    if (!(await requireProjectPermission(req, res, scopedProjectId, "project.members.manage"))) return;
+    if (recipientId !== senderId) {
+      const { rows: memberRows } = await req.db.query(
+        `SELECT 1 FROM project_members WHERE project_id = $1::uuid AND user_id = $2::uuid AND is_active = true LIMIT 1`,
+        [scopedProjectId, recipientId],
+      );
+      if (memberRows.length === 0) return res.status(403).json({ error: "Forbidden", code: "RECIPIENT_OUT_OF_SCOPE" });
     }
     const eventId = crypto.randomUUID();
     const { rows } = await req.db.query(
@@ -3868,11 +3865,8 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
       [eventId, scopedProjectId, recipientId, senderId, title, message, priority || "normal", category || "system"],
     );
     const r = rows[0];
-    await req.db.query(
-      `INSERT INTO notification_deliveries (id, notification_id, channel, status, attempt_count, created_at)
-       VALUES (gen_random_uuid(), $1::uuid, 'in_app', 'delivered', 1, now())`,
-      [r.id],
-    );
+    // In-app delivery is represented by user_notifications. The separate
+    // notification_deliveries ledger is worker-owned and has no runtime RLS write policy.
     res.status(201).json({
       notification: {
         id: r.id, eventId: r.event_id, recipient: r.recipient_user_id, title: r.title, message: r.message,

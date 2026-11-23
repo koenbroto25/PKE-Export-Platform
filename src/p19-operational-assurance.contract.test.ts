@@ -143,6 +143,21 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(notificationRoute).toContain("req.user?.id");
   });
 
+  it("logs only sanitized exception type/code metadata on request and shutdown failures", () => {
+    const helperStart = INDEX_SRC.indexOf("function safeErrorMetadata");
+    const helperEnd = INDEX_SRC.indexOf("const logger =", helperStart);
+    const helper = INDEX_SRC.slice(helperStart, helperEnd);
+    expect(helper).toContain("errorType");
+    expect(helper).toContain("errorCode");
+    expect(helper).not.toContain("message");
+    expect(helper).not.toContain("stack");
+    expect(INDEX_SRC).toContain('logger.error("Unable to establish request-scoped RLS transaction:", safeErrorMetadata(error))');
+    expect(INDEX_SRC).toContain('logger.error("RLS request transaction failed during finalization:", safeErrorMetadata(transactionFailure))');
+    expect(INDEX_SRC).toContain('logger.error("Unexpected RLS transaction finalization error:", safeErrorMetadata(error))');
+    expect(INDEX_SRC).not.toContain('logger.error("Unable to establish request-scoped RLS transaction:", error)');
+    expect(INDEX_SRC).not.toContain('logger.error("RLS request transaction failed during finalization:", transactionFailure)');
+  });
+
   it("keeps privileged Admin MFA fail-closed until a verified MFA challenge exists", () => {
     expect(AUTH_SRC).toContain("mfaVerified: false");
     expect(AUTH_SRC).toContain("user.mfaVerified !== true");

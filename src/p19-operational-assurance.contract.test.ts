@@ -128,6 +128,9 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(notificationCreateRoute).toContain('requireProjectPermission(req, res, scopedProjectId, "project.members.manage")');
     expect(notificationCreateRoute).toContain("INSERT INTO user_notifications");
     expect(notificationCreateRoute).toContain("recipient_user_id");
+    expect(notificationCreateRoute).toContain("deactivated_at IS NULL");
+    expect(notificationCreateRoute).toContain("expires_at > now()");
+    expect(notificationCreateRoute).toContain("INVALID_RECIPIENT");
     expect(notificationCreateRoute).not.toContain("notification_deliveries");
   });
 

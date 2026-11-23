@@ -60,6 +60,11 @@ describe("P20 release boundary and evidence integrity", () => {
     expect(maritime).toContain("p17d_vessel_position_admin_pending_select");
     expect(maritime).toContain("p17d_vessel_position_admin_review_update");
     expect(maritime).toContain("p17d_vessel_position_project_review_select");
+    expect(migration).toContain("p17d_vessel_position_ingest_admin_insert");
+    expect(migration).toContain("p17d_vessel_position_independent_review_update");
+    expect(migration).not.toContain("p17d_vessel_position_admin_pending_select");
+    expect(migration).not.toContain("p17d_vessel_position_admin_review_update");
+    expect(migration).not.toContain("p17d_vessel_position_project_review_select");
     expect(migration).not.toContain("p17d_vessel_position_admin_pending_select");
     expect(migration).not.toContain("p17d_vessel_position_admin_review_update");
     expect(migration).not.toContain("p17d_vessel_position_project_review_select");

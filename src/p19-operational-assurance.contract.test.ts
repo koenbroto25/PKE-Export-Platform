@@ -241,6 +241,20 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(INDEX_SRC).not.toContain('logger.error("RLS request transaction failed during finalization:", transactionFailure)');
   });
 
+  it("drains the HTTP listener before closing the database pool on SIGTERM/SIGINT", () => {
+    const start = INDEX_SRC.indexOf("async function gracefulShutdown");
+    const end = INDEX_SRC.indexOf('if (!isServerlessRuntime(process.env))', start);
+    const shutdown = INDEX_SRC.slice(start, end);
+    expect(INDEX_SRC).toContain("httpServer = app.listen");
+    expect(shutdown).toContain("shutdownInProgress");
+    expect(shutdown).toContain("httpServer!.close");
+    expect(shutdown).toContain("await pool.end()");
+    expect(shutdown.indexOf("httpServer!.close")).toBeLessThan(shutdown.indexOf("await pool.end()"));
+    expect(shutdown).toContain("safeErrorMetadata(error)");
+    expect(INDEX_SRC).toContain('process.on("SIGTERM", () => { void gracefulShutdown("SIGTERM"); })');
+    expect(INDEX_SRC).toContain('process.on("SIGINT", () => { void gracefulShutdown("SIGINT"); })');
+  });
+
   it("keeps privileged Admin MFA fail-closed until a verified MFA challenge exists", () => {
     expect(AUTH_SRC).toContain("mfaVerified: false");
     expect(AUTH_SRC).toContain("user.mfaVerified !== true");

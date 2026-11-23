@@ -86,7 +86,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     if(Number(rls.rows[0]?.found_count)!==protectedTables.length||Number(rls.rows[0]?.unsafe_count)!==0)
       return bad(res,503,"P17_RLS_RELEASE_BLOCKED","P17 tables are missing RLS or an applicable policy; protected APIs remain unavailable.");
     const legacyPositionPolicy=await req.db.query(
-      "SELECT COUNT(*)::int AS safe_policy_count FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='vessel_tracking_positions' AND p.polname='pke_scope_select' AND pg_get_expr(p.polqual,p.polrelid) LIKE '%pke_has_project_permission%' AND pg_get_expr(p.polqual,p.polrelid) NOT LIKE '%pke_has_any_project_permission%'"
+      "SELECT COUNT(*)::int AS safe_policy_count FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='vessel_tracking_positions' AND p.polname='pke_scope_select' AND pg_get_expr(p.polqual,p.polrelid) LIKE '%pke_has_project_permission%' AND pg_get_expr(p.polqual,p.polrelid) NOT LIKE '%pke_has_any_project_permission%' AND pg_get_expr(p.polqual,p.polrelid) LIKE '%app.current_project_id%'"
     );
     if(Number(legacyPositionPolicy.rows[0]?.safe_policy_count)!==1)
       return bad(res,503,"P17_AIS_PROJECT_SCOPE_BLOCKED","Legacy AIS position reads are not protected by the Project-scoped RLS policy; protected APIs remain unavailable.");

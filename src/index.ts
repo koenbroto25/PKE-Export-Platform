@@ -73,6 +73,7 @@ app.use(express.json({
   },
 }));
 const PORT = process.env.PORT || 3000;
+let httpServer: ReturnType<typeof app.listen> | null = null;
 
 if (manualTrialMode.enabled) {
   console.log("[PKE][DEMO] Manual Trial Mode enabled (in-memory). Production/Neon DB, Auth, storage, and external providers are NOT initialized.");
@@ -7963,7 +7964,7 @@ async function verifyProductionRuntimeSecurity(): Promise<void> {
 
 async function startServer(): Promise<void> {
   if (manualTrialMode.enabled) {
-    app.listen(Number(PORT) || 3000, "127.0.0.1", () => {
+    httpServer = app.listen(Number(PORT) || 3000, "127.0.0.1", () => {
       logger.info(`PKE Manual Trial Mode API running on http://127.0.0.1:${PORT}`);
       logger.info("Mode: manual-trial (in-memory demo, no Neon/PostgreSQL/Auth/storage/external providers)");
       logger.info(`Timestamp: ${new Date().toISOString()}`);
@@ -7973,7 +7974,7 @@ async function startServer(): Promise<void> {
 
   await verifyProductionRuntimeSecurity();
 
-  app.listen(PORT, () => {
+  httpServer = app.listen(PORT, () => {
     logger.info(`PKE Export Platform API running on port ${PORT}`);
     logger.info(`Environment: ${process.env.NODE_ENV}`);
     logger.info(`Database role: app_runtime_secure`);
@@ -7981,26 +7982,35 @@ async function startServer(): Promise<void> {
   });
 }
 
-if (!isServerlessRuntime(process.env)) {
-  process.on("SIGTERM", async () => {
-    logger.info("SIGTERM received. Shutting down gracefully...");
-    try {
-      if (!manualTrialMode.enabled && pool) await pool.end();
-    } catch (err) {
-      logger.error("Error during shutdown:", safeErrorMetadata(err));
+async function gracefulShutdown(signal: "SIGTERM" | "SIGINT"): Promise<void> {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
+  logger.info(`${signal} received. Stopping HTTP acceptance and draining active requests...`);
+  let shutdownFailure: unknown = null;
+  try {
+    if (httpServer?.listening) {
+      await new Promise<void>((resolve, reject) => {
+        httpServer!.close((error?: Error) => error ? reject(error) : resolve());
+      });
     }
-    process.exit(0);
-  });
+  } catch (error) {
+    shutdownFailure = error;
+    logger.error("HTTP server shutdown failed:", safeErrorMetadata(error));
+  }
+  try {
+    if (!manualTrialMode.enabled && pool) await pool.end();
+  } catch (error) {
+    shutdownFailure ??= error;
+    logger.error("Database pool shutdown failed:", safeErrorMetadata(error));
+  }
+  process.exit(shutdownFailure ? 1 : 0);
+}
 
-  process.on("SIGINT", async () => {
-    logger.info("SIGINT received. Shutting down gracefully...");
-    try {
-      if (!manualTrialMode.enabled && pool) await pool.end();
-    } catch (err) {
-      logger.error("Error during shutdown:", safeErrorMetadata(err));
-    }
-    process.exit(0);
-  });
+let shutdownInProgress = false;
+
+if (!isServerlessRuntime(process.env)) {
+  process.on("SIGTERM", () => { void gracefulShutdown("SIGTERM"); });
+  process.on("SIGINT", () => { void gracefulShutdown("SIGINT"); });
 
   if (process.env.NODE_ENV !== "test") {
     void startServer().catch((error) => {

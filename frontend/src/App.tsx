@@ -488,7 +488,6 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
   const canVerifyCandidates = candidates.data?.canVerify === true;
   const canCreateProducts = productRequirements.data?.canCreate === true;
   const canUpdateProducts = productRequirements.data?.canUpdate === true;
-  const canManageProducts = canCreateProducts || canUpdateProducts;
   const canApproveProducts = productRequirements.data?.canApprove === true;
   const startEdit = (row: AnyRecord) => {
     const window = row.delivery_window || {};

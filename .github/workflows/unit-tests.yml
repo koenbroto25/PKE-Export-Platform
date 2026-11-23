@@ -8,6 +8,7 @@ on:
       - p17b/operational-readiness-20261122
       - p18/regulatory-core-20261123
       - p19/operational-readiness-plan-20261123
+      - p20/platform-continuation-20261123
   workflow_dispatch:
   pull_request:
     branches:

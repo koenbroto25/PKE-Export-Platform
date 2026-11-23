@@ -67,7 +67,7 @@ describe("P18 regulatory core contracts",()=>{
   expect(lifecycleMigration).toContain("OLD.status='under_review' AND NEW.status IN ('approved','draft')");
   expect(lifecycleMigration).toContain("NEW.approved_by IS NOT DISTINCT FROM OLD.created_by");
   expect(lifecycleMigration).toContain("src.official_url !~* '^https://'");
-  expect(lifecycleMigration).toContain("COALESCE(src.source_hash,'') !~* '^[0-9a-f]{64}
+  expect(lifecycleMigration).toContain("COALESCE(src.source_hash,'') !~* '^[0-9a-f]{64}$'");
   expect(roles).toContain('regulatory_compliance_officer');
   for(const permission of ['regulatory.source.manage','regulatory.rule.manage','regulatory.rule.version.create','regulatory.document.manage','compliance.assess'])
    expect(roles).toContain(permission);

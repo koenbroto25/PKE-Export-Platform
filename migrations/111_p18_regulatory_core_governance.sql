@@ -27,6 +27,10 @@ VALUES
  ('Manage Regulatory Document Catalog','regulatory.document.manage','Create and maintain document catalog and country requirements for independent verification.',true)
 ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,is_active=true;
 
+INSERT INTO public.pke_project_role_policy(role_code,canonical_role_code,template_version)
+VALUES ('regulatory_compliance_officer','regulatory_compliance_officer',1)
+ON CONFLICT(role_code) DO NOTHING;
+
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
 SELECT 'regulatory_compliance_officer',p.code
 FROM public.permissions p
@@ -36,9 +40,11 @@ WHERE p.code IN ('project.view','documents.view','shipment.view','shipping.view'
 ON CONFLICT(role_code,permission_code) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.p18_has_regulatory_permission(permission_code text)
-RETURNS boolean LANGUAGE sql STABLE AS $$
+RETURNS boolean LANGUAGE sql STABLE AS $
   SELECT public.pke_is_platform_admin() OR public.pke_has_any_project_permission(permission_code)
-$$;
+$;
+
+GRANT EXECUTE ON FUNCTION public.p18_has_regulatory_permission(text) TO app_runtime_secure;
 
 DROP POLICY IF EXISTS pke_regulatory_sources_read ON public.regulatory_sources;
 CREATE POLICY pke_regulatory_sources_read ON public.regulatory_sources
@@ -382,6 +388,8 @@ FOR EACH ROW EXECUTE FUNCTION public.p18_guard_regulatory_assessment_result_revi
 DO $verify$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='p18_has_regulatory_permission') THEN RAISE EXCEPTION 'P18 regulatory permission helper missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.pke_project_role_policy WHERE role_code='regulatory_compliance_officer' AND canonical_role_code='regulatory_compliance_officer') THEN RAISE EXCEPTION 'P18 regulatory compliance officer role seed missing'; END IF;
+  IF NOT has_function_privilege('app_runtime_secure','public.p18_has_regulatory_permission(text)','EXECUTE') THEN RAISE EXCEPTION 'P18 runtime helper EXECUTE grant missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='regulatory_sources' AND column_name='created_by') THEN RAISE EXCEPTION 'P18 source maker column missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='regulatory_rule_versions' AND column_name='created_by') THEN RAISE EXCEPTION 'P18 rule version maker column missing'; END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='country_export_document_requirements' AND column_name='created_by') THEN RAISE EXCEPTION 'P18 country requirement maker column missing'; END IF;

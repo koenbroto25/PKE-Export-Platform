@@ -59,7 +59,8 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     "107_p17e_loading_survey_reconciliation_laytime.sql",
     "108_p17f_buyer_mapping_rls_recursion_fix.sql",
     "109_p17f_buyer_self_read_rls_recursion_fix.sql",
-    "110_p17d_vessel_position_runtime_rls_fix.sql"
+    "110_p17d_vessel_position_runtime_rls_fix.sql",
+    "110a_p17d_legacy_position_project_scope.sql"
   ];
   const protectedTables=[
     "maritime_data_sources","maritime_source_field_permissions","maritime_ingestion_runs","maritime_ingestion_staging",
@@ -78,7 +79,7 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
       [migrationFiles]
     );
     if(Number(migrations.rows[0]?.applied_count)!==migrationFiles.length)
-      return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema release is incomplete; migrations 096-110 must all be applied to canonical Production.");
+      return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema release is incomplete; migrations 096-110 and the owner-approved 110a AIS Project-scope correction must all be applied to canonical Production.");
     const rls=await req.db.query(
       "SELECT COUNT(*)::int AS found_count,COUNT(*) FILTER(WHERE NOT c.relrowsecurity OR COALESCE(p.policy_count,0)=0)::int AS unsafe_count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN (SELECT tablename,COUNT(*)::int AS policy_count FROM pg_policies WHERE schemaname='public' GROUP BY tablename) p ON p.tablename=c.relname WHERE n.nspname='public' AND c.relname=ANY($1::text[])",
       [protectedTables]

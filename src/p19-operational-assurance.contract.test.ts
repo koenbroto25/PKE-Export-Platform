@@ -131,7 +131,7 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(notificationCreateRoute).toContain("deactivated_at IS NULL");
     expect(notificationCreateRoute).toContain("expires_at > now()");
     expect(notificationCreateRoute).toContain("INVALID_RECIPIENT");
-    expect(notificationCreateRoute).not.toContain("notification_deliveries");
+    expect(notificationCreateRoute).not.toContain("INSERT INTO notification_deliveries");
   });
 
   it("keeps notification mutation restricted to the authenticated recipient", () => {

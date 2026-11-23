@@ -455,6 +455,204 @@ app.use("/api/v1", async (req: express.Request, res: express.Response, next: exp
 
   next();
 });
+type PhaseSchemaGateSpec = {
+  code: string;
+  error: string;
+  tables?: string[];
+  functions?: string[];
+  triggers?: Array<{ table: string; name: string }>;
+  policies?: Array<{ table: string; name: string }>;
+};
+
+function phaseSchemaGateForPath(path: string): PhaseSchemaGateSpec | null {
+  if (/^\/api\/v1\/projects\/[^/]+\/p1-(?:workflows|kpis)(?:\/|$)/.test(path)) {
+    return {
+      code: "P1_SCHEMA_RELEASE_BLOCKED",
+      error: "P1 workflow schema and security controls are not fully released on this database.",
+      tables: ["p1_domain_records", "p1_domain_events", "p1_domain_evidence", "p1_report_kpi_definitions"],
+      functions: ["p1_workflow_permission", "p1_guard_domain_record_update", "p1_get_three_way_match_inputs", "p1_get_kpi_metric", "p1_kpi_formula_allowed"],
+      policies: [
+        { table: "p1_domain_records", name: "p1_domain_records_select" },
+        { table: "p1_domain_records", name: "p1_domain_records_insert" },
+        { table: "p1_domain_records", name: "p1_domain_records_update" },
+        { table: "p1_domain_events", name: "p1_domain_events_select" },
+        { table: "p1_domain_events", name: "p1_domain_events_insert" },
+        { table: "p1_domain_evidence", name: "p1_domain_evidence_select" },
+        { table: "p1_domain_evidence", name: "p1_domain_evidence_insert" },
+        { table: "p1_report_kpi_definitions", name: "p1_report_kpi_definitions_select" },
+        { table: "p1_report_kpi_definitions", name: "p1_report_kpi_definitions_manage" },
+      ],
+    };
+  }
+  if (/^\/api\/v1\/projects\/[^/]+\/pks-candidates(?:\/|$)/.test(path)) {
+    return {
+      code: "P2A_CANDIDATE_SCHEMA_BLOCKED",
+      error: "P2A candidate register schema and review guards are not fully released on this database.",
+      tables: ["p2a_master_data_candidates"],
+      functions: ["pke_guard_and_audit_p2a_master_candidate"],
+      triggers: [{ table: "p2a_master_data_candidates", name: "p2a_master_candidate_guard_audit" }],
+      policies: [
+        { table: "p2a_master_data_candidates", name: "p2a_master_candidates_select" },
+        { table: "p2a_master_data_candidates", name: "p2a_master_candidates_insert" },
+        { table: "p2a_master_data_candidates", name: "p2a_master_candidates_update" },
+      ],
+    };
+  }
+  if (/^\/api\/v1\/(?:projects\/[^/]+|admin\/projects\/[^/]+)\/master-data-change-requests(?:\/|$)/.test(path)) {
+    return {
+      code: "P2A_CHANGE_REQUEST_SCHEMA_BLOCKED",
+      error: "P2A master-data change-request schema and project-scope guards are not fully released on this database.",
+      tables: ["p2a_master_data_change_requests"],
+      functions: ["pke_apply_p2a_master_data_change", "pke_enforce_p2a_change_request_project_scope"],
+      triggers: [{ table: "p2a_master_data_change_requests", name: "p2a_master_data_change_guard_apply" }],
+      policies: [
+        { table: "p2a_master_data_change_requests", name: "p2a_master_change_select" },
+        { table: "p2a_master_data_change_requests", name: "p2a_master_change_insert" },
+        { table: "p2a_master_data_change_requests", name: "p2a_master_change_update" },
+      ],
+    };
+  }
+  if (/^\/api\/v1\/projects\/[^/]+\/(?:quality-samples|quality-results)(?:\/|$)/.test(path)) {
+    return {
+      code: "P2A_QUALITY_SCHEMA_BLOCKED",
+      error: "P2A quality provenance and lab-report controls are not fully released on this database.",
+      tables: ["product_quality_samples", "product_quality_results"],
+      functions: ["pke_validate_p2a_quality_provenance", "pke_attach_quality_lab_report"],
+      triggers: [
+        { table: "product_quality_samples", name: "p2a_quality_sample_provenance_guard" },
+        { table: "product_quality_results", name: "p2a_quality_result_provenance_guard" },
+      ],
+      policies: [
+        { table: "product_quality_samples", name: "pke_quality_samples_project_view" },
+        { table: "product_quality_results", name: "pke_quality_results_sample_view" },
+      ],
+    };
+  }
+  if (/^\/api\/v1\/(?:funder\/shared-reports|projects\/[^/]+\/funder\/report-shares)(?:\/|$)/.test(path)) {
+    return {
+      code: "FUNDER_SHARE_SCHEMA_BLOCKED",
+      error: "Project funder-report sharing schema and authorization controls are not released on this database.",
+      tables: ["project_funder_report_shares"],
+      functions: ["pke_guard_project_funder_report_share"],
+      triggers: [{ table: "project_funder_report_shares", name: "pke_project_funder_report_share_guard" }],
+      policies: [
+        { table: "project_funder_report_shares", name: "pke_project_funder_report_shares_select" },
+        { table: "project_funder_report_shares", name: "pke_project_funder_report_shares_insert" },
+        { table: "project_funder_report_shares", name: "pke_project_funder_report_shares_update" },
+      ],
+    };
+  }
+  if (/^\/api\/v1\/(?:project-export-documents|project-export-document-requirements)(?:\/|$)/.test(path)) {
+    return {
+      code: "P16_DOCUMENT_SCOPE_SCHEMA_BLOCKED",
+      error: "P16 document project-context resolvers are not fully released on this database.",
+      tables: ["project_export_documents", "project_export_document_requirements"],
+      functions: ["pke_resolve_project_permission_context", "pke_project_document_project_id"],
+      policies: [
+        { table: "project_export_documents", name: "pke_project_export_documents_select" },
+        { table: "project_export_documents", name: "pke_project_export_documents_insert" },
+        { table: "project_export_documents", name: "pke_project_export_documents_update" },
+        { table: "project_export_documents", name: "pke_project_export_documents_delete" },
+        { table: "project_export_document_requirements", name: "pke_project_export_document_requirements_select" },
+        { table: "project_export_document_requirements", name: "pke_project_export_document_requirements_insert" },
+        { table: "project_export_document_requirements", name: "pke_project_export_document_requirements_update" },
+        { table: "project_export_document_requirements", name: "pke_project_export_document_requirements_delete" },
+      ],
+    };
+  }
+  if (/^\/api\/v1\/(?:regulatory-sources|regulatory-rules|regulatory-rule-versions|regulatory-audit-events|country-export-document-requirements|export-document-types|projects\/[^/]+\/regulatory-assessments)(?:\/|$)/.test(path)) {
+    return {
+      code: "P18_REGULATORY_SCHEMA_BLOCKED",
+      error: "P18 Regulatory Core schema, lifecycle guards and authorization policies are not released on this database.",
+      tables: ["regulatory_sources", "regulatory_rules", "regulatory_rule_versions", "regulatory_rule_conditions", "regulatory_rule_documents", "country_export_document_requirements", "export_document_types", "regulatory_assessments", "regulatory_assessment_results", "audit_events"],
+      functions: ["p18_has_regulatory_permission", "p18_guard_regulatory_source_verification", "p18_guard_country_requirement_verification", "p18_guard_regulatory_rule_version_lifecycle", "p18_guard_regulatory_assessment_review", "p18_guard_regulatory_assessment_result_review", "pke_regulatory_rule_guard", "pke_regulatory_rule_version_guard"],
+      triggers: [
+        { table: "regulatory_sources", name: "p18_regulatory_source_verification_guard" },
+        { table: "country_export_document_requirements", name: "p18_country_requirement_verification_guard" },
+        { table: "regulatory_rule_versions", name: "p18_regulatory_rule_version_lifecycle_guard" },
+        { table: "regulatory_assessments", name: "p18_regulatory_assessment_review_guard" },
+        { table: "regulatory_assessment_results", name: "p18_regulatory_assessment_result_review_guard" },
+        { table: "regulatory_rules", name: "trg_pke_regulatory_rule_guard" },
+        { table: "regulatory_rule_versions", name: "trg_pke_regulatory_rule_version_guard" },
+      ],
+      policies: [
+        { table: "regulatory_sources", name: "pke_regulatory_sources_read" },
+        { table: "regulatory_sources", name: "p18_regulatory_sources_insert" },
+        { table: "regulatory_sources", name: "p18_regulatory_sources_update" },
+        { table: "regulatory_rules", name: "p18_regulatory_rules_insert" },
+        { table: "regulatory_rules", name: "p18_regulatory_rules_update" },
+        { table: "regulatory_rule_versions", name: "p18_regulatory_rule_versions_insert" },
+        { table: "regulatory_rule_versions", name: "p18_regulatory_rule_versions_update" },
+        { table: "regulatory_rule_conditions", name: "p18_regulatory_rule_conditions_insert" },
+        { table: "regulatory_rule_documents", name: "p18_regulatory_rule_documents_insert" },
+        { table: "country_export_document_requirements", name: "pke_country_document_requirements_read" },
+        { table: "country_export_document_requirements", name: "p18_country_document_requirements_insert" },
+        { table: "country_export_document_requirements", name: "p18_country_document_requirements_update" },
+        { table: "export_document_types", name: "pke_export_document_types_member_read" },
+        { table: "export_document_types", name: "p18_export_document_types_insert" },
+        { table: "export_document_types", name: "p18_export_document_types_update" },
+        { table: "audit_events", name: "p18_regulatory_audit_read" },
+      ],
+    };
+  }
+  return null;
+}
+
+async function phaseSchemaObjectsReady(db: any, spec: PhaseSchemaGateSpec): Promise<boolean> {
+  if (spec.tables?.length) {
+    const result = await db.query(
+      "SELECT COUNT(DISTINCT c.relname)::int AS ready_count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY($1::text[]) AND c.relrowsecurity IS TRUE AND EXISTS (SELECT 1 FROM pg_policies p WHERE p.schemaname=n.nspname AND p.tablename=c.relname)",
+      [spec.tables],
+    );
+    if (Number(result.rows[0]?.ready_count) !== spec.tables.length) return false;
+  }
+  if (spec.functions?.length) {
+    const result = await db.query(
+      "SELECT COUNT(DISTINCT p.proname)::int AS ready_count FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname=ANY($1::text[])",
+      [spec.functions],
+    );
+    if (Number(result.rows[0]?.ready_count) !== spec.functions.length) return false;
+  }
+  if (spec.triggers?.length) {
+    const names = spec.triggers.map((trigger) => trigger.name);
+    const tables = spec.triggers.map((trigger) => trigger.table);
+    const result = await db.query(
+      "SELECT COUNT(DISTINCT t.tgname)::int AS ready_count FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal AND EXISTS (SELECT 1 FROM unnest($1::text[],$2::text[]) AS expected(trigger_name,table_name) WHERE expected.trigger_name=t.tgname AND expected.table_name=c.relname)",
+      [names, tables],
+    );
+    if (Number(result.rows[0]?.ready_count) !== spec.triggers.length) return false;
+  }
+  if (spec.policies?.length) {
+    const names = spec.policies.map((policy) => policy.name);
+    const tables = spec.policies.map((policy) => policy.table);
+    const result = await db.query(
+      "SELECT COUNT(DISTINCT p.policyname)::int AS ready_count FROM pg_policies p WHERE p.schemaname='public' AND EXISTS (SELECT 1 FROM unnest($1::text[],$2::text[]) AS expected(policy_name,table_name) WHERE expected.policy_name=p.policyname AND expected.table_name=p.tablename)",
+      [names, tables],
+    );
+    if (Number(result.rows[0]?.ready_count) !== spec.policies.length) return false;
+  }
+  return true;
+}
+
+const phaseSchemaReleaseGate: express.RequestHandler = async (req, res, next) => {
+  const path = (req.originalUrl || req.path || "").split("?")[0];
+  const spec = phaseSchemaGateForPath(path);
+  if (!spec) return next();
+  try {
+    if (!(await phaseSchemaObjectsReady(req.db, spec))) {
+      return res.status(503).json({ error: spec.error, code: spec.code });
+    }
+    return next();
+  } catch {
+    return res.status(503).json({
+      error: "Required phase schema/security prerequisites could not be verified; the endpoint remains fail-closed.",
+      code: spec.code,
+    });
+  }
+};
+
+app.use("/api/v1", phaseSchemaReleaseGate);
+
 // ============================================
 // Authentication middleware
 // ============================================

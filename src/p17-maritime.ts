@@ -70,6 +70,12 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     "vessel_port_assessments","shipment_allocations","project_export_documents","project_work_items"
   ];
   try{
+    const rls=await req.db.query(
+      "SELECT COUNT(*)::int AS found_count,COUNT(*) FILTER(WHERE NOT c.relrowsecurity OR COALESCE(p.policy_count,0)=0)::int AS unsafe_count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN (SELECT tablename,COUNT(*)::int AS policy_count FROM pg_policies WHERE schemaname='public' GROUP BY tablename) p ON p.tablename=c.relname WHERE n.nspname='public' AND c.relname=ANY($1::text[])",
+      [protectedTables]
+    );
+    if(Number(rls.rows[0]?.found_count)!==protectedTables.length||Number(rls.rows[0]?.unsafe_count)!==0)
+      return bad(res,503,"P17_RLS_RELEASE_BLOCKED","P17 tables are missing RLS or an applicable policy; protected APIs remain unavailable.");
     // The runtime role intentionally cannot read migration_history or the
   // project-role allowlist table directly (RLS/least-privilege boundary).
   // Verify the effective schema controls through pg_catalog instead; the

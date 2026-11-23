@@ -20,7 +20,7 @@ else{
  if(hash!==item.sha256) fail("P18 migration SHA-256 mismatch.");
  if((sql.match(/^BEGIN;\s*$/gim)||[]).length!==1||(sql.match(/^COMMIT;\s*$/gim)||[]).length!==1) fail("P18 migration must have exactly one atomic transaction wrapper.");
  if(/^\s*(DROP\s+TABLE|DROP\s+SCHEMA|TRUNCATE)\b/im.test(sql)) fail("Unexpected destructive DDL found.");
- for(const token of ["p18_has_regulatory_permission","p18_regulatory_sources_insert","p18_regulatory_rules_insert","p18_regulatory_rule_versions_insert","p18_country_requirement_verification_guard","p18_regulatory_assessment_review_guard","p18_regulatory_assessment_result_review_guard","reason_code text"])
+ for(const token of ["pke_project_role_policy(role_code,canonical_role_code,template_version)","regulatory_compliance_officer","GRANT EXECUTE ON FUNCTION public.p18_has_regulatory_permission(text) TO app_runtime_secure","has_function_privilege","p18_has_regulatory_permission","p18_regulatory_sources_insert","p18_regulatory_rules_insert","p18_regulatory_rule_versions_insert","p18_country_requirement_verification_guard","p18_regulatory_assessment_review_guard","p18_regulatory_assessment_result_review_guard","reason_code text"])
    if(!sql.includes(token)) fail("Migration postcondition missing: "+token);
  if((sql.match(/CREATE OR REPLACE FUNCTION/g)||[]).length!==6) fail("Expected six P18 governance functions.");
  if(/LANGUAGE (plpgsql|sql) AS \$(?!\$)|END \$;/m.test(sql)) fail("Malformed SQL function delimiter.");

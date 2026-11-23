@@ -118,12 +118,13 @@ async function main() {
   const packageHash = sha256(fs.readFileSync(RELEASE_PATH));
   console.log("Target: " + EXPECTED.projectId + " / " + EXPECTED.branchId + " / " + EXPECTED.database);
   console.log("Production ledger: 001-071; P17 096-109 applied at IDs 57-70; P17-D 110 applied at ID 71.");
+  console.log("Migration 110a: prepared only; owner approval pending; not applied.");
   console.log("Release manifest SHA-256: " + packageHash);
   if (mode === "dry-run") {
-    console.log("DRY-RUN PASS: P17 096-109 and corrective migration 110 match pinned source hashes and the reconciled Production ledger manifest.");
+    console.log("DRY-RUN PASS: applied P17 096-109 and Migration 110 match pinned source hashes and the reconciled Production ledger manifest; prepared Migration 110a is checked separately by verify:p17d-110a.");
     return;
   }
-  if (mode === "apply") fail("P17 096-109 are already applied. Replay is disabled; use verify.");
+  if (mode === "apply") fail("P17 096-109 and Migration 110 are already applied. Replay is disabled; Migration 110a requires its separate exact-hash owner approval and controlled release path.");
   if (mode !== "verify") fail("Use dry-run or verify.");
   validateDatabaseUrl(process.env.MIGRATION_DATABASE_URL);
   const client = new pg.Client({

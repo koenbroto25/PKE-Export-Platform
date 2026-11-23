@@ -9426,7 +9426,7 @@ No data, schema or migration was changed during these checks.
 
 | Target | Read-only result | Gate consequence |
 |---|---|---|
-| Production `br-damp-shape-b3xlh4nr` | P17 protected tables: 40/40 have RLS and at least one policy; 4/4 required security-definer functions and 2/2 role guard triggers exist. The four Migration 110a AIS policy predicates are 0/4. | P17 APIs remain blocked by `P17_LEGACY_POSITION_SCOPE_BLOCKED`; this is intentional and prevents the legacy global vessel-position SELECT policy from being exposed. P1/P2A/funder/P16/P18 release prerequisites are also not fully present in Production and remain fail-closed. |
+| Production `br-damp-shape-b3xlh4nr` | P17 Migration 110 (filename `110_p17d_vessel_position_runtime_rls_fix.sql`) is applied at ledger 71 with exact SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`. Read-only recheck confirms the two Migration 110 runtime write policies and the accepted Project read policy exist; the legacy `pke_scope_select` remains restricted to `source_id IS NULL`. The live read-only query must still be reconciled against every P17 release-gate predicate before calling the runtime gate fully clear. | P17 APIs remain blocked by `P17_LEGACY_POSITION_SCOPE_BLOCKED`; this is intentional and prevents the legacy global vessel-position SELECT policy from being exposed. P1/P2A/funder/P16/P18 release prerequisites are also not fully present in Production and remain fail-closed. |
 | Original UAT `br-young-boat-b3re832d` | P1/P2A/funder/P16 prerequisite tables/functions/policies/triggers are present. P18 governance functions are incomplete (6 required P18 guard/permission functions are absent). Migration 110a AIS policy predicates are 0/4. | P1/P2A/funder/P16 gates can pass; P18 remains blocked until Migration 111/112 are separately approved and applied. P17 remains blocked until 110a is separately approved and applied. |
 | Isolated P18 validation `br-winter-butterfly-b3tnsao9` | P18: 10/10 tables with RLS/policy, 8/8 functions, 20/20 exact policies and 7/7 triggers present. P1/P2A/funder objects and P16 document resolver/policies also present. Migration 110a AIS policy predicates are 0/4. | P18 schema gate passes on the isolated validation branch. P17 still correctly remains blocked there until its independent Migration 110a correction is applied. |
 
@@ -9454,13 +9454,13 @@ No data, schema or migration was changed during these checks.
 
 P19 code-level acceptance is complete on the isolated branch. The following are separate release dependencies, not hidden P19 code failures:
 
-1. P17 Migration 110a exact SHA-256 `bbea252c93e3cd2876f2377f26c2f33a0a1c8ea51e89fe2b944238595b9edf59` remains unapplied. It requires explicit owner approval before any Production application. P17 routes stay fail-closed until its exact policy boundary is verified.
+1. P17 Migration 110 exact SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46` is recorded as applied at Production ledger 71 and UAT ledger 110. Fresh read-only Production policy inspection confirms the two 110 runtime write policies and Project-scoped accepted-position read policy. The legacy SELECT policy is limited to `source_id IS NULL`; complete gate status remains subject to re-running all release-gate function/trigger/policy predicates together.
 2. P18 Migrations 111/112 remain isolated-validation-only; applying them to original UAT or Production requires separate exact-hash approval.
 3. Hosted API smoke, browser UAT and Vercel deployment remain deferred under the owner's explicit instruction. No Vercel deployment/Preview action was invoked by the assistant; automatic repository integrations were not inspected.
 4. A live backup-restore drill was not performed; existing migration release verifiers confirm the pinned backup evidence and atomic migration controls, but do not constitute a restore drill.
 5. RAG document sourcing/ingestion, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini chatbot and P19-to-P20 scope definition remain separate deferred work. They are not P19 acceptance blockers.
 
-No Production or original UAT migration/data writes were made. No migration 111, 112 or 110a was applied. Do not merge this branch to `main` without a separate explicit instruction.
+No P19 migration/data writes were made. Migration 110 was already recorded as applied before P19 closure. Migrations 111/112 were not applied to Production or original UAT; do not merge this branch to `main` without a separate explicit instruction.
 
 ---
 
@@ -9565,3 +9565,29 @@ Complete technical application surfaces that can be completed without external c
 - Migration 111/112 remain isolated-validation-only with hashes `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and `00b52dcbb51a706402cfeb2039f2451b56241eda43c7bd2a43d4fc2ec4fa21`.
 - Existing P18 Regulatory Core UI and contract tests are present. RAG ingestion/OCR/embeddings/chatbot remain excluded from active behavior.
 - No Vercel/deployment action invoked. No Production/UAT database connection or write occurred during this P20 charter baseline. No migration applied.
+
+### 40.1 P20-A live release boundary recheck — 23 November 2026
+
+**FACT — VERIFIED with read-only Neon queries in this session**
+
+| Target | Live migration ledger | P17 Migration 110 | P18 Migration 111/112 |
+|---|---|---|---|
+| Production `br-damp-shape-b3xlh4nr` | ID 71 = Migration 110, exact SHA `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`, status applied | Applied | 0 rows |
+| Original UAT `br-young-boat-b3re832d` | ID 110 = Migration 110, same exact SHA, status applied | Applied | 0 rows |
+| Isolated P18 validation `br-winter-butterfly-b3tnsao9` | IDs 111/112, exact hashes `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and `00b52dcbb51a706402cfeb2039f2451b56241eda43c7bd2a43d4fc2ec4fa21`, status applied | Not independently rechecked in this query set | Applied |
+
+- Production `pg_policies` inspection found 4 policies on `vessel_tracking_positions`: `p17d_vessel_position_ingest_admin_insert`, `p17d_vessel_position_independent_review_update`, `vessel_tracking_accepted_project_read`, and legacy `pke_scope_select`.
+- The legacy policy predicate is explicitly `source_id IS NULL AND pke_has_any_project_permission('vessel.position.view')`; it does not apply to licensed source-linked observations. The accepted-position read policy requires Project context, voyage relationship, enabled AIS source, approved rights, internal processing, non-expired rights, all four field-purpose permissions and a relevant Project permission.
+- Production and UAT each have 10/10 P18 regulatory tables with RLS enabled and at least one policy, but this is only the pre-111 baseline. The isolated P18 validation branch has broader policy coverage after 111/112.
+- Production and UAT each return zero rows for Migration 111/112 in `migration_history`. Do not promote either migration as part of P20 without fresh exact-target owner approval.
+- The Production P17 function-name catalog query returned no `p18_*` function (expected because the requested prefix was P18) and is not used as evidence of P17 function health. P20 must rerun the complete declared P17 verifier predicates rather than use this narrow diagnostic as a pass.
+- All statements above were SELECT-only. No persistent database object/data changed.
+
+### 40.2 P20-A matrix correction
+
+- Migration 110 unapplied: **CLOSED — contrary stale wording in P19 Rev2.56 corrected**.
+- P17 legacy AIS read boundary: **PASS — read-only predicate confirms the legacy policy is restricted to source_id NULL and accepted licensed-source reads are separately Project/rights gated**.
+- Full P17 function/trigger/permission release-gate reconciliation: **PENDING — execute exact combined read-only predicate set before declaring P17 live API gate clear**.
+- P18 UAT/Production promotion: **BLOCKED_OWNER — 111/112 are isolated-only and no broader authorization is implied**.
+- P18 isolated engineering baseline: **PASS — exact ledger 111/112 and hashes confirmed**.
+

@@ -9605,3 +9605,23 @@ Complete technical application surfaces that can be completed without external c
 
 **Updated status:** P17 Migration 110 application = PASS; P17 route runtime release gate = BLOCKED by policy predicate mismatch; no Production/UAT change authorized or performed.
 
+### 40.4 P20-C staging entity disposition — 23 November 2026
+
+| Staging entity type | Current typed promotion | Disposition |
+|---|---|---|
+| `port` | `port_external_id_crosswalk` | Candidate only; independent review remains required |
+| `port_geometry` | `port_geospatial_features` | Candidate only; independent review remains required |
+| `marine_forecast` | None | Remains staged; no time-series/forecast target contract approved |
+| `marine_warning` | None | Remains staged; no warning severity/expiry/retraction lifecycle approved |
+| `vessel_identity` | None | Remains staged; no canonical vessel identity crosswalk/review target approved |
+| `vessel_position` | None | Remains staged; no source/license/field-specific acceptance and position-review integration proven by current promotion endpoint |
+| `navigation_notice` | None | Remains staged; no jurisdiction/issuer/effective/expiry/supersession target lifecycle approved |
+| `other` | None | Remains staged/quarantined; no generic promotion allowed |
+
+- Migration 096 constrains the staging table to the eight listed entity types. The current promotion API creates candidates only for `port` and `port_geometry`; other accepted rows return `MARITIME_PROMOTION_TYPE_UNSUPPORTED`.
+- This behavior is intentionally preserved. A future entity-specific promotion must define an immutable raw-source snapshot, typed normalization, field-purpose permission checks, a rights expiry check, duplicate/external ID behavior, a candidate table with RLS/policies, independent reviewer lifecycle and a non-mutating canonical result.
+- A raw staging record being marked accepted means only that an administrator accepted the provider payload for further handling; it must not be treated as a canonical master-data approval or operational clearance.
+- The P17 ingestion UI only offers the promotion action for accepted `port` and `port_geometry` rows. No unsupported entity type should expose that action.
+- No new migration or source connector was added in P20 for these types; source licences and provider-specific semantics are not yet supplied/approved.
+
+**P20-C status:** PASS — existing two typed paths remain candidate-only and rights/maker-checker guarded; other six types fail closed and remain staging-only. Further entity promotion is deferred pending schema and owner source-policy decisions.

@@ -291,7 +291,7 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
   expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");
   expect(gate).toContain("const p17SchemaBackedRead=");
-  for(const readPath of ["buyer-visibility-grant-candidates","voyages","vessel-nominations","vessel-port-calls","loading-operations","vessel-positions","p17-control-tower"])expect(gate).toContain(readPath);
+  for(const readPath of ["buyer-visibility-grant-candidates","voyages","vessel-nominations","vessel-port-calls","loading-operations","advisory-screening","vessel-positions","p17-control-tower"])expect(gate).toContain(readPath);
   expect(gate).toContain("/api/v1/admin/p17-control-tower");
   expect(gate).toContain("migration_history");
   expect(gate).toContain("status='applied'");
@@ -423,6 +423,11 @@ describe("P17-G Project export control tower",()=>{
   expect(API).toContain("/advisory-screening");
   expect(API).toContain("operationalClearance:false");
   expect(API).toContain("plannedQuantityIsNotLoadedQuantity:true");
+  expect(API).toContain("verified_ticket_quantity");
+  expect(API).toContain("verified_unit_count<>1 OR a.unit<>t.verified_unit_code");
+  expect(API).toContain("pke_capability_status");
+  expect(API).toContain("aisPositionsAreLastKnownNotLive:true");
+  expect(API).toContain("operationalClearance:false");
   expect(readFileSync(join(ROOT,"frontend","src","MaritimeOperationsWorkspace.tsx"),"utf8")).toContain("Project Export Control Tower");
  });
 });

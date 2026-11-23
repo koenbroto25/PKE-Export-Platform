@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.52 — P18 scoped closure and P19 planning charter
+# Master Implementation Plan Rev2.53 — P19 baseline security assurance
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.52 (23 November 2026 — P18 scoped closure and P19 planning charter)  
+**Revision:** 2.53 (23 November 2026 — P19 baseline inventory and security assurance)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -9063,7 +9063,7 @@ The exact candidate migration is **not self-contained**. The role master seed an
 
 ### 33.1 Status and intent
 
-- **Phase status:** `PLANNING STARTED — SCOPE PROPOSED; IMPLEMENTATION NOT YET ACCEPTED`.
+- **Phase status:** `IMPLEMENTATION STARTED — P19-0 BASELINE INVENTORY COMPLETE; P19-2 STATIC SECURITY AUDIT COMPLETE; AUTOMATED ACCEPTANCE PENDING`.
 - P19 is the next proposed phase after P18. Rev2.51 did not define an official P19 name, scope, deliverables, migration plan, dependencies, or acceptance criteria. This section establishes a concrete planning baseline; it must not be misrepresented as a previously approved scope.
 - **Proposed objective:** raise the existing PKE application to a demonstrably controlled operational state by reconciling cross-domain workflows, authorization, auditability, document/workflow integrity, reliability and operational controls across the already-built P01–P18 domains.
 - P19 is not a deployment phase and does not depend on Vercel deployment or browser UAT under the current owner instruction.
@@ -9157,8 +9157,113 @@ P19 may not be marked `BUSINESS PRODUCTION READY` without real partner data vali
 ## 34. Living Execution Ledger — 23 November 2026 (Rev2.52)
 
 - **P18:** closed for scoped engineering acceptance based on CI run `45092073615`, 509 tests, 12 P18 contract tests, and isolated migration/RLS/lifecycle evidence. UAT/Production promotion is not authorized and remains deferred.
-- **P19:** planning charter established as proposed scope: Platform Operational Readiness & Cross-Domain Assurance. Implementation status remains NOT STARTED until baseline inventory and first acceptance matrix are completed.
+- **P19:** proposed scope Platform Operational Readiness & Cross-Domain Assurance is now under implementation. P19-0 baseline inventory and static P19-2 route/security audit are complete; automated execution and remaining cross-domain workstreams are pending.
 - **Branch:** `p19/operational-readiness-plan-20261123`, created from `p18/regulatory-core-20261123`. No merge to main.
 - **Vercel/browser UAT:** skipped by owner instruction.
 - **RAG/OCR/embeddings/retrieval/chatbot/Gemini:** deferred; not P18 or P19 acceptance blockers.
 - **Database:** no UAT/Production migration or business-data write performed as part of this revision.
+
+
+---
+
+# Rev2.53 — P19 baseline inventory and security assurance (23 November 2026)
+
+## 35. P19-0 baseline inventory and P19-2 static security audit
+
+### 35.1 Source and branch baseline
+
+- Active work branch: `p19/operational-readiness-plan-20261123`.
+- Base: `p18/regulatory-core-20261123`; compare against P18 reports 4 commits ahead / 0 behind at the first P19 implementation audit. P19 commits remain isolated; no merge to main.
+- Master Implementation Plan remains the only active project control document.
+- Source files inspected: `src/index.ts`, `src/auth.ts`, `src/demo/mode.ts`, `src/demo/routes.ts`, `frontend/src/App.tsx`, `frontend/src/api.ts`, `frontend/src/role-permissions.ts`, root `package.json`, runtime and route contract tests.
+- No schema migration or Production/UAT write was performed.
+
+### 35.2 API route inventory — FACT, static source inspection
+
+- `src/index.ts` contains 235 Express registrations: 103 GET, 77 POST, 49 PATCH, 2 PUT, 2 DELETE and 2 `/api/v1` middleware mounts.
+- All route registrations use the `/api/v1` prefix; no duplicate method/path handler was found by the static scan.
+- Global `requireAuth` middleware is registered before the transaction-scoped RLS middleware; both precede the business route registrations.
+- Four explicit pre-authentication exceptions were found and reviewed:
+  1. `GET /api/v1/health/live` — liveness only.
+  2. `GET /api/v1/health` — readiness/database health only.
+  3. `POST /api/v1/webhooks/neon-auth` — signed Neon Auth webhook verification; disabled with HTTP 503 unless explicitly enabled.
+  4. `GET /api/v1/admin/provisioning/status` — route-level `requireAuth` and `requireAdmin`.
+- Of 130 write-method registrations, one is the signed webhook exception; the remaining 129 are after the global auth and RLS middleware.
+- The route-by-route lexical review found explicit project permission, role, Admin, domain permission, self-recipient, or intentionally disabled/immutable behavior on every write route. Specific exception handling: notification mark-read is scoped by `recipient_user_id = req.user.id`; retired compliance-check and payment-instruction endpoints return 410; project role permission template mutation returns 409. This is a static code review, not a substitute for runtime authorization/RLS tests.
+
+### 35.3 Authentication and request transaction boundary — FACT, source inspection
+
+- Neon Auth token validation uses the configured issuer, EdDSA-only verification, finite unexpired `exp`, UUID subject validation, and the database identity resolver `resolve_pke_user_by_neon_auth_user_id`.
+- Resolved PKE identity carries active-account status; the RLS middleware rejects missing/inactive principals.
+- Admin MFA remains fail-closed: `mfaVerified` is false until a separate verified MFA flow exists; `requireAdminMfa` rejects requests without that proof.
+- Each authenticated API request starts a PostgreSQL transaction, sets transaction-local user/role context, and binds raw SQL/Drizzle to the same checked-out client. Successful responses commit; error/aborted responses roll back; finalization failure returns a generic 500 response.
+- Project permission helper resolves an active project-role assignment and sets transaction-local project, role, role-assignment and permission context before the protected operation.
+
+### 35.4 Manual Trial Mode isolation — FACT, source inspection
+
+- Manual Trial Mode rejects `NODE_ENV=production`, requires development/test mode and loopback host, and binds explicitly to `127.0.0.1`.
+- Demo API routes use a demo authentication middleware; the reset endpoint is separately authenticated.
+- Demo mode remains in-memory and skips Neon/PostgreSQL/Auth/storage/provider initialization. This does not constitute Production authorization evidence.
+
+### 35.5 Frontend route and API client inventory — FACT, static source inspection
+
+- `frontend/src/App.tsx` has 23 visible navigation destinations; all 23 have matching React Router routes.
+- Protected workspace routes use `RoleGuard` and page visibility is derived from `visiblePageKeys`.
+- Shared `frontend/src/api.ts` obtains the bearer token and attaches it to API requests. No database credential environment variable was found in the shared frontend API client.
+- This is route/navigation traceability only; each individual form/action still requires domain-level mapping and workflow acceptance.
+
+### 35.6 Production Neon read-only baseline — FACT, read-only catalog queries
+
+Target checked: project `purple-base-63944903`, Production branch `br-damp-shape-b3xlh4nr`, database `neondb`.
+
+- Migration history: 71 rows; maximum ID 71; latest `110_p17d_vessel_position_runtime_rls_fix.sql`. P18 migrations 111/112 remain absent from Production, as expected.
+- Public schema: 175 base tables; 173 have RLS enabled; 2 do not. The two without RLS are `pke_project_role_permission_allowlist` and `pke_project_role_policy`.
+- `app_runtime_secure` has no SELECT/INSERT/UPDATE/DELETE privileges on those two un-RLS-protected policy catalogue tables.
+- Runtime role check: `rolsuper=false`, `rolbypassrls=false`, `rolcreatedb=false`, `rolcreaterole=false`, and no membership in `neondb_owner`.
+- No direct table grants to `PUBLIC`, `anon`, or `authenticated` were returned for public base tables.
+- All 20 inspected critical tables (project membership, projects, inventory, cash advances, finance, shipment, documents, regulatory, voyages, warehouse and vessel positions) had RLS enabled and at least one policy. 82 public tables currently have FORCE RLS; absence of FORCE RLS on other tables is not itself a runtime bypass while the runtime role remains non-owner and has BYPASSRLS=false, but must remain part of the privilege audit.
+- Representative policies were project/permission scoped for inventory, finance, shipment, document, project membership, voyages and warehouse operations. Regulatory source/rule catalogs intentionally use verified/effective global catalogue read policies gated by regulatory/compliance permissions.
+
+### 35.7 Cross-phase security exception — P17 migration 110a
+
+- Production still has the legacy `vessel_tracking_positions.pke_scope_select` policy for `source_id IS NULL` using `pke_has_any_project_permission('vessel.position.view')`. This is a global legacy-read boundary, not project-scoped visibility.
+- P17 correction Migration 110a remains unapplied and requires its own exact-hash owner approval before Production execution. P19 must not conceal this as a passed P17/P19 cross-domain security gate.
+- This is a separate P17 Production blocker; it is not authority to write Production or alter the migration ledger.
+
+### 35.8 P19 automated assurance added — execution not yet evidenced
+
+- Added `src/p19-operational-assurance.contract.test.ts` covering route registration uniqueness/prefix, pre-auth exception allowlist, middleware ordering, transaction commit/rollback boundary, explicit authorization signals for write routes, Neon Auth JWT/identity controls, Admin MFA fail-closed behavior, notification self-scope, Manual Trial Mode isolation, frontend navigation-to-route coverage and shared API bearer-token handling.
+- Added this test to the root `npm test` command and added `npm run verify:p19-assurance`.
+- Current P19 implementation commit: `b4d91c0790e11f37b823104e8ddc5cf866baae04` (latest audit/test change at the time of this revision).
+- **Test execution status: NOT YET VERIFIED.** The new tests have not been executed in this session. No P19 workflow run was returned for the branch commit. A PR was not opened because that may trigger automatic Vercel Preview activity, which is explicitly skipped by owner instruction. Do not report the new tests as PASS until an approved non-Vercel CI execution is available.
+- Static lexical route assertions are guardrails against source drift, not proof that every permission helper or database policy is semantically correct.
+
+### 35.9 P19 acceptance matrix — current status
+
+| Work item | Evidence | Status |
+|---|---|---|
+| P19-0 source/branch baseline | Current P19 branch, source files and route inventory inspected | PASS — static |
+| API route topology | 235 registrations, no duplicate paths, two global middleware mounts | PASS — static |
+| Pre-auth exception review | Four reviewed exceptions | PASS — static |
+| Write-route authorization inventory | 129 post-middleware write routes; explicit permission/role/self-scope/disabled classification | PASS — static, runtime pending |
+| Authentication and RLS transaction source review | JWT, identity, active principal, transaction-local context and finalization inspected | PASS — static, runtime pending |
+| Frontend navigation traceability | 23/23 navigation destinations mapped to routes | PASS — static |
+| Production RLS/role catalog baseline | Read-only catalog and grants checks | PASS — read-only snapshot |
+| P17 110a cross-phase boundary | Legacy global AIS policy still present | BLOCKED — separate P17 owner approval/application |
+| P19 contract test execution | Added to npm test, not executed | PENDING |
+| Cross-domain journey matrix | Not yet completed for all business journeys | PENDING |
+| Workflow/document concurrency and failure-path review | Not yet complete | PENDING |
+| Reliability/observability/backup evidence review | Not yet complete | PENDING |
+| Full non-Vercel CI/build regression | Not yet run for P19 commit | PENDING |
+| Vercel deployment/browser UAT | Explicit owner exclusion | DEFERRED |
+
+### 35.10 Next P19 execution order
+
+1. Complete P19-1 critical journey traceability for supplier/PKS → procurement → inventory → truck → warehouse/port → shipment/voyage/loading → export documents/regulatory assessment → finance/reporting.
+2. Review every route's project scoping and the actual SQL predicates, not just the presence of a permission helper. Prioritize notification, buyer/supplier portal, cash advance, inventory movement, shipment allocation, P16 master data, P17 vessel position and P18 assessment boundaries.
+3. Review document upload/download authorization, object-key namespace, checksum verification, version immutability, expiry and evidence audit.
+4. Review maker-checker, optimistic concurrency/version checks, idempotency and transaction failure handling across critical workflows.
+5. Review logs for secret/error leakage, provider timeouts/degradation, health/readiness, graceful shutdown, backup/restore artifacts and migration recovery controls.
+6. Execute the new P19 tests and the full non-Vercel regression suite only through an approved route that does not trigger Vercel deployment/Preview. If no such CI path exists, record the gate as pending; do not invent a PASS.
+7. Keep Production/UAT read-only. No migration or data write without exact owner approval.
+

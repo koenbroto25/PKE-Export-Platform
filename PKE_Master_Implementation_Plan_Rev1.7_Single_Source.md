@@ -8913,3 +8913,14 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - Prior owner-approved SHA `9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6` was **not applied** because its SQL was invalid. It must not be represented as applied or passed.
 - The new candidate requires exact-hash approval before any further Neon execution. Production and original UAT remain untouched.
 - Static/CI and fresh-branch DB validation are pending for this corrected candidate. P18 remains NOT COMPLETE.
+
+
+### P18 PostgreSQL dollar-quote repair — Rev2.43 (2026-11-23)
+
+- The first failed clean-clone attempt revealed that the permission helper body was serialized with an invalid bare dollar delimiter. The failed transaction was confirmed rolled back (fresh validation branch still at migration 110; no officer role seed).
+- Corrected the helper to use the explicit valid PostgreSQL tagged delimiter `$p18$ ... $p18$`, avoiding ambiguity in the repository update path.
+- Added a regression assertion for the tagged delimiter.
+- New exact candidate SHA-256: `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904`.
+- The previously approved hash `9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6` remains unapplied and is superseded. No migration has been committed to the validation database.
+- Fresh validation branch remains `p18-validation-111-corrected-20261123` (`br-winter-butterfly-b3tnsao9`), parent UAT `br-young-boat-b3re832d`, database `neondb`.
+- Production and original UAT remain untouched. P18 remains NOT COMPLETE pending approval of this new exact hash, successful clean migration application, and full regression/CI evidence.

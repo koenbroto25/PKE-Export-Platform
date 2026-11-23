@@ -272,6 +272,23 @@ describe("P17 Buyer Portal server-derived visibility",()=>{
   expect(MAIN).toContain("g.scope IN ('summary','milestones')");
  });
 });
+describe("P17 authenticated route and Project-isolation contract",()=>{
+ it("authenticates every route, protects admin routes and scopes every Project route",()=>{
+  const chunks=API.split(/\\n(?=\\s*app\\.(?:get|post|put|patch|delete)\\()/);
+  const routes=chunks.filter(chunk=>/^\\s*app\\.(?:get|post|put|patch|delete)\\(/.test(chunk));
+  expect(routes.length).toBeGreaterThanOrEqual(58);
+  for(const route of routes){
+   const header=route.split("\\n")[0];
+   expect(route).toContain("requireAuth");
+   if(header.includes("/api/v1/admin/"))expect(route).toContain("requireAdmin");
+   if(header.includes("/api/v1/projects/:projectId/")){
+    expect(route).toMatch(/requireProject(?:Any)?Access/);
+    expect(route).toContain("project_id");
+   }
+  }
+ });
+});
+
 describe("P17 schema release safety gate",()=>{
  it("installs a pre-route middleware that blocks the P17 mutation surfaces",()=>{
   const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));

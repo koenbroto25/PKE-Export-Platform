@@ -282,6 +282,7 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("P17_AIS_PROJECT_SCOPE_BLOCKED");
   expect(gate).toContain("pke_has_project_permission");
   expect(gate).toContain("pke_has_any_project_permission");
+  expect(gate).toContain("app.current_project_id");
   expect(gate).toContain("vessel.position.review");
   for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics","scenarios","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin"]) expect(gate).toContain(fragment);
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");

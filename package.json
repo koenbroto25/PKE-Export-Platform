@@ -31,7 +31,8 @@
     "verify:migration-057": "node scripts/verify-migration-057-release-policy.mjs",
     "migration:p17:dry-run": "node scripts/apply-p17-migrations.mjs dry-run",
     "migration:p17:apply": "node scripts/apply-p17-migrations.mjs apply",
-    "migration:p17:verify": "node scripts/apply-p17-migrations.mjs verify"
+    "migration:p17:verify": "node scripts/apply-p17-migrations.mjs verify",
+    "verify:p17d-110a": "node scripts/verify-p17d-110a.mjs"
   },
   "keywords": [],
   "author": "",

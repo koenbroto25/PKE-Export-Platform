@@ -22,7 +22,7 @@
     {
       "ledger_id": 72,
       "filename": "111_p18_regulatory_core_governance.sql",
-      "sha256": "ba66ddbaa08b5ee8f59ab8be6f62e0393eb17b05e2590b302e8e27fb92e91bcd",
+      "sha256": "9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6",
       "status": "candidate_pending_owner_approval",
       "source_sha_verified": true,
       "production_applied": false

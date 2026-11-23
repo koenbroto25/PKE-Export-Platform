@@ -274,11 +274,11 @@ describe("P17 Buyer Portal server-derived visibility",()=>{
 });
 describe("P17 authenticated route and Project-isolation contract",()=>{
  it("authenticates every route, protects admin routes and scopes every Project route",()=>{
-  const chunks=API.split(/\\n(?=\\s*app\\.(?:get|post|put|patch|delete)\\()/);
-  const routes=chunks.filter(chunk=>/^\\s*app\\.(?:get|post|put|patch|delete)\\(/.test(chunk));
+  const chunks=API.split(/\n(?=\s*app\.(?:get|post|put|patch|delete)\()/);
+  const routes=chunks.filter(chunk=>/^\s*app\.(?:get|post|put|patch|delete)\(/.test(chunk));
   expect(routes.length).toBeGreaterThanOrEqual(58);
   for(const route of routes){
-   const header=route.split("\\n")[0];
+   const header=route.split("\n")[0];
    expect(route).toContain("requireAuth");
    if(header.includes("/api/v1/admin/"))expect(route).toContain("requireAdmin");
    if(header.includes("/api/v1/projects/:projectId/")){

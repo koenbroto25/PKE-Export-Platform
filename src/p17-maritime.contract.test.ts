@@ -12,6 +12,7 @@ const M106=readFileSync(join(ROOT,"migrations","106_p17d_vessel_position_observa
 const M107=readFileSync(join(ROOT,"migrations","107_p17e_loading_survey_reconciliation_laytime.sql"),"utf8");
 const M108=readFileSync(join(ROOT,"migrations","108_p17f_buyer_mapping_rls_recursion_fix.sql"),"utf8");
 const M109=readFileSync(join(ROOT,"migrations","109_p17f_buyer_self_read_rls_recursion_fix.sql"),"utf8");
+const M113=readFileSync(join(ROOT,"migrations","113_p17d_legacy_position_project_scope.sql"),"utf8");
 const ROLES=readFileSync(join(ROOT,"src","role-catalogue.ts"),"utf8");
 const SIM=readFileSync(join(ROOT,"migrations","101_p17b_logistics_simulation_graph.sql"),"utf8");
 const SOURCE_UI=readFileSync(join(ROOT,"frontend","src","MaritimeSourceRegistry.tsx"),"utf8");
@@ -276,7 +277,12 @@ describe("P17 schema release safety gate",()=>{
   const gate=API.slice(API.indexOf("const p17WriteReleaseGate"),API.indexOf("const {requireAuth"));
   expect(gate).toContain('app.use(p17WriteReleaseGate)');
   expect(gate).toContain('503,"P17_SCHEMA_RELEASE_BLOCKED"');
-  expect(gate).toContain("migrations 096-107");
+  expect(gate).toContain("migrations 096-110");
+  for(const migration of ["108_p17f_buyer_mapping_rls_recursion_fix.sql","109_p17f_buyer_self_read_rls_recursion_fix.sql","110_p17d_vessel_position_runtime_rls_fix.sql"]) expect(gate).toContain(migration);
+  expect(gate).toContain("P17_AIS_PROJECT_SCOPE_BLOCKED");
+  expect(gate).toContain("pke_has_project_permission");
+  expect(gate).toContain("pke_has_any_project_permission");
+  expect(gate).toContain("vessel.position.review");
   for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics","scenarios","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin"]) expect(gate).toContain(fragment);
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
   expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");
@@ -300,6 +306,18 @@ describe("P17 schema release safety gate",()=>{
  });
 });
 
+
+describe("P17-D legacy AIS Project-scope correction",()=>{
+ it("replaces the global legacy read policy with a current-Project permission check",()=>{
+  expect(M113).toContain("DROP POLICY IF EXISTS pke_scope_select");
+  expect(M113).toContain("source_id IS NULL");
+  expect(M113).toContain("app.current_project_id");
+  expect(M113).toContain("pke_has_project_permission");
+  expect(M113).not.toContain("pke_has_any_project_permission");
+  expect(M113).toContain("vessel.position.view");
+  expect(M113).toContain("COMMIT;");
+ });
+});
 
 describe("P17 migration atomicity",()=>{
  it.each([

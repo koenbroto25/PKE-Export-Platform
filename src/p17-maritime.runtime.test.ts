@@ -31,9 +31,11 @@ function makeHarness(){
  registerP17MaritimeRoutes(app,deps);
  const observation={id:positionId,source_id:"e5000000-0000-4000-8000-000000000005",vessel_id:"f6000000-0000-4000-8000-000000000006",vessel_name:"MV Test Vessel",mmsi:"123456789",latitude:1,longitude:2,observed_at:"2026-11-23T03:00:00.000Z",provider_code:"AIS_TEST",provider_reference:"ref-1",source_reference:"source-1",attribution_text:"test",source_quality:"fresh",created_by:"e7000000-0000-4000-8000-000000000007",created_at:"2026-11-23T03:00:00.000Z"};
  const queries:string[]=[];
+ const queryCalls:{sql:string;params:any[]}[]=[];
  let activeUserId:string|null=null;
  const db:any={query:async(sql:string,params:any[]=[] )=>{
   queries.push(sql);
+  queryCalls.push({sql,params});
   if(sql.includes("FROM public.migration_history"))return {rows:[{applied_count:16}]};
   if(sql.includes("p17d_vessel_position_admin_review_update"))return {rows:[{policy_count:5}]};
   if(sql.includes("p.polname='pke_scope_select'"))return {rows:[{safe_policy_count:1}]};
@@ -69,7 +71,7 @@ function makeHarness(){
   await dispatch(0);
   return {req,res};
  }
- return {invoke,queries};
+ return {invoke,queries,queryCalls};
 }
 const pendingUser={id:userId,projectId:projectA,permissions:["vessel.position.review"]};
 const queuePath="/api/v1/projects/:projectId/vessel-positions/review-queue";
@@ -88,7 +90,7 @@ describe("P17-D authenticated runtime API acceptance",()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,pendingUser,{projectId:projectA});
   expect(res.statusCode).toBe(200);expect(res.body.projectId).toBe(projectA);expect(res.body.observations).toHaveLength(1);
   expect(h.queries.some(q=>q.includes("g.project_id=$1::uuid"))).toBe(true);
-  expect(h.queries.some(q=>q.includes("110a_p17d_legacy_position_project_scope.sql"))).toBe(true);
+  expect(h.queries.some((q)=>q.includes("migration_history")&&queryCalls.some(call=>call.sql===q&&Array.isArray(call.params[0])&&call.params[0].includes("110a_p17d_legacy_position_project_scope.sql")))).toBe(true);
  });
  it("returns an empty queue for a different Project rather than leaking the first Project's observation",async()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,{...pendingUser,projectId:projectB},{projectId:projectB});

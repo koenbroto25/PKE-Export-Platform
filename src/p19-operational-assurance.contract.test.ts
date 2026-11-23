@@ -120,6 +120,17 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(AUTH_SRC).toContain("user?.isAdmin || !user.isActive");
   });
 
+  it("keeps notification creation aligned with the existing Project RLS insert policy", () => {
+    const start = INDEX_SRC.indexOf('app.post("/api/v1/notifications"');
+    const end = INDEX_SRC.indexOf('app.patch("/api/v1/notifications/:id/read"', start);
+    const notificationCreateRoute = INDEX_SRC.slice(start, end);
+    expect(notificationCreateRoute).toContain("PROJECT_SCOPE_REQUIRED");
+    expect(notificationCreateRoute).toContain('requireProjectPermission(req, res, scopedProjectId, "project.members.manage")');
+    expect(notificationCreateRoute).toContain("INSERT INTO user_notifications");
+    expect(notificationCreateRoute).toContain("recipient_user_id");
+    expect(notificationCreateRoute).not.toContain("notification_deliveries");
+  });
+
   it("keeps notification mutation restricted to the authenticated recipient", () => {
     const notificationRoute = INDEX_SRC.slice(
       INDEX_SRC.indexOf('app.patch("/api/v1/notifications/:id/read"'),

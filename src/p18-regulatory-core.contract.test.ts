@@ -50,6 +50,8 @@ describe("P18 regulatory core contracts",()=>{
   expect(migration).toContain("has_function_privilege('app_runtime_secure','public.p18_has_regulatory_permission(text)','EXECUTE')");
   expect(migration).toContain("regulatory compliance officer role seed missing");
   expect(migration).toContain("runtime helper EXECUTE grant missing");
+  expect(migration).toContain("AS $p18$");
+  expect(migration).toContain("$p18$;");
  });
  it("defines runtime RLS write policies and immutable review guards in migration 111",()=>{
   for(const token of ['reason_code text','p18_regulatory_assessment_review_guard','p18_regulatory_assessment_result_review_guard','p18_regulatory_sources_insert','p18_regulatory_rules_insert','p18_regulatory_rule_versions_insert','p18_export_document_types_insert','p18_country_document_requirements_insert','p18_country_requirement_verification_guard','p18_regulatory_rule_version_lifecycle_guard'])

@@ -327,10 +327,10 @@ describe("P17-D legacy AIS Project-scope correction",()=>{
 
 describe("P17 migration atomicity",()=>{
  it("wraps migration 110a in one explicit transaction",()=>{
-  expect(M110A.trimStart()).toMatch(/^--[\\s\\S]*?BEGIN;/);
+  expect(M110A.trimStart()).toMatch(/^--[\s\S]*?BEGIN;/);
   expect(M110A.trimEnd()).toMatch(/COMMIT;$/);
-  expect((M110A.match(/^BEGIN;\\s*$/gim)||[]).length).toBe(1);
-  expect((M110A.match(/^COMMIT;\\s*$/gim)||[]).length).toBe(1);
+  expect((M110A.match(/^BEGIN;\s*$/gim)||[]).length).toBe(1);
+  expect((M110A.match(/^COMMIT;\s*$/gim)||[]).length).toBe(1);
  });
  it.each([
   ["096",A],

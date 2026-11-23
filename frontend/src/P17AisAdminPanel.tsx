@@ -30,7 +30,7 @@ export default function P17AisAdminPanel({platformAdmin}:{platformAdmin:boolean}
   catch(e){setError(e instanceof Error?e.message:"Review ditolak oleh maker-checker atau rights guard.");}
   finally{setBusy(false);}
  }
- return <section className="card"><div className="panel-heading"><div><h3>P17-D · AIS ingestion & independent review</h3><p>Ingestion hanya untuk sumber berlisensi yang aktif, MMSI yang cocok dengan vessel master, payload ter-hash dan timestamp provider. Review harus oleh admin berbeda.</p></div><span>{rows.length} pending</span></div>
+ return <section className="card"><div className="panel-heading"><div><h3>P17-D · AIS ingestion & independent review</h3><p>Ingestion hanya untuk sumber berlisensi yang aktif, MMSI yang cocok dengan vessel master, payload ter-hash dan timestamp provider. Review harus oleh reviewer independen yang berbeda dari pembuat observasi.</p></div><span>{rows.length} pending</span></div>
  {error&&<div className="inline-warning" role="alert">{error}</div>}{notice&&<div className="inline-warning" role="status">{notice}</div>}
  <form className="form-grid" onSubmit={ingest}>
   <label>Source ID<input required value={form.sourceId} onChange={e=>change("sourceId",e.target.value)} placeholder="UUID AIS source aktif"/></label>

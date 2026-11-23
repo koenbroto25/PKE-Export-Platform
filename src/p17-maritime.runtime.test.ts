@@ -35,7 +35,7 @@ function makeHarness(){
  const db:any={query:async(sql:string,params:any[]=[] )=>{
   queries.push(sql);
   if(sql.includes("FROM public.migration_history"))return {rows:[{applied_count:15}]};
-  if(sql.includes("p17d_vessel_position_admin_review_update"))return {rows:[{policy_count:3}]};
+  if(sql.includes("p17d_vessel_position_admin_review_update"))return {rows:[{policy_count:5}]};
   if(sql.includes("p.polname='pke_scope_select'"))return {rows:[{safe_policy_count:1}]};
   if(sql.includes("pg_class")&&sql.includes("policy_count"))return {rows:[{found_count:40,unsafe_count:0}]};
   if(sql.includes("FROM public.permissions"))return {rows:[{permission_count:26}]};

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.53 — P19 baseline security assurance
+# Master Implementation Plan Rev2.54 — P19 notification RLS correction
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.53 (23 November 2026 — P19 baseline inventory and security assurance)  
+**Revision:** 2.54 (23 November 2026 — P19 notification RLS correction and route assurance)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -9234,7 +9234,7 @@ Target checked: project `purple-base-63944903`, Production branch `br-damp-shape
 
 - Added `src/p19-operational-assurance.contract.test.ts` covering route registration uniqueness/prefix, pre-auth exception allowlist, middleware ordering, transaction commit/rollback boundary, explicit authorization signals for write routes, Neon Auth JWT/identity controls, Admin MFA fail-closed behavior, notification self-scope, Manual Trial Mode isolation, frontend navigation-to-route coverage and shared API bearer-token handling.
 - Added this test to the root `npm test` command and added `npm run verify:p19-assurance`.
-- Current P19 implementation commit: `b4d91c0790e11f37b823104e8ddc5cf866baae04` (latest audit/test change at the time of this revision).
+- Current P19 implementation commits include notification route correction `bb4c4d4fa63586dd94eba592ef58c860671f207a`, recipient-scope hardening `30f5631c901f24df435733de2b963694008af4e`, contract coverage `762931afebd18ff6929d3d58b6f55949bc1e7791`, and subsequent source comment clarification `ed7da8cc6525cbf7dd60480df45dec07db8aceea`.
 - **Test execution status: NOT YET VERIFIED.** The new tests have not been executed in this session. No P19 workflow run was returned for the branch commit. A PR was not opened because that may trigger automatic Vercel Preview activity, which is explicitly skipped by owner instruction. Do not report the new tests as PASS until an approved non-Vercel CI execution is available.
 - Static lexical route assertions are guardrails against source drift, not proof that every permission helper or database policy is semantically correct.
 
@@ -9266,4 +9266,48 @@ Target checked: project `purple-base-63944903`, Production branch `br-damp-shape
 5. Review logs for secret/error leakage, provider timeouts/degradation, health/readiness, graceful shutdown, backup/restore artifacts and migration recovery controls.
 6. Execute the new P19 tests and the full non-Vercel regression suite only through an approved route that does not trigger Vercel deployment/Preview. If no such CI path exists, record the gate as pending; do not invent a PASS.
 7. Keep Production/UAT read-only. No migration or data write without exact owner approval.
+
+
+
+---
+
+# Rev2.54 — P19 notification RLS correction and route assurance (23 November 2026)
+
+## 36. P19-3 targeted notification workflow correction
+
+### 36.1 Confirmed defect — FACT, Production read-only inspection + source trace
+
+- Production `public.notification_deliveries` has RLS enabled and **zero policies**. The runtime role has SQL table privileges, but RLS with no matching policy denies runtime row access.
+- Production `public.user_notifications` has an INSERT policy for project managers requiring:
+  - `created_by = pke_current_user_id()`;
+  - non-null `project_id`;
+  - `pke_has_project_permission(project_id, 'project.members.manage')`;
+  - `pke_is_active_project_member(project_id, recipient_user_id)`.
+- The prior `POST /api/v1/notifications` handler permitted unscoped notifications, then inserted into `notification_deliveries`. Under the inspected Production RLS policy state, the delivery-ledger insert would be denied and the surrounding request transaction would roll back the preceding `user_notifications` insert.
+- The prior route also checked only `project_members.is_active` for non-self recipients; it did not mirror the active membership expiry/deactivation checks required by the RLS helper.
+
+### 36.2 Code correction committed on P19 branch
+
+- `POST /api/v1/notifications` now requires a valid UUID `projectId`; unscoped notification creation returns `PROJECT_SCOPE_REQUIRED`.
+- If a recipient is supplied, it must be a valid UUID or the route returns `INVALID_RECIPIENT`.
+- The sender must hold `project.members.manage` through the active project-role permission helper.
+- Every recipient, including the sender, must be an active project member with `is_active=true`, `deactivated_at IS NULL`, and no expired `expires_at`.
+- The route writes only to `user_notifications`, matching the existing Production RLS INSERT policy. It no longer inserts into `notification_deliveries`, which has no runtime write policy. No RLS policy was weakened or added.
+- In-app delivery remains represented by the recipient-visible `user_notifications` row. The separate delivery ledger remains untouched by this API route.
+
+### 36.3 Regression guard and validation status
+
+- Added a P19 contract assertion for mandatory Project scope, `project.members.manage`, valid recipient UUID, active membership expiry/deactivation checks, and absence of the RLS-blocked delivery-ledger INSERT.
+- The P19 contract test remains included in root `npm test` and `npm run verify:p19-assurance`.
+- A direct source-level simulation of the new static test conditions returned no failures: 235 route registrations; 129 post-auth/RLS write routes; four reviewed pre-auth exceptions; no duplicate handler; 23/23 navigation destinations mapped; no unclassified write route; notification route assertions satisfied.
+- **Actual Vitest/build/CI execution remains NOT VERIFIED.** Source-level simulation is not a Vitest pass. Do not mark P19 automated acceptance complete until a non-Vercel test execution is available.
+- No Neon SQL, migration, business data or runtime database write was performed. Production was queried read-only only.
+
+### 36.4 P19 status update
+
+- P19-0 baseline inventory: **COMPLETE — static source and read-only catalog baseline**.
+- P19-2 route/auth topology audit: **COMPLETE — static classification; runtime proof pending**.
+- P19-3 notification path: **CORRECTED IN CODE; automated execution pending**.
+- Remaining P19-1 critical journey matrix, P19-3 broader workflow/document lifecycle, P19-4 reliability controls, and P19-5 full non-Vercel regression remain open.
+- P17 Production Migration 110a remains a separate cross-phase security gate. It is not fixed or applied by P19 work.
 

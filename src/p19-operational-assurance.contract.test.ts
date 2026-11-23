@@ -87,6 +87,9 @@ describe("P19 operational assurance: API security boundary", () => {
     expect(INDEX_SRC).toContain("P16_DOCUMENT_SCOPE_SCHEMA_BLOCKED");
     expect(INDEX_SRC).toContain("FUNDER_SHARE_SCHEMA_BLOCKED");
     expect(INDEX_SRC).toContain("P18_REGULATORY_SCHEMA_BLOCKED");
+    expect(INDEX_SRC).toContain("storage");
+    expect(INDEX_SRC).toContain("presigned-(?:upload|download)");
+    expect(INDEX_SRC).toContain("country-document-requirements");
     expect(INDEX_SRC).toContain("phaseSchemaObjectsReady");
     expect(INDEX_SRC).toContain("pg_policies");
     expect(INDEX_SRC).toContain("pg_proc");

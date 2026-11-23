@@ -292,6 +292,13 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("pke_guard_project_role_code_policy");
   expect(gate).toContain("P17_PERMISSION_GUARD_BLOCKED");
   expect(gate).toContain("P17_ROLE_GUARD_BLOCKED");
+  expect(gate).toContain("p17d_vessel_position_admin_pending_select");
+  expect(gate).toContain("p17d_vessel_position_admin_review_update");
+  expect(gate).toContain("p17d_vessel_position_project_review_select");
+  expect(gate).toContain("P17_LEGACY_POSITION_SCOPE_BLOCKED");
+  expect(gate).toContain("pke_has_any_project_permission");
+  expect(gate).toContain("source_id IS NULL");
+  expect(gate).toContain("app.current_project_id");
   expect(gate).not.toContain("FROM public.migration_history");
   expect(gate).not.toContain("FROM public.pke_project_role_permission_allowlist");
   expect(gate).toContain("if(!protectedPath)return next()");

@@ -8902,3 +8902,14 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - Opened PR #3 for CI review; it remains unmerged. The latest commit has no GitHub Actions workflow run/status surfaced by the connected GitHub interface. The previously successful run 45056977116 (506 tests) predates this correction and is not counted as a current pass. Vercel's automatic check is pending and is intentionally not used as a release gate because deployment is excluded.
 - Therefore the full Vitest/build CI and clean database application/backtests are still not evidenced. Do not label P18 complete yet.
 - Next mandatory action: after owner approval of the exact corrected SHA above, create a clean validation copy from UAT migration 110, apply the migration with no manual prerequisites, and execute SQL/RLS/runtime/maker-checker/API regression checks. Keep Production untouched.
+
+
+### P18 corrected SQL parser defect — Rev2.42 (2026-11-23)
+
+- A clean validation attempt was started on fresh Neon clone `p18-validation-111-corrected-20261123` from UAT migration 110.
+- The first transactional execution attempt failed before commit: helper function `p18_has_regulatory_permission(text)` had an invalid bare `AS $` / `$;` body delimiter. Neon rolled back the transaction; validation branch still has 110 migrations, no migration 111 row, and no manually seeded officer role. No persistent migration changes remain.
+- Corrected the helper to use valid PostgreSQL dollar quoting (`AS $$ ... $$;`). This changes the candidate SQL bytes and therefore the release checksum again.
+- New candidate SHA-256: `9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6`.
+- Prior owner-approved SHA `9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6` was **not applied** because its SQL was invalid. It must not be represented as applied or passed.
+- The new candidate requires exact-hash approval before any further Neon execution. Production and original UAT remain untouched.
+- Static/CI and fresh-branch DB validation are pending for this corrected candidate. P18 remains NOT COMPLETE.

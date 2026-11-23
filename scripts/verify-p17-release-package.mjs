@@ -85,7 +85,7 @@ for (let i = 0; i < release.migrations.length; i++) {
 }
 const ais=uat.entries.find(x=>x.filename==="110_p17d_vessel_position_runtime_rls_fix.sql");
 if (!ais || ais.sha256!==hashFile("110_p17d_vessel_position_runtime_rls_fix.sql")) fail("UAT AIS runtime RLS corrective migration 110 hash mismatch.");
-for (const guard of ["pg_advisory_lock(424242)","LIVE VERIFY PASS","P17 096-109 are already applied","P17 096-109 applied at IDs 57-70","Current Production ledger manifest 001-071 is missing or invalid."]) {
+for (const guard of ["pg_advisory_lock(424242)","LIVE VERIFY PASS","P17 096-109 and Migration 110 are already applied","P17 096-109 applied at IDs 57-70","Current Production ledger manifest 001-071 is missing or invalid."]) {
   if (!runner.includes(guard)) fail("P17 release verifier missing required guard: "+guard);
 }
 if (!process.exitCode) console.log("P17 release package PASS: Production ledger 001-071, pre-release baseline 001-056, UAT 001-110, P17 096-109 exact hashes and Production-applied migration 110 verified.");

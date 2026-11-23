@@ -73,7 +73,7 @@ describe("P19 operational assurance: API security boundary", () => {
   it("mounts the P17 route module after global auth/RLS and its release gate before P17 handlers", () => {
     const p17Mount = INDEX_SRC.indexOf("registerP17MaritimeRoutes(app");
     const releaseGateMount = P17_SRC.indexOf("app.use(p17WriteReleaseGate)");
-    const firstP17Handler = P17_SRC.search(/app\\.(get|post|put|patch|delete)\\s*\\(/i);
+    const firstP17Handler = P17_SRC.search(/app\.(get|post|put|patch|delete)\s*\(/i);
     expect(p17Mount).toBeGreaterThan(rlsMount);
     expect(releaseGateMount).toBeGreaterThan(0);
     expect(firstP17Handler).toBeGreaterThan(releaseGateMount);

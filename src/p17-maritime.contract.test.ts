@@ -303,6 +303,7 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("P17_AIS_REVIEW_READ_BLOCKED");
   expect(gate).toContain("p17d_vessel_position_admin_pending_select");
   expect(gate).toContain("p17d_vessel_position_project_review_select");
+  expect(gate).toContain("p17d_vessel_position_admin_review_update");
   expect(gate).toContain("vessel.position.review");
   for(const permission of ["documents.view","workflow.view","port.view","shipping.update","shipping.view","vessel.nominate","vessel.nomination.review","vessel.port_call.confirm","vessel.port_call.manage","vessel.position.view","vessel.view","voyage.create","voyage.update","voyage.view"]) expect(gate).toContain(permission);
   expect(gate).toContain("terminal_representative");
@@ -343,6 +344,7 @@ describe("P17-D legacy AIS Project-scope correction",()=>{
   expect(M110A).toContain("vessel.position.view");
   expect(M110A).toContain("p17d_vessel_position_admin_pending_select");
   expect(M110A).toContain("p17d_vessel_position_project_review_select");
+  expect(M110A).toContain("p17d_vessel_position_admin_review_update");
   expect(M110A).toContain("vessel.position.review");
   expect(M110A).toContain("COMMIT;");
  });

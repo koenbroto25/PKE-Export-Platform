@@ -90,7 +90,7 @@ describe("P17-D authenticated runtime API acceptance",()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,pendingUser,{projectId:projectA});
   expect(res.statusCode).toBe(200);expect(res.body.projectId).toBe(projectA);expect(res.body.observations).toHaveLength(1);
   expect(h.queries.some(q=>q.includes("g.project_id=$1::uuid"))).toBe(true);
-  expect(h.queries.some((q)=>q.includes("migration_history")&&queryCalls.some(call=>call.sql===q&&Array.isArray(call.params[0])&&call.params[0].includes("110a_p17d_legacy_position_project_scope.sql")))).toBe(true);
+  expect(h.queryCalls.some(call=>call.sql.includes("migration_history")&&Array.isArray(call.params[0])&&call.params[0].includes("110a_p17d_legacy_position_project_scope.sql"))).toBe(true);
  });
  it("returns an empty queue for a different Project rather than leaking the first Project's observation",async()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,{...pendingUser,projectId:projectB},{projectId:projectB});

@@ -33,7 +33,7 @@
     {
       "ledger_id": 73,
       "filename": "112_p18_regulatory_rule_lifecycle_compatibility.sql",
-      "sha256": "86f27d5ab23c0fc59c81bcd45cf671161d700a0704a7221829d977e60cd8a40e",
+      "sha256": "00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21",
       "status": "candidate_pending_exact_hash_approval",
       "source_sha_verified": true,
       "production_applied": false,
@@ -62,6 +62,6 @@
     "automated_unit_tests": "passed on commit 1647a764af6c2fb50beb6e65a591e1b278fc1905; GitHub Actions run 45089913288 success; 49 test files / 509 tests; P1/P17/P18 release verifiers; P17 migration dry-run; backend build/API typecheck; frontend typecheck/build",
     "api_ui_integration_regression": "pending",
     "production_rls_backtest": "not run; Production must remain untouched until separate release authorization",
-    "rule_lifecycle_compatibility": "static contracts and full CI passed; database application/backtests pending exact SHA owner approval"
+    "rule_lifecycle_compatibility": "initial approved-hash attempt safely rolled back before any persistent change because static trigger-name assertion did not match existing trigger names; candidate corrected and repinned; awaiting fresh exact-hash approval"
   }
 }

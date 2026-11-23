@@ -20,7 +20,7 @@ describe("P18 regulatory core contracts",()=>{
   expect(api).toContain('WHERE s.id=$1::uuid AND s.project_id=$2::uuid');
   expect(api).toContain('destination_port_verification_status!=="verified"');
   expect(api).toContain('REGULATORY_DESTINATION_UNRESOLVED');
-  expect(api).toContain('r.jurisdiction IN ($1,\'GLOBAL\')');
+  expect(api).toContain('r.jurisdiction IN ($1,\\'GLOBAL\\')');
  });
  it("loads only effective rules backed by verified sources and active dates",()=>{
   expect(api).toContain("r.status='effective' AND v.status='effective'");
@@ -68,21 +68,6 @@ describe("P18 regulatory core contracts",()=>{
   expect(lifecycleMigration).toContain("NEW.approved_by IS NOT DISTINCT FROM OLD.created_by");
   expect(lifecycleMigration).toContain("src.official_url !~* '^https://'");
   expect(lifecycleMigration).toContain("COALESCE(src.source_hash,'') !~* '^[0-9a-f]{64}$'");
-  expect(roles).toContain('regulatory_compliance_officer');
-  for(const permission of ['regulatory.source.manage','regulatory.rule.manage','regulatory.rule.version.create','regulatory.document.manage','compliance.assess'])
-   expect(roles).toContain(permission);
- });
- it("mounts a permission-aware Regulatory Core workspace with source, rules, catalog and human review",()=>{
-  expect(app).toContain('RegulatoryCoreWorkspace');
-  for(const token of ['Regulatory Source Registry','Regulatory Rules & Version Lifecycle','Export Document Catalog & Country Requirements','Detail / review'])
-   expect(ui).toContain(token);
- });
- it("keeps RAG ingestion, embeddings and chatbot outside the active UI",()=>{
-  expect(ui).toContain('RAG dan chatbot tidak termasuk');
-  expect(ui).not.toContain('Gemini chat');
- });
-});
-");
  });
  it("sets the selected approved version pointer before promoting a parent rule",()=>{
   expect(api).toContain("active_version_id=CASE WHEN EXISTS(SELECT 1 FROM public.regulatory_rule_versions av WHERE av.id=active_version_id AND av.status='effective') THEN active_version_id ELSE $2::uuid END");

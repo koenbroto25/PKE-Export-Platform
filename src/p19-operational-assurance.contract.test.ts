@@ -132,8 +132,8 @@ describe("P19 operational assurance: identity and demo isolation", () => {
 
 describe("P19 operational assurance: frontend-to-API boundary", () => {
   it("keeps every visible navigation destination backed by a registered guarded route", () => {
-    const navPaths = [...FRONTEND_APP_SRC.matchAll(/\\{\\s*to:\\s*["']([^"']+)["'],\\s*key:/g)].map((match) => match[1]);
-    const routePaths = [...FRONTEND_APP_SRC.matchAll(/<Route\\s+path=["']([^"']+)["']/g)].map((match) => match[1]);
+    const navPaths = [...FRONTEND_APP_SRC.matchAll(/\{\s*to:\\s*["']([^"']+)["'],\\s*key:/g)].map((match) => match[1]);
+    const routePaths = [...FRONTEND_APP_SRC.matchAll(/<Route\s+path=["']([^"']+)["']/g)].map((match) => match[1]);
     expect(navPaths.length).toBeGreaterThanOrEqual(20);
     expect(new Set(navPaths).size).toBe(navPaths.length);
     expect(navPaths.every((path) => routePaths.includes(path))).toBe(true);

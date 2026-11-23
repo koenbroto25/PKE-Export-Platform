@@ -8992,3 +8992,12 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - Migration 112 candidate SHA is pinned and independently emitted by CI: `86f27d5ab23c0fc59c81bcd45cf671161d700a0704a7221829d977e60cd8a40e`. It remains unapplied and owner approval is pending.
 - Next gate is exact-hash approval for Migration 112, limited to the existing isolated validation branch. After approval: apply atomically, backtest Regulatory Compliance Officer rule lifecycle and non-admin maker-checker, rejection, verified source provenance, version activation/supersession, RLS and rollback. Then rerun full CI.
 - No Production or original-UAT writes have occurred. Production migration 111/112 remain separately unauthorized. RAG/chatbot, Vercel deployment and P19 remain excluded.
+
+
+### Migration 112 trigger assertion correction — Rev2.48 (2026-11-23)
+
+- Owner approval was received for Migration 112 hash `86f27d5ab23c0fc59c81bcd45cf671161d700a0704a7221829d977e60cd8a40e`, but the isolated application transaction rolled back atomically before any persistent change. The migration's final assertion used unprefixed trigger names, while the actual legacy triggers are `trg_pke_regulatory_rule_guard` and `trg_pke_regulatory_rule_version_guard`.
+- Baseline after rollback remains Migration 111 (ledger count 111, latest ID 111); no Migration 112 ledger row. No Production or original-UAT writes.
+- Corrected the two assertion names and re-pinned Migration 112 to SHA-256 `00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21`.
+- The earlier approval is superseded because the SQL bytes changed. The corrected candidate has not been applied and requires fresh exact-hash approval after CI verifies the corrected source.
+- P18 remains NOT COMPLETE. Next steps: verify corrected candidate CI, obtain approval for the new exact hash, apply only to isolated validation, and rerun lifecycle/RLS/maker-checker acceptance.

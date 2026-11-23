@@ -3493,6 +3493,11 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
       [projectRequirementId, projectId],
     );
     if (reqRows.length === 0) return res.status(404).json({ error: "Project document requirement not found." });
+    const existingObject = await req.db.query(
+      "SELECT id FROM public.project_export_documents WHERE project_id=$1::uuid AND object_key=$2 LIMIT 1",
+      [projectId, key],
+    );
+    if (existingObject.rows.length) return res.status(409).json({ error: "This object key is already registered to a Project document.", code: "DOCUMENT_OBJECT_KEY_ALREADY_REGISTERED" });
     const { rows: versionRows } = await req.db.query(
       "SELECT COALESCE(MAX(version_no),0)+1 AS next_version FROM project_export_documents WHERE project_requirement_id=$1::uuid",
       [projectRequirementId],
@@ -3603,6 +3608,11 @@ app.post("/api/v1/storage/presigned-upload", requireAuth, async (req: express.Re
       [requirementId, projectId],
     );
     if (!requirement.rows.length) return res.status(404).json({ error: "Project document requirement not found." });
+    const existingObject = await req.db.query(
+      "SELECT id FROM public.project_export_documents WHERE project_id=$1::uuid AND object_key=$2 LIMIT 1",
+      [projectId, key],
+    );
+    if (existingObject.rows.length) return res.status(409).json({ error: "This object key is already registered to a Project document.", code: "DOCUMENT_OBJECT_KEY_ALREADY_REGISTERED" });
     const upload = await privateStorage.presignedUpload(key, mimeType, contentLength);
     return res.json({ upload });
   } catch {

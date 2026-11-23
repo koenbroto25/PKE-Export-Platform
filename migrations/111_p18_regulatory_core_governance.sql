@@ -40,9 +40,9 @@ WHERE p.code IN ('project.view','documents.view','shipment.view','shipping.view'
 ON CONFLICT(role_code,permission_code) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.p18_has_regulatory_permission(permission_code text)
-RETURNS boolean LANGUAGE sql STABLE AS $
+RETURNS boolean LANGUAGE sql STABLE AS $p18$
   SELECT public.pke_is_platform_admin() OR public.pke_has_any_project_permission(permission_code)
-$;
+$p18$;
 
 GRANT EXECUTE ON FUNCTION public.p18_has_regulatory_permission(text) TO app_runtime_secure;
 

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.40 — P18 migration 111 correction and acceptance validation
+# Master Implementation Plan Rev2.52 — P18 scoped closure and P19 planning charter
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.40 (23 November 2026 — P18 migration 111 self-contained correction and validation)  
+**Revision:** 2.52 (23 November 2026 — P18 scoped closure and P19 planning charter)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -9028,3 +9028,137 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - Isolated database checks passed: Migration 111 and 112 ledger/checksum; 13 P18 policies/trigger/function governance baseline from Migration 111; Migration 112 legacy trigger replacement; no-identity/PM deny and Platform Admin allow from prior RLS acceptance; rollback-only full rule/version approve/effective/reject transitions; source self-verification blocked; rule-version maker self-approval blocked; independent reviewer accepted; non-admin project member with temporary Regulatory Compliance Officer role received only allowlisted regulatory permissions and was denied unrelated finance payment execution.
 - All temporary source/rule/version/role/permission/assignment fixtures were rolled back. Final branch check: isolated validation branch has exactly 112 migration rows and no P18 test fixture residue; original UAT remains at 110 with zero P18 migration rows; Production remains at 71 with zero P18 migration rows.
 - Scoped P18 implementation and isolated-database acceptance are complete. Live hosted API smoke/deployment is intentionally not claimed because Vercel deployment was expressly excluded; no Production or original-UAT deployment/application is authorized. RAG ingestion/data, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini and P19 remain excluded.
+
+
+---
+
+# Rev2.52 — P18 scoped closure and P19 planning charter (23 November 2026)
+
+## 32.x P18 closure decision — SCOPED ENGINEERING COMPLETE
+
+**Status keputusan:** P18 ditutup untuk ruang lingkup engineering dan isolated acceptance. Status ini tidak menyatakan P18 sudah dipromosikan ke UAT/Production atau siap live operation.
+
+### Bukti penutupan P18
+
+- Final GitHub Actions run: `45092073615`, commit `718704f84029648a10d3e7ad62cea8d8136feada`, SUCCESS.
+- CI: 49 test files / 509 tests; P1/P17/P18 release verifiers; P17 migration dry-run; backend build/API typecheck; frontend typecheck/build.
+- P18 API/UI contract suite: 12/12 PASS.
+- Isolated Neon validation branch: `br-winter-butterfly-b3tnsao9`, ledger 112; Migration 111 and 112 checksums verified; lifecycle, maker-checker, least-privilege officer permission, RLS and rollback-only fixture checks passed.
+- Original UAT branch `br-young-boat-b3re832d` remains at migration 110. Production branch `br-damp-shape-b3xlh4nr` remains at migration 71. No P18 migration 111/112 rows exist on either target.
+- No synthetic business fixtures remain from isolated tests.
+
+### P18 residual gates — explicitly outside scoped engineering closure
+
+1. Promotion of Migration 111 and 112 to original UAT requires a separate owner approval naming both exact migration hashes and target branch. Neither the isolated-validation approvals nor this closure entry authorizes UAT/Production writes.
+2. Production application requires its own explicit approval, exact SQL/hash review, preflight, and controlled execution. Do not infer authorization from P18 closure.
+3. Hosted API/live smoke and browser UAT remain skipped under the current owner instruction to skip Vercel-related work. Do not claim hosted runtime acceptance.
+4. P17 migration 110a remains a separate P17 Production gate; it is not reopened as a P18 engineering blocker.
+5. RAG document collection/processing, OCR/chunking, embeddings/vector indexing, Neon RAG ingestion, retrieval, regulatory chatbot and Gemini integration remain deferred and are not P18 closure blockers.
+
+**Final P18 status:** `CLOSED — SCOPED ENGINEERING ACCEPTANCE PASS; UAT/PRODUCTION PROMOTION DEFERRED`.
+
+---
+
+## 33. P19 — Platform Operational Readiness & Cross-Domain Assurance (DESIGN PROPOSED)
+
+### 33.1 Status and intent
+
+- **Phase status:** `PLANNING STARTED — SCOPE PROPOSED; IMPLEMENTATION NOT YET ACCEPTED`.
+- P19 is the next proposed phase after P18. Rev2.51 did not define an official P19 name, scope, deliverables, migration plan, dependencies, or acceptance criteria. This section establishes a concrete planning baseline; it must not be misrepresented as a previously approved scope.
+- **Proposed objective:** raise the existing PKE application to a demonstrably controlled operational state by reconciling cross-domain workflows, authorization, auditability, document/workflow integrity, reliability and operational controls across the already-built P01–P18 domains.
+- P19 is not a deployment phase and does not depend on Vercel deployment or browser UAT under the current owner instruction.
+
+### 33.2 Scope proposal
+
+**Workstream A — Cross-domain workflow integrity**
+- Trace business-critical journeys end-to-end across supplier/facility/product master, procurement, stock lots, truck movements, port/warehouse, shipment/voyage, export documents, finance and Regulatory Core.
+- Verify state transitions, quantity/lot provenance, project boundaries, idempotency, concurrency and failure recovery at service/API boundaries.
+- Identify duplicate routes, disconnected UI actions, stale contracts and domain ownership conflicts; repair code and tests in the same workstream where safe.
+
+**Workstream B — Identity, authorization and audit assurance**
+- Build a route-by-route authorization inventory and prove authentication, project membership, role/permission checks and RLS boundaries for every write-capable endpoint.
+- Verify maker-checker separation for critical approvals, actor attribution, immutable audit history and least-privilege grants.
+- Check that frontend visibility is consistent with backend authorization; backend remains the security authority.
+
+**Workstream C — Document and workflow controls**
+- Verify document metadata, versioning, checksum/evidence snapshots, access scope, lifecycle transitions and linkage to shipment/compliance workflows.
+- Test workflow obligations, review queues, independent approvals/rejections, and audit trail consistency.
+- Do not add RAG indexing, OCR pipelines, vector retrieval or chatbot behavior in P19.
+
+**Workstream D — Reliability and operational safeguards**
+- Review structured logs, actionable error handling, health/readiness diagnostics, timeout/retry/idempotency behavior and safe degradation when external providers are unavailable.
+- Review backup/restore evidence, migration recovery procedures, data retention and incident/runbook requirements. Do not claim backup/restore tested unless an actual permitted test artifact exists.
+- Review secrets/configuration boundaries and ensure credentials never reach frontend bundles or logs.
+
+**Workstream E — Release evidence and acceptance automation**
+- Consolidate deterministic release verifiers and regression tests for the above workstreams.
+- Produce a phase acceptance matrix in this master document linking each requirement to code, test, evidence and status.
+- Keep static/mock evidence distinct from real database/RLS/provider evidence. Mark unavailable live checks BLOCKED rather than treating mocks as proof.
+
+### 33.3 Explicit exclusions and constraints
+
+- Vercel deployment, Preview/Production deployment, Vercel retries, hosted deployment validation and browser UAT: **SKIPPED by owner instruction**.
+- RAG corpus sourcing, document collection, OCR, chunking, embeddings, vector indexes, Neon RAG ingestion, retrieval, regulatory chatbot and Gemini integration: **DEFERRED**.
+- No production business data seeding or synthetic business records.
+- No Neon branch creation, local/Docker database, alternate database or test database. Follow the permanent single-project/single-branch Production rule in Sections 2.2–2.3; do not use isolated P18 validation branch as a new test target.
+- No Production/UAT schema migration or data mutation without explicit owner approval for the exact target and exact SQL/hash.
+- No merge to main without explicit owner instruction. Work on the dedicated P19 branch.
+- Do not declare Application Complete or Business Production Ready while mandatory live/deployment gates are unavailable or deferred.
+
+### 33.4 Dependency and execution order
+
+1. **P19-0 — Baseline inventory:** freeze the accepted P18 baseline; inspect current branch/source tree, route inventory, schema mapping and current CI evidence. Record drift rather than assuming the previous snapshot remains current.
+2. **P19-1 — Critical journey traceability:** map critical business journeys and their source-of-truth tables, APIs, UI surfaces, permissions and audit events.
+3. **P19-2 — Security and authorization assurance:** complete route-by-route auth/RLS/permission review; fix gaps and add regression tests.
+4. **P19-3 — Workflow/document integrity:** validate lifecycle, versioning, approval, rejection, evidence and cross-domain links.
+5. **P19-4 — Reliability controls:** implement safe error handling, idempotency, diagnostics, provider degradation and operational safeguards.
+6. **P19-5 — Regression and release evidence:** run complete non-deployment CI, deterministic verifiers and permitted read-only database checks; reconcile all failures.
+7. **P19-6 — Closure audit:** publish pass/fail/deferred status in this master document. Do not close P19 with unresolved S1/S2 defects or unsupported claims.
+
+### 33.5 Acceptance criteria
+
+P19 may be marked `ENGINEERING ACCEPTANCE COMPLETE` only when all applicable criteria pass:
+
+- Every in-scope critical journey has requirement → API/service → schema → permission/RLS → UI → test traceability.
+- All write-capable API routes have explicit authentication and authorization coverage; no unexplained unauthenticated write path remains.
+- Cross-project/unauthorized access tests deny access; authorized roles receive only intended permissions.
+- Critical maker-checker flows prevent self-approval and preserve actor/timestamp/evidence attribution.
+- Document and workflow lifecycle transitions are deterministic, version-safe and auditable.
+- Idempotency, concurrency and failure-path tests cover critical operations where applicable.
+- Frontend typecheck/build and backend typecheck/build pass; full relevant automated test suite and release verifiers pass.
+- No S1/S2 code/security blocker remains in the P19 scope.
+- Database evidence is read-only or uses only explicitly authorized, rollback-safe procedures on the permitted target; no test fixture residue remains.
+- Every unavailable live/provider/deployment check is explicitly listed as deferred/blocked and is not falsely counted as passed.
+
+P19 may not be marked `BUSINESS PRODUCTION READY` without real partner data validation, authorized user acceptance, legal/accounting sign-off where required, tested backup/restore and explicit owner go-live approval.
+
+### 33.6 First execution tasks
+
+- Verify current P18 branch head and current P19 branch head; ensure no unrelated changes are overwritten.
+- Inventory backend route registration and middleware coverage; classify read/write/critical routes.
+- Inventory frontend pages/actions and map them to backend endpoints.
+- Reconcile existing migrations and schema references without creating a new migration.
+- Create the first P19 acceptance matrix and implement the highest-risk confirmed gaps in the same branch.
+- Run the available non-Vercel CI checks and record exact run IDs/commit SHAs here.
+
+### 33.7 P19 initial risk register
+
+| Risk | Control |
+|---|---|
+| Historical documentation overstates live acceptance | Re-verify source, CI and database state; label evidence by type/date |
+| Authorization gap hidden by UI-only restrictions | Test backend auth and RLS independently |
+| Cross-domain workflow inconsistency | Trace source-of-truth and state transitions end-to-end |
+| Production change accidentally inferred from phase closure | Require exact target/hash owner approval for every migration |
+| Vercel quota causes false phase failure | Keep deployment/browser UAT excluded and clearly deferred |
+| Deferred RAG scope leaks into P19 | Enforce explicit exclusions in 33.3 |
+
+---
+
+## 34. Living Execution Ledger — 23 November 2026 (Rev2.52)
+
+- **P18:** closed for scoped engineering acceptance based on CI run `45092073615`, 509 tests, 12 P18 contract tests, and isolated migration/RLS/lifecycle evidence. UAT/Production promotion is not authorized and remains deferred.
+- **P19:** planning charter established as proposed scope: Platform Operational Readiness & Cross-Domain Assurance. Implementation status remains NOT STARTED until baseline inventory and first acceptance matrix are completed.
+- **Branch:** `p19/operational-readiness-plan-20261123`, created from `p18/regulatory-core-20261123`. No merge to main.
+- **Vercel/browser UAT:** skipped by owner instruction.
+- **RAG/OCR/embeddings/retrieval/chatbot/Gemini:** deferred; not P18 or P19 acceptance blockers.
+- **Database:** no UAT/Production migration or business-data write performed as part of this revision.

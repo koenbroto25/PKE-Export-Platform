@@ -909,6 +909,8 @@ app.get("/api/v1/projects/:projectId/product-requirements", requireAuth, async (
     return res.json({
       requirements: rows,
       products,
+      canCreate: permissions[0]?.can_create === true,
+      canUpdate: permissions[0]?.can_update === true,
       canManage: permissions[0]?.can_create === true || permissions[0]?.can_update === true,
       canApprove: false,
     });

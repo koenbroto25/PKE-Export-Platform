@@ -81,6 +81,16 @@ if (manualTrialMode.enabled) {
 // ============================================
 // Logging setup (Winston)
 // ============================================
+function safeErrorMetadata(error: unknown): { errorType: string; errorCode: string } {
+  const candidate = error && typeof error === "object"
+    ? error as { name?: unknown; code?: unknown }
+    : {};
+  return {
+    errorType: typeof candidate.name === "string" ? candidate.name : "UnknownError",
+    errorCode: typeof candidate.code === "string" ? candidate.code : "UNKNOWN",
+  };
+}
+
 const logger = winston.createLogger({
   level: "info",
   format: winston.format.combine(
@@ -351,7 +361,7 @@ app.use("/api/v1", async (req: express.Request, res: express.Response, next: exp
       }
       client.release();
     }
-    logger.error("Unable to establish request-scoped RLS transaction:", error);
+    logger.error("Unable to establish request-scoped RLS transaction:", safeErrorMetadata(error));
     return res.status(503).json({
       error: "Database request context is temporarily unavailable.",
       code: "RLS_TRANSACTION_SETUP_FAILED",
@@ -402,7 +412,7 @@ app.use("/api/v1", async (req: express.Request, res: express.Response, next: exp
       }
 
       if (transactionFailure) {
-        logger.error("RLS request transaction failed during finalization:", transactionFailure);
+        logger.error("RLS request transaction failed during finalization:", safeErrorMetadata(transactionFailure));
         res.statusCode = 500;
         res.removeHeader("Content-Length");
         res.removeHeader("ETag");
@@ -416,7 +426,7 @@ app.use("/api/v1", async (req: express.Request, res: express.Response, next: exp
 
       originalEnd(...endArgs);
     })().catch((error) => {
-      logger.error("Unexpected RLS transaction finalization error:", error);
+      logger.error("Unexpected RLS transaction finalization error:", safeErrorMetadata(error));
       releaseClient();
 
       if (!res.headersSent) {
@@ -7640,7 +7650,7 @@ if (!isServerlessRuntime(process.env)) {
     try {
       if (!manualTrialMode.enabled && pool) await pool.end();
     } catch (err) {
-      logger.error("Error during shutdown:", err as any);
+      logger.error("Error during shutdown:", safeErrorMetadata(err));
     }
     process.exit(0);
   });
@@ -7650,7 +7660,7 @@ if (!isServerlessRuntime(process.env)) {
     try {
       if (!manualTrialMode.enabled && pool) await pool.end();
     } catch (err) {
-      logger.error("Error during shutdown:", err as any);
+      logger.error("Error during shutdown:", safeErrorMetadata(err));
     }
     process.exit(0);
   });

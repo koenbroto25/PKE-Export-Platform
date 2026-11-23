@@ -31,6 +31,7 @@ function makeHarness(){
  registerP17MaritimeRoutes(app,deps);
  const observation={id:positionId,source_id:"e5000000-0000-4000-8000-000000000005",vessel_id:"f6000000-0000-4000-8000-000000000006",vessel_name:"MV Test Vessel",mmsi:"123456789",latitude:1,longitude:2,observed_at:"2026-11-23T03:00:00.000Z",provider_code:"AIS_TEST",provider_reference:"ref-1",source_reference:"source-1",attribution_text:"test",source_quality:"fresh",created_by:"e7000000-0000-4000-8000-000000000007",created_at:"2026-11-23T03:00:00.000Z"};
  const queries:string[]=[];
+ let activeUserId:string|null=null;
  const db:any={query:async(sql:string,params:any[]=[] )=>{
   queries.push(sql);
   if(sql.includes("FROM public.migration_history"))return {rows:[{applied_count:15}]};
@@ -40,7 +41,7 @@ function makeHarness(){
   if(sql.includes("FROM public.permissions"))return {rows:[{permission_count:26}]};
   if(sql.includes("pke_project_role_permission_allowlist"))return {rows:[{allowed_count:63}]};
   if(sql.includes("pke_is_platform_admin() AS is_admin"))return {rows:[{is_admin:false}]};
-  if(sql.includes("SELECT o.id,o.source_id")&&sql.includes("review_status='pending'"))return {rows:params[0]===projectA?[observation]:[]};
+  if(sql.includes("SELECT o.id,o.source_id")&&sql.includes("review_status='pending'"))return {rows:params[0]===projectA&&activeUserId!==observation.created_by?[observation]:[]};
   if(sql.includes("UPDATE public.vessel_tracking_positions SET review_status"))return {rows:params[1]===projectA?[{...observation,review_status:params[2],reviewed_by:userId,review_note:params[3]}]:[]};
   return {rows:[]};
  }};
@@ -52,6 +53,7 @@ function makeHarness(){
  async function invoke(method:string,path:string,user:any,params:any={},body:any={}){
   const route=routes.get(method+" "+path);if(!route)throw new Error("Missing route "+method+" "+path);
   const {req,res}=request(method,path,user,params,body);
+  activeUserId=user?.id||null;
   let nextCalled=false;
   await gate!(req,res,()=>{nextCalled=true;});
   if(!nextCalled)return {req,res};
@@ -96,7 +98,7 @@ describe("P17-D authenticated runtime API acceptance",()=>{
  });
  it("rejects a self-review attempt before any observation is returned",async()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,{...pendingUser,id:observation.created_by},{projectId:projectA});
-  expect(res.statusCode).toBe(200);expect(res.body.observations).toHaveLength(1);
+  expect(res.statusCode).toBe(200);expect(res.body.observations).toHaveLength(0);
   expect(h.queries.some(q=>q.includes("created_by<>req_user_id()"))).toBe(true);
  });
 });

@@ -8831,3 +8831,41 @@ P19 remains unopened. It is to be specified only after the reduced-scope P18 acc
 - Migration 111 SHA-256 remains `ba66ddbaa08b5ee8f59ab8be6f62e0393eb17b05e2590b302e8e27fb92e91bcd`.
 
 **Remaining mandatory acceptance gate:** Migration 111 has not been executed on a Neon validation branch or Production. The database mutation tools require the user to explicitly identify and authorize the target branch; the broad request to complete P18 does not identify that target. Therefore no schema writes were made. Post-migration RLS, Project isolation, maker-checker and runtime API backtests remain blocked on that explicit target approval. Do not mark P18 complete until those backtests pass.
+
+
+## P18 validation branch execution — Rev2.39 (2026-11-23)
+
+**Validation branch:** `p18-validation-111-20261123` (`br-proud-meadow-b3ydvlad`)  
+**Parent:** UAT `p0-preview-uat-20261120` (`br-young-boat-b3re832d`)  
+**Database:** `neondb`  
+**Candidate SQL:** `migrations/111_p18_regulatory_core_governance.sql`  
+**Candidate SHA-256:** `ba66ddbaa08b5ee8f59ab8be6f62e0393eb17b05e2590b302e8e27fb92e91bcd`
+
+### Branch capacity action
+- Neon branch capacity was reached. Deleted only the non-default/non-primary/non-protected temporary branch `p17a-e-uat-validation-20261122`.
+- Created the P18 validation branch from the explicitly approved UAT parent. Production and UAT were not deleted or modified.
+
+### Exact-hash verification and migration attempt
+- Independently recomputed the candidate SQL SHA-256 from the GitHub file bytes; exact match.
+- First migration attempt rolled back atomically because the candidate inserts role allowlist rows before ensuring the referenced `pke_project_role_policy` role exists.
+- Candidate SQL also omits `GRANT EXECUTE ON FUNCTION public.p18_has_regulatory_permission(text) TO app_runtime_secure`. The runtime role initially received `permission denied for function p18_has_regulatory_permission` when evaluating P18 RLS policies.
+- For validation only, seeded `pke_project_role_policy(role_code='regulatory_compliance_officer', canonical_role_code='regulatory_compliance_officer')` and manually granted execute on the P18 permission helper on this isolated validation branch. Neither prerequisite is present in the exact candidate migration.
+- Re-ran the exact candidate SQL statements transactionally and recorded migration history row 111 with the approved exact SHA-256. Candidate migration DDL and its self-verification DO block completed successfully after those two validation-only prerequisites.
+
+### Post-apply evidence
+- Validation branch ledger: 111 rows; latest id 111; exact filename and SHA-256 recorded.
+- Candidate DDL postconditions: created_by columns on regulatory sources/rule versions/country requirements, assessment reason_code, 13 P18 policies, 5 P18 triggers, 6 P18 functions, 9 regulatory/compliance permissions and 15 officer allowlist entries.
+- Runtime role `app_runtime_secure`: without user context, P18 permission helper returned false and RLS returned zero regulatory sources, rules and assessments.
+- Runtime role as PM fixture user: helper returned false and returned zero regulatory sources/assessments (denied as expected).
+- Runtime role as Platform Admin fixture: helper returned true and could read the pending regulatory source row (expected admin access).
+- Source self-review trigger test blocked maker approving their own source (expected). Test source was marked repealed; no temporary source was deleted.
+- Existing GitHub Actions run 45056977116 remains SUCCESS (506 tests).
+
+### P18 acceptance remains BLOCKED
+The exact candidate migration is **not self-contained**. The role master seed and function EXECUTE grant must be added to the migration source (or an approved prerequisite migration) and the corrected SQL must receive a new exact SHA-256 release pin. The current validation-branch success is conditional on validation-only manual prerequisites and must not be represented as a clean standalone migration PASS.
+
+- UAT ledger remains at 110; Migration 111 absent.
+- Production ledger remains at 71; Migration 111 absent.
+- No Production or UAT writes were made.
+- Vercel deployment, RAG ingestion, regulatory chatbot and P19 remain deferred.
+- Do not mark P18 complete until the corrected migration is independently tested from a fresh UAT clone, RLS/maker-checker/project-isolation/API backtests pass without manual prerequisites, and the release plan is updated with evidence.

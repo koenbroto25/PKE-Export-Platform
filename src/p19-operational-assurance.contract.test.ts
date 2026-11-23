@@ -111,6 +111,11 @@ describe("P19 operational assurance: API security boundary", () => {
     expect(gate).toContain("pg_trigger");
     expect(gate).toContain("pke_project_role_permission_allowlist_guard");
     expect(gate).toContain("pke_project_role_code_policy_guard");
+    expect(gate).toContain("P17_LEGACY_POSITION_SCOPE_BLOCKED");
+    expect(gate).toContain("p17d_vessel_position_admin_pending_select");
+    expect(gate).toContain("p17d_vessel_position_project_review_select");
+    expect(gate).toContain("source_id IS NULL");
+    expect(gate).toContain("pke_has_any_project_permission");
     expect(gate).not.toContain("FROM public.migration_history");
     expect(gate).not.toContain("FROM public.pke_project_role_permission_allowlist");
   });

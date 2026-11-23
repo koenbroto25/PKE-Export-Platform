@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.55 — P19 cross-module route and reliability assurance
+# Master Implementation Plan Rev2.56 — P19 operational assurance scoped completion
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.55 (23 November 2026 — P19 cross-module route and reliability assurance)  
+**Revision:** 2.56 (23 November 2026 — P19 operational assurance scoped completion)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -9384,4 +9384,81 @@ Read-only queries on canonical Production returned:
 | Full non-Vercel tests/build/typecheck | PENDING |
 | P17 Migration 110a Production correction | BLOCKED — separate P17 exact-hash owner approval |
 | Vercel deployment and browser UAT | DEFERRED — owner instruction |
+
+
+
+---
+
+# Rev2.56 — P19 operational assurance scoped completion (23 November 2026)
+
+## 38. P19 final engineering acceptance, runtime gates and release boundary
+
+### 38.1 P19 implementation delivered on the isolated work branch
+
+Branch: `p19/operational-readiness-plan-20261123`. No merge to `main`, no Production/UAT database writes, and no Vercel deployment or browser UAT action.
+
+- **Cross-module API inventory:** 291 registered handlers across `src/index.ts` and `src/p17-maritime.ts`; all are under `/api/v1`, no duplicate method/path was found, and the global API chain is auth + transaction-scoped RLS + phase-schema release gate.
+- **Journey traceability:** 8 static UI → API → database journeys are asserted for PKS/supplier qualification, P1 workflow, truck/warehouse/inventory, port/warehouse network, voyage/vessel/loading, export documents/regulatory assessment, finance/accounting, and buyer identity/shipment visibility. This is source-contract traceability, not a hosted end-to-end browser run.
+- **Notification RLS correction:** `POST /api/v1/notifications` now requires active Project permission and an active recipient Project membership; it no longer attempts an INSERT into `notification_deliveries`, which has no runtime INSERT policy.
+- **Project product specification correction:** the Project requirement endpoints now use existing `project_product_specifications` and `product_specifications` tables and `contract_specification_snapshot`; the nonexistent `project_product_requirements` relation and obsolete permission codes were removed. Create/update permission flags are returned separately. A Project snapshot cannot approve a global master specification, and a snapshot linked to an approved master is immutable.
+- **Private document storage:** upload keys are now bound to `projects/{projectId}/documents/{requirementId}/{uuid}-{filename}`; upload requires the Project requirement to exist, both create and view permission contexts are checked to match the RLS read/write policies, and registered object keys cannot be issued a new presigned upload URL. Registration verifies the object size and SHA-256 server-side and removes failed/unregistered objects when cleanup succeeds. Presigned download now requires a matching registered Project document row with a verified checksum and the configured private bucket. Document upload/download and legacy document APIs are covered by the P16 fail-closed schema gate.
+- **Runtime log hygiene:** request-transaction and shutdown errors use `safeErrorMetadata`; raw exception messages/stacks are not passed to the logger.
+- **Graceful shutdown:** non-serverless SIGTERM/SIGINT handling now stops new HTTP acceptance and waits for the HTTP listener to close before closing the database pool. Shutdown errors remain sanitized.
+- **Phase-schema release gate:** P1 workflow/KPI, P2A candidate/change-request/quality, funder sharing, P16 document/storage, and P18 regulatory endpoints return a generic 503 fail-closed response when required tables with RLS/policies, helper functions, triggers or exact policies are absent. The gate uses readable PostgreSQL catalogs; it does not try to bypass the runtime role's restricted access to migration history or role-allowlist tables.
+- **P17 gate correction:** the P17 runtime gate checks protected-table RLS/policy coverage, the four security-definer permission/guard functions, both role-allowlist enforcement triggers, and the exact legacy AIS policy boundary required by Migration 110a. It blocks P17 routes with `P17_LEGACY_POSITION_SCOPE_BLOCKED` unless all three pending-review policies exist and the legacy `pke_scope_select` is scoped to `source_id IS NULL`, active Project context and Project permission, with no `pke_has_any_project_permission` global fallback.
+- The P17 gate deliberately does not query `migration_history` or `pke_project_role_permission_allowlist` as `app_runtime_secure`; those relations are restricted. The required permission codes and allowlist entries were separately checked read-only with owner-level inspection in Rev2.55.
+
+### 38.2 Final non-Vercel CI evidence
+
+<badge>PASS</badge> GitHub Actions run **45151344240**, tested commit `4a350c288c4a6ddd6a72858411e7ef8ac5c71349`.
+
+- 50/50 test files passed; **530/530 tests passed**.
+- Dedicated P19 operational-assurance contract: **20/20 passed**.
+- Migration release policy verification, P17 release package verification, P1/P17 migration verifiers, P18 static package verification and migration-runner dry-run: PASS.
+- Backend application build and API typecheck: PASS.
+- Frontend typecheck and production build: PASS.
+- The workflow is explicitly triggered on the P19 branch. Vercel checks are not part of this acceptance and were not invoked by the assistant.
+- Later documentation-only revision commits must retain the same CI gate; do not treat this run as validation of a different source commit.
+
+### 38.3 Read-only Neon release-gate backtest
+
+No data, schema or migration was changed during these checks.
+
+| Target | Read-only result | Gate consequence |
+|---|---|---|
+| Production `br-damp-shape-b3xlh4nr` | P17 protected tables: 40/40 have RLS and at least one policy; 4/4 required security-definer functions and 2/2 role guard triggers exist. The four Migration 110a AIS policy predicates are 0/4. | P17 APIs remain blocked by `P17_LEGACY_POSITION_SCOPE_BLOCKED`; this is intentional and prevents the legacy global vessel-position SELECT policy from being exposed. P1/P2A/funder/P16/P18 release prerequisites are also not fully present in Production and remain fail-closed. |
+| Original UAT `br-young-boat-b3re832d` | P1/P2A/funder/P16 prerequisite tables/functions/policies/triggers are present. P18 governance functions are incomplete (6 required P18 guard/permission functions are absent). Migration 110a AIS policy predicates are 0/4. | P1/P2A/funder/P16 gates can pass; P18 remains blocked until Migration 111/112 are separately approved and applied. P17 remains blocked until 110a is separately approved and applied. |
+| Isolated P18 validation `br-winter-butterfly-b3tnsao9` | P18: 10/10 tables with RLS/policy, 8/8 functions, 20/20 exact policies and 7/7 triggers present. P1/P2A/funder objects and P16 document resolver/policies also present. Migration 110a AIS policy predicates are 0/4. | P18 schema gate passes on the isolated validation branch. P17 still correctly remains blocked there until its independent Migration 110a correction is applied. |
+
+**Important correction to Rev2.55 §37.2:** the earlier P17 prerequisite check was not sufficient to release P17 while Migration 110a remained unapplied. Rev2.56 supersedes that conclusion. The runtime P17 gate now checks the four required AIS policy predicates and blocks all protected P17 routes until they are present. Production's legacy `pke_scope_select` is still global and is not considered safe.
+
+### 38.4 P19 acceptance matrix
+
+| P19 workstream | Status | Evidence boundary |
+|---|---|---|
+| Baseline route/module inventory | PASS | Static source inventory + CI |
+| Critical business journey traceability | PASS | 8 UI/API/schema source contracts; no browser E2E claim |
+| Auth/RLS route topology | PASS | 291 handlers, middleware order, duplicate/prefix checks, write-route guards |
+| Notification and Project product specification contracts | PASS | Code + automated contracts |
+| Document/evidence lifecycle and private storage | PASS | Code + automated contracts; no live object upload/write |
+| Phase-schema fail-closed controls | PASS | Source contracts + read-only Neon catalog backtests |
+| P17 legacy AIS fail-closed release gate | PASS | Code + contract; live Production gate intentionally returns 503 until 110a |
+| Runtime logging and shutdown reliability | PASS | Code + automated contract + backend build |
+| Full non-Vercel CI | PASS | Run 45151344240, 530 tests + dedicated P19 20 tests, builds/typechecks |
+| Hosted API smoke / browser UAT / Vercel deploy | DEFERRED | Explicit owner instruction to skip Vercel and browser UAT |
+| UAT/Production migration promotion | DEFERRED | Requires separate exact-hash owner approvals; no P19 migration was applied |
+
+### 38.5 P19 final status and remaining release boundary
+
+**P19 status: SCOPED ENGINEERING COMPLETE — NON-VERCEL CI ALL PASS — LIVE RELEASE DEFERRED.**
+
+P19 code-level acceptance is complete on the isolated branch. The following are separate release dependencies, not hidden P19 code failures:
+
+1. P17 Migration 110a exact SHA-256 `bbea252c93e3cd2876f2377f26c2f33a0a1c8ea51e89fe2b944238595b9edf59` remains unapplied. It requires explicit owner approval before any Production application. P17 routes stay fail-closed until its exact policy boundary is verified.
+2. P18 Migrations 111/112 remain isolated-validation-only; applying them to original UAT or Production requires separate exact-hash approval.
+3. Hosted API smoke, browser UAT and Vercel deployment remain deferred under the owner's explicit instruction. No Vercel deployment/Preview workflow was invoked.
+4. A live backup-restore drill was not performed; existing migration release verifiers confirm the pinned backup evidence and atomic migration controls, but do not constitute a restore drill.
+5. RAG document sourcing/ingestion, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini chatbot and P19-to-P20 scope definition remain separate deferred work. They are not P19 acceptance blockers.
+
+No Production or original UAT migration/data writes were made. No migration 111, 112 or 110a was applied. Do not merge this branch to `main` without a separate explicit instruction.
 

@@ -9001,3 +9001,14 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - Corrected the two assertion names and re-pinned Migration 112 to SHA-256 `00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21`.
 - The earlier approval is superseded because the SQL bytes changed. The corrected candidate has not been applied and requires fresh exact-hash approval after CI verifies the corrected source.
 - P18 remains NOT COMPLETE. Next steps: verify corrected candidate CI, obtain approval for the new exact hash, apply only to isolated validation, and rerun lifecycle/RLS/maker-checker acceptance.
+
+
+### Migration 112 approved, applied and isolated lifecycle backtest — Rev2.49 (2026-11-23)
+
+- Owner approved the exact corrected Migration 112 SHA-256: `00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21`. The raw branch source was fetched and independently re-hashed before execution; checksum matched byte-for-byte.
+- Applied Migration 112 atomically only to isolated validation branch `br-winter-butterfly-b3tnsao9` / database `neondb`. Post-apply ledger confirms 112 rows, latest id 112, exact Migration 112 checksum, and both expected legacy triggers present. Production `br-damp-shape-b3xlh4nr` and original UAT `br-young-boat-b3re832d` were not written.
+- Database lifecycle backtest passed inside a rollback-only PL/pgSQL subtransaction: maker draft → under_review; independent reviewer approval; selected version approval; version effective; parent rule effective; independent rejection path version rejected and parent returned to draft. Synthetic source/rule/version fixtures were rolled back and are not retained.
+- Source verification guard correctly rejected a synthetic source self-verification attempt during test setup; the test was corrected to use a distinct reviewer with review/retrieval timestamps. This confirms source maker-checker is active, not bypassed.
+- Full GitHub Actions run `45090795264` on commit `0ec32aadebd0ea2ed030fe765bdd36fd53d6ea80` completed successfully: unit/security tests, production release gates, migration dry-run, backend build, API typecheck, frontend typecheck and frontend build all passed. Existing contract suite includes 49 files / 509 tests.
+- Remaining acceptance: exercise the deployed API/UI against the isolated branch and test non-admin Regulatory Compliance Officer permission through a real project membership/role assignment. CI contract checks and database owner-context lifecycle backtest do not substitute for those runtime gates. Therefore P18 remains NOT COMPLETE pending API/UI integration and non-admin role acceptance.
+- RAG ingestion/data, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini, Vercel deployment and P19 remain explicitly excluded. No production migration authorization is implied by this approval.

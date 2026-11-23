@@ -257,6 +257,14 @@ describe("P19 operational assurance: frontend-to-API boundary", () => {
     expect(FRONTEND_APP_SRC).toContain("visiblePageKeys(workspaceUser || {})");
   });
 
+  it("keeps out-of-scope payment execution endpoints explicitly disabled", () => {
+    const start = INDEX_SRC.indexOf('app.post("/api/v1/payment-instructions"');
+    const end = INDEX_SRC.indexOf('app.', start + 20);
+    const route = INDEX_SRC.slice(start, end);
+    expect(route).toContain("paymentExecutionOutOfScope");
+    expect(route).toContain("status(410)");
+  });
+
   it("traces critical business journeys from UI to API and existing database domains", () => {
     const journeys = [
       {
@@ -311,7 +319,7 @@ describe("P19 operational assurance: frontend-to-API boundary", () => {
         name: "Finance and accounting",
         ui: ["/cash-advances", "/payment-instructions", "/journal-entries", "/ap-invoices", "/ar-invoices", "/fx-rates", "/fx-exposure"],
         api: ["/api/v1/cash-advances", "/api/v1/payment-instructions", "/api/v1/journal-entries", "/api/v1/ap-invoices", "/api/v1/ar-invoices", "/api/v1/fx-rates", "/api/v1/fx-exposure"],
-        tables: ["cash_advances", "payment_instructions", "journal_entries", "ap_invoices", "ar_invoices", "fx_exposures"],
+        tables: ["cash_advances", "journal_entries", "ap_invoices", "ar_invoices", "fx_exposures"],
         frontend: FRONTEND_APP_SRC,
         backend: INDEX_SRC,
       },

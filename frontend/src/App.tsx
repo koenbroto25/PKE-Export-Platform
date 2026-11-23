@@ -597,7 +597,7 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
       setCandidateBusy(false);
     }
   };
-  const startRequirementEdit = (row: AnyRecord) => {
+  const startRequirementEdit = (row: AnyRecord) => { if (!canUpdateProducts) return;
     const spec = row.specification_data || {};
     const methods = row.test_methods || {};
     setRequirementEditingId(String(row.id));
@@ -737,7 +737,7 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
           { key: 'actions', label: 'Aksi', render: r => canManageCandidates ? <ActionButton variant="secondary" onClick={() => startCandidateEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
         ]} emptyTitle="Belum ada kandidat" emptyText="Tambahkan kandidat perusahaan atau fasilitas dengan sumber yang dapat ditelusuri." />}
       </Card>
-      <Card><PanelHeading title="Master produk & persyaratan Project" description="Katalog produk menjadi referensi; batas kualitas dan COA bersifat spesifik kontrak/buyer. Angka numerik tidak diisi otomatis dari sumber yang tidak menetapkannya." action={canManageProducts ? <ActionButton onClick={() => { setRequirementEditingId(''); setRequirementFormOpen(true); }}>Tambah draft persyaratan</ActionButton> : undefined} />
+      <Card><PanelHeading title="Master produk & persyaratan Project" description="Katalog produk menjadi referensi; batas kualitas dan COA bersifat spesifik kontrak/buyer. Angka numerik tidak diisi otomatis dari sumber yang tidak menetapkannya." action={canCreateProducts ? <ActionButton onClick={() => { setRequirementEditingId(''); setRequirementFormOpen(true); }}>Tambah draft persyaratan</ActionButton> : undefined} />
         {requirementFormOpen && canManageProducts && <form className="form-grid" onSubmit={saveProductRequirement}>
           {!requirementEditingId && <>
             <FormField label="Produk"><select required value={requirementForm.productId} onChange={e => setRequirementForm(v => ({ ...v, productId: e.target.value }))}><option value="">Pilih produk</option>{(productRequirements.data?.products || []).map(p => <option key={p.id} value={p.id}>{p.product_code} · {p.product_name}</option>)}</select></FormField>
@@ -762,7 +762,7 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
           { key: 'approval_status', label: 'Persetujuan', render: r => <StatusPill value={r.approval_status} /> },
           { key: 'limits', label: 'Batas numerik', render: r => r.specification_data?.numeric_limits ? 'Terisi' : 'Belum ditetapkan' },
           { key: 'source', label: 'Sumber', render: r => <div className="primary-cell"><strong>{r.is_seed_data ? 'SEED / MOCK' : r.source_type}</strong><small>{r.source_reference}</small></div> },
-          { key: 'actions', label: 'Aksi', render: r => canManageProducts ? <ActionButton variant="secondary" onClick={() => startRequirementEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
+          { key: 'actions', label: 'Aksi', render: r => canUpdateProducts ? <ActionButton variant="secondary" onClick={() => startRequirementEdit(r)}><Edit size={14} /> Edit</ActionButton> : 'Baca saja' },
         ]} emptyTitle="Belum ada draft persyaratan produk" emptyText="Tambahkan persyaratan Project berdasarkan buyer contract, COA, atau sumber resmi yang ditelusuri." />}
       </Card>
     </>}

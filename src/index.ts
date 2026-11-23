@@ -3464,6 +3464,7 @@ app.get("/api/v1/projects/:projectId/documents", requireAuth, async (req: expres
 app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: express.Request, res: express.Response) => {
   const projectId = req.params.projectId as string;
   if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.create"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.view"))) return;
   const { projectRequirementId, fileReference, objectKey, originalFilename, mimeType, sha256Checksum, contentLength, versionNo, expiryDate, notes } = req.body ?? {};
   if (!projectRequirementId || !fileReference || !objectKey || !originalFilename || !sha256Checksum || contentLength === undefined || !mimeType) {
     return res.status(400).json({ error: "Project requirement, private object key, filename, MIME type, SHA-256 and content length are required." });
@@ -3507,6 +3508,7 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
         return res.status(503).json({ error: "Storage verification failed and the rejected object could not be removed; operator cleanup is required.", code: "DOCUMENT_OBJECT_CLEANUP_REQUIRED" });
       }
     }
+    await req.db.query("SELECT set_config('app.current_permission_code',$1,true)", ["documents.create"]);
     const { rows } = await req.db.query(
       `INSERT INTO project_export_documents
         (project_id,project_requirement_id,file_reference,object_key,original_filename,mime_type,
@@ -3585,6 +3587,7 @@ app.post("/api/v1/storage/presigned-upload", requireAuth, async (req: express.Re
   const projectId = match[1];
   const requirementId = match[2];
   if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.create"))) return;
+  if (!(await requireProjectDocumentPermission(req, res, projectId, "documents.view"))) return;
   const status = privateStorage.status();
   if (!status.available || status.bucket !== "pke-private-documents") {
     return res.status(503).json({ error: "Private object storage is unavailable or bucket does not match.", code: "STORAGE_UNAVAILABLE" });

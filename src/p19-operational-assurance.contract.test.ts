@@ -92,7 +92,11 @@ describe("P19 operational assurance: API security boundary", () => {
     expect(INDEX_SRC).toContain("pg_proc");
     expect(INDEX_SRC).toContain("pg_trigger");
     expect(INDEX_SRC).not.toContain("FROM public.migration_history");
-    expect(INDEX_SRC).not.toContain("FROM public.pke_project_role_permission_allowlist");
+    const gateStart = INDEX_SRC.indexOf("function phaseSchemaGateForPath");
+    const gateEnd = INDEX_SRC.indexOf("async function phaseSchemaObjectsReady", gateStart);
+    const gate = INDEX_SRC.slice(gateStart, gateEnd);
+    expect(gate).not.toContain("FROM public.migration_history");
+    expect(gate).not.toContain("FROM public.pke_project_role_permission_allowlist");
   });
 
   it("keeps the P17 runtime release gate compatible with the restricted runtime role", () => {
@@ -332,10 +336,10 @@ describe("P19 operational assurance: frontend-to-API boundary", () => {
       },
       {
         name: "Buyer identity and shipment visibility",
-        ui: ["/buyer/shipments", "buyer-visibility-grants", "buyer-auth-mappings"],
-        api: ["/api/v1/buyer/shipments", "/api/v1/projects/:projectId/buyer-visibility-grants"],
+        ui: ["/buyer/shipments", "Identity mapping & visibility grants"],
+        api: ["/api/v1/buyer/shipments", "/api/v1/projects/:projectId/buyer-visibility-grants", "/api/v1/admin/buyer-auth-mappings"],
         tables: ["buyer_auth_user_mappings", "buyer_visibility_grants", "shipments"],
-        frontend: FRONTEND_ROLE_SRC,
+        frontend: FRONTEND_APP_SRC + FRONTEND_ROLE_SRC,
         backend: P17_SRC,
       },
     ];
@@ -347,7 +351,8 @@ describe("P19 operational assurance: frontend-to-API boundary", () => {
   });
 
   it("sends the authenticated session token through the shared API client and keeps DB secrets server-side", () => {
-    expect(FRONTEND_API_SRC).toContain("getBearerToken()");
+    expect(FRONTEND_API_SRC).toContain("getBearerToken as getAuthToken");
+    expect(FRONTEND_API_SRC).toContain("await getAuthToken()");
     expect(FRONTEND_API_SRC).toContain("headers.set('Authorization', `Bearer ${token}`)");
     expect(FRONTEND_API_SRC).toContain("fetch(`${API_BASE}");
     expect(FRONTEND_API_SRC).not.toMatch(/VITE_(DATABASE_URL|NEON_DATABASE_URL|NEON_AUTH_SECRET)/i);

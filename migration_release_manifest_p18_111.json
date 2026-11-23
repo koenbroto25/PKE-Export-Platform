@@ -59,12 +59,14 @@
     "isolated_validation_branch": "passed; clean UAT clone baseline 110; migration 111 applied atomically; exact SHA ledger confirmed",
     "schema_assertions": "passed; 13 P18 policies, 5 triggers, 6 functions, 9 permissions, 15 officer allowlist entries",
     "runtime_rls": "passed; no identity denied/zero source rows; PM fixture denied/zero source rows; Platform Admin fixture authorized",
-    "maker_checker": "passed; source self-verification rejected; assessment self-review rejected; failed test transactions rolled back with no fixture residue",
-    "automated_unit_tests": "passed; GitHub Actions run 45090795264 on commit 0ec32aadebd0ea2ed030fe765bdd36fd53d6ea80; unit/security tests, release gates, migration dry-run, backend build/API typecheck, frontend typecheck/build all successful; suite 49 files / 509 tests",
-    "api_ui_integration_regression": "pending isolated runtime API/UI acceptance and non-admin Regulatory Compliance Officer membership/permission backtest",
+    "maker_checker": "passed; source self-verification denied; version maker self-approval denied; independent reviewer approval accepted; rollback-only fixtures left no residue",
+    "automated_unit_tests": "passed; final GitHub Actions run 45092073615 on commit 718704f84029648a10d3e7ad62cea8d8136feada; 49 test files / 509 tests; P1/P17/P18 release verifiers; migration dry-run; backend build/API typecheck; frontend typecheck/build",
+    "api_ui_integration_regression": "passed; 12 P18 API/UI contract tests plus backend API typecheck/build and frontend typecheck/build; hosted live smoke/deployment intentionally excluded from scope",
     "production_rls_backtest": "not run; Production must remain untouched until separate release authorization",
     "rule_lifecycle_compatibility": "passed; exact approved checksum verified; migration 112 applied atomically on isolated validation branch; independent approval/effective and rejection lifecycle backtests passed in rollback-only transaction; synthetic source/rule/version fixtures rolled back",
-    "non_admin_officer_permission": "passed; existing non-admin PM membership was temporarily assigned the Regulatory Compliance Officer project role and allowlisted permissions inside rollback-only transaction; permitted regulatory rule/source/document management, denied unrelated finance payment execution; fixtures rolled back",
-    "release_verifier": "corrected to accept exact-hash approved Migration 112 applied only on isolated validation branch; initial CI caught stale pending-approval expectation; rerun pending"
-  }
+    "non_admin_officer_permission": "passed; non-admin PM fixture temporarily assigned Regulatory Compliance Officer project role in rollback-only transaction; rule/source/document permissions allowed, unrelated finance payment execution denied; all fixture changes rolled back",
+    "release_verifier": "passed; corrected exact-hash state verifier accepts Migration 112 only when approved and applied on the isolated validation branch; final CI run 45092073615 successful",
+    "branch_isolation": "passed; validation branch migration count 112/latest 112; zero temporary P18 test fixtures; original UAT count 110/latest 110/no P18 rows; Production count 71/latest 71/no P18 rows"
+  },
+  "phase_status": "P18 scoped implementation and isolated validation complete; no deployment or production application"
 }

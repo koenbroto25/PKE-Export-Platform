@@ -8750,3 +8750,13 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Verification evidence available at this checkpoint: prior Actions run `45109048329` passed 48 test files / 500 tests, both builds and typechecks, release verifier, migration dry-run and prepared-110a verifier. **That run predates the commits in this continuation and is historical only; no PASS is claimed for the new HEAD until a fresh Actions run completes.**
 - No Production or UAT SQL was executed, no business records were written, no migration 110a was applied, no merge was performed, and no Vercel action was attempted.
 - Remaining release boundary: Migration 110a requires a separate explicit owner approval for exact SHA-256 `bbea252c93e3cd2876f2377f26c2f33a0a1c8ea51e89fe2b944238595b9edf59` before any Production execution. After approval, use only the controlled migration path and verify exact ledger ID 72, all five AIS policies, policy expression and P17 runtime release gate. This is not silently waived by the Vercel skip instruction.
+
+
+
+**P17 re-audit — latest non-deployment CI result (23 November 2026)**
+- The fresh branch-head Actions run [45112258450](https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45112258450) passed on commit `4b43361218501a642c3c49e5f59df40184085e85`. Results: 48/48 test files and 500/500 tests passed; P1 UAT release policy verifier, P17 release-package verifier, Migration 052/054/055 verifiers, prepared Migration 110a exact-hash/policy verifier, P17 migration dry-run, backend build, API typecheck, frontend typecheck and frontend build all succeeded.
+- The two intermediate Actions failures were resolved: the new runtime test originally inspected a literal SQL string instead of the bound migration array; after capturing query parameters, a stale release-verifier fixture still expected the old replay-guard text. Both were corrected and the final run passed.
+- The passing run does not prove Production runtime readiness: read-only Production still has ledger 001–071, the legacy `pke_scope_select` still uses global `pke_has_any_project_permission`, and the missing pending-review SELECT/Admin UPDATE policies are still gated by prepared migration 110a.
+- Exact SHA-256 `bbea252c93e3cd2876f2377f26c2f33a0a1c8ea51e89fe2b944238595b9edf59` remains owner-approval pending and NOT APPLIED. No SQL or business data was written.
+- All Vercel work remains skipped under the current owner instruction. Vercel quota status is not treated as an Engineering CI failure; the GitHub Actions run above is the relevant offline CI evidence.
+- Branch remains isolated; no merge to main, no Production/ UAT mutation, no Vercel deployment or Preview was initiated.

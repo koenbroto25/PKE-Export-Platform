@@ -32,8 +32,8 @@ const validateSimulationGraph=(g:any):boolean=>{
 };
 
 export function registerP17MaritimeRoutes(app:Express,d:D){
- // Production schema is still at migration 053. Block P17 mutations until 096-107
- // and their RLS/policy acceptance are explicitly released on canonical Production.
+ // Fail closed until the complete P17 schema, RLS, permission and legacy AIS Project-scope controls are released.
+ // The migration gate includes the approved 096-110 package; the corrective legacy-policy SQL is separately verified below.
  const p17WriteReleaseGate:RequestHandler=async(req,res,next)=>{
   const path=req.path||"";
   const mutating=["POST","PUT","PATCH","DELETE"].includes(req.method);
@@ -56,7 +56,10 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     "104_p17e_nomination_submission_guard.sql",
     "105_p17f_buyer_identity_and_grant_audit.sql",
     "106_p17d_vessel_position_observations.sql",
-    "107_p17e_loading_survey_reconciliation_laytime.sql"
+    "107_p17e_loading_survey_reconciliation_laytime.sql",
+    "108_p17f_buyer_mapping_rls_recursion_fix.sql",
+    "109_p17f_buyer_self_read_rls_recursion_fix.sql",
+    "110_p17d_vessel_position_runtime_rls_fix.sql"
   ];
   const protectedTables=[
     "maritime_data_sources","maritime_source_field_permissions","maritime_ingestion_runs","maritime_ingestion_staging",
@@ -75,19 +78,24 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
       [migrationFiles]
     );
     if(Number(migrations.rows[0]?.applied_count)!==migrationFiles.length)
-      return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema release is incomplete; migrations 096-107 must all be applied to canonical Production.");
+      return bad(res,503,"P17_SCHEMA_RELEASE_BLOCKED","P17 schema release is incomplete; migrations 096-110 must all be applied to canonical Production.");
     const rls=await req.db.query(
       "SELECT COUNT(*)::int AS found_count,COUNT(*) FILTER(WHERE NOT c.relrowsecurity OR COALESCE(p.policy_count,0)=0)::int AS unsafe_count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN (SELECT tablename,COUNT(*)::int AS policy_count FROM pg_policies WHERE schemaname='public' GROUP BY tablename) p ON p.tablename=c.relname WHERE n.nspname='public' AND c.relname=ANY($1::text[])",
       [protectedTables]
     );
     if(Number(rls.rows[0]?.found_count)!==protectedTables.length||Number(rls.rows[0]?.unsafe_count)!==0)
       return bad(res,503,"P17_RLS_RELEASE_BLOCKED","P17 tables are missing RLS or an applicable policy; protected APIs remain unavailable.");
-    const requiredPermissions=["pke.logistics.master.view","pke.logistics.master.change_request.manage","buyer.shipment.view","buyer.visibility.manage","shipping.survey.view","shipping.survey.submit","shipping.survey.review","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.verify","loading.quantity.reconcile"];
+    const legacyPositionPolicy=await req.db.query(
+      "SELECT COUNT(*)::int AS safe_policy_count FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='vessel_tracking_positions' AND p.polname='pke_scope_select' AND pg_get_expr(p.polqual,p.polrelid) LIKE '%pke_has_project_permission%' AND pg_get_expr(p.polqual,p.polrelid) NOT LIKE '%pke_has_any_project_permission%'"
+    );
+    if(Number(legacyPositionPolicy.rows[0]?.safe_policy_count)!==1)
+      return bad(res,503,"P17_AIS_PROJECT_SCOPE_BLOCKED","Legacy AIS position reads are not protected by the Project-scoped RLS policy; protected APIs remain unavailable.");
+    const requiredPermissions=["pke.logistics.master.view","pke.logistics.master.change_request.manage","buyer.shipment.view","buyer.visibility.manage","shipping.survey.view","shipping.survey.submit","shipping.survey.review","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.verify","loading.quantity.reconcile","vessel.position.review"];
     const permissions=await req.db.query("SELECT COUNT(*)::int AS permission_count FROM public.permissions WHERE code=ANY($1::text[]) AND is_active IS TRUE",[requiredPermissions]);
     if(Number(permissions.rows[0]?.permission_count)!==requiredPermissions.length)
       return bad(res,503,"P17_PERMISSION_RELEASE_BLOCKED","P17 role permissions are incomplete; protected APIs remain unavailable.");
-    const roleCodes=["pm","pm","pm","buyer","pm","pm","pm","pm","pm","loading_supervisor","loading_supervisor","loading_supervisor","loading_manager","loading_manager","loading_manager","marine_surveyor","marine_surveyor","shipping_agent","shipping_agent","master_of_loading","master_of_loading"];
-    const permissionCodes=["pke.logistics.master.view","pke.logistics.master.change_request.manage","buyer.visibility.manage","buyer.shipment.view","shipping.survey.view","shipping.survey.review","shipping.laytime.view","shipping.laytime.verify","loading.quantity.reconcile","shipping.laytime.view","shipping.laytime.manage","loading.quantity.reconcile","shipping.laytime.view","shipping.laytime.manage","loading.quantity.reconcile","shipping.survey.view","shipping.survey.submit","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.view","shipping.laytime.manage"];
+    const roleCodes=["pm","pm","pm","buyer","pm","pm","pm","pm","pm","loading_supervisor","loading_supervisor","loading_supervisor","loading_manager","loading_manager","loading_manager","marine_surveyor","marine_surveyor","shipping_agent","shipping_agent","master_of_loading","master_of_loading","pm"];
+    const permissionCodes=["pke.logistics.master.view","pke.logistics.master.change_request.manage","buyer.visibility.manage","buyer.shipment.view","shipping.survey.view","shipping.survey.review","shipping.laytime.view","shipping.laytime.verify","loading.quantity.reconcile","shipping.laytime.view","shipping.laytime.manage","loading.quantity.reconcile","shipping.laytime.view","shipping.laytime.manage","loading.quantity.reconcile","shipping.survey.view","shipping.survey.submit","shipping.laytime.view","shipping.laytime.manage","shipping.laytime.view","shipping.laytime.manage","vessel.position.review"];
     const roleAllowlist=await req.db.query("SELECT COUNT(*)::int AS allowed_count FROM public.pke_project_role_permission_allowlist WHERE (role_code,permission_code) IN (SELECT * FROM unnest($1::text[],$2::text[]))",[roleCodes,permissionCodes]);
     if(Number(roleAllowlist.rows[0]?.allowed_count)!==roleCodes.length)
       return bad(res,503,"P17_ROLE_PERMISSION_RELEASE_BLOCKED","P17 operational role allowlist is incomplete; protected APIs remain unavailable.");

@@ -1,5 +1,5 @@
 {
-  "purpose": "p18_regulatory_core_candidate_release_exact_sql_hash_owner_approval_required",
+  "purpose": "p18_regulatory_core_candidate_release_validation_evidence",
   "phase": "P18",
   "branch": "p18/regulatory-core-20261123",
   "project_id": "purple-base-63944903",
@@ -10,9 +10,11 @@
   "uat_branch_id": "br-young-boat-b3re832d",
   "uat_history_count": 110,
   "owner_approval": {
-    "status": "pending",
-    "required": true,
-    "confirmation_must_name_exact_sha256": true
+    "status": "approved_for_isolated_validation_only",
+    "required": false,
+    "approved_sha256": "e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904",
+    "approval_scope": "isolated_validation_branch_only",
+    "production_application_requires_separate_explicit_approval": true
   },
   "production_application": {
     "status": "not_applied",
@@ -23,9 +25,10 @@
       "ledger_id": 72,
       "filename": "111_p18_regulatory_core_governance.sql",
       "sha256": "e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904",
-      "status": "candidate_pending_owner_approval",
+      "status": "applied_on_isolated_validation_branch",
       "source_sha_verified": true,
-      "production_applied": false
+      "production_applied": false,
+      "validation_branch_id": "br-winter-butterfly-b3tnsao9"
     }
   ],
   "excluded_scope": [
@@ -37,9 +40,13 @@
     "Gemini conversational interface"
   ],
   "validation": {
-    "static_sql_contract": "pending corrected SQL validation",
-    "read_only_schema_query_plans": "passed",
-    "automated_unit_tests": "pending corrected SQL CI run",
-    "production_rls_backtest": "pending migration approval"
+    "static_sql_contract": "passed; tagged PostgreSQL dollar quote and self-contained role seed/runtime grant",
+    "isolated_validation_branch": "passed; clean UAT clone baseline 110; migration 111 applied atomically; exact SHA ledger confirmed",
+    "schema_assertions": "passed; 13 P18 policies, 5 triggers, 6 functions, 9 permissions, 15 officer allowlist entries",
+    "runtime_rls": "passed; no identity denied/zero source rows; PM fixture denied/zero source rows; Platform Admin fixture authorized",
+    "maker_checker": "passed; source self-verification rejected; assessment self-review rejected; failed test transactions rolled back with no fixture residue",
+    "automated_unit_tests": "pending; no workflow run exists for current head",
+    "api_ui_integration_regression": "pending",
+    "production_rls_backtest": "not run; Production must remain untouched until separate release authorization"
   }
 }

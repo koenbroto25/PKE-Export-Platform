@@ -75,6 +75,19 @@ describe("P19 operational assurance: API security boundary", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it("keeps the P17 runtime release gate compatible with the restricted runtime role", () => {
+    const gateStart = P17_SRC.indexOf("const p17WriteReleaseGate");
+    const gateEnd = P17_SRC.indexOf("app.use(p17WriteReleaseGate)", gateStart);
+    const gate = P17_SRC.slice(gateStart, gateEnd);
+    expect(gate).toContain("pg_policies");
+    expect(gate).toContain("pg_proc");
+    expect(gate).toContain("pg_trigger");
+    expect(gate).toContain("pke_project_role_permission_allowlist_guard");
+    expect(gate).toContain("pke_project_role_code_policy_guard");
+    expect(gate).not.toContain("FROM public.migration_history");
+    expect(gate).not.toContain("FROM public.pke_project_role_permission_allowlist");
+  });
+
   it("mounts the P17 route module after global auth/RLS and its release gate before P17 handlers", () => {
     const p17Mount = INDEX_SRC.indexOf("registerP17MaritimeRoutes(app");
     const releaseGateMount = P17_SRC.indexOf("app.use(p17WriteReleaseGate)");

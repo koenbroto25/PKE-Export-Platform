@@ -7,6 +7,7 @@ on:
       - f1/project-scoped-cob-20261119
       - p17b/operational-readiness-20261122
       - p18/regulatory-core-20261123
+      - p19/operational-readiness-plan-20261123
   workflow_dispatch:
   pull_request:
     branches:
@@ -32,6 +33,8 @@ jobs:
         run: npm ci --include=dev --no-audit
       - name: Run offline security and unit tests
         run: npm test
+      - name: Run dedicated P19 operational assurance contracts
+        run: npm run verify:p19-assurance
       - name: Verify Production migration ledger and release gates
         run: npm run verify:release-migrations
       - name: Verify applied Migration 052 and pre-apply backup evidence

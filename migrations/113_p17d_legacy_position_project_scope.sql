@@ -1,5 +1,5 @@
 -- Migration 113: scope legacy AIS vessel-position reads to the active Project.
--- Prepared corrective migration. Do not apply to Production without exact owner approval.
+-- Prepared corrective migration. Do not apply to Production without exact owner approval. The replacement policy is Project scoped.
 BEGIN;
 
 DROP POLICY IF EXISTS pke_scope_select ON public.vessel_tracking_positions;

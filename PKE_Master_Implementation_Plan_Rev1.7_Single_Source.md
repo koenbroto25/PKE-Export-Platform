@@ -9562,7 +9562,7 @@ Complete technical application surfaces that can be completed without external c
 - P20 branch created: `p20/platform-continuation-20261123`, starting from P19 head `cfc0d2679fa1cc1cfdf91e099c077bd8e54fd38d`.
 - P19 CI run `45151344240` verified successful on code SHA `4a350c288c4a6ddd6a72858411e7ef8ac5c71349`; later commits through P19 head are documentation-only.
 - Migration 110 release manifest and migration verifier report Production applied at ledger ID 71, SHA-256 `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`. P19 stale wording requires correction after live read-only reconciliation.
-- Migration 111/112 remain isolated-validation-only with hashes `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and `00b52dcbb51a706402cfeb2039f2451b56241eda43c7bd2a43d4fc2ec4fa21`.
+- Migration 111/112 remain isolated-validation-only with hashes `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and `00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21`.
 - Existing P18 Regulatory Core UI and contract tests are present. RAG ingestion/OCR/embeddings/chatbot remain excluded from active behavior.
 - No Vercel/deployment action invoked. No Production/UAT database connection or write occurred during this P20 charter baseline. No migration applied.
 
@@ -9574,7 +9574,7 @@ Complete technical application surfaces that can be completed without external c
 |---|---|---|---|
 | Production `br-damp-shape-b3xlh4nr` | ID 71 = Migration 110, exact SHA `f36cf9350e6b409841dedb35d13bbd077568dec3bf1aa88b00d8a43793001d46`, status applied | Applied | 0 rows |
 | Original UAT `br-young-boat-b3re832d` | ID 110 = Migration 110, same exact SHA, status applied | Applied | 0 rows |
-| Isolated P18 validation `br-winter-butterfly-b3tnsao9` | IDs 111/112, exact hashes `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and `00b52dcbb51a706402cfeb2039f2451b56241eda43c7bd2a43d4fc2ec4fa21`, status applied | Not independently rechecked in this query set | Applied |
+| Isolated P18 validation `br-winter-butterfly-b3tnsao9` | IDs 111/112, exact hashes `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904` and `00b52dcbb51a706402cfeb203fcef321fb56241eda43c7bd2a43d4fc2ec4fa21`, status applied | Not independently rechecked in this query set | Applied |
 
 - Production `pg_policies` inspection found 4 policies on `vessel_tracking_positions`: `p17d_vessel_position_ingest_admin_insert`, `p17d_vessel_position_independent_review_update`, `vessel_tracking_accepted_project_read`, and legacy `pke_scope_select`.
 - The legacy policy predicate is explicitly `source_id IS NULL AND pke_has_any_project_permission('vessel.position.view')`; it does not apply to licensed source-linked observations. The accepted-position read policy requires Project context, voyage relationship, enabled AIS source, approved rights, internal processing, non-expired rights, all four field-purpose permissions and a relevant Project permission.

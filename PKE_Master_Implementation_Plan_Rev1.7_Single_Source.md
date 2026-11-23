@@ -9410,7 +9410,7 @@ Branch: `p19/operational-readiness-plan-20261123`. No merge to `main`, no Produc
 
 ### 38.2 Final non-Vercel CI evidence
 
-<badge>PASS</badge> GitHub Actions run **45151344240**, tested commit `4a350c288c4a6ddd6a72858411e7ef8ac5c71349`.
+**PASS** GitHub Actions run **45151344240**, tested commit `4a350c288c4a6ddd6a72858411e7ef8ac5c71349`.
 
 - 50/50 test files passed; **530/530 tests passed**.
 - Dedicated P19 operational-assurance contract: **20/20 passed**.
@@ -9456,7 +9456,7 @@ P19 code-level acceptance is complete on the isolated branch. The following are 
 
 1. P17 Migration 110a exact SHA-256 `bbea252c93e3cd2876f2377f26c2f33a0a1c8ea51e89fe2b944238595b9edf59` remains unapplied. It requires explicit owner approval before any Production application. P17 routes stay fail-closed until its exact policy boundary is verified.
 2. P18 Migrations 111/112 remain isolated-validation-only; applying them to original UAT or Production requires separate exact-hash approval.
-3. Hosted API smoke, browser UAT and Vercel deployment remain deferred under the owner's explicit instruction. No Vercel deployment/Preview workflow was invoked.
+3. Hosted API smoke, browser UAT and Vercel deployment remain deferred under the owner's explicit instruction. No Vercel deployment/Preview action was invoked by the assistant; automatic repository integrations were not inspected.
 4. A live backup-restore drill was not performed; existing migration release verifiers confirm the pinned backup evidence and atomic migration controls, but do not constitute a restore drill.
 5. RAG document sourcing/ingestion, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini chatbot and P19-to-P20 scope definition remain separate deferred work. They are not P19 acceptance blockers.
 

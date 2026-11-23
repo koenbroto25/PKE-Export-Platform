@@ -162,6 +162,17 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(AUTH_SRC).toContain("user?.isAdmin || !user.isActive");
   });
 
+  it("maps Project product requirement APIs to the existing project specification schema", () => {
+    expect(INDEX_SRC).toContain("public.project_product_specifications");
+    expect(INDEX_SRC).toContain("contract_specification_snapshot");
+    expect(INDEX_SRC).toContain('"product_specs.view"');
+    expect(INDEX_SRC).toContain('"product_specs.create"');
+    expect(INDEX_SRC).toContain('"product_specs.update"');
+    expect(INDEX_SRC).not.toContain("project_product_requirements");
+    expect(INDEX_SRC).not.toContain('"product.requirement.view"');
+    expect(INDEX_SRC).not.toContain('"product.requirement.manage"');
+  });
+
   it("keeps notification creation aligned with the existing Project RLS insert policy", () => {
     const start = INDEX_SRC.indexOf('app.post("/api/v1/notifications"');
     const end = INDEX_SRC.indexOf('app.patch("/api/v1/notifications/:id/read"', start);
@@ -232,7 +243,7 @@ describe("P19 operational assurance: frontend-to-API boundary", () => {
         name: "PKS/supplier qualification",
         ui: ["/pks-sites", "pks-candidates", "product-requirements"],
         api: ["/api/v1/projects/:projectId/pks-sites", "/api/v1/projects/:projectId/pks-candidates", "/api/v1/projects/:projectId/product-requirements"],
-        tables: ["pks_sites", "project_pks_site_participation", "project_product_specifications"],
+        tables: ["pks_sites", "project_pks_site_participation", "project_product_specifications", "product_specifications"],
         frontend: FRONTEND_APP_SRC,
         backend: INDEX_SRC,
       },

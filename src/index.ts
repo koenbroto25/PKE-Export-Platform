@@ -3844,19 +3844,25 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
   const senderId = req.user?.id;
   if (!senderId) return res.status(401).json({ error: "Authenticated principal required" });
   try {
+    if (recipient !== undefined && recipient !== null &&
+        (typeof recipient !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(recipient))) {
+      return res.status(400).json({ error: "recipient must be a valid PKE user id.", code: "INVALID_RECIPIENT" });
+    }
     const recipientId = typeof recipient === "string" && recipient ? recipient : senderId;
-    if (typeof projectId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) {
+    if (typeof projectId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(projectId)) {
       return res.status(400).json({ error: "A valid projectId is required for project-scoped notifications.", code: "PROJECT_SCOPE_REQUIRED" });
     }
     const scopedProjectId: string = projectId;
     if (!(await requireProjectPermission(req, res, scopedProjectId, "project.members.manage"))) return;
-    if (recipientId !== senderId) {
-      const { rows: memberRows } = await req.db.query(
-        `SELECT 1 FROM project_members WHERE project_id = $1::uuid AND user_id = $2::uuid AND is_active = true LIMIT 1`,
-        [scopedProjectId, recipientId],
-      );
-      if (memberRows.length === 0) return res.status(403).json({ error: "Forbidden", code: "RECIPIENT_OUT_OF_SCOPE" });
-    }
+    const { rows: memberRows } = await req.db.query(
+      `SELECT 1 FROM project_members
+        WHERE project_id = $1::uuid AND user_id = $2::uuid
+          AND is_active = true AND deactivated_at IS NULL
+          AND (expires_at IS NULL OR expires_at > now())
+        LIMIT 1`,
+      [scopedProjectId, recipientId],
+    );
+    if (memberRows.length === 0) return res.status(403).json({ error: "Recipient must be an active member of this Project.", code: "RECIPIENT_OUT_OF_SCOPE" });
     const eventId = crypto.randomUUID();
     const { rows } = await req.db.query(
       `INSERT INTO user_notifications (id, event_id, project_id, recipient_user_id, created_by, title, message, priority, category, created_at)

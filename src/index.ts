@@ -610,7 +610,7 @@ async function phaseSchemaObjectsReady(db: any, spec: PhaseSchemaGateSpec): Prom
     const names = spec.triggers.map((trigger) => trigger.name);
     const tables = spec.triggers.map((trigger) => trigger.table);
     const result = await db.query(
-      "SELECT COUNT(DISTINCT t.tgname)::int AS ready_count FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal AND EXISTS (SELECT 1 FROM unnest($1::text[],$2::text[]) AS expected(trigger_name,table_name) WHERE expected.trigger_name=t.tgname AND expected.table_name=c.relname)",
+      "SELECT COUNT(*)::int AS ready_count FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal AND EXISTS (SELECT 1 FROM unnest($1::text[],$2::text[]) AS expected(trigger_name,table_name) WHERE expected.trigger_name=t.tgname AND expected.table_name=c.relname)",
       [names, tables],
     );
     if (Number(result.rows[0]?.ready_count) !== spec.triggers.length) return false;
@@ -619,7 +619,7 @@ async function phaseSchemaObjectsReady(db: any, spec: PhaseSchemaGateSpec): Prom
     const names = spec.policies.map((policy) => policy.name);
     const tables = spec.policies.map((policy) => policy.table);
     const result = await db.query(
-      "SELECT COUNT(DISTINCT p.policyname)::int AS ready_count FROM pg_policies p WHERE p.schemaname='public' AND EXISTS (SELECT 1 FROM unnest($1::text[],$2::text[]) AS expected(policy_name,table_name) WHERE expected.policy_name=p.policyname AND expected.table_name=p.tablename)",
+      "SELECT COUNT(*)::int AS ready_count FROM pg_policies p WHERE p.schemaname='public' AND EXISTS (SELECT 1 FROM unnest($1::text[],$2::text[]) AS expected(policy_name,table_name) WHERE expected.policy_name=p.policyname AND expected.table_name=p.tablename)",
       [names, tables],
     );
     if (Number(result.rows[0]?.ready_count) !== spec.policies.length) return false;

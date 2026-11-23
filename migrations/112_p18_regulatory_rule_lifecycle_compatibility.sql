@@ -191,10 +191,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='pke_regulatory_rule_version_guard') THEN
     RAISE EXCEPTION 'P18 rule version lifecycle compatibility function missing';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='pke_regulatory_rule_guard' AND NOT tgisinternal) THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_pke_regulatory_rule_guard' AND NOT tgisinternal) THEN
     RAISE EXCEPTION 'P18 parent rule lifecycle trigger missing';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='pke_regulatory_rule_version_guard' AND NOT tgisinternal) THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_pke_regulatory_rule_version_guard' AND NOT tgisinternal) THEN
     RAISE EXCEPTION 'P18 rule version lifecycle trigger missing';
   END IF;
 END

@@ -40,6 +40,17 @@ describe("P18 regulatory core contracts",()=>{
   expect(api).toContain('REGULATORY_MAKER_CHECKER_REQUIRED');
   expect(migration).toContain('p18_guard_regulatory_rule_version_lifecycle');
  });
+ it("makes migration 111 self-contained for the officer role and runtime permission helper",()=>{
+  const roleSeed=migration.indexOf("INSERT INTO public.pke_project_role_policy(role_code,canonical_role_code,template_version)");
+  const allowlist=migration.indexOf("INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)");
+  expect(roleSeed).toBeGreaterThanOrEqual(0);
+  expect(allowlist).toBeGreaterThan(roleSeed);
+  expect(migration).toContain("VALUES ('regulatory_compliance_officer','regulatory_compliance_officer',1)");
+  expect(migration).toContain("GRANT EXECUTE ON FUNCTION public.p18_has_regulatory_permission(text) TO app_runtime_secure;");
+  expect(migration).toContain("has_function_privilege('app_runtime_secure','public.p18_has_regulatory_permission(text)','EXECUTE')");
+  expect(migration).toContain("regulatory compliance officer role seed missing");
+  expect(migration).toContain("runtime helper EXECUTE grant missing");
+ });
  it("defines runtime RLS write policies and immutable review guards in migration 111",()=>{
   for(const token of ['reason_code text','p18_regulatory_assessment_review_guard','p18_regulatory_assessment_result_review_guard','p18_regulatory_sources_insert','p18_regulatory_rules_insert','p18_regulatory_rule_versions_insert','p18_export_document_types_insert','p18_country_document_requirements_insert','p18_country_requirement_verification_guard','p18_regulatory_rule_version_lifecycle_guard'])
    expect(migration).toContain(token);

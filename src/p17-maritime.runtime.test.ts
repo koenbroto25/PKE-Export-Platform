@@ -58,10 +58,15 @@ function makeHarness(){
   let nextCalled=false;
   await gate!(req,res,()=>{nextCalled=true;});
   if(!nextCalled)throw new Error("P17 gate rejected: "+JSON.stringify(res.body)+"; queries="+queries.join(" || "));
-  const [auth,handler]=route.handlers;
-  let handlerPromise:Promise<any>|undefined;
-  auth(req,res,()=>{handlerPromise=Promise.resolve(handler(req,res));});
-  if(handlerPromise)await handlerPromise;
+  const dispatch=async(index:number):Promise<void>=>{
+   const handler=route.handlers[index];if(!handler)return;
+   if(handler.length>=3){
+    let nextCalled=false;
+    await handler(req,res,()=>{nextCalled=true;});
+    if(nextCalled)await dispatch(index+1);
+   }else await handler(req,res);
+  };
+  await dispatch(0);
   return {req,res};
  }
  return {invoke,queries};

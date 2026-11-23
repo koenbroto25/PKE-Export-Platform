@@ -37,9 +37,9 @@
     "Gemini conversational interface"
   ],
   "validation": {
-    "static_sql_contract": "passed (11 independent static contract checks)",
+    "static_sql_contract": "pending corrected SQL parser validation",
     "read_only_schema_query_plans": "passed",
-    "automated_unit_tests": "pending fresh CI run",
+    "automated_unit_tests": "pending corrected SQL CI run",
     "production_rls_backtest": "pending migration approval"
   }
 }

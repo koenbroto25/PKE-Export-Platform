@@ -8982,3 +8982,13 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - Migration 111 remains applied only to isolated validation branch `br-winter-butterfly-b3tnsao9`; its approval remains limited to that branch. Migration 111 and 112 are not approved for Production by these approvals.
 - P18 remains NOT COMPLETE until Migration 112 is approved/applied on the isolated branch, non-admin regulatory officer lifecycle, independent approve/reject, active-version replacement and rollback tests pass, and the latest CI is green.
 - Production and original UAT remain untouched. RAG ingestion/chatbot, Vercel deployment and P19 remain excluded.
+
+
+### P18 latest CI confirmation and next controlled gate — Rev2.47 (2026-11-23)
+
+- Final pinned-candidate CI run `45089913288` on commit `1647a764af6c2fb50beb6e65a591e1b278fc1905` completed successfully.
+- Confirmed: 49 test files / 509 tests; P1/P17/P18 release verifiers; migration dry-run; backend build and API typecheck; frontend typecheck and build all passed.
+- Migration 111 remains applied only to isolated validation branch `br-winter-butterfly-b3tnsao9`; exact SHA `e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904`.
+- Migration 112 candidate SHA is pinned and independently emitted by CI: `86f27d5ab23c0fc59c81bcd45cf671161d700a0704a7221829d977e60cd8a40e`. It remains unapplied and owner approval is pending.
+- Next gate is exact-hash approval for Migration 112, limited to the existing isolated validation branch. After approval: apply atomically, backtest Regulatory Compliance Officer rule lifecycle and non-admin maker-checker, rejection, verified source provenance, version activation/supersession, RLS and rollback. Then rerun full CI.
+- No Production or original-UAT writes have occurred. Production migration 111/112 remain separately unauthorized. RAG/chatbot, Vercel deployment and P19 remain excluded.

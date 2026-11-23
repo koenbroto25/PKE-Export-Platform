@@ -36,8 +36,8 @@ function makeHarness(){
   queries.push(sql);
   if(sql.includes("FROM public.migration_history"))return {rows:[{applied_count:15}]};
   if(sql.includes("p17d_vessel_position_admin_review_update"))return {rows:[{policy_count:3}]};
-  if(sql.includes("pg_class")&&sql.includes("policy_count"))return {rows:[{found_count:40,unsafe_count:0}]};
   if(sql.includes("p.polname='pke_scope_select'"))return {rows:[{safe_policy_count:1}]};
+  if(sql.includes("pg_class")&&sql.includes("policy_count"))return {rows:[{found_count:40,unsafe_count:0}]};
   if(sql.includes("FROM public.permissions"))return {rows:[{permission_count:26}]};
   if(sql.includes("pke_project_role_permission_allowlist"))return {rows:[{allowed_count:63}]};
   if(sql.includes("pke_is_platform_admin() AS is_admin"))return {rows:[{is_admin:false}]};

@@ -44,20 +44,6 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
   const p17SchemaBackedRead=/^\/api\/v1\/projects\/[^/]+\/(?:master-data-change-requests(?:\/|$)|pke-logistics\/(?:scenarios|simulation-scenarios|change-requests)(?:\/|$)|buyer-visibility-grant-candidates(?:\/|$)|buyer-visibility-grants(?:\/|$)|voyages(?:\/|$)|vessel-nominations(?:\/|$)|vessel-port-calls(?:\/|$)|maritime-workflow-events(?:\/|$)|loading-operations(?:\/|$)|vessel-positions(?:\/|$)|p17-control-tower(?:\/|$))/.test(path);
   const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating);
   if(!protectedPath)return next();
-  const migrationFiles=[
-    "096_p17a_maritime_source_governance_ingestion.sql",
-    "097_p17e_project_maritime_workflows.sql",
-    "098_p17b_port_identity_geospatial.sql",
-    "099_p17b_logistics_scenario_and_pm_change_requests.sql",
-    "100_p17b_logistics_change_audit.sql",
-    "101_p17b_logistics_simulation_graph.sql",
-    "102_p17b_logistics_request_scope_guard.sql",
-    "103_p17b_logistics_simulation_edge_semantics.sql",
-    "104_p17e_nomination_submission_guard.sql",
-    "105_p17f_buyer_identity_and_grant_audit.sql",
-    "106_p17d_vessel_position_observations.sql",
-    "107_p17e_loading_survey_reconciliation_laytime.sql"
-  ];
   const protectedTables=[
     "maritime_data_sources","maritime_source_field_permissions","maritime_ingestion_runs","maritime_ingestion_staging",
     "maritime_provider_usage","maritime_provider_health","maritime_workflow_events","port_external_id_crosswalk",

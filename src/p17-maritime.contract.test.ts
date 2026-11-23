@@ -284,6 +284,9 @@ describe("P17 schema release safety gate",()=>{
   expect(gate).toContain("pke_has_any_project_permission");
   expect(gate).toContain("app.current_project_id");
   expect(gate).toContain("vessel.position.review");
+  for(const permission of ["documents.view","workflow.view","port.view","shipping.update","shipping.view","vessel.nominate","vessel.nomination.review","vessel.port_call.confirm","vessel.port_call.manage","vessel.position.view","vessel.view","voyage.create","voyage.update","voyage.view"]) expect(gate).toContain(permission);
+  expect(gate).toContain("terminal_representative");
+  expect(gate).toContain("internal_auditor");
   for(const fragment of ["admin/maritime/","master-data-change-requests","pke-logistics","scenarios","simulation-scenarios","voyages","vessel-nominations","vessel-port-calls","buyer-visibility-grants","loading-operations","admin"]) expect(gate).toContain(fragment);
   expect(gate).toContain("const mutating=[\"POST\",\"PUT\",\"PATCH\",\"DELETE\"].includes(req.method)");
   expect(gate).toContain("const protectedPath=schemaAdmin||buyerProjection||p17AdminProjectWorkflow||p17SchemaBackedRead||(p17ProjectWorkflow&&mutating)");

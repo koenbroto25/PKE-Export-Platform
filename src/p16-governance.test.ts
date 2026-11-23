@@ -170,7 +170,7 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     const registerRoute = API.slice(registerStart, reviewStart);
     expect(registerRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.create")');
     expect(registerRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
-    expect(registerRoute).toContain('set_config("app.current_permission_code"');
+    expect(registerRoute).toContain("set_config('app.current_permission_code'");
 
     expect(downloadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
     expect(downloadRoute).toContain("public.project_export_documents");

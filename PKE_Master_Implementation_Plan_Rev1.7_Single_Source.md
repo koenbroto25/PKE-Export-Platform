@@ -8892,3 +8892,13 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - RAG document ingestion, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini interface, Vercel deployment, and P19 remain explicitly outside this completion scope.
 
 **Status:** P18 implementation correction committed; P18 acceptance remains BLOCKED pending CI evidence and owner approval of the corrected migration hash for a clean validation-branch application. Do not describe P18 as complete until all mandatory gates above pass.
+
+
+### P18 corrected-candidate static audit — Rev2.41 (2026-11-23)
+
+- Independently recomputed corrected migration SHA-256 and matched the manifest exactly: `9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6`.
+- Static contract audit: **11/11 PASS** — exact checksum, single BEGIN/COMMIT, no DROP TABLE/SCHEMA/TRUNCATE, six governance functions, role seed before allowlist, runtime EXECUTE grant, both migration self-verification assertions, release-verifier tokens, new Vitest contract assertions, and required P18 source/test artifacts.
+- Added a Vitest contract test that asserts the role seed precedes allowlist insertion and that the runtime grant plus both self-verification assertions remain in Migration 111.
+- Opened PR #3 for CI review; it remains unmerged. The latest commit has no GitHub Actions workflow run/status surfaced by the connected GitHub interface. The previously successful run 45056977116 (506 tests) predates this correction and is not counted as a current pass. Vercel's automatic check is pending and is intentionally not used as a release gate because deployment is excluded.
+- Therefore the full Vitest/build CI and clean database application/backtests are still not evidenced. Do not label P18 complete yet.
+- Next mandatory action: after owner approval of the exact corrected SHA above, create a clean validation copy from UAT migration 110, apply the migration with no manual prerequisites, and execute SQL/RLS/runtime/maker-checker/API regression checks. Keep Production untouched.

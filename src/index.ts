@@ -3872,7 +3872,7 @@ app.post("/api/v1/notifications", requireAuth, async (req: express.Request, res:
     );
     const r = rows[0];
     // In-app delivery is represented by user_notifications. The separate
-    // notification_deliveries ledger is worker-owned and has no runtime RLS write policy.
+    // delivery ledger has no runtime RLS write policy; this API does not write to it.
     res.status(201).json({
       notification: {
         id: r.id, eventId: r.event_id, recipient: r.recipient_user_id, title: r.title, message: r.message,

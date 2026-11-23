@@ -3470,7 +3470,9 @@ app.post("/api/v1/projects/:projectId/documents", requireAuth, async (req: expre
   }
   const key = String(objectKey);
   const expectedPrefix = `projects/${projectId}/documents/${projectRequirementId}/`;
-  if (!key.startsWith(expectedPrefix) || fileReference !== key || key.includes("..") || key.includes("\\")) {
+  const storedFilename = key.startsWith(expectedPrefix) ? key.slice(expectedPrefix.length) : "";
+  const storedFilenamePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-[A-Za-z0-9._-]{1,120}$/i;
+  if (!key.startsWith(expectedPrefix) || !storedFilenamePattern.test(storedFilename) || fileReference !== key || key.includes("..") || key.includes("\\")) {
     return res.status(400).json({ error: "Document reference must match the exact private Project/requirement object namespace.", code: "INVALID_OBJECT_KEY" });
   }
   const storageStatus = privateStorage.status();

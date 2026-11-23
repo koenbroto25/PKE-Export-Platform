@@ -90,6 +90,12 @@ export function registerP17MaritimeRoutes(app:Express,d:D){
     );
     if(Number(legacyPositionPolicy.rows[0]?.safe_policy_count)!==1)
       return bad(res,503,"P17_AIS_PROJECT_SCOPE_BLOCKED","Legacy AIS position reads are not protected by the Project-scoped RLS policy; protected APIs remain unavailable.");
+    const pendingReviewPolicies=await req.db.query(
+      "SELECT COUNT(*)::int AS policy_count FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='vessel_tracking_positions' AND p.polname=ANY($1::text[]) AND p.polcmd='r'",
+      [["p17d_vessel_position_admin_pending_select","p17d_vessel_position_project_review_select"]]
+    );
+    if(Number(pendingReviewPolicies.rows[0]?.policy_count)!==2)
+      return bad(res,503,"P17_AIS_REVIEW_READ_BLOCKED","Admin and Project reviewer pending-AIS read policies are incomplete; protected APIs remain unavailable.");
     const requiredPermissions=["buyer.shipment.view","buyer.visibility.manage","documents.view","loading.quantity.reconcile","pke.logistics.master.change_request.manage","pke.logistics.master.view","port.view","shipping.laytime.manage","shipping.laytime.verify","shipping.laytime.view","shipping.survey.review","shipping.survey.submit","shipping.survey.view","shipping.update","shipping.view","vessel.nominate","vessel.nomination.review","vessel.port_call.confirm","vessel.port_call.manage","vessel.position.review","vessel.position.view","vessel.view","voyage.create","voyage.update","voyage.view","workflow.view"];
     const permissionsResult=await req.db.query("SELECT COUNT(*)::int AS permission_count FROM public.permissions WHERE code=ANY($1::text[]) AND is_active IS TRUE",[requiredPermissions]);
     if(Number(permissionsResult.rows[0]?.permission_count)!==requiredPermissions.length)
@@ -372,6 +378,24 @@ app.get("/api/v1/admin/maritime/port-crosswalk",requireAuth,requireAdmin,async(r
   if(!uuidPattern.test(id)||!["accepted","rejected","superseded"].includes(status)||note.length<5)return bad(res,400,"AIS_POSITION_REVIEW_INVALID","Observation, supported review state and substantive independent review note are required.");
   try{const q=await req.db.query("UPDATE public.vessel_tracking_positions SET review_status=$2,reviewed_by=req_user_id(),reviewed_at=now(),review_note=$3 WHERE id=$1::uuid AND review_status='pending' AND created_by<>req_user_id() RETURNING id,vessel_id,mmsi,position_timestamp,review_status,reviewed_by,reviewed_at,review_note",[id,status,note]);if(!q.rows.length)return bad(res,409,"AIS_POSITION_MAKER_CHECKER","Observation must be pending and reviewed by an independent administrator.");return res.json({observation:q.rows[0],displayable:status==="accepted"});}
   catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"AIS_POSITION_REVIEW_REJECTED","Current source rights or maker-checker guard rejected this review.");return bad(res,500,"AIS_POSITION_REVIEW_FAILED","Unable to review AIS observation.");}
+ });
+ app.get("/api/v1/projects/:projectId/vessel-positions/review-queue",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");
+  if(!await requireProjectAccess(req,res,p,"vessel.position.review"))return;
+  try{
+   const q=await req.db.query("SELECT o.id,o.source_id,o.vessel_id,v.name AS vessel_name,o.mmsi,o.latitude,o.longitude,o.position_timestamp AS observed_at,o.provider_code,o.provider_reference,o.source_reference,o.attribution_text,o.source_quality,o.created_by,o.created_at FROM public.vessel_tracking_positions o JOIN public.vessels v ON v.id=o.vessel_id WHERE o.source_id IS NOT NULL AND o.review_status='pending' AND o.created_by<>req_user_id() AND EXISTS(SELECT 1 FROM public.voyages g WHERE g.vessel_id=o.vessel_id AND g.project_id=$1::uuid) ORDER BY o.created_at DESC LIMIT 250",[p]);
+   return res.json({projectId:p,observations:q.rows,reviewRequired:true});
+  }catch{return bad(res,500,"AIS_PROJECT_REVIEW_QUEUE_FAILED","Unable to read pending AIS observations for this Project.");}
+ });
+ app.patch("/api/v1/projects/:projectId/vessel-positions/:positionId/review",requireAuth,async(req:R,res:Response)=>{
+  const p=req.params.projectId,id=req.params.positionId,status=str(req.body?.reviewStatus,24),note=str(req.body?.reviewNote,2000);
+  if(!uuidPattern.test(p)||!uuidPattern.test(id)||!["accepted","rejected","superseded"].includes(status)||note.length<5)return bad(res,400,"AIS_POSITION_REVIEW_INVALID","Valid Project, observation, review state and substantive note are required.");
+  if(!await requireProjectAccess(req,res,p,"vessel.position.review"))return;
+  try{
+   const q=await req.db.query("UPDATE public.vessel_tracking_positions SET review_status=$3,reviewed_by=req_user_id(),reviewed_at=now(),review_note=$4 WHERE id=$1::uuid AND review_status='pending' AND created_by<>req_user_id() AND EXISTS(SELECT 1 FROM public.voyages g WHERE g.vessel_id=vessel_tracking_positions.vessel_id AND g.project_id=$2::uuid) RETURNING id,vessel_id,mmsi,position_timestamp,review_status,reviewed_by,reviewed_at,review_note",[id,p,status,note]);
+   if(!q.rows.length)return bad(res,409,"AIS_POSITION_MAKER_CHECKER","Observation must be pending, linked to this Project and reviewed by an independent reviewer.");
+   return res.json({observation:q.rows[0],displayable:status==="accepted",projectId:p});
+  }catch(e:any){if(e?.code==="42501"||e?.code==="23514")return bad(res,409,"AIS_POSITION_REVIEW_REJECTED","Project permission, source rights or maker-checker guard rejected this review.");return bad(res,500,"AIS_POSITION_REVIEW_FAILED","Unable to review AIS observation.");}
  });
  app.get("/api/v1/projects/:projectId/vessel-positions",requireAuth,async(req:R,res:Response)=>{
   const p=req.params.projectId;if(!uuidPattern.test(p))return bad(res,400,"PROJECT_ID_INVALID","Invalid Project ID.");if(!await requireProjectAnyAccess(req,res,p,["vessel.view","shipping.view","vessel.position.view"]))return;

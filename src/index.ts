@@ -2514,7 +2514,7 @@ app.patch("/api/v1/regulatory-rule-versions/:versionId/approve",requireAuth,asyn
       [req.user?.id??null,req.params.versionId],
     );
     if(!rows.length) return res.status(409).json({error:"Approval denied: source must be verified and reviewer must differ from maker.",code:"REGULATORY_MAKER_CHECKER_REQUIRED"});
-    await req.db.query("UPDATE public.regulatory_rules SET status=CASE WHEN EXISTS(SELECT 1 FROM public.regulatory_rule_versions av WHERE av.id=active_version_id AND av.status='effective') THEN 'effective' ELSE 'approved' END,reviewed_by=$1::uuid,reviewed_at=now() WHERE id=$2::uuid",[req.user?.id??null,rows[0].rule_id]);
+    await req.db.query("UPDATE public.regulatory_rules SET status=CASE WHEN EXISTS(SELECT 1 FROM public.regulatory_rule_versions av WHERE av.id=active_version_id AND av.status='effective') THEN 'effective' ELSE 'approved' END,active_version_id=CASE WHEN EXISTS(SELECT 1 FROM public.regulatory_rule_versions av WHERE av.id=active_version_id AND av.status='effective') THEN active_version_id ELSE $2::uuid END,reviewed_by=$1::uuid,reviewed_at=now() WHERE id=$3::uuid",[req.user?.id??null,rows[0].id,rows[0].rule_id]);
     await recordRegulatoryAudit(req,"rule.approved","regulatory_rule_version",rows[0].id,null,"Independent rule approval",null,rows[0]);
     return res.json({version:rows[0]});
   }catch(error:any){if(error?.code==="23514") return res.status(409).json({error:"Independent approval constraint failed."});return res.status(500).json(internalServerErrorPayload());}

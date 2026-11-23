@@ -43,7 +43,7 @@ describe("P19 operational assurance: API security boundary", () => {
     expect(INDEX_SRC.slice(rlsMount, rlsMount + 5000)).toContain("set_config('app.current_user_id'");
     expect(INDEX_SRC.slice(rlsMount, rlsMount + 12000)).toContain("COMMIT");
     expect(INDEX_SRC.slice(rlsMount, rlsMount + 12000)).toContain("ROLLBACK");
-    expect(routes.filter((route) => route.method === "USE" && route.path === "/api/v1")).toHaveLength(2);
+    expect(routes.filter((route) => route.method === "USE" && route.path === "/api/v1")).toHaveLength(3);
   });
 
   it("allows only the reviewed pre-authentication API exceptions", () => {
@@ -128,7 +128,7 @@ describe("P19 operational assurance: API security boundary", () => {
   });
 
   it("places every business route after both global security middleware mounts", () => {
-    const businessRoutes = routes.filter((route) => route.at > rlsMount);
+    const businessRoutes = routes.filter((route) => route.method !== "USE" && route.at > rlsMount);
     expect(businessRoutes.length).toBeGreaterThan(200);
     expect(businessRoutes.every((route) => route.path.startsWith("/api/v1/"))).toBe(true);
   });

@@ -17,5 +17,11 @@ if(!/^\s*--[^\r\n]*(?:\r?\n|$)[\s\S]*?BEGIN;/i.test(text)||!/COMMIT;\s*$/.test(t
 if((text.match(/^BEGIN;\s*$/gim)||[]).length!==1||(text.match(/^COMMIT;\s*$/gim)||[]).length!==1)fail("Migration transaction boundary count is invalid.");
 for(const policy of ["p17d_vessel_position_admin_pending_select","p17d_vessel_position_admin_review_update","p17d_vessel_position_project_review_select"])if(!text.includes(policy))fail("Missing policy: "+policy);
 if(!text.includes("app.current_project_id")||!text.includes("pke_has_project_permission")||!text.includes("pke_has_any_project_permission"))fail("Legacy policy verification markers are incomplete.");
+if(!/source_id IS NULL\s+AND EXISTS\s*\(/i.test(text))fail("Legacy SELECT policy must be limited to source_id IS NULL legacy positions.");
+if(!/source_id IS NOT NULL\s+AND review_status = 'pending'\s+AND created_by <> public\.pke_current_user_id\(\)/i.test(text))fail("Project reviewer queue must enforce pending state and maker-checker.");
+if(!/v\.project_id = NULLIF\(current_setting\('app\.current_project_id', true\), ''\)::uuid/i.test(text))fail("Project reviewer policy must bind to current Project context.");
+if(!/v\.project_id = NULLIF\(current_setting\('app\.current_project_id', true\), ''\)::uuid/i.test(text))fail("Legacy reads must bind to current Project context.");
+if(!/reviewed_by = public\.pke_current_user_id\(\)/i.test(text)||!/reviewed_at IS NOT NULL/i.test(text))fail("Review UPDATE policy must bind reviewer identity and timestamp.");
+if((text.match(/^DROP POLICY IF EXISTS pke_scope_select ON public\.vessel_tracking_positions;$/gim)||[]).length!==1)fail("Legacy global SELECT policy replacement statement is required exactly once.");
 if(/^\s*(DROP\s+TABLE|DROP\s+SCHEMA|TRUNCATE)\b/im.test(text))fail("Unexpected destructive DDL.");
-console.log("P17-D 110a PREPARED PASS: SHA-256 "+sha+"; Production remains at ledger 001-071; no migration was applied.");
+console.log("P17-D 110a PREPARED PASS: SHA-256 "+sha+"; legacy Project-scope and three review-policy definitions verified; Production remains at ledger 001-071; no migration was applied.");

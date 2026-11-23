@@ -138,7 +138,9 @@ BEGIN
         OR (OLD.status='under_review' AND NEW.status='approved'
           AND parent_status IN ('under_review','approved','effective','suspended'))
         OR (OLD.status='under_review' AND NEW.status='rejected'
-          AND parent_status IN ('under_review','approved','effective','suspended'))
+          AND parent_status IN ('under_review','approved','effective','suspended')
+          AND OLD.created_by IS DISTINCT FROM public.pke_current_user_id()
+          AND NEW.approved_by IS NULL AND NEW.approved_at IS NULL)
         OR (OLD.status='approved' AND NEW.status='effective'
           AND parent_status IN ('approved','effective','suspended'))
         OR (OLD.status IN ('approved','effective') AND NEW.status IN ('superseded','repealed'))

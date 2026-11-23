@@ -8707,3 +8707,13 @@ Source review found migrations 096, 097 and 098 were not wrapped in explicit tra
 - Control Tower KPI/query semantics still require a test against controlled fixtures or a safe rollback-only test surface. Production has no business records to validate live KPI totals; keep missing data as unknown/not available rather than numeric zero where the source is absent.
 - External owner/company activation items remain separate: AIS provider license/contract and API credentials; verified PKS–port–terminal–warehouse–road source evidence; real Buyer Neon Auth identity and approved visibility scope; genuine survey/tally/tickets/NOR/laytime evidence; legal/compliance approval. None blocks further code, contract tests, admin UX, fail-closed behavior or non-production validation.
 - Continue to skip Vercel deployment and browser UAT until the owner explicitly changes that instruction.
+
+
+## P17 re-audit hardening — 23 November 2026
+
+- Owner authorized commits to the isolated branch `p17/re-audit-hardening-20261123`; Vercel Preview may be triggered. This authorization does not permit merge, Production schema mutation, business-data mutation or Production deployment.
+- Direct read-only Production audit confirmed migration 096–110 applied at ledger IDs 57–71; 40/40 critical P17 tables exist with RLS and at least one policy; 11/11 release permissions and 21/21 release role-allowlist pairs are present. Root CI run 45092162885 passed 49 test files / 509 tests, including 76 P17 maritime contract tests, P17 release verifier, migration dry-run, backend build/API typecheck and frontend typecheck/build.
+- Audit found the API runtime gate was stale at migrations 096–107 and omitted the Migration 110 AIS reviewer permission/allowlist. Corrected gate now checks the full 096–110 package, the AIS review permission and PM allowlist.
+- Audit found the legacy `source_id IS NULL` AIS SELECT policy from Migration 106 uses global `pke_has_any_project_permission`. Added prepared corrective SQL `113_p17d_legacy_position_project_scope.sql` to require the current Project context and Project-specific vessel/shipping permission. The API release gate now fails closed until the database policy expression is corrected. This SQL is prepared only; it has NOT been applied to Production and requires a separate exact-hash owner approval and controlled release path.
+- Empty provider, Buyer, port/PKS route and loading evidence tables remain intentionally empty. They are activation/evidence gates, not permission to create fabricated Production data.
+- The current P17 source CI workflow now includes this isolated branch in its push triggers. Fresh CI evidence is required for these changes; previous CI results remain historical evidence only.

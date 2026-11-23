@@ -75,6 +75,26 @@ describe("P19 operational assurance: API security boundary", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it("mounts fail-closed phase schema gates after RLS and before business routes", () => {
+    const gateMount = INDEX_SRC.indexOf('app.use("/api/v1", phaseSchemaReleaseGate)');
+    const firstBusinessRoute = INDEX_SRC.indexOf('app.get("/api/v1/me"');
+    expect(gateMount).toBeGreaterThan(rlsMount);
+    expect(firstBusinessRoute).toBeGreaterThan(gateMount);
+    expect(INDEX_SRC).toContain("P1_SCHEMA_RELEASE_BLOCKED");
+    expect(INDEX_SRC).toContain("P2A_CANDIDATE_SCHEMA_BLOCKED");
+    expect(INDEX_SRC).toContain("P2A_CHANGE_REQUEST_SCHEMA_BLOCKED");
+    expect(INDEX_SRC).toContain("P2A_QUALITY_SCHEMA_BLOCKED");
+    expect(INDEX_SRC).toContain("P16_DOCUMENT_SCOPE_SCHEMA_BLOCKED");
+    expect(INDEX_SRC).toContain("FUNDER_SHARE_SCHEMA_BLOCKED");
+    expect(INDEX_SRC).toContain("P18_REGULATORY_SCHEMA_BLOCKED");
+    expect(INDEX_SRC).toContain("phaseSchemaObjectsReady");
+    expect(INDEX_SRC).toContain("pg_policies");
+    expect(INDEX_SRC).toContain("pg_proc");
+    expect(INDEX_SRC).toContain("pg_trigger");
+    expect(INDEX_SRC).not.toContain("FROM public.migration_history");
+    expect(INDEX_SRC).not.toContain("FROM public.pke_project_role_permission_allowlist");
+  });
+
   it("keeps the P17 runtime release gate compatible with the restricted runtime role", () => {
     const gateStart = P17_SRC.indexOf("const p17WriteReleaseGate");
     const gateEnd = P17_SRC.indexOf("app.use(p17WriteReleaseGate)", gateStart);

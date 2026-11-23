@@ -14,6 +14,23 @@ USING (
   AND public.pke_is_platform_admin()
 );
 
+DROP POLICY IF EXISTS p17d_vessel_position_admin_review_update ON public.vessel_tracking_positions;
+CREATE POLICY p17d_vessel_position_admin_review_update
+ON public.vessel_tracking_positions
+FOR UPDATE TO app_runtime_secure
+USING (
+  public.pke_is_platform_admin()
+  AND source_id IS NOT NULL
+  AND review_status = 'pending'
+)
+WITH CHECK (
+  public.pke_is_platform_admin()
+  AND source_id IS NOT NULL
+  AND review_status IN ('accepted','rejected','superseded')
+  AND reviewed_by = public.pke_current_user_id()
+  AND reviewed_at IS NOT NULL
+);
+
 DROP POLICY IF EXISTS p17d_vessel_position_project_review_select ON public.vessel_tracking_positions;
 CREATE POLICY p17d_vessel_position_project_review_select
 ON public.vessel_tracking_positions
@@ -64,6 +81,9 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname='p17d_vessel_position_admin_pending_select' AND polcmd='r') THEN
     RAISE EXCEPTION 'Admin pending AIS review SELECT policy is missing';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname='p17d_vessel_position_admin_review_update' AND polcmd='w') THEN
+    RAISE EXCEPTION 'Admin pending AIS review UPDATE policy is missing';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname='p17d_vessel_position_project_review_select' AND polcmd='r') THEN
     RAISE EXCEPTION 'Project reviewer pending AIS SELECT policy is missing';

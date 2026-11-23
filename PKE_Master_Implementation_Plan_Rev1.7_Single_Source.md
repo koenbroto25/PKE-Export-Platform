@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.38 — P17 Production reconciliation and validation run
+# Master Implementation Plan Rev2.40 — P18 migration 111 correction and acceptance validation
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.36 (23 November 2026 — Production ledger and external-gate reconciliation; technical validation run requested)  
+**Revision:** 2.40 (23 November 2026 — P18 migration 111 self-contained correction and validation)  
 
 **Tanggal dokumen:** 23 November 2026  
 
@@ -8869,3 +8869,26 @@ The exact candidate migration is **not self-contained**. The role master seed an
 - No Production or UAT writes were made.
 - Vercel deployment, RAG ingestion, regulatory chatbot and P19 remain deferred.
 - Do not mark P18 complete until the corrected migration is independently tested from a fresh UAT clone, RLS/maker-checker/project-isolation/API backtests pass without manual prerequisites, and the release plan is updated with evidence.
+
+
+## P18 migration correction — Rev2.40 (2026-11-23)
+
+**Implementation branch:** `p18/regulatory-core-20261123`  
+**Corrected migration:** `migrations/111_p18_regulatory_core_governance.sql`  
+**Corrected SHA-256:** `9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6`
+
+### Defects corrected in source
+1. Migration 111 now seeds `pke_project_role_policy` for `regulatory_compliance_officer` before inserting its permission allowlist rows. The seed is idempotent with `ON CONFLICT(role_code) DO NOTHING`.
+2. Migration 111 now grants `EXECUTE` on `public.p18_has_regulatory_permission(text)` to `app_runtime_secure` immediately after creating the helper function.
+3. The migration's final verification block now fails unless the role seed exists with the expected canonical role code and the runtime role has the required function privilege.
+4. `migration_release_manifest_p18_111.json` pins the corrected exact SHA-256. `scripts/verify-p18-release-package.mjs` now checks for the role seed and runtime grant tokens in addition to the prior release invariants.
+
+### Validation integrity and outstanding gates
+- The previous validation branch was migrated with the old candidate only after manual prerequisites. It is historical evidence and is **not** evidence that the corrected migration applies cleanly.
+- Corrected migration SHA differs from the prior owner-approved candidate. It must not be applied to any Neon branch until owner explicitly approves this exact new SHA.
+- UAT remains at migration 110 and Production remains at migration 71 as last directly verified. Neither has been modified by this correction.
+- GitHub Actions for the corrected commit, root test suite, backend build, frontend typecheck/build, static migration verifier, and post-migration database/RLS/API/maker-checker regression checks must all pass before P18 can be closed.
+- A fresh validation run must start from the unchanged UAT baseline and execute the corrected SQL with no manual pre-seeding or manual grants. The migration's own verification block is the acceptance guard.
+- RAG document ingestion, OCR/chunking, embeddings/vector retrieval, regulatory chatbot/Gemini interface, Vercel deployment, and P19 remain explicitly outside this completion scope.
+
+**Status:** P18 implementation correction committed; P18 acceptance remains BLOCKED pending CI evidence and owner approval of the corrected migration hash for a clean validation-branch application. Do not describe P18 as complete until all mandatory gates above pass.

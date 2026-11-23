@@ -531,7 +531,7 @@ function phaseSchemaGateForPath(path: string): PhaseSchemaGateSpec | null {
       ],
     };
   }
-  if (/^\/api\/v1\/(?:project-export-documents|project-export-document-requirements)(?:\/|$)/.test(path)) {
+  if (/^\\/api\\/v1\\/(?:projects\\/[^/]+\\/(?:document-requirements|documents)|documents\\/[^/]+|storage\\/presigned-(?:upload|download)(?:\\/|$)|project-export-documents|project-export-document-requirements)(?:\\/|$)/.test(path)) {
     return {
       code: "P16_DOCUMENT_SCOPE_SCHEMA_BLOCKED",
       error: "P16 document project-context resolvers are not fully released on this database.",

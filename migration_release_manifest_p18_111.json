@@ -22,7 +22,7 @@
     {
       "ledger_id": 72,
       "filename": "111_p18_regulatory_core_governance.sql",
-      "sha256": "9e13ed3614eaa645dbab734a794f7d3241df9c42f58db9cf8250f421fb5c85d6",
+      "sha256": "e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904",
       "status": "candidate_pending_owner_approval",
       "source_sha_verified": true,
       "production_applied": false
@@ -37,7 +37,7 @@
     "Gemini conversational interface"
   ],
   "validation": {
-    "static_sql_contract": "pending corrected SQL parser validation",
+    "static_sql_contract": "pending corrected SQL validation",
     "read_only_schema_query_plans": "passed",
     "automated_unit_tests": "pending corrected SQL CI run",
     "production_rls_backtest": "pending migration approval"

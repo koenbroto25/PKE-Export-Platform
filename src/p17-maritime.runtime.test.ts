@@ -42,7 +42,8 @@ function makeHarness(){
   if(sql.includes("pke_project_role_permission_allowlist"))return {rows:[{allowed_count:63}]};
   if(sql.includes("pke_is_platform_admin() AS is_admin"))return {rows:[{is_admin:false}]};
   if(sql.includes("SELECT o.id,o.source_id")&&sql.includes("review_status='pending'"))return {rows:params[0]===projectA&&activeUserId!==observation.created_by?[observation]:[]};
-  if(sql.includes("UPDATE public.vessel_tracking_positions SET review_status"))return {rows:params[1]===projectA?[{...observation,review_status:params[2],reviewed_by:userId,review_note:params[3]}]:[]};
+  if(sql.includes("SELECT o.id,o.source_id")&&sql.includes("o.source_id IS NOT NULL")&&sql.includes("ORDER BY o.created_at DESC"))return {rows:[observation]};
+  if(sql.includes("UPDATE public.vessel_tracking_positions SET review_status"))return {rows:params.length===3||params[1]===projectA?[{...observation,review_status:params.length===3?params[1]:params[2],reviewed_by:userId,review_note:params.length===3?params[2]:params[3]}]:[]};
   return {rows:[]};
  }};
  function request(method:string,path:string,user:any,params:any={},body:any={}){
@@ -95,6 +96,18 @@ describe("P17-D authenticated runtime API acceptance",()=>{
  it("rejects a cross-Project IDOR even when the reviewer has access to the other Project",async()=>{
   const h=makeHarness();const {res}=await h.invoke("PATCH",decisionPath,{...pendingUser,projectId:projectB},{projectId:projectB,positionId},{reviewStatus:"accepted",reviewNote:"Cross project attempt"});
   expect(res.statusCode).toBe(409);expect(res.body.code).toBe("AIS_POSITION_MAKER_CHECKER");
+ });
+ it("blocks non-admin users from the global Admin AIS queue",async()=>{
+  const h=makeHarness();const {res}=await h.invoke("GET","/api/v1/admin/maritime/vessel-positions",{...pendingUser,platformAdmin:false},{});
+  expect(res.statusCode).toBe(403);expect(res.body.code).toBe("ADMIN_REQUIRED");
+ });
+ it("allows Platform Admin to read the global pending AIS queue",async()=>{
+  const h=makeHarness();const {res}=await h.invoke("GET","/api/v1/admin/maritime/vessel-positions",{...pendingUser,platformAdmin:true},{});
+  expect(res.statusCode).toBe(200);expect(res.body.observations).toHaveLength(1);
+ });
+ it("allows Platform Admin to independently review a pending AIS observation",async()=>{
+  const h=makeHarness();const {res}=await h.invoke("PATCH","/api/v1/admin/maritime/vessel-positions/:id/review",{...pendingUser,platformAdmin:true},{id:positionId},{reviewStatus:"accepted",reviewNote:"Independent admin review"});
+  expect(res.statusCode).toBe(200);expect(res.body.displayable).toBe(true);
  });
  it("rejects a self-review attempt before any observation is returned",async()=>{
   const h=makeHarness();const {res}=await h.invoke("GET",queuePath,{...pendingUser,id:"e7000000-0000-4000-8000-000000000007"},{projectId:projectA});

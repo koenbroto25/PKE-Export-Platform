@@ -153,6 +153,25 @@ describe("P16 Port, Warehouse and Vessel governance", () => {
     expect(UI).toContain("inferredMime");
   });
 
+  it("binds presigned object access to a verified Project requirement and registered document", () => {
+    const uploadStart = API.indexOf('app.post("/api/v1/storage/presigned-upload"');
+    const downloadStart = API.indexOf('app.get("/api/v1/storage/presigned-download/*objectKey"');
+    const workflowStart = API.indexOf("// Project workflow management", downloadStart);
+    const uploadRoute = API.slice(uploadStart, downloadStart);
+    const downloadRoute = API.slice(downloadStart, workflowStart);
+    expect(uploadRoute).toContain("keyPattern");
+    expect(uploadRoute).toContain("documents\\/");
+    expect(uploadRoute).toContain("public.project_export_document_requirements");
+    expect(uploadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.create")');
+    expect(downloadRoute).toContain('requireProjectDocumentPermission(req, res, projectId, "documents.view")');
+    expect(downloadRoute).toContain("public.project_export_documents");
+    expect(downloadRoute).toContain("upload_verified_at IS NOT NULL AND sha256_checksum IS NOT NULL");
+    expect(downloadRoute).toContain("file_reference=$3");
+    expect(API).toContain("storedFilenamePattern");
+    expect(UI).toContain("documents/\u0024{doc.projectRequirementId}/\u0024{crypto.randomUUID()}-\u0024{safeName}");
+    expect(UI).toContain("Pilih persyaratan dokumen Project sebelum mengunggah file.");
+  });
+
   it("routes document officer uploads and Admin review through selected-Project evidence controls", () => {
     expect(API).toContain("async function requireProjectDocumentPermission");
     expect(API).toContain("set_config('app.current_project_id',$1,true)");

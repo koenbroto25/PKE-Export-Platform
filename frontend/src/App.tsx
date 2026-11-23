@@ -452,8 +452,8 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
     () => projectId ? get(`/projects/${projectId}/pks-candidates`) : Promise.resolve({ candidates: [], canManage: false, canVerify: false }),
     [projectId],
   );
-  const productRequirements = useLoad<{ requirements?: AnyRecord[]; products?: AnyRecord[]; canManage?: boolean; canApprove?: boolean }>(
-    () => projectId ? get(`/projects/${projectId}/product-requirements`) : Promise.resolve({ requirements: [], products: [], canManage: false, canApprove: false }),
+  const productRequirements = useLoad<{ requirements?: AnyRecord[]; products?: AnyRecord[]; canManage?: boolean; canCreate?: boolean; canUpdate?: boolean; canApprove?: boolean }>(
+    () => projectId ? get(`/projects/${projectId}/product-requirements`) : Promise.resolve({ requirements: [], products: [], canManage: false, canCreate: false, canUpdate: false, canApprove: false }),
     [projectId],
   );
   const [editingId, setEditingId] = useState('');
@@ -486,7 +486,9 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
   const canManage = data.data?.canManage === true;
   const canManageCandidates = candidates.data?.canManage === true;
   const canVerifyCandidates = candidates.data?.canVerify === true;
-  const canManageProducts = productRequirements.data?.canManage === true;
+  const canCreateProducts = productRequirements.data?.canCreate === true;
+  const canUpdateProducts = productRequirements.data?.canUpdate === true;
+  const canManageProducts = canCreateProducts || canUpdateProducts;
   const canApproveProducts = productRequirements.data?.canApprove === true;
   const startEdit = (row: AnyRecord) => {
     const window = row.delivery_window || {};
@@ -631,7 +633,7 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
   };
   const saveProductRequirement = async (e: FormEvent) => {
     e.preventDefault();
-    if (!canManageProducts) return;
+    if (!(requirementEditingId ? canUpdateProducts : canCreateProducts)) return;
     setRequirementBusy(true);
     const specificationData = {
       legal_definition: requirementForm.legalDefinition || null,
@@ -738,7 +740,7 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
         ]} emptyTitle="Belum ada kandidat" emptyText="Tambahkan kandidat perusahaan atau fasilitas dengan sumber yang dapat ditelusuri." />}
       </Card>
       <Card><PanelHeading title="Master produk & persyaratan Project" description="Katalog produk menjadi referensi; batas kualitas dan COA bersifat spesifik kontrak/buyer. Angka numerik tidak diisi otomatis dari sumber yang tidak menetapkannya." action={canCreateProducts ? <ActionButton onClick={() => { setRequirementEditingId(''); setRequirementFormOpen(true); }}>Tambah draft persyaratan</ActionButton> : undefined} />
-        {requirementFormOpen && canManageProducts && <form className="form-grid" onSubmit={saveProductRequirement}>
+        {requirementFormOpen && (requirementEditingId ? canUpdateProducts : canCreateProducts) && <form className="form-grid" onSubmit={saveProductRequirement}>
           {!requirementEditingId && <>
             <FormField label="Produk"><select required value={requirementForm.productId} onChange={e => setRequirementForm(v => ({ ...v, productId: e.target.value }))}><option value="">Pilih produk</option>{(productRequirements.data?.products || []).map(p => <option key={p.id} value={p.id}>{p.product_code} · {p.product_name}</option>)}</select></FormField>
             <FormField label="Kode requirement"><input required maxLength={120} value={requirementForm.requirementCode} onChange={e => setRequirementForm(v => ({ ...v, requirementCode: e.target.value }))} /></FormField>

@@ -1548,13 +1548,13 @@ function CompliancePage({ projectId, activeUser, onNotice }: { projectId: string
     finally { setBusy(false); }
   };
   const requestUpload = async () => {
-    if (!canCreateDocuments || !uploadFile || !projectId) return;
+    if (!canCreateDocuments || !uploadFile || !projectId || !doc.projectRequirementId) return onNotice('error', 'Pilih persyaratan dokumen Project sebelum mengunggah file.');
     setUploadBusy(true);
     try {
       const digest = await crypto.subtle.digest('SHA-256', await uploadFile.arrayBuffer());
       const checksum = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
       const safeName = uploadFile.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(-120) || 'document';
-      const objectKey = `projects/${projectId}/documents/${crypto.randomUUID()}-${safeName}`;
+      const objectKey = `projects/${projectId}/documents/${doc.projectRequirementId}/${crypto.randomUUID()}-${safeName}`;
       const { upload } = await post<{ upload: { uploadUrl: string } }>('/storage/presigned-upload', {
         objectKey, mimeType: uploadFile.type || 'application/octet-stream', contentLength: uploadFile.size, filename: uploadFile.name,
       });

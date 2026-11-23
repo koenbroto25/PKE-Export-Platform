@@ -470,7 +470,7 @@ function phaseSchemaGateForPath(path: string): PhaseSchemaGateSpec | null {
       code: "P1_SCHEMA_RELEASE_BLOCKED",
       error: "P1 workflow schema and security controls are not fully released on this database.",
       tables: ["p1_domain_records", "p1_domain_events", "p1_domain_evidence", "p1_report_kpi_definitions"],
-      functions: ["p1_workflow_permission", "p1_guard_domain_record_update", "p1_get_three_way_match_inputs", "p1_get_kpi_metric", "p1_kpi_formula_allowed"],
+      functions: ["p1_workflow_permission", "p1_guard_domain_record_update", "p1_get_three_way_match_inputs", "p1_has_active_project_role_assignment", "p1_sync_project_work_item", "p1_get_kpi_metric", "p1_kpi_formula_allowed"],
     };
   }
   if (/^\/api\/v1\/projects\/[^/]+\/pks-candidates(?:\/|$)/.test(path)) {

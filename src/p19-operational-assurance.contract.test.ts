@@ -188,6 +188,9 @@ describe("P19 operational assurance: identity and demo isolation", () => {
     expect(INDEX_SRC).toContain('"product_specs.view"');
     expect(INDEX_SRC).toContain('"product_specs.create"');
     expect(INDEX_SRC).toContain('"product_specs.update"');
+    expect(INDEX_SRC).toContain("canApprove: false");
+    expect(INDEX_SRC).toContain("MASTER_SPEC_APPROVAL_REQUIRED");
+    expect(INDEX_SRC).toContain("APPROVED_SPEC_SNAPSHOT_IMMUTABLE");
     expect(INDEX_SRC).not.toContain("project_product_requirements");
     expect(INDEX_SRC).not.toContain('"product.requirement.view"');
     expect(INDEX_SRC).not.toContain('"product.requirement.manage"');

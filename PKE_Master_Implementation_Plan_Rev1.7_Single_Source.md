@@ -9985,3 +9985,11 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 - This turns the previously manual/unverified source-vs-UAT checksum comparison into a repeatable CI gate. The assertions are committed in `src/p20-release-boundary.contract.test.ts`.
 - **Status until CI completes:** checksum reconciliation is pending exact-SHA execution. Do not state that the hashes match until the new test passes on the latest branch head.
 - A passing checksum test proves repository file bytes match the recorded UAT checksums; it does not authorize Production schema promotion, UAT writes, migration replay, or data copying.
+
+
+### 42.11 P17 release-gate source clarity correction — 24 November 2026
+
+- Updated the stale comment in `src/p17-maritime.ts` that incorrectly said Production remained at migration 053. The current documented Production ledger includes Migration 110; the actual blocker is that the effective policy set does not satisfy the complete Project-scoped AIS review contract.
+- Added a regression assertion to prevent reintroducing the obsolete migration-053 explanation.
+- This is a source/documentation correction only. It does not relax the middleware gate, change any RLS predicate, create a migration, or modify Neon.
+- Exact-SHA CI for the newest source change is pending; the earlier in-process harness commits passed their Unit Tests runs.

@@ -315,6 +315,37 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
 
   const detail = tab === "ports" ? portDetail : warehouseDetail;
   const list = tab === "ports" ? ports : warehouses;
+  const typedMasterFields: Record<string, Array<{ key: string; label: string; type?: string; required?: boolean }>> = {
+    ports: [
+      { key: "name", label: "Nama pelabuhan", required: true }, { key: "code", label: "Kode nasional" },
+      { key: "unlocode", label: "UN/LOCODE" }, { key: "city", label: "Kota" }, { key: "province", label: "Provinsi / wilayah" },
+      { key: "country_code", label: "Kode negara (ISO)" }, { key: "latitude", label: "Latitude", type: "number" },
+      { key: "longitude", label: "Longitude", type: "number" }, { key: "authority_name", label: "Otoritas pelabuhan" },
+      { key: "operator_name", label: "Operator" }, { key: "source_reference", label: "Referensi sumber", required: true },
+      { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    warehouses: [
+      { key: "name", label: "Nama gudang", required: true }, { key: "code", label: "Kode gudang" },
+      { key: "location", label: "Alamat / lokasi" }, { key: "port_id", label: "ID pelabuhan terkait" },
+      { key: "terminal_id", label: "ID terminal (jika ada)" }, { key: "storage_mode", label: "Mode penyimpanan" },
+      { key: "storage_capacity_mt", label: "Kapasitas (MT)", type: "number" }, { key: "floor_area_m2", label: "Luas lantai (m²)", type: "number" },
+      { key: "usable_volume_m3", label: "Volume guna (m³)", type: "number" }, { key: "latitude", label: "Latitude", type: "number" },
+      { key: "longitude", label: "Longitude", type: "number" }, { key: "source_reference", label: "Referensi sumber", required: true },
+      { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    routes: [
+      { key: "pks_site_id", label: "ID fasilitas PKS/KCP", required: true }, { key: "port_id", label: "ID pelabuhan", required: true },
+      { key: "route_mode", label: "Moda rute (road/river/sea/multimodal)", required: true },
+      { key: "distance_km", label: "Jarak (km)", type: "number" },
+      { key: "distance_method", label: "Metode jarak (road_network/operator_quote/gps_track)", required: true },
+      { key: "route_notes", label: "Catatan rute" }, { key: "source_reference", label: "Referensi sumber", required: true },
+      { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+  };
+  const masterDraftValue = (() => { try { return JSON.parse(masterDraft || "{}") as Row; } catch { return {}; } })();
+  const updateMasterField = (key: string, value: string) => {
+    setMasterDraft(JSON.stringify({ ...masterDraftValue, [key]: value }, null, 2));
+  };
 
   return (
     <div className="p16-page">
@@ -342,9 +373,15 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
             {Object.entries({ports:"Pelabuhan",terminals:"Terminal",berths:"Berth",channels:"Channel",anchorages:"Anchorage","loading-services":"Layanan loading","port-equipment":"Peralatan pelabuhan","operating-limits":"Batas operasional",warehouses:"Gudang","warehouse-zones":"Zona gudang","warehouse-bins":"Bin gudang","warehouse-equipment":"Peralatan gudang",routes:"Rute PKS–pelabuhan"}).map(([key,label]) => <option key={key} value={key}>{label}</option>)}
           </select>
         </label>
-        <label>Data master (JSON, hanya kolom yang diizinkan akan disimpan)
+        {typedMasterFields[masterResource] ? <>
+          <div className="p16-notice"><strong>Formulir master terstruktur.</strong> Isi hanya informasi yang didukung sumber. Record baru berstatus diajukan dan memerlukan reviewer independen; SHA-256 harus sesuai dengan evidence yang disimpan.</div>
+          <div className="p16-form-grid">{typedMasterFields[masterResource].map(field => <label key={field.key}>{field.label}
+            <input type={field.type || "text"} required={!!field.required} value={String(masterDraftValue[field.key] ?? "")} onChange={e => updateMasterField(field.key, e.target.value)} />
+          </label>)}</div>
+          <details><summary>Advanced JSON (opsional)</summary><textarea rows={7} value={masterDraft} onChange={e => setMasterDraft(e.target.value)} spellCheck={false} /></details>
+        </> : <label>Data master (JSON, hanya kolom yang diizinkan akan disimpan)
           <textarea rows={7} value={masterDraft} onChange={e => setMasterDraft(e.target.value)} spellCheck={false} />
-        </label>
+        </label>}
         <div className="p16-editor__actions"><button type="submit" disabled={actionBusy}>{actionBusy ? "Menyimpan…" : "Simpan sebagai diajukan"}</button>{masterId && <button type="button" disabled={actionBusy || reviewNote.trim().length<5} onClick={async () => { setActionBusy(true); try { await patch(`/p16/master/${masterResource}/${encodeURIComponent(masterId)}/review`, {status:"verified",reviewNote}); setMasterMessage("Verifikasi independen tersimpan."); } catch (e:any) { setMasterMessage(e?.message || "Verifikasi gagal: reviewer harus berbeda dari pengaju."); } finally { setActionBusy(false); } }}>Verifikasi independen</button>}{masterId && <button type="button" className="p16-danger" disabled={actionBusy} onClick={deleteMaster}>Hapus master</button>}{masterMessage && <span role="status">{masterMessage}</span>}</div>
       </form>}
       {error && <div className="p16-error" role="alert">{error}</div>}

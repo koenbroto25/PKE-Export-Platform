@@ -63,6 +63,43 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
     : (data.facilities || []).map((r: AnyRecord) => ({ id: r.id, label: r.name + ' · ' + r.facility_type + ' · ' + r.verification_status })),
   [form.entityType, data.organizations, data.facilities]);
 
+  const proposalFields: Record<string, Array<{ key: string; label: string; type?: string; required?: boolean; options?: string[] }>> = {
+    organization: [
+      { key: 'legal_name', label: 'Nama legal organisasi', required: true }, { key: 'trading_name', label: 'Nama dagang' },
+      { key: 'organization_type', label: 'Jenis organisasi', required: true, options: ['buyer','supplier','processor','transporter','warehouse_operator','port_operator','shipping_agent','surveyor','funder','other'] },
+      { key: 'country_code', label: 'Kode negara ISO', required: true }, { key: 'registration_type', label: 'Jenis registrasi' },
+      { key: 'registration_number', label: 'Nomor registrasi' }, { key: 'website', label: 'Website', type: 'url' },
+      { key: 'email', label: 'Email', type: 'email' }, { key: 'phone', label: 'Telepon' },
+    ],
+    facility: [
+      { key: 'name', label: 'Nama fasilitas PKS/KCP', required: true }, { key: 'code', label: 'Kode fasilitas' },
+      { key: 'facility_type', label: 'Jenis fasilitas', required: true, options: ['palm_oil_mill','kernel_crushing_plant','integrated_mill_kcp','warehouse','port_terminal','collection_point','other'] },
+      { key: 'organization_id', label: 'ID organisasi pemilik/operator' }, { key: 'address', label: 'Alamat' },
+      { key: 'city', label: 'Kota / kabupaten' }, { key: 'province', label: 'Provinsi' }, { key: 'country_code', label: 'Kode negara ISO' },
+      { key: 'latitude', label: 'Latitude', type: 'number' }, { key: 'longitude', label: 'Longitude', type: 'number' },
+      { key: 'operating_status', label: 'Status operasional', options: ['planned','operational','maintenance','suspended','closed'] },
+      { key: 'location_accuracy_m', label: 'Akurasi koordinat (m)', type: 'number' },
+    ],
+    facility_product: [{ key: 'process_type', label: 'Jenis proses fasilitas', required: true }],
+    capacity_record: [
+      { key: 'process_type', label: 'Jenis proses', required: true },
+      { key: 'capacity_kind', label: 'Jenis kapasitas', required: true, options: ['nominal','rated','practical','verified_actual'] },
+      { key: 'capacity_value', label: 'Nilai kapasitas', type: 'number', required: true }, { key: 'unit_code', label: 'Kode satuan', required: true },
+      { key: 'period_type', label: 'Periode kapasitas', required: true, options: ['hour','day','week','month','year','batch'] },
+      { key: 'effective_from', label: 'Berlaku mulai', type: 'date', required: true }, { key: 'effective_to', label: 'Berlaku sampai', type: 'date' },
+    ],
+    certification: [
+      { key: 'certification_type', label: 'Jenis sertifikasi', required: true }, { key: 'certificate_number', label: 'Nomor sertifikat', required: true },
+      { key: 'issuer', label: 'Penerbit', required: true }, { key: 'scope', label: 'Ruang lingkup', required: true },
+      { key: 'valid_from', label: 'Berlaku mulai', type: 'date' }, { key: 'valid_to', label: 'Berlaku sampai', type: 'date' },
+    ],
+  };
+  const proposalValue = (() => { try { return JSON.parse(form.proposedData || '{}') as AnyRecord; } catch { return {}; } })();
+  const updateProposalField = (key: string, value: string, type?: string) => {
+    const nextValue = value === '' ? null : type === 'number' ? Number(value) : value;
+    setForm(v => ({ ...v, proposedData: JSON.stringify({ ...proposalValue, [key]: nextValue }, null, 2) }));
+  };
+
   const reset = () => { setEditingId(''); setForm(emptyForm); setFormOpen(false); };
   const startNew = () => { setEditingId(''); setForm(emptyForm); setFormOpen(true); };
   const edit = (row: AnyRecord) => {
@@ -218,7 +255,15 @@ export default function MasterDataChangeRequests({ projectId, activeUser, onNoti
         <FormField label="Tipe sumber"><select value={form.sourceType} onChange={e => setForm(v => ({ ...v, sourceType: e.target.value }))}><option value="manual">Manual</option><option value="public_reference">Referensi publik</option><option value="official_document">Dokumen resmi</option><option value="buyer_confirmed">Konfirmasi buyer</option></select></FormField>
         <FormField label="Referensi / nomor dokumen"><input required maxLength={500} value={form.sourceReference} onChange={e => setForm(v => ({ ...v, sourceReference: e.target.value }))} /></FormField>
         <FormField label="URL bukti (opsional)" wide><input type="url" value={form.sourceUrl} onChange={e => setForm(v => ({ ...v, sourceUrl: e.target.value }))} placeholder="https://..." /></FormField>
-        <FormField label="Proposal perubahan (JSON)" wide><textarea required rows={9} spellCheck={false} value={form.proposedData} onChange={e => setForm(v => ({ ...v, proposedData: e.target.value }))} /></FormField>
+        {proposalFields[form.entityType] ? <>
+          <div className="notice notice-info form-wide">Isi proposal dengan data yang didukung sumber. Field JSON khusus seperti alamat terstruktur atau access constraints dapat ditambahkan melalui Advanced JSON. Proposal tetap draft sampai dikirim dan disetujui Platform Admin.</div>
+          <div className="form-grid form-wide">{proposalFields[form.entityType].map(field => <FormField key={field.key} label={field.label}>
+            {field.options
+              ? <select required={!!field.required} value={String(proposalValue[field.key] ?? '')} onChange={e => updateProposalField(field.key, e.target.value, field.type)}><option value="">Pilih</option>{field.options.map(option => <option key={option} value={option}>{option.replaceAll('_',' ')}</option>)}</select>
+              : <input type={field.type || 'text'} required={!!field.required} value={String(proposalValue[field.key] ?? '')} onChange={e => updateProposalField(field.key, e.target.value, field.type)} />}
+          </FormField>)}</div>
+          <details className="form-wide"><summary>Advanced JSON (opsional)</summary><textarea rows={7} spellCheck={false} value={form.proposedData} onChange={e => setForm(v => ({ ...v, proposedData: e.target.value }))} /></details>
+        </> : <FormField label="Proposal perubahan (JSON)" wide><textarea required rows={9} spellCheck={false} value={form.proposedData} onChange={e => setForm(v => ({ ...v, proposedData: e.target.value }))} /></FormField>}
         <div className="form-actions"><button type="button" className="secondary-button" onClick={reset}>Batal</button><button className="primary-button" disabled={busy || !form.requestReason.trim() || !form.sourceReference.trim() || (form.operation === 'update' && !form.targetId) || (['facility_product','capacity_record','certification'].includes(form.entityType) && (!form.evidenceDocumentId || !form.facilityId || (form.entityType === 'facility_product' && !form.productId)))}>{busy ? 'Menyimpan…' : editingId ? 'Simpan draft' : 'Simpan draft permintaan'}</button></div>
       </form>}
       {loading ? <div className="loading-state">Memuat permintaan…</div> : error ? <div className="error-state">{error}</div> : !(data.requests || []).length ? <div className="empty-state"><strong>Belum ada permintaan perubahan</strong><span>Pengajuan perubahan legal name, nomor registrasi, alamat, atau identitas fasilitas akan tercatat di sini.</span></div> :

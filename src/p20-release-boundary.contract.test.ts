@@ -60,14 +60,14 @@ describe("P20 release boundary and evidence integrity", () => {
     expect(maritime).toContain("p17d_vessel_position_admin_pending_select");
     expect(maritime).toContain("p17d_vessel_position_admin_review_update");
     expect(maritime).toContain("p17d_vessel_position_project_review_select");
-    expect(migration).toContain("p17d_vessel_position_ingest_admin_insert");
-    expect(migration).toContain("p17d_vessel_position_independent_review_update");
-    expect(migration).not.toContain("p17d_vessel_position_admin_pending_select");
-    expect(migration).not.toContain("p17d_vessel_position_admin_review_update");
-    expect(migration).not.toContain("p17d_vessel_position_project_review_select");
-    expect(migration).not.toContain("p17d_vessel_position_admin_pending_select");
-    expect(migration).not.toContain("p17d_vessel_position_admin_review_update");
-    expect(migration).not.toContain("p17d_vessel_position_project_review_select");
+    expect(migration110).toContain("p17d_vessel_position_ingest_admin_insert");
+    expect(migration110).toContain("p17d_vessel_position_independent_review_update");
+    expect(migration110).not.toContain("p17d_vessel_position_admin_pending_select");
+    expect(migration110).not.toContain("p17d_vessel_position_admin_review_update");
+    expect(migration110).not.toContain("p17d_vessel_position_project_review_select");
+    expect(migration110).not.toContain("p17d_vessel_position_admin_pending_select");
+    expect(migration110).not.toContain("p17d_vessel_position_admin_review_update");
+    expect(migration110).not.toContain("p17d_vessel_position_project_review_select");
   });
 
   it("keeps P20 database and deployment restrictions explicit", () => {
@@ -75,7 +75,7 @@ describe("P20 release boundary and evidence integrity", () => {
     expect(plan).toContain("p20/platform-continuation-20261123");
     expect(plan).toContain("Vercel Preview/Production deployments");
     expect(plan).toContain("Canonical Neon Production and original UAT remain read-only");
-    expect(plan).toContain("Do not merge this branch to");
+    expect(plan).toContain("No pull request or merge to");
     expect(plan).toContain("RAG preparation only");
     expect(plan).toContain("Migration 110 unapplied: **CLOSED");
   });

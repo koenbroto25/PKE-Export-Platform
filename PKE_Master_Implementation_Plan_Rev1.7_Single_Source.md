@@ -9934,3 +9934,17 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 - The latest plan-only commit after this SHA must be identified separately; code changes after `7b11fe4` require a new exact-SHA run before final closure.
 
 **P20 status:** P20-G has material implementation progress and source/CI pass, but P20 overall remains **IN PROGRESS / BLOCKED** by P17 Production policy mismatch, P2A Production schema release, custom-role policy design, full P20-B HTTP/IDOR harness, authoritative master-data sources/routes, and deferred browser/deployment boundaries.
+
+
+### 42.8 P17 live policy reconciliation on original UAT — 24 November 2026
+
+**FACT — VERIFIED by read-only `pg_policies` inspection on original UAT `br-young-boat-b3re832d`**
+
+- UAT `vessel_tracking_positions` has the same five relevant policy rows observed in Production: `p16_admin_select`, `p17d_vessel_position_independent_review_update`, `p17d_vessel_position_ingest_admin_insert`, `pke_scope_select`, and `vessel_tracking_accepted_project_read`.
+- The three named review policies required by the current `src/p17-maritime.ts` release gate remain absent on UAT: `p17d_vessel_position_admin_pending_select`, `p17d_vessel_position_admin_review_update`, and `p17d_vessel_position_project_review_select`.
+- UAT legacy `pke_scope_select` is still `source_id IS NULL AND pke_has_any_project_permission('vessel.position.view')`; it does not enforce the current Project context helper expected by the runtime gate.
+- UAT accepted licensed-source read policy is Project/voyage/source-rights/field-purpose gated, and the independent-review UPDATE policy is Project/voyage/permission scoped. Those policies do not satisfy the three missing policy names and do not make the legacy fallback compliant with the current gate.
+- Therefore P17 Migration 110 ledger application is not sufficient to clear the current P17 runtime release gate on either Production or original UAT. Both targets remain fail-closed for the affected P17 write routes.
+- No policy was created, altered or dropped. No database write occurred.
+
+**P17 blocker update:** P20-A P17 runtime release-gate mismatch is confirmed on both live targets, not just Production. Corrective migration design and isolated validation remain open; Production/UAT promotion requires separate exact-hash owner approval.

@@ -37,5 +37,9 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(ports).toContain("evidence_sha256");
     expect(ports).toContain("Verifikasi independen");
     expect(ports).toContain("Data master (JSON");
+    expect(ports).toContain("typedMasterFields");
+    expect(ports).toContain("Formulir master terstruktur");
+    expect(ports).toContain('key: "pks_site_id"');
+    expect(ports).toContain('key: "evidence_sha256"');
   });
 });

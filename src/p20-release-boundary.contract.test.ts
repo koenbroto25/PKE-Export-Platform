@@ -38,6 +38,21 @@ describe("P20 release boundary and evidence integrity", () => {
     });
   });
 
+  it("reconciles repository P2A migration bytes with the recorded original-UAT hashes", () => {
+    const p2aUatHashes: Record<string, string> = {
+      "074_p2a_candidate_register_and_mill_fixture.sql": "c59e8a1f9e31215f49a5f83b42cb814f6f99d787f3d4f5a59ec2e238f227ce27",
+      "075_p2a_candidate_review_stamps.sql": "d8567f9e7fc09e200bed8133a36031f6f597f26a6262b044fd1173bc2b56ec23",
+      "076_p2a_project_product_requirements.sql": "7ee71fbb5db52fd1a561fee1ab3ebfb855c4c90db6e43d0d3bc90b63bc8abfa0",
+      "077_p2a_master_data_change_requests.sql": "da96283f683760f4679edb701f5b53bafc7b69ead9bf834e825b03001839e208",
+      "078_p2a_facility_capability_quality_provenance.sql": "757e4db6edcb995fa6bc7210dffecfa2446d82e80088c4967ee90925b4c46ac0",
+      "079_p2a_project_scope_guard.sql": "6d3de061226109428fa0963f7fa697cbd7c1aca929558e0529628debdcc7d968",
+      "080_p2a_quality_provenance_read_scope.sql": "a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150",
+    };
+    for (const [filename, expectedHash] of Object.entries(p2aUatHashes)) {
+      expect(sha256(read(`migrations/${filename}`)), filename).toBe(expectedHash);
+    }
+  });
+
   it("keeps P18 migrations 111/112 isolated-only and does not infer UAT/Production approval", () => {
     const [core, lifecycle] = p18.migrations ?? [];
     expect(sha256(migration111)).toBe("e79c8fb82024b140d54a39945176094f7c0ff4c3e5326a9e68623752cade8904");

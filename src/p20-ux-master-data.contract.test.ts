@@ -9,6 +9,7 @@ describe("P20 UX master-data and Project Manager contracts", () => {
   const api = read("src/index.ts");
   const roles = read("src/role-catalogue.ts");
   const ports = read("frontend/src/PortNetworkPage.tsx");
+  const masterChanges = read("frontend/src/MasterDataChangeRequests.tsx");
 
   it("loads the global PKS/KCP catalogue separately from Project participation", () => {
     expect(app).toContain("/projects/${projectId}/pks-sites/catalog");
@@ -18,6 +19,15 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(api).toContain('app.get("/api/v1/projects/:projectId/pks-sites/catalog"');
     expect(api).toContain('app.post("/api/v1/projects/:projectId/pks-sites"');
     expect(api).toContain("pks.participation.manage");
+  });
+
+  it("uses typed, review-gated proposals for global PKS/KCP and facility master changes", () => {
+    expect(masterChanges).toContain("proposalFields");
+    expect(masterChanges).toContain("Nama fasilitas PKS/KCP");
+    expect(masterChanges).toContain("Jenis fasilitas");
+    expect(masterChanges).toContain("Advanced JSON (opsional)");
+    expect(api).toContain("p2a_master_data_change_requests");
+    expect(api).toContain("Platform Admin may decide but may not rewrite the submitted proposal.");
   });
 
   it("shows the canonical Project role templates and loads permissions from their own API", () => {

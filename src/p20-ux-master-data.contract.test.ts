@@ -20,6 +20,15 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(api).toContain("pks.participation.manage");
   });
 
+  it("shows the canonical Project role templates and loads permissions from their own API", () => {
+    expect(api).toContain('app.get("/api/v1/role-templates", requireAuth, requireAdmin');
+    expect(api).toContain("listProjectRoleTemplates()");
+    expect(app).toContain("get('/role-templates')");
+    expect(app).toContain("get('/permissions')");
+    expect(app).toContain("Template role Project (canonical)");
+    expect(app).toContain("permissionCatalogue.data?.permissions");
+  });
+
   it("keeps PM as a permanent system template with a separate appointment", () => {
     expect(roles).toContain('role("pm", "Project Manager"');
     expect(roles).toContain('{ mandatory: true }');

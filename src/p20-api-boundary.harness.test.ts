@@ -10,7 +10,7 @@ function buildHarness(policyOverrides: Record<string, number> = {}) {
     get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), delete: vi.fn(),
   };
   const responses: QueryResult[] = [
-    { rows: [{ found_count: 28, unsafe_count: 0 }] },
+    { rows: [{ found_count: 40, unsafe_count: 0 }] },
     { rows: [{ function_count: 4 }] },
     { rows: [{ trigger_count: 2 }] },
     { rows: [{

@@ -32,8 +32,9 @@ const validateSimulationGraph=(g:any):boolean=>{
 };
 
 export function registerP17MaritimeRoutes(app:Express,d:D){
- // Production schema is still at migration 053. Block P17 mutations until 096-107
- // and their RLS/policy acceptance are explicitly released on canonical Production.
+ // Migration 110 is present in the recorded Production ledger, but its AIS RLS policy set
+ // does not satisfy the runtime's complete Project-scoped review contract. Keep P17 protected
+ // routes fail-closed until every policy predicate below is independently verified.
  const p17WriteReleaseGate:RequestHandler=async(req,res,next)=>{
   const path=req.path||"";
   const mutating=["POST","PUT","PATCH","DELETE"].includes(req.method);

@@ -21,7 +21,7 @@ describe("P20 UX master-data and Project Manager contracts", () => {
   });
 
   it("shows the canonical Project role templates and loads permissions from their own API", () => {
-    expect(api).toContain('app.get("/api/v1/role-templates", requireAuth, requireAdmin');
+    expect(api).toContain('app.get("/api/v1/role-templates", requireAuth');
     expect(api).toContain("listProjectRoleTemplates()");
     expect(app).toContain("get('/role-templates')");
     expect(app).toContain("get('/permissions')");

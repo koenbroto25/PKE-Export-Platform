@@ -9848,3 +9848,89 @@ Read-only inspection of Production `br-damp-shape-b3xlh4nr` confirms:
 5. Produce custom-role policy design and tests; do not add a generic role-creation endpoint until its protected permission policy is enforceable.
 6. Continue P20-B API/IDOR acceptance, P20-C staging controls, P20-E operational controls and P20-F exact-SHA regression.
 7. Keep Production/original UAT read-only; keep Vercel/browser UAT deferred; update this single plan with evidence and exact blockers.
+
+
+### 42.6 P20-G implementation delta and P2A Production/UAT schema reconciliation — 24 November 2026
+
+**Additional UX implementation committed after §42.1:**
+
+| Commit | Change | Result |
+|---|---|---|
+| `8bd17678ba743924644e8f289ecd5cba34b6ece8` | Access page now loads canonical Project role templates from the existing `GET /role-templates` endpoint and loads the real permission catalogue separately from `GET /permissions`; legacy `role_catalog` is explicitly labelled as compatibility data | Removes the former empty/misleading permission catalogue and distinguishes canonical role templates from legacy roles |
+| `adf0cb15bdfc7a0b5a53176ddb795ce507006cce` | Removed a duplicate route introduced during P20; reused the pre-existing canonical `GET /role-templates` endpoint | Route registry uniqueness restored |
+| `86265b18d58afdf85f12a092803e5de0996bbc3c` | Replaced JSON-only proposal entry for organization/facility/capacity/certification with typed fields; retained Advanced JSON only for special structured attributes | Global PKS/KCP identity can be proposed through the existing maker-checker change-request workflow where its schema is released |
+| `2bd1ab3c5dfaca060b3a7e42954fe0fa43e71173` | Project Roles page now lists canonical templates and provides an explicit activation action for eligible non-PM templates | Project role activation is discoverable; PM remains appointment-only |
+| `7b11fe46995b0a08c94d73f48631bd0c73a28b72` | Added role-template activation UX/API contract assertions | Regression coverage added |
+
+**Updated P20-G assessment**
+- P20-G role catalogue UX: **IMPLEMENTED** — canonical templates and actual permission catalogue are shown separately from legacy roles.
+- Project role activation UX: **IMPLEMENTED** — PM template is explicitly excluded from ordinary activation and remains Admin appointment-only.
+- PM status/appointment UX: **IMPLEMENTED IN SOURCE** — explicit unassigned/active appointment state and dedicated appointment path.
+- PKS/KCP global proposal UX: **IMPLEMENTED IN SOURCE** — typed organization/facility proposal forms and maker-checker workflow; actual availability depends on the target database schema gate below.
+- PKS global catalogue/Project linking: **IMPLEMENTED IN SOURCE** — link an existing canonical facility to Project as proposed participation, without rewriting global identity.
+- P16 master UX: **IMPLEMENTED IN SOURCE** — typed scalar fields for port, terminal, berth, channel, anchorage, loading service, port equipment, operating limit, warehouse, zone, bin, warehouse equipment and PKS-port route. JSON-valued evidence/constraint fields remain in Advanced JSON. Do not interpret source presence as live UAT/browser acceptance.
+- Custom arbitrary role creation remains **BLOCKED_BY_POLICY_DESIGN**. The application exposes governed canonical role templates and activation, not arbitrary permission composition.
+
+**FACT — VERIFIED by read-only Production and original UAT Neon queries**
+
+| Check | Production `br-damp-shape-b3xlh4nr` | Original UAT `br-young-boat-b3re832d` |
+|---|---|---|
+| `p2a_master_data_candidates` | Absent | Present; required functions, trigger and three policies present |
+| `p2a_master_data_change_requests` | Absent | Present; required functions, trigger and three policies present |
+| Migration ledger 074–080 | No matching rows | IDs 74–80 all recorded applied |
+| P2A candidates rows | Table absent | 4 |
+| P2A change requests rows | Table absent | 1 |
+| `pks_sites` rows | 1 | 2 |
+| `project_pks_site_participation` rows | 0 | 2 |
+| `ports` rows | 1 | 1 |
+| `warehouses` rows | 1 | 1 |
+| `pks_port_routes` rows | 0 | 0 |
+
+Original UAT migration ledger evidence (exact SHA-256 as returned by the live UAT ledger):
+
+| ID | Migration | UAT SHA-256 | Status |
+|---:|---|---|---|
+| 74 | `074_p2a_candidate_register_and_mill_fixture.sql` | `c59e8a1f9e31215f49a5f83b42cb814f6f99d787f3d4f5a59ec2e238f227ce27` | applied |
+| 75 | `075_p2a_candidate_review_stamps.sql` | `d8567f9e7fc09e200bed8133a36031f6f597f26a6262b044fd1173bc2b56ec23` | applied |
+| 76 | `076_p2a_project_product_requirements.sql` | `7ee71fbb5db52fd1a561fee1ab3ebfb855c4c90db6e43d0d3bc90b63bc8abfa0` | applied |
+| 77 | `077_p2a_master_data_change_requests.sql` | `da96283f683760f4679edb701f5b53bafc7b69ead9bf834e825b03001839e208` | applied |
+| 78 | `078_p2a_facility_capability_quality_provenance.sql` | `757e4db6edcb995fa6bc7210dffecfa2446d82e80088c4967ee90925b4c46ac0` | applied |
+| 79 | `079_p2a_project_scope_guard.sql` | `6d3de061226109428fa0963f7fa697cbd7c1aca929558e0529628debdcc7d968` | applied |
+| 80 | `080_p2a_quality_provenance_read_scope.sql` | `a98a90a8865cc216005394d3e49e2f85164ebf8577563afa9dd7b54feb11a150` | applied |
+
+**Interpretation and release boundary**
+- The P2A candidate and master-data change-request API routes are protected by `phaseSchemaReleaseGate`. On Production, the required tables are absent, so these routes correctly fail closed with `P2A_CANDIDATE_SCHEMA_BLOCKED` and `P2A_CHANGE_REQUEST_SCHEMA_BLOCKED`. This means the new typed UI source cannot yet complete a real Production workflow.
+- Original UAT has the required tables, functions, triggers and policies and records Migrations 074–080 as applied. Its row counts show that UAT has non-empty test/operational records; do not assume it is empty or use its records as Production data.
+- The exact UAT ledger hashes above have not yet been independently reconciled against the current P20 repository migration file contents in this check. Before any Production promotion, compare the repository SQL bytes, manifest hashes, UAT applied hashes and rollback plan, then obtain explicit target-specific owner approval.
+- No Production or UAT writes occurred. No migration was applied. No data was copied between branches.
+
+**Updated blocker dispositions**
+| Blocker | Revised status | Required next action |
+|---|---|---|
+| P20-G-B01 custom role | BLOCKED_BY_POLICY_DESIGN | Define a reviewed custom-role policy/allowlist model and migration/API contract; preserve all protected Finance/approval/PM boundaries |
+| P20-G-B02 typed P16 master forms | PASS_SOURCE_AND_CI; JSON subfields remain advanced | Browser acceptance deferred; verify foreign-key selectors and JSON field schemas in an authorized non-production UAT |
+| P20-G-B03 PKS/KCP master proposal | BLOCKED_PRODUCTION_SCHEMA_RELEASE | Reconcile and obtain explicit approval for Production promotion of P2A migrations 074–080; no automatic promotion |
+| P20-G-B04 authoritative data | BLOCKED_EXTERNAL_AND_OWNER | Approve official source list/rights and a reviewed data-import plan |
+| P20-G-B05 PKS-port routes | BLOCKED_DATA; form/API source implemented | No routes exist in either live Production or original UAT; acquire authoritative route evidence and independently verify |
+| P20-B-B01 P2A API acceptance on Production | BLOCKED_PRODUCTION_SCHEMA_RELEASE | Production P2A gate is intentionally fail-closed until migrations 074–080 are reviewed and authorized |
+| P20-B-B02 deterministic HTTP/IDOR harness | OPEN_ENGINEERING | Existing suite has source/contract tests and serverless-handler tests, but no dedicated in-process harness covering the full P20-B high-risk route matrix; add harness before declaring P20-B complete |
+| P20-G-B06 browser UX UAT | DEFERRED_OWNER | Browser UAT remains outside scope until separately authorized |
+| P20-G-B07 Vercel integration | DEFERRED_OWNER | GitHub pushes show Vercel status contexts; no manual Vercel deployment command was invoked. Do not treat pending Vercel context as deploy pass |
+
+### 42.7 Exact-SHA CI evidence — 24 November 2026
+
+- GitHub Actions Unit Tests run **45295950165** completed successfully on exact code SHA `7b11fe46995b0a08c94d73f48631bd0c73a28b72`.
+- Offline root suite: **52 test files passed; 539 tests passed; 0 failed**.
+- Dedicated P19 operational assurance suite: **1 test file passed; 20 tests passed; 0 failed**.
+- Production migration ledger/release-gate verifier: passed.
+- Migration 052/054/055 release-policy verifiers: passed.
+- P17 migration runner dry-run (no database connection): passed.
+- Backend application build: passed.
+- Backend API typecheck: passed.
+- Frontend dependency installation: passed.
+- Frontend typecheck: passed.
+- Frontend build: passed.
+- This is GitHub Actions source/offline verification on the stated SHA. It is not browser UAT, a live Production API test, a P2A Production migration, or a Vercel deployment.
+- The latest plan-only commit after this SHA must be identified separately; code changes after `7b11fe4` require a new exact-SHA run before final closure.
+
+**P20 status:** P20-G has material implementation progress and source/CI pass, but P20 overall remains **IN PROGRESS / BLOCKED** by P17 Production policy mismatch, P2A Production schema release, custom-role policy design, full P20-B HTTP/IDOR harness, authoritative master-data sources/routes, and deferred browser/deployment boundaries.

@@ -72,6 +72,8 @@ describe("P20 release boundary and evidence integrity", () => {
     expect(migrationTest).toContain("p17d_vessel_position_ingest_admin_insert");
     expect(migrationTest).toContain("p17d_vessel_position_independent_review_update");
     expect(maritime).toContain("P17_LEGACY_POSITION_SCOPE_BLOCKED");
+    expect(maritime).toContain("Migration 110 is present in the recorded Production ledger");
+    expect(maritime).not.toContain("Production schema is still at migration 053");
     expect(maritime).toContain("p17d_vessel_position_admin_pending_select");
     expect(maritime).toContain("p17d_vessel_position_admin_review_update");
     expect(maritime).toContain("p17d_vessel_position_project_review_select");

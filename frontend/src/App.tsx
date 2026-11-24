@@ -1980,6 +1980,19 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
   const [provisionName, setProvisionName] = useState('');
   const [provisionReason, setProvisionReason] = useState('');
   const [temporaryCredential, setTemporaryCredential] = useState<{ email: string; password: string } | null>(null);
+  const activePmAssignments = (projectDetail.data?.members || []).flatMap(member =>
+    (member.role_assignments || [])
+      .filter((assignment: AnyRecord) =>
+        assignment.roleCode === 'pm' &&
+        assignment.isActive === true &&
+        !assignment.revokedAt &&
+        (!assignment.expiresAt || new Date(assignment.expiresAt).getTime() > Date.now()) &&
+        member.is_active === true &&
+        !member.deactivated_at &&
+        (!member.expires_at || new Date(member.expires_at).getTime() > Date.now())
+      )
+      .map((assignment: AnyRecord) => ({ member, assignment }))
+  );
 
   useEffect(() => {
     if (!selectedProjectId && projects.data?.projects?.[0]?.id) setSelectedProjectId(String(projects.data.projects[0].id));
@@ -2228,6 +2241,17 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
       {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : !projects.data?.projects?.length ? <EmptyState title="Belum ada proyek" desc="Keanggotaan proyek dapat dikelola setelah proyek tersedia." /> : <>
         <FormField label="Pilih proyek"><select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>{(projects.data?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
         {canPlatformAdmin && <p className="muted">Platform Admin hanya menunjuk atau mengganti Project Manager. Penetapan role anggota lainnya diputuskan dan dikelola oleh PM.</p>}
+        {canPlatformAdmin && <div className="panel-subsection">
+          <PanelHeading title="Status Project Manager" description="Template role PM adalah role sistem permanen. Admin hanya menunjuk orang untuk Project terpilih; role PM tidak perlu dibuat ulang." />
+          {projectDetail.loading ? <Loading /> : activePmAssignments.length === 0
+            ? <div className="inline-warning"><CircleAlert size={17} /> Belum ada Project Manager aktif. Project tetap dapat dikelola dengan status belum ditunjuk.</div>
+            : <div className="insight-grid">
+                <div><span>PM aktif</span><strong>{activePmAssignments.length === 1 ? (activePmAssignments[0].member.name || activePmAssignments[0].member.email) : `${activePmAssignments.length} penugasan aktif — perlu pemeriksaan`}</strong></div>
+                <div><span>Project</span><strong>{projectDetail.data?.project?.name || 'Project terpilih'}</strong></div>
+                <div><span>Role</span><strong>pm · template sistem</strong></div>
+                <div><span>Penetapan</span><strong>Appointment Admin</strong></div>
+              </div>}
+        </div>}
         {canPlatformAdmin && <div className="panel-subsection">
           <PanelHeading title="Penunjukan Project Manager" description="Keputusan penunjukan dan penonaktifan PM sepenuhnya milik Admin. Jika Project masih memiliki PM aktif, nonaktifkan penugasan PM yang dipilih Admin terlebih dahulu." />
           <form className="form-grid" onSubmit={appointProjectManager}>

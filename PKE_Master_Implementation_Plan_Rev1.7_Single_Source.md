@@ -9977,3 +9977,11 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 - No action is needed to run the new offline test suite; GitHub Actions should validate the latest branch SHA.
 - If P17/P2A schema changes are to be released, owner approval must identify the exact reviewed migration file(s), SHA-256, target branch/database and permitted operation. The standing single-branch policy remains in force; do not create a Neon validation branch.
 - If zero automatic Vercel previews are required, owner must authorize inspection/change of the Vercel Git integration or ignored-build configuration. No such setting has been changed.
+
+
+### 42.10 P2A UAT/source checksum reconciliation added to automated gate — 24 November 2026
+
+- Added a root-suite contract assertion that calculates SHA-256 from the exact repository bytes for migrations 074–080 and compares each value with the recorded original-UAT ledger checksum.
+- This turns the previously manual/unverified source-vs-UAT checksum comparison into a repeatable CI gate. The assertions are committed in `src/p20-release-boundary.contract.test.ts`.
+- **Status until CI completes:** checksum reconciliation is pending exact-SHA execution. Do not state that the hashes match until the new test passes on the latest branch head.
+- A passing checksum test proves repository file bytes match the recorded UAT checksums; it does not authorize Production schema promotion, UAT writes, migration replay, or data copying.

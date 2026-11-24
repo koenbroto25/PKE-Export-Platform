@@ -26,13 +26,14 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(roles).toContain("PM is appointed per Project by Platform Admin");
     expect(app).toContain("Status Project Manager");
     expect(app).toContain("Belum ada Project Manager aktif");
-    expect(app).toContain("template role PM adalah role sistem permanen");
+    expect(app).toContain("Template role PM adalah role sistem permanen");
     expect(app).toContain("/admin/projects/${selectedProjectId}/pm-appointment");
     expect(api).toContain('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
   });
 
   it("keeps port and warehouse master writes behind Platform Admin and provenance review", () => {
-    expect(ports).toContain("if (platformAdmin)");
+    expect(ports).toContain("platformAdmin = activeUser?.platformAdmin === true");
+    expect(ports).toContain("{platformAdmin &&");
     expect(ports).toContain("source_reference");
     expect(ports).toContain("evidence_sha256");
     expect(ports).toContain("Verifikasi independen");

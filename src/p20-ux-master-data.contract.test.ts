@@ -36,6 +36,11 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(app).toContain("get('/role-templates')");
     expect(app).toContain("get('/permissions')");
     expect(app).toContain("Template role Project (canonical)");
+    expect(app).toContain("Aktifkan template");
+    expect(app).toContain("roleCode === 'pm'");
+    expect(app).toContain("/role-templates/${encodeURIComponent(roleCode)}/activate");
+    expect(api).toContain('app.post("/api/v1/projects/:id/role-templates/:roleCode/activate"');
+    expect(api).toContain('requireProjectPermission(req, res, projectId, "project.roles.manage")');
     expect(app).toContain("permissionCatalogue.data?.permissions");
   });
 

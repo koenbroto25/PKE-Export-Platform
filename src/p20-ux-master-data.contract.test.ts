@@ -33,7 +33,7 @@ describe("P20 UX master-data and Project Manager contracts", () => {
 
   it("keeps port and warehouse master writes behind Platform Admin and provenance review", () => {
     expect(ports).toContain("platformAdmin = activeUser?.platformAdmin === true");
-    expect(ports).toContain("{platformAdmin &&");
+    expect(ports).toContain("{platformAdmin ?");
     expect(ports).toContain("source_reference");
     expect(ports).toContain("evidence_sha256");
     expect(ports).toContain("Verifikasi independen");

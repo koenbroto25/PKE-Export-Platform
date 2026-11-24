@@ -7381,10 +7381,6 @@ app.post("/api/v1/projects/:id/role-templates/:roleCode/activate", requireAuth, 
   }
 });
 
-app.get("/api/v1/role-templates", requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
-  return res.json({ templates: listProjectRoleTemplates() });
-});
-
 app.get("/api/v1/roles", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT * FROM role_catalog WHERE is_active = true ORDER BY name");

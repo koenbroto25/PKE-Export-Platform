@@ -9993,3 +9993,11 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 - Added a regression assertion to prevent reintroducing the obsolete migration-053 explanation.
 - This is a source/documentation correction only. It does not relax the middleware gate, change any RLS predicate, create a migration, or modify Neon.
 - Exact-SHA CI for the newest source change is pending; the earlier in-process harness commits passed their Unit Tests runs.
+
+
+### 42.12 Route-level permission-denial harness iteration — 24 November 2026
+
+- Added a route-level in-process test for the actual P17 logistics simulation creation endpoint. It supplies a valid six-node/five-edge simulation payload, passes the release gate, simulates a non-admin without the Project permission, and asserts HTTP 403 before any SQL mutation.
+- First CI run on `4cffc30d97ce83fda844d70d5a4c587664fba62e` correctly exposed a defect in the **test assertion**, not the API: the mutation detector searched for the words INSERT/UPDATE/DELETE anywhere in SQL, so it falsely matched a read-only query containing the identifier `admin_review_update`.
+- Corrected the assertion to match only SQL statements whose first token is INSERT, UPDATE or DELETE. The test harness itself also rejects any DML statement after permission denial.
+- Follow-up exact-SHA CI is pending on `e96d7d093b60abac7f5a9c3ed78b939bee13b1da`. Do not claim this route-level test passes until that run succeeds.

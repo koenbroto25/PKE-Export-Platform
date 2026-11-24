@@ -9625,3 +9625,165 @@ Complete technical application surfaces that can be completed without external c
 - No new migration or source connector was added in P20 for these types; source licences and provider-specific semantics are not yet supplied/approved.
 
 **P20-C status:** PASS — existing two typed paths remain candidate-only and rights/maker-checker guarded; other six types fail closed and remain staging-only. Further entity promotion is deferred pending schema and owner source-policy decisions.
+
+
+## 41. P20-G — UX Completion: Role Administration, Project Manager, PKS & Port Master Data — 24 November 2026
+
+### 41.1 Purpose and scope
+
+P20-G adds a dedicated application-UX and master-data completion workstream. The objective is to make the existing backend capabilities discoverable and operable through clear, typed, permission-aware screens, while closing gaps between the platform's intended PKE export workflow and the current frontend experience.
+
+This workstream is in addition to P20-A through P20-F. It does not silently change the P20 release boundaries:
+- Vercel deployments, retries and browser UAT remain deferred until separately authorized. A mixture of successful and failed deployment attempts is not, by itself, proof that all application routes, environment settings, API functions or user workflows work correctly.
+- No Production or original UAT database writes are authorized by this UX scope. The live counts in §41.4 are read-only observations, not permission to seed, import, edit or delete Production records.
+- No fabricated port, PKS, warehouse, supplier, capacity, route, coordinate, certification or contact data may be introduced as real master data.
+- Existing security boundaries, maker-checker review, provenance, source rights, Project scoping and fail-closed behavior must be preserved.
+
+### 41.2 Existing frontend/source inspection — findings
+
+The P20 branch frontend source was inspected, including `frontend/src/App.tsx` and `frontend/src/PortNetworkPage.tsx`.
+
+**Role and access UX**
+- The application has an Access / Role & Permission area (`/access`) and Project-specific role/member routes (`/projects/:id/roles`, `/projects/:id/members`).
+- The Access area exposes account/identity administration, Project membership/role assignment and Project Manager appointment workflows.
+- The current model is not a general-purpose custom-role designer. The role catalogue and permission templates are controlled centrally; Project permission mutation is intentionally restricted. Do not describe the existing UX as supporting arbitrary role creation or arbitrary permission composition.
+- A dedicated Platform Admin appointment path exists for Project Manager, with handover-related backend controls. The UX must make this workflow discoverable and must not bypass the appointment endpoint through ordinary role assignment.
+- Existing UI routes and source presence do not prove end-to-end usability, successful live API calls or correct effective permission behavior. These require acceptance tests.
+
+**PKS and supplier UX**
+- The frontend has a PKS & Supplier Project workspace with Project-specific facility participation, candidate supplier/facility registration, product requirements and review states.
+- The current participation editor operates on Project participation records and is not a complete global PKS/KCP master-data management experience.
+- The UI explicitly distinguishes candidates from verified facilities and seed/mock data from sourced records. Preserve and strengthen this distinction.
+- An empty Project participation list means no PKS facility is linked to that Project; it does not mean the global PKS master table or API does not exist.
+
+**Port and warehouse UX**
+- `frontend/src/PortNetworkPage.tsx` provides a Port & Warehouse workspace, port/warehouse listing and detail panels, and P16/P17-related evidence and advisory workflows.
+- Platform Admin can add port/warehouse master records. The current generic master editor is JSON-based, including a JSON textarea and a list of master resource types. This is a technical editor, not an adequate everyday operational UX for administrators.
+- The page has a route-priority section for PKS → export port, but the UI reports an empty state when no Project-relevant verified route is available.
+- Existing route display and advisory logic must not be interpreted as proof that a route master, route distance, travel time, port suitability or loading service is already populated and verified.
+
+### 41.3 Target UX and business rules
+
+**A. Platform administration — users, role catalogue and permissions**
+1. Create a clear Platform Administration navigation group containing:
+   - Users & identities;
+   - Role catalogue;
+   - Permission catalogue;
+   - Project role assignments;
+   - Project Manager appointments;
+   - Access-change and audit history.
+2. Show system-defined roles separately from custom roles. Each role detail must show its code, scope (platform or Project), description, active/deprecated state, protected status and effective permission list.
+3. Add custom-role creation only for explicitly designated, non-protected Project role templates. The form must select permissions from the canonical permission catalogue; it must not accept arbitrary permission strings or silently grant unknown permissions.
+4. Provide least-privilege defaults, permission grouping, a human-readable impact preview, duplicate-name/code validation, and a confirmation summary before saving.
+5. Keep Platform Admin, Project Manager appointment, independent reviewer, financial approval/separation-of-duties and other protected/system roles non-editable through ordinary custom-role flows. Do not allow a custom role to acquire protected capabilities merely by selecting a broad permission.
+6. Display who created/changed a role, when it changed, its version, assignments affected and audit reference. Role changes must not silently rewrite historical approval or audit attribution.
+7. Enforce all constraints in backend/API/database authorization as well as the frontend. Hiding a button is not an authorization control.
+
+**B. Project Manager — permanent template, explicit appointment**
+1. `pm` is a permanent system role/template. It is not a role that an Admin needs to create for each Project.
+2. The person assigned to the PM position is Project-specific. A Project may be created with an explicitly visible `PM belum ditunjuk` state; it must not silently appoint its creator or an arbitrary member.
+3. Platform Admin uses the dedicated PM appointment workflow to appoint, replace, suspend or end an appointment. Do not route PM appointment through ordinary role assignment.
+4. Show exactly one active PM appointment per Project, or a clearly represented unassigned state. Prevent overlapping active appointments at API/database level.
+5. Require reason and audit event for appointment changes. Replacement must use the existing handover controls and preserve historical appointment records, work-item ownership, approvals and audit history.
+6. PM authority is scoped to the appointed Project and must not imply Platform Admin or cross-Project access. A PM may manage only the functions permitted by the canonical PM permission set.
+7. Where delegation is later required, implement a separate time-bounded, auditable delegation capability. Do not infer delegation from membership or custom-role assignment.
+
+**C. Global company/facility master — PKS and KCP**
+1. Build a global directory for legal entities, suppliers/operators and physical facilities, with distinct entity types for PKS (Palm Oil Mill), KCP (Kernel Crushing Plant), warehouse and other approved facility categories.
+2. Separate global identity from Project participation:
+   - Global master holds the canonical identity, stable code, facility type, legal/operator links, address and coordinates, source evidence, verification status and master history.
+   - Project participation holds Project-specific alias, operational contact, contract/capacity allocation, delivery window, terms, status and Project evidence.
+3. One canonical PKS/KCP may participate in multiple Projects without duplicating the global facility identity. Prevent duplicate records using reviewed identifiers and crosswalks; do not merge entities solely because names or coordinates look similar.
+4. Provide typed create/edit forms, detail pages, search, filters, duplicate/candidate review, provenance, verification workflow and change history. Replace raw JSON editing for ordinary workflows.
+5. Capture operationally relevant fields only where supported by approved schema and evidence: facility type, owner/operator, address, administrative region, coordinates and coordinate reference, operating status, products handled, capacity and measurement period/unit, contact details, certifications, source and evidence documents.
+6. Keep capacity dimensions explicit (e.g. production capacity, contracted capacity, allocated capacity and available capacity are not interchangeable). Unknown must remain unknown, not zero.
+7. Maintain candidate → submitted → under review → verified/rejected/expired lifecycle with maker-checker separation. A candidate sourced from a public directory is not automatically a verified counterparty or operating facility.
+
+**D. Global port and warehouse master**
+1. Provide a searchable global port directory covering Indonesian and international export ports, with country, administrative location, UN/LOCODE or other sourced identifiers, authority/operator, coordinates, source, verification and status.
+2. Provide related typed records for terminals, berths/jetties, channels, anchorages, loading services, port equipment, operating limits, depth observations and tide observations.
+3. Provide warehouse directory and structured management for warehouse location, port/terminal relationship, storage mode, capacity, zones, bins and equipment.
+4. Use dedicated typed forms and validation for each entity type. The current generic JSON master editor may remain an explicitly labelled advanced/internal fallback, but it must not be the primary workflow for routine administrators.
+5. Port/terminal/warehouse facts require source provenance and appropriate effective/observation dates. Depth and tide observations require vertical datum, timestamp/survey date, authority/source and approved evidence. Stale or missing evidence must remain visible.
+6. Port proximity alone does not establish export suitability. A port becomes a preferred PKE export reference only when the relevant port, terminal/berth, PKE loading service, operating constraints and supporting evidence have passed the required independent verification.
+7. No advisory result is navigational clearance, berth permission, vessel acceptance or legal authorization.
+
+**E. PKS-to-port land-route and logistics relationship**
+1. Provide a typed route master connecting a verified PKS/KCP to a verified export port/terminal, with route mode, source/method, distance, estimated travel duration, effective dates, evidence and verification status.
+2. Prioritize the port that is operationally usable for PKE loading and has a verified land route from the PKS. Do not select solely by straight-line distance.
+3. Display the recommended/primary reference and alternative routes only when the required evidence is present. Show why a candidate is not eligible when facility, route, port or loading-service verification is incomplete.
+4. Connect the global route master to Project-specific supplier/facility participation, allocated capacity, warehouse and shipment planning without copying or corrupting canonical identities.
+5. Keep route distance and travel-time estimates as transport planning references; do not present them as guaranteed schedules.
+
+### 41.4 Live Production database snapshot — read-only, 24 November 2026
+
+The following counts were obtained using SELECT-only queries against Neon Production project `purple-base-63944903`, branch `br-damp-shape-b3xlh4nr`, database `neondb`. No writes were executed.
+
+| Public table | Rows observed | Interpretation |
+|---|---:|---|
+| `pks_sites` | 1 | A row exists; identity, source and verification quality still require inspection |
+| `ports` | 1 | A row exists; not evidence of a complete port directory |
+| `warehouses` | 1 | A row exists; not evidence of a usable warehouse network |
+| `vendors` | 3 | Supplier/vendor records exist; status and provenance require inspection |
+| `facility_products` | 1 | One facility-product association exists |
+| `facility_capacity_records` | 1 | One capacity record exists; capacity type/unit/effective status require inspection |
+| `project_pks_site_participation` | 0 | No PKS participation rows observed |
+| `project_supplier_participation` | 2 | Two supplier participation rows observed |
+| `pks_port_routes` | 0 | No PKS-to-port route rows observed |
+| `port_external_id_crosswalk` | 0 | No external port ID crosswalk rows observed |
+| `port_geospatial_features` | 0 | No port geospatial feature rows observed |
+
+Additional historical backup tables in schema `p2b_backup_082_20261121` are not canonical current master tables and must not be counted as active master data without an explicit restoration/reconciliation decision.
+
+**Interpretation and limitations**
+- The database schema and some records exist; it is inaccurate to say that all PKS/port/warehouse database objects are absent.
+- The current counts show that the live canonical master/relationship network is sparse. In particular, zero Project-PKS participation and zero PKS-port routes explain why a Project workspace may have no usable PKS linkage or route result.
+- Counts alone do not identify whether the one PKS, port or warehouse row is real, seed/mock, verified, current or complete. Inspect each record's provenance and verification metadata before using it operationally.
+- These counts are a point-in-time snapshot and must be refreshed before any later readiness declaration.
+- No data was inserted, updated or deleted.
+
+### 41.5 UX acceptance criteria and test matrix
+
+| ID | Acceptance criterion | Required evidence |
+|---|---|---|
+| UX-ROLE-01 | Platform Admin can view canonical role and permission catalogues | Frontend route + API contract |
+| UX-ROLE-02 | Custom roles can be created only from approved non-protected role scope and known permissions | Positive/negative API tests and UI validation |
+| UX-ROLE-03 | Protected/system roles cannot be cloned, escalated, edited or assigned through ordinary custom-role flow | Authorization tests at API/database boundary |
+| UX-PM-01 | `pm` template always exists and is not recreated per Project | Catalogue invariant test |
+| UX-PM-02 | Project may visibly remain unassigned; only dedicated appointment flow can appoint PM | UI + API tests |
+| UX-PM-03 | One active PM maximum per Project; handover and audit history preserved | Constraint/service tests |
+| UX-PKS-01 | Global PKS/KCP master is separate from Project participation | Schema/API/UI contract |
+| UX-PKS-02 | A verified facility can be linked to multiple Projects without duplicate canonical identity | Relationship and duplicate-resolution tests |
+| UX-PKS-03 | Candidate/unverified/seed data cannot be represented as verified | UI state + API transition tests |
+| UX-PORT-01 | Port, terminal, berth, loading service, warehouse, zone and bin have typed management forms | Frontend acceptance and API contracts |
+| UX-PORT-02 | JSON editor is not the primary ordinary master-data workflow | UX route review |
+| UX-ROUTE-01 | PKS-to-port route is typed, provenance-bound and independently verified | API/database tests |
+| UX-ROUTE-02 | Primary PKE port requires verified land route and PKE loading capability | Eligibility contract tests |
+| UX-DATA-01 | Unknown, missing, stale and zero values remain distinct | Serialization/UI tests |
+| UX-SEC-01 | Wrong Project, wrong role, inactive membership and direct API access are denied | IDOR/auth negative tests |
+| UX-AUDIT-01 | Master/role/PM changes record actor, time, reason and before/after context | Audit contract tests |
+| UX-CI-01 | Frontend typecheck/build and relevant unit/contract tests pass on exact final branch SHA | GitHub Actions run with deployment jobs excluded |
+
+### 41.6 Implementation order
+
+1. **UX-G0 — Contract and schema audit:** map current frontend routes, API endpoints, database tables, permission keys, protected role codes, audit events and existing migrations. Identify reusable endpoints and true gaps before changing schema.
+2. **UX-G1 — Role/PM administration:** improve catalogue visibility and custom-role capability only where backend permission model safely supports it; make PM appointment and unassigned state clear.
+3. **UX-G2 — Global PKS/KCP master:** deliver global directory and typed detail/edit/review UX; preserve Project participation as a separate association.
+4. **UX-G3 — Port/warehouse master:** replace routine JSON-only editing with typed forms and structured detail pages.
+5. **UX-G4 — PKS–port routes:** implement route lifecycle and evidence-driven primary-port eligibility; integrate Project context without duplicating global records.
+6. **UX-G5 — UX regression/security acceptance:** run responsive and empty/loading/error-state checks, direct API authorization tests, provenance/maker-checker tests, frontend build/typecheck and relevant full unit/contract tests.
+7. **UX-G6 — Data onboarding plan:** prepare an import/reconciliation template and source register for authoritative PKS, KCP, port, terminal, warehouse and road-route sources. Do not import live records until source rights, quality rules, deduplication, owner review and target environment are explicitly approved.
+
+### 41.7 P20-G exit conditions and status
+
+P20-G is **PLANNED / NOT YET IMPLEMENTED** at the time this section is added. Existing frontend components and backend endpoints are baseline assets, not evidence that the acceptance criteria above have passed.
+
+P20-G may be marked complete only when:
+- the role and PM UX matches the protected-role and appointment model;
+- PKS/KCP and port/warehouse global master workflows are typed, discoverable and permission-safe;
+- Project participation and PKS-to-port route relationships are implemented and tested;
+- no unverified, seed/mock, stale or unsupported record is represented as an operational fact;
+- all UX-G acceptance criteria have exact-SHA test evidence;
+- Production and original UAT remain unchanged unless a separate owner-approved migration/data-import instruction is issued.
+
+**P20 overall status impact:** P20 scope is expanded by P20-G. P20 is not complete merely because P20-A through P20-F or a prior CI run passed. The final acceptance ledger must report P20-G independently, and must not claim the live PKE master-data network is operationally ready while required verified PKS, port, warehouse and route relationships remain absent.

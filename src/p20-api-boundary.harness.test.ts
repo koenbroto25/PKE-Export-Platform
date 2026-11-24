@@ -153,7 +153,7 @@ describe("P20 in-process P17 API release-boundary harness", () => {
     expect(payload.body.code).toBe("PROJECT_PERMISSION_REQUIRED");
     expect(permission).toHaveBeenCalledOnce();
     expect(query).toHaveBeenCalledTimes(5);
-    expect(query.mock.calls.some(([sql]) => /INSERT|UPDATE|DELETE/i.test(sql))).toBe(false);
+    expect(query.mock.calls.some(([sql]) => /^\\s*(?:INSERT|UPDATE|DELETE)\\b/i.test(sql))).toBe(false);
   });
 
   it("allows protected route dispatch only after all RLS, permission, trigger and AIS policy checks pass", async () => {

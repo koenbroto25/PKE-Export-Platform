@@ -51,8 +51,8 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(ports).toContain("Formulir master terstruktur");
     expect(ports).toContain('key: "pks_site_id"');
     expect(ports).toContain('key: "evidence_sha256"');
-    for (const resource of ["terminals", "berths", "channels", "anchorages", "loading-services", "port-equipment", "operating-limits", "warehouse-zones", "warehouse-bins", "warehouse-equipment"]) {
-      expect(ports).toContain(`${resource}:`);
+    for (const resourceKey of ["terminals:", "berths:", "channels:", "anchorages:", '"loading-services":', '"port-equipment":', '"operating-limits":', '"warehouse-zones":', '"warehouse-bins":', '"warehouse-equipment":']) {
+      expect(ports).toContain(resourceKey);
     }
   });
 });

@@ -2395,9 +2395,37 @@ function ProjectRolesPage({ onNotice }: { onNotice: (kind: 'success' | 'error' |
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const roles = useLoad<{ roles?: AnyRecord[] }>(() => id ? get(`/projects/${id}/roles`) : Promise.resolve({}), [id]);
+  const templates = useLoad<{ templates?: AnyRecord[] }>(() => get('/role-templates'), []);
+  const [busyRole, setBusyRole] = useState('');
+  const activateTemplate = async (roleCode: string) => {
+    if (!id || !roleCode || roleCode === 'pm') return;
+    setBusyRole(roleCode);
+    try {
+      await post(`/projects/${id}/role-templates/${encodeURIComponent(roleCode)}/activate`, {});
+      onNotice('success', `Template role ${roleCode} diaktifkan pada Project ini. Tetapkan pengguna melalui Anggota Project.`);
+      await roles.refresh();
+    } catch (error) {
+      onNotice('error', error instanceof Error ? error.message : 'Template role tidak dapat diaktifkan. Periksa permission Project dan katalog database.');
+    } finally { setBusyRole(''); }
+  };
+  const activeCodes = new Set((roles.data?.roles || []).filter(r => r.is_active === true).map(r => r.role_code));
   return <>
-    <PageTitle eyebrow="PROJECT ROLES" title="Role proyek" subtitle="Role RBAC yang ditetapkan pada proyek ini." actions={<ActionButton variant="secondary" onClick={() => navigate(`/projects/${id}`)}><ArrowLeft size={16} /> Kembali</ActionButton>} />
-    {roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <Card><DataTable rows={roles.data?.roles || []} columns={[{ key: 'role_code', label: 'Kode', render: r => <strong>{r.role_code}</strong> }, { key: 'name', label: 'Nama' }, { key: 'description', label: 'Deskripsi' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} /></Card>}
+    <PageTitle eyebrow="PROJECT ROLES" title="Role proyek" subtitle="Aktifkan template role sistem yang diperlukan oleh Project. Ini bukan pembuat custom role; permission setiap template dikendalikan oleh katalog canonical." actions={<ActionButton variant="secondary" onClick={() => navigate(`/projects/${id}`)}><ArrowLeft size={16} /> Kembali</ActionButton>} />
+    <Card><PanelHeading title="Role yang sudah aktif" description="Role aktif menjadi pilihan untuk penetapan anggota Project. Role PM ditetapkan terpisah melalui appointment Platform Admin." action={<button className="icon-button" onClick={roles.refresh} title="Refresh"><RefreshCw size={16} /></button>} />
+      {roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.roles || []} columns={[{ key: 'role_code', label: 'Kode', render: r => <strong>{r.role_code}</strong> }, { key: 'name', label: 'Nama' }, { key: 'description', label: 'Deskripsi' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} emptyTitle="Belum ada role Project aktif" emptyText="Aktifkan template yang dibutuhkan dari katalog di bawah." />}
+    </Card>
+    <Card><PanelHeading title="Template role canonical" description="Template PM tidak dapat diaktifkan di sini karena penunjukannya harus melalui appointment Admin. Template lain diaktifkan sesuai kebutuhan Project." action={<button className="icon-button" onClick={templates.refresh} title="Refresh template"><RefreshCw size={16} /></button>} />
+      {templates.loading ? <Loading /> : templates.error ? <ErrorState message={templates.error} retry={templates.refresh} /> : <DataTable rows={templates.data?.templates || []} columns={[
+        { key: 'code', label: 'Kode', render: r => <strong className="mono">{r.code}</strong> },
+        { key: 'label', label: 'Nama role' },
+        { key: 'domain', label: 'Domain' },
+        { key: 'permissionCodes', label: 'Permission', render: r => `${(r.permissionCodes || []).length} permission` },
+        { key: 'assignmentMode', label: 'Penetapan' },
+        { key: 'action', label: 'Aksi', render: r => r.code === 'pm' || r.assignmentMode === 'appointment'
+          ? <StatusPill value="admin appointment" />
+          : activeCodes.has(r.code) ? <StatusPill value="active" /> : <button type="button" className="primary-button" disabled={!!busyRole} onClick={() => void activateTemplate(r.code)}>{busyRole === r.code ? 'Mengaktifkan…' : 'Aktifkan template'}</button> },
+      ]} emptyTitle="Template role tidak tersedia" emptyText="Katalog canonical tidak dapat dimuat." />}
+    </Card>
   </>;
 }
 

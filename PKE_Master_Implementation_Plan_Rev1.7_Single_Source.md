@@ -9787,3 +9787,64 @@ P20-G may be marked complete only when:
 - Production and original UAT remain unchanged unless a separate owner-approved migration/data-import instruction is issued.
 
 **P20 overall status impact:** P20 scope is expanded by P20-G. P20 is not complete merely because P20-A through P20-F or a prior CI run passed. The final acceptance ledger must report P20-G independently, and must not claim the live PKE master-data network is operationally ready while required verified PKS, port, warehouse and route relationships remain absent.
+
+
+## 42. P20 Living Execution Ledger — UX / master-data implementation and blocker map — 24 November 2026
+
+### 42.1 Implemented on P20 branch (source changes; not yet final acceptance)
+
+The following source changes have been committed to `p20/platform-continuation-20261123`:
+
+| Commit | Change | Evidence / scope |
+|---|---|---|
+| `fc4e6ec58b0fbc7425dc18dd1f64c9e68b1171ba` | Exposed global PKS/KCP catalogue inside the Project PKS workspace; added explicit link-existing-facility action | Frontend uses existing authenticated `GET /projects/:projectId/pks-sites/catalog` and `POST /projects/:projectId/pks-sites`; new link is submitted as `proposed`, not auto-activated |
+| `91a5ecbffceaf0aa36952773b5ec34ee3e6b70a8` | Added explicit PM appointment status panel | Shows unassigned state or active PM appointment; explains `pm` as permanent system template; continues using dedicated Admin appointment endpoint |
+| `6a2eb8357af79387dd117b861c713e4bdac0e83c`, `6117eaf98dd90c2a32072f25a39a2e117a1c90d8` | Added P20 UX master-data contract test and included it in root test suite | Static source contracts for PKS catalogue linking, PM template/appointment and port master governance |
+| `756d4a3c81d89e1b7ec4ce97c0f05f98a69b747c` | Added typed primary forms for port, warehouse and PKS-port route master records | Keeps advanced JSON editor as fallback; ordinary port/warehouse/route entry now has named fields and provenance/evidence fields |
+| `6d0e892587fa1889a476dbab525cfda7e57c0d7f`, `fd8bfdab2ab1d09b630bdcd19c1d397e64487fce`, `d26b04c05aa951cd4bb2bc51e58d70bcb82f7dcf` | Expanded and corrected P20 UX assertions | Corrected source-text assertions to match actual UI markup |
+| `802faef7494072784c94e001e214a6d49a107db5` | Corrected existing P20 release-boundary test defects | Replaced undefined `migration` identifier with `migration110`; aligned plan assertion with current no-merge wording |
+
+**Implementation limitations:** These commits are incremental source changes. They do not mean all P20-G acceptance criteria have passed. No Production/original UAT writes, migration applications, data imports or intentional Vercel deployments were performed in this workstream.
+
+### 42.2 Verified database policy constraints relevant to custom roles
+
+Read-only inspection of Production `br-damp-shape-b3xlh4nr` confirms:
+
+- `project_roles` is protected by RLS. Project role insert/update/delete depends on Platform Admin or `project.roles.manage` as defined by the existing policies.
+- `project_role_permissions` is protected by RLS and permission assignment is gated by the same Project permission boundary, with the special Platform Admin path limited to PM.
+- Trigger `pke_guard_project_role_code_policy` rejects any role code absent from `pke_project_role_policy`.
+- Trigger `pke_guard_project_role_permission_allowlist` rejects any permission grant unless the exact role_code/permission_code pair exists in `pke_project_role_permission_allowlist`.
+- Additional triggers preserve Project Admin read-only Accounting/Reports and Finance permission boundaries.
+- The live canonical role policy table contains a fixed set of system role codes, and the allowlist contains explicit per-role permission pairs. The permission model is not an unrestricted role designer.
+
+**Conclusion:** Arbitrary custom role creation is not currently a safe frontend-only feature. It requires a reviewed custom-role policy model, a curated grantable-permission classification, backend APIs, immutable audit/version semantics, and database policy/trigger changes with negative privilege-escalation tests. Do not bypass or weaken the existing policy triggers. Custom role creation remains **BLOCKED_BY_POLICY_DESIGN** until that contract is implemented and validated on an isolated permitted target.
+
+### 42.3 Current P20-G blocker map
+
+| Blocker ID | Area | Evidence | Impact | Required resolution | Status |
+|---|---|---|---|---|---|
+| P20-G-B01 | Custom Project roles | Role policy and permission allowlist triggers require canonical role code and explicit permission pairs | Admin/PM cannot safely create arbitrary role templates from current UX/API | Design custom-role scope, allowed permission classes, versioning, revocation/assignment semantics and migration; add API + RLS/trigger tests | BLOCKED_BY_POLICY_DESIGN |
+| P20-G-B02 | Full port/warehouse editor | Typed forms currently cover `ports`, `warehouses`, `routes`; terminal/berth/channel/anchorage/loading-service/equipment/operating-limit/zone/bin forms still use JSON fallback | Routine master-data management remains inconsistent and error-prone | Add resource-specific forms and field validation using exact `P16_RESOURCES` API allowlists | OPEN_ENGINEERING |
+| P20-G-B03 | Global PKS/KCP master maintenance | Existing UI now lists the global catalogue and links existing facilities to a Project; Project participation is separate from canonical identity | No complete typed global PKS/KCP create/edit/review journey in this screen | Reconcile P2A candidate promotion and master-data change-request endpoints; provide a typed, independently reviewed canonical change workflow | OPEN_ENGINEERING / SCHEMA_RECONCILIATION |
+| P20-G-B04 | Authoritative master data population | Production snapshot: 1 PKS site, 1 port, 1 warehouse, 0 Project-PKS participation rows and 0 PKS-port routes | The UX can display records, but cannot create a verified national/global operating network without trusted source records | Approve source list/rights, define deduplication and provenance rules, stage candidates, independently review and then authorize a target-specific import | BLOCKED_EXTERNAL_AND_OWNER |
+| P20-G-B05 | Route completeness | No live PKS-port routes observed; route eligibility depends on verified PKS/KCP, road route, port and PKE loading service | No defensible primary export-port recommendation can be produced from current live master data | Complete typed route workflow, evidence and independent review; populate only after source approval | OPEN_ENGINEERING + BLOCKED_EXTERNAL |
+| P20-G-B06 | Live UX acceptance | No browser UAT/deployment is in scope; source tests do not prove actual rendering, auth-session behavior or live API interaction | Cannot declare end-to-end UX accepted | Run permitted local/in-process UI/API acceptance; browser UAT remains deferred until explicitly authorized | DEFERRED_OWNER |
+| P20-G-B07 | Deployment integration | P20 push workflow has Vercel status contexts alongside GitHub Actions; automatic integration may react to commits even when no manual deployment command is invoked | Avoid falsely reporting a deployment as intentionally executed or passed | Inspect Vercel project Git integration and apply an approved no-deploy/ignored-build policy for P20 branch before further branch pushes if the owner requires zero automatic previews | OPEN_CONFIGURATION / OWNER_BOUNDARY |
+
+### 42.4 CI evidence and correction log
+
+- GitHub Actions Unit Tests runs were triggered by commits to the P20 branch. The workflow file inspected contains the Unit Tests job (offline tests, migration verifiers/dry-run, backend/API typecheck and frontend typecheck/build) and no Vercel deployment job.
+- Run `45295046010` on SHA `6117eaf98dd90c2a32072f25a39a2e117a1c90d8` failed in the offline test step: 50 test files / 533 tests passed, while P20 test assertions failed and the pre-existing P20 release-boundary test contained an undefined `migration` identifier plus a stale plan-string assertion.
+- Source corrections were committed in `802faef`, `fd8bfdab` and `d26b04c`. Later workflow runs were started for the corrected commits. They must be checked by exact `head_sha` and conclusion before any CI pass is claimed.
+- Vercel status context is not GitHub Actions test evidence. A pending Vercel context is neither a successful deploy nor proof that the UX works.
+- Do not claim P20-G or P20-F complete until a final exact-SHA Unit Tests run passes all test, verifier, backend build, API typecheck, frontend typecheck and frontend build steps.
+
+### 42.5 Next execution order
+
+1. Check the newest Unit Tests run on the exact P20 branch head; fix any remaining test/typecheck/build failure and rerun once after batching corrections.
+2. Finish typed forms for all P16 master resource types; validate every field against `P16_RESOURCES`, including JSON-specific and foreign-key inputs.
+3. Reconcile P2A canonical PKS/KCP change workflow and implement typed global master change requests without direct unreviewed canonical writes.
+4. Complete route master workflow and enforce source, SHA-256, route method, independent reviewer and eligibility invariants.
+5. Produce custom-role policy design and tests; do not add a generic role-creation endpoint until its protected permission policy is enforceable.
+6. Continue P20-B API/IDOR acceptance, P20-C staging controls, P20-E operational controls and P20-F exact-SHA regression.
+7. Keep Production/original UAT read-only; keep Vercel/browser UAT deferred; update this single plan with evidence and exact blockers.

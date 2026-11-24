@@ -10001,3 +10001,21 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 - First CI run on `4cffc30d97ce83fda844d70d5a4c587664fba62e` correctly exposed a defect in the **test assertion**, not the API: the mutation detector searched for the words INSERT/UPDATE/DELETE anywhere in SQL, so it falsely matched a read-only query containing the identifier `admin_review_update`.
 - Corrected the assertion to match only SQL statements whose first token is INSERT, UPDATE or DELETE. The test harness itself also rejects any DML statement after permission denial.
 - Follow-up exact-SHA CI is pending on `e96d7d093b60abac7f5a9c3ed78b939bee13b1da`. Do not claim this route-level test passes until that run succeeds.
+
+
+### 42.13 Exact-SHA validation after route-level harness correction — 24 November 2026
+
+**PASS — source/offline CI**
+
+- GitHub Actions Unit Tests run **45298132398** passed on exact source SHA `e96d7d093b60abac7f5a9c3ed78b939bee13b1da`.
+- Root suite: **53 test files passed; 544 tests passed; 0 failed**. This includes the new in-process P17 release-gate tests, the route-level Project-permission denial test, the P2A migration 074–080 source-hash reconciliation, and the P17 stale-baseline assertion.
+- Dedicated P19 operational assurance suite: **1 test file; 20 tests passed**.
+- P1 UAT source hash checks, P17 Production/UAT release-package checks, P17 migration dry-run (no DB connection), P18 static package verification, Migration 052/054/055 verifiers: all passed.
+- Backend build, backend API typecheck, frontend typecheck and frontend build: all passed.
+- The initial false-positive test failure on SHA `4cffc30` is closed by the anchored SQL-verb assertion on SHA `e96d7d0`.
+- P2A migration source bytes match all seven recorded UAT ledger hashes 074–080 because the automated checksum contract passed as part of this exact-SHA root suite. This resolves the earlier source-vs-UAT hash reconciliation item, but does not approve Production migration.
+- Successful run: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45298132398.
+
+**P20-B disposition:** the middleware and one representative mutation permission-denial path now have in-process execution evidence. The full route-by-route IDOR matrix remains open; do not mark P20-B complete.
+
+**P20 status remains IN PROGRESS / BLOCKED.** No database writes, migration applications, data imports, Neon branch creation, browser UAT or intentional Vercel deployment occurred.

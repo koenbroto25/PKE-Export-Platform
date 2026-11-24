@@ -341,10 +341,86 @@ export default function PortNetworkPage({ projectId, activeUser }: Props) {
       { key: "route_notes", label: "Catatan rute" }, { key: "source_reference", label: "Referensi sumber", required: true },
       { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
     ],
+    terminals: [
+      { key: "port_id", label: "ID pelabuhan", required: true }, { key: "terminal_code", label: "Kode terminal", required: true },
+      { key: "name", label: "Nama terminal", required: true }, { key: "operator_organization_id", label: "ID organisasi operator" },
+      { key: "cargo_types", label: "Jenis muatan (pisahkan koma)" }, { key: "status", label: "Status operasional" },
+      { key: "source_reference", label: "Referensi sumber", required: true }, { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    berths: [
+      { key: "terminal_id", label: "ID terminal", required: true }, { key: "berth_code", label: "Kode berth", required: true },
+      { key: "name", label: "Nama berth" }, { key: "length_m", label: "Panjang (m)", type: "number" },
+      { key: "max_beam_m", label: "Beam maksimum (m)", type: "number" }, { key: "declared_depth_m", label: "Kedalaman deklarasi (m)", type: "number" },
+      { key: "depth_datum", label: "Datum kedalaman", required: true }, { key: "max_operational_draft_m", label: "Draft operasional maksimum (m)", type: "number" },
+      { key: "max_loa_m", label: "LOA maksimum (m)", type: "number" }, { key: "status", label: "Status operasional" },
+      { key: "source_reference", label: "Referensi sumber", required: true }, { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    channels: [
+      { key: "port_id", label: "ID pelabuhan", required: true }, { key: "channel_name", label: "Nama channel", required: true },
+      { key: "length_m", label: "Panjang (m)", type: "number" }, { key: "width_m", label: "Lebar (m)", type: "number" },
+      { key: "declared_depth_m", label: "Kedalaman deklarasi (m)", type: "number" }, { key: "depth_datum", label: "Datum kedalaman", required: true },
+      { key: "traffic_direction", label: "Arah lalu lintas" }, { key: "survey_date", label: "Tanggal survei", type: "date" },
+      { key: "status", label: "Status" }, { key: "source_reference", label: "Referensi sumber", required: true },
+      { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    anchorages: [
+      { key: "port_id", label: "ID pelabuhan", required: true }, { key: "anchorage_code", label: "Kode anchorage", required: true },
+      { key: "name", label: "Nama anchorage" }, { key: "latitude", label: "Latitude", type: "number" },
+      { key: "longitude", label: "Longitude", type: "number" }, { key: "declared_depth_m", label: "Kedalaman (m)", type: "number" },
+      { key: "depth_datum", label: "Datum kedalaman" }, { key: "capacity_vessels", label: "Kapasitas kapal", type: "number" },
+      { key: "survey_date", label: "Tanggal survei", type: "date" }, { key: "status", label: "Status" },
+      { key: "source_reference", label: "Referensi sumber", required: true }, { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    "loading-services": [
+      { key: "port_id", label: "ID pelabuhan", required: true }, { key: "terminal_id", label: "ID terminal" },
+      { key: "berth_id", label: "ID berth" }, { key: "service_type", label: "Jenis layanan", required: true },
+      { key: "cargo_type", label: "Jenis muatan", required: true }, { key: "handling_mode", label: "Mode penanganan", required: true },
+      { key: "rate_value", label: "Rate", type: "number" }, { key: "rate_unit", label: "Satuan rate" },
+      { key: "status", label: "Status layanan" }, { key: "source_reference", label: "Referensi sumber", required: true },
+      { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    "port-equipment": [
+      { key: "port_id", label: "ID pelabuhan", required: true }, { key: "terminal_id", label: "ID terminal" },
+      { key: "berth_id", label: "ID berth" }, { key: "equipment_type", label: "Jenis peralatan", required: true },
+      { key: "rated_capacity", label: "Kapasitas terukur", type: "number" }, { key: "capacity_unit", label: "Satuan kapasitas" },
+      { key: "condition_status", label: "Kondisi" }, { key: "source_reference", label: "Referensi sumber", required: true },
+      { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    "operating-limits": [
+      { key: "port_id", label: "ID pelabuhan", required: true }, { key: "terminal_id", label: "ID terminal" },
+      { key: "berth_id", label: "ID berth" }, { key: "cargo_type", label: "Jenis muatan" },
+      { key: "vessel_type", label: "Jenis kapal" }, { key: "max_draft_m", label: "Draft maksimum (m)", type: "number" },
+      { key: "max_loa_m", label: "LOA maksimum (m)", type: "number" }, { key: "max_beam_m", label: "Beam maksimum (m)", type: "number" },
+      { key: "min_ukc_m", label: "UKC minimum (m)", type: "number" }, { key: "effective_from", label: "Berlaku mulai", type: "date", required: true },
+      { key: "effective_to", label: "Berlaku sampai", type: "date" }, { key: "authority_name", label: "Otoritas", required: true },
+      { key: "source_reference", label: "Referensi sumber", required: true }, { key: "approval_status", label: "Status persetujuan" },
+      { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    "warehouse-zones": [
+      { key: "warehouse_id", label: "ID gudang", required: true }, { key: "zone_code", label: "Kode zona", required: true },
+      { key: "zone_type", label: "Jenis zona", required: true }, { key: "capacity", label: "Kapasitas", type: "number" },
+      { key: "unit_code", label: "Satuan" }, { key: "status", label: "Status" },
+      { key: "source_reference", label: "Referensi sumber", required: true }, { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    "warehouse-bins": [
+      { key: "zone_id", label: "ID zona", required: true }, { key: "bin_code", label: "Kode bin", required: true },
+      { key: "capacity", label: "Kapasitas", type: "number" }, { key: "unit_code", label: "Satuan" },
+      { key: "allowed_product_ids", label: "ID produk yang diizinkan (pisahkan koma)" }, { key: "status", label: "Status" },
+      { key: "source_reference", label: "Referensi sumber", required: true }, { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
+    "warehouse-equipment": [
+      { key: "warehouse_id", label: "ID gudang", required: true }, { key: "equipment_type", label: "Jenis peralatan", required: true },
+      { key: "asset_code", label: "Kode aset" }, { key: "rated_capacity", label: "Kapasitas terukur", type: "number" },
+      { key: "capacity_unit", label: "Satuan kapasitas" }, { key: "condition_status", label: "Kondisi" },
+      { key: "source_reference", label: "Referensi sumber", required: true }, { key: "evidence_sha256", label: "Evidence SHA-256", required: true },
+    ],
   };
   const masterDraftValue = (() => { try { return JSON.parse(masterDraft || "{}") as Row; } catch { return {}; } })();
   const updateMasterField = (key: string, value: string) => {
-    setMasterDraft(JSON.stringify({ ...masterDraftValue, [key]: value }, null, 2));
+    const nextValue = ["cargo_types", "allowed_product_ids"].includes(key)
+      ? value.split(",").map(item => item.trim()).filter(Boolean)
+      : value === "" ? null : value;
+    setMasterDraft(JSON.stringify({ ...masterDraftValue, [key]: nextValue }, null, 2));
   };
 
   return (

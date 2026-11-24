@@ -1951,7 +1951,9 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
   const canPlatformAdmin = activeUser?.platformAdmin === true;
   const canManageProjectRoles = hasProjectPermission('project.roles.manage', activeUser);
   const canManageMemberships = hasProjectPermission('project.members.manage', activeUser);
-  const roles = useLoad<{ roles?: AnyRecord[]; permissions?: AnyRecord[] }>(() => canPlatformAdmin ? get('/roles') : Promise.resolve({ roles: [], permissions: [] }), [canPlatformAdmin]);
+  const roles = useLoad<{ roles?: AnyRecord[] }>(() => canPlatformAdmin ? get('/roles') : Promise.resolve({ roles: [] }), [canPlatformAdmin]);
+  const roleTemplates = useLoad<{ templates?: AnyRecord[] }>(() => canPlatformAdmin ? get('/role-templates') : Promise.resolve({ templates: [] }), [canPlatformAdmin]);
+  const permissionCatalogue = useLoad<{ permissions?: AnyRecord[] }>(() => canPlatformAdmin ? get('/permissions') : Promise.resolve({ permissions: [] }), [canPlatformAdmin]);
   const users = useLoad<{ users?: AnyRecord[] }>(() => canPlatformAdmin ? get('/users') : Promise.resolve({ users: [] }), [canPlatformAdmin]);
   const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const provisioning = useLoad<{ ready?: boolean; reason?: string | null }>(() => canPlatformAdmin ? get('/admin/provisioning/status') : Promise.resolve({ ready: false }), [canPlatformAdmin]);
@@ -2203,7 +2205,7 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
   };
 
   return <>
-    <PageTitle eyebrow="IDENTITY & GOVERNANCE" title="Role & permission" subtitle="Status akun bersifat global; role dan status keanggotaan ditetapkan terpisah untuk setiap proyek." actions={<ActionButton variant="secondary" onClick={() => { roles.refresh(); users.refresh(); projects.refresh(); projectDetail.refresh(); provisioning.refresh(); }}><RefreshCw size={16} /> Segarkan</ActionButton>} />
+    <PageTitle eyebrow="IDENTITY & GOVERNANCE" title="Role & permission" subtitle="Status akun bersifat global; role dan status keanggotaan ditetapkan terpisah untuk setiap proyek." actions={<ActionButton variant="secondary" onClick={() => { roles.refresh(); roleTemplates.refresh(); permissionCatalogue.refresh(); users.refresh(); projects.refresh(); projectDetail.refresh(); provisioning.refresh(); }}><RefreshCw size={16} /> Segarkan</ActionButton>} />
     {canPlatformAdmin && <>
     <Card>
       <PanelHeading title="Pembuatan akun oleh Admin" description="Pendaftaran publik tetap ditutup. Akun baru dibuat melalui Neon Auth Admin SDK, lalu dipetakan oleh webhook bertanda tangan; akun PKE tetap nonaktif sampai diaktifkan Admin." />
@@ -2281,8 +2283,17 @@ function AccessPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice
       </>}
     </Card>
     {canPlatformAdmin && <>
-    <Card><PanelHeading title="Role katalog" description="Role katalog global bukan pengganti project role yang melekat pada membership." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.roles || []} columns={[{ key: 'name', label: 'Role', render: r => <strong>{r.name}</strong> }, { key: 'description', label: 'Deskripsi' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} />}</Card>
-    <Card><PanelHeading title="Permission katalog" description="Kunci permission yang dapat dipakai oleh role dan policy." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.permissions || []} columns={[{ key: 'code', label: 'Code', render: r => <span className="mono">{String(r.code || '')}</span> }, { key: 'name', label: 'Permission' }, { key: 'description', label: 'Keterangan' }]} />}</Card>
+    <Card><PanelHeading title="Template role Project (canonical)" description="Template sistem yang menjadi sumber role dan permission Project. Template PM bersifat permanen dan hanya dapat diberikan melalui appointment Admin." />{roleTemplates.loading ? <Loading /> : roleTemplates.error ? <ErrorState message={roleTemplates.error} retry={roleTemplates.refresh} /> : <DataTable rows={roleTemplates.data?.templates || []} columns={[
+      { key: 'code', label: 'Kode', render: r => <span className="mono">{r.code}</span> },
+      { key: 'label', label: 'Role', render: r => <strong>{r.label}</strong> },
+      { key: 'domain', label: 'Domain' },
+      { key: 'assignmentMode', label: 'Metode penetapan' },
+      { key: 'mandatory', label: 'Sistem', render: r => <StatusPill value={r.mandatory ? 'mandatory' : 'optional'} /> },
+      { key: 'permissionCodes', label: 'Permission', render: r => `${(r.permissionCodes || []).length} permission` },
+      { key: 'restrictions', label: 'Batasan', render: r => (r.restrictions || []).join(' ') || '—' },
+    ]} emptyTitle="Template role belum tersedia" emptyText="Katalog canonical tidak dapat dimuat." />}</Card>
+    <Card><PanelHeading title="Permission katalog" description="Daftar permission aktif yang menjadi dasar template dan policy; bukan izin untuk membuat kombinasi permission bebas." />{permissionCatalogue.loading ? <Loading /> : permissionCatalogue.error ? <ErrorState message={permissionCatalogue.error} retry={permissionCatalogue.refresh} /> : <DataTable rows={permissionCatalogue.data?.permissions || []} columns={[{ key: 'code', label: 'Code', render: r => <span className="mono">{String(r.code || '')}</span> }, { key: 'name', label: 'Permission' }, { key: 'description', label: 'Keterangan' }]} emptyTitle="Permission katalog kosong" emptyText="Tidak ada permission aktif yang dikembalikan API." />}</Card>
+    <Card><PanelHeading title="Role katalog legacy" description="Katalog kompatibilitas lama. Gunakan template role Project canonical di atas untuk desain role dan assignment baru." />{roles.loading ? <Loading /> : roles.error ? <ErrorState message={roles.error} retry={roles.refresh} /> : <DataTable rows={roles.data?.roles || []} columns={[{ key: 'name', label: 'Role', render: r => <strong>{r.name}</strong> }, { key: 'description', label: 'Deskripsi' }, { key: 'is_active', label: 'Status', render: r => <StatusPill value={r.is_active ? 'active' : 'inactive'} /> }]} />}</Card>
     </>}
   </>;
 }

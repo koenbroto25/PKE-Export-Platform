@@ -452,12 +452,18 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
     () => projectId ? get(`/projects/${projectId}/pks-candidates`) : Promise.resolve({ candidates: [], canManage: false, canVerify: false }),
     [projectId],
   );
+  const facilityCatalog = useLoad<{ facilities?: AnyRecord[] }>(
+    () => projectId ? get(`/projects/${projectId}/pks-sites/catalog`) : Promise.resolve({ facilities: [] }),
+    [projectId],
+  );
   const productRequirements = useLoad<{ requirements?: AnyRecord[]; products?: AnyRecord[]; canManage?: boolean; canCreate?: boolean; canUpdate?: boolean; canApprove?: boolean }>(
     () => projectId ? get(`/projects/${projectId}/product-requirements`) : Promise.resolve({ requirements: [], products: [], canManage: false, canCreate: false, canUpdate: false, canApprove: false }),
     [projectId],
   );
   const [editingId, setEditingId] = useState('');
   const [busy, setBusy] = useState(false);
+  const [selectedFacilityId, setSelectedFacilityId] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
   const [form, setForm] = useState({
     projectFacilityLabel: '', projectLocationNotes: '',
     operationalContactName: '', operationalContactEmail: '', operationalContactPhone: '',
@@ -489,6 +495,22 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
   const canCreateProducts = productRequirements.data?.canCreate === true;
   const canUpdateProducts = productRequirements.data?.canUpdate === true;
   const canApproveProducts = productRequirements.data?.canApprove === true;
+  const linkExistingFacility = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!projectId || !canManage || !selectedFacilityId) return;
+    setLinkBusy(true);
+    try {
+      await post(`/projects/${projectId}/pks-sites`, { pksSiteId: selectedFacilityId, status: 'proposed' });
+      onNotice('success', 'Fasilitas master berhasil ditautkan ke Project sebagai partisipasi usulan. Identitas global tidak diubah.');
+      setSelectedFacilityId('');
+      data.refresh();
+      facilityCatalog.refresh();
+    } catch (error) {
+      onNotice('error', error instanceof Error ? error.message : 'Fasilitas tidak dapat ditautkan ke Project.');
+    } finally {
+      setLinkBusy(false);
+    }
+  };
   const startEdit = (row: AnyRecord) => {
     const window = row.delivery_window || {};
     setEditingId(String(row.id));
@@ -701,6 +723,21 @@ function PksSitesPage({ projectId, activeUser, onNotice }: { projectId: string; 
           <div className="form-actions"><ActionButton variant="secondary" onClick={() => setEditingId('')}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan perubahan'}</button></div>
         </form>
       </Card>}
+      <Card><PanelHeading title="Direktori master PKS / KCP" description="Pilih fasilitas yang sudah terdaftar pada master global untuk ditautkan ke Project. Pembuatan atau perubahan identitas global tetap melalui proses perubahan master dan verifikasi terpisah." action={<button className="icon-button" onClick={() => { facilityCatalog.refresh(); data.refresh(); }} title="Refresh direktori"><RefreshCw size={16} /></button>} />
+        {facilityCatalog.loading ? <Loading /> : facilityCatalog.error ? <ErrorState message={facilityCatalog.error} retry={facilityCatalog.refresh} /> : <>
+          <DataTable rows={facilityCatalog.data?.facilities || []} columns={[
+            { key: 'name', label: 'Nama fasilitas', render: r => <div className="primary-cell"><strong>{r.name}</strong><small>{r.code || shortId(r.id)} · {String(r.facility_type || '').replaceAll('_', ' ')}</small></div> },
+            { key: 'location', label: 'Lokasi', render: r => [r.city, r.province, r.country_code].filter(Boolean).join(', ') || 'Belum tersedia' },
+            { key: 'status', label: 'Operasional', render: r => <StatusPill value={r.operating_status || 'unknown'} /> },
+            { key: 'verification', label: 'Verifikasi', render: r => <StatusPill value={r.verification_status || 'unverified'} /> },
+            { key: 'source', label: 'Sumber', render: r => r.source_reference || 'Belum dicantumkan' },
+          ]} emptyTitle="Belum ada fasilitas master yang dapat ditautkan" emptyText="Direktori global tidak memiliki fasilitas aktif yang belum terhubung. Data kandidat tidak otomatis menjadi fasilitas master." />
+          {canManage && (facilityCatalog.data?.facilities || []).length > 0 && <form className="form-grid" onSubmit={linkExistingFacility}>
+            <FormField label="Tautkan fasilitas master ke Project" wide><select required value={selectedFacilityId} onChange={e => setSelectedFacilityId(e.target.value)}><option value="">Pilih PKS / KCP</option>{(facilityCatalog.data?.facilities || []).map(f => <option key={f.id} value={f.id}>{f.name} · {f.code || shortId(f.id)} · {String(f.facility_type || '').replaceAll('_', ' ')}</option>)}</select></FormField>
+            <div className="form-actions"><button className="primary-button" disabled={linkBusy || !selectedFacilityId}>{linkBusy ? 'Menautkan…' : 'Tautkan sebagai usulan'}</button></div>
+          </form>}
+        </>}
+      </Card>
       <Card><PanelHeading title="Daftar fasilitas pada Project" description="PKS (palm oil mill) dan KCP (kernel crushing plant) ditampilkan sebagai jenis fasilitas yang berbeda. Alias dan catatan lokasi dapat direvisi oleh Admin/PM tanpa mengubah identitas global." action={<button className="icon-button" onClick={() => data.refresh()} title="Refresh"><RefreshCw size={16} /></button>} />
         {data.loading ? <Loading /> : data.error ? <ErrorState message={data.error} retry={data.refresh} /> : <DataTable rows={data.data?.participations || []} columns={[
           { key: 'facility_name', label: 'Fasilitas', render: r => <div className="primary-cell"><strong>{r.project_facility_label || r.facility_name}</strong><small>{r.facility_name} · {r.facility_code || shortId(r.pks_site_id)} · {String(r.facility_type || '').replaceAll('_', ' ')}</small></div> },

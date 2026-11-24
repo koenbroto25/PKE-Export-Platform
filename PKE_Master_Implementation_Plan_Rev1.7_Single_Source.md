@@ -9948,3 +9948,32 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 - No policy was created, altered or dropped. No database write occurred.
 
 **P17 blocker update:** P20-A P17 runtime release-gate mismatch is confirmed on both live targets, not just Production. Corrective migration design and isolated validation remain open; Production/UAT promotion requires separate exact-hash owner approval.
+
+
+### 42.9 P20 execution continuation — in-process release-gate harness — 24 November 2026
+
+**Source changes**
+- Commit `fa79c9b99101c46ea1d5ebfeb21d63acc4b7a8cc` adds `src/p20-api-boundary.harness.test.ts`, an in-process invocation of the actual `registerP17MaritimeRoutes` middleware. The harness captures the registered Express middleware and supplies deterministic database catalog responses; it does not connect to Neon or write business data.
+- Commit `36fb3fc50fd70b5d8362575c45c8df4e4d274439` corrects the protected-table fixture count to the exact 40-table gate.
+- Commit `5e1a28af18eac2b71cb4c30933530960f4adb071` includes the harness in the root `npm test` command.
+
+**Harness coverage added (pending exact-SHA CI)**
+1. Missing admin pending-position SELECT policy returns HTTP 503 / `P17_LEGACY_POSITION_SCOPE_BLOCKED` and does not dispatch.
+2. Legacy SELECT policy without Project-context scope returns HTTP 503 and does not dispatch.
+3. Complete RLS table coverage, four permission guard functions, two role guard triggers and all four AIS policy checks allow protected route dispatch.
+4. All checks run in-process against the actual P17 release middleware. These tests are not a complete IDOR matrix for each P20/P17 endpoint and do not substitute for live SQL/RLS acceptance.
+
+**Remaining P20-B harness scope**
+- Add route-level negative tests for cross-Project object IDs, missing/invalid identity, role/permission denial, maker-checker self-approval, and read/write method boundaries across the high-risk P2A/P16/P17/P20 endpoints.
+- Keep database adapters deterministic and mocked; never use Production business rows as fixtures.
+- The new harness is an incremental closure of the prior gap, not evidence that P20-B is complete.
+
+**Execution boundaries reaffirmed**
+- The current owner-mandated Neon policy in §2.2 prohibits creating additional Neon branches. No new branch may be created for migration or test validation. The historical UAT branch is read-only evidence only and is not an authorized write target.
+- No Production/UAT SQL was executed and no migration was applied during this continuation.
+- No manual Vercel deployment was invoked. GitHub push status contexts may still reflect automatic Vercel integration; they are not deployment acceptance evidence.
+
+**Current action required from owner**
+- No action is needed to run the new offline test suite; GitHub Actions should validate the latest branch SHA.
+- If P17/P2A schema changes are to be released, owner approval must identify the exact reviewed migration file(s), SHA-256, target branch/database and permitted operation. The standing single-branch policy remains in force; do not create a Neon validation branch.
+- If zero automatic Vercel previews are required, owner must authorize inspection/change of the Vercel Git integration or ignored-build configuration. No such setting has been changed.

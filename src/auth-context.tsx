@@ -63,7 +63,7 @@ async function fetchPkeUser(): Promise<UserSession | null> {
   };
 }
 
-export default AuthContext;
+export async function getPkeAccessToken(): Promise<string> {\n  const result = await authClient.token();\n  if (result.error || !result.data?.token) throw new Error("Session token unavailable.");\n  return result.data.token;\n}\n\nexport default AuthContext;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserSession | null>(null);

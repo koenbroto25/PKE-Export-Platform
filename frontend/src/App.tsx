@@ -31,7 +31,7 @@ const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDa
   { to: '/maritime-operations', key: 'maritime-operations', label: 'Voyage & Kapal', icon: Ship, group: 'PROJECT OPERATIONS' },
   { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'WORKSPACE' },
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'PROJECT OPERATIONS' },
-  { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow P1', icon: Workflow, group: 'PROJECT OPERATIONS' },
+  { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow Center', icon: Workflow, group: 'PROJECT OPERATIONS' },
   { to: '/my-work', key: 'my-work', label: 'Tugas Saya', icon: ClipboardCheck, group: 'PROJECT OPERATIONS' },
   { to: '/finance', key: 'finance', label: 'Keuangan & FX', icon: Wallet, group: 'CONTROL & INTELLIGENCE' },
   { to: '/compliance', key: 'compliance', label: 'Dokumen & Compliance', icon: ShieldCheck, group: 'CONTROL & INTELLIGENCE' },
@@ -149,7 +149,7 @@ function App() {
           <div><strong>PKE<span>CTRL</span></strong><small>EXPORT INTELLIGENCE</small></div>
           <button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Tutup menu"><X size={18} /></button>
         </div>
-        <div className="sidebar-label">OPERATIONS</div>
+        <div className="sidebar-label">NAVIGASI WORKSPACE</div>
         <div className="sidebar-navigation">
         {['WORKSPACE', 'PROJECT OPERATIONS', 'CONTROL & INTELLIGENCE', 'ADMINISTRATION', 'PARTNER PORTALS'].map(group => {
           const allowedKeys = visiblePageKeys(workspaceUser || {});

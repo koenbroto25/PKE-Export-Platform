@@ -5,6 +5,7 @@ import GPSCapture,{GpsCaptureValue} from "./gps-capture";
 import EvidenceCapture from "./evidence-capture";
 import SyncEngine from "./sync-engine";
 import {useAuth,getPkeAccessToken} from "../../auth-context";
+type FieldAssignment={id:string;title:string;description?:string|null;owner_role_code?:string;assignee_user_id?:string|null;status:string;priority?:string;due_at?:string|null};
 export function FieldDashboard(){return <FieldWorkspace/>}
 export function FieldWorkspace(){
  const {user,loading}=useAuth();

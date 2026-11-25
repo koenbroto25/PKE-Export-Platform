@@ -1,4 +1,4 @@
-﻿import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Boxes, BriefcaseBusiness,
@@ -10,13 +10,13 @@ import {
 import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
-import RoleDashboardPage from './RoleDashboardPage';
-import P1WorkflowWorkbench from './P1WorkflowWorkbench';
-import MasterDataChangeRequests from './MasterDataChangeRequests';
-import PortNetworkPage from './PortNetworkPage';
-import MaritimeOperationsWorkspace from './MaritimeOperationsWorkspace';
-import RegulatoryCoreWorkspace from './RegulatoryCoreWorkspace';
-import FieldCapturePage from './FieldCapturePage';
+const RoleDashboardPage = lazy(() => import('./RoleDashboardPage'));
+const P1WorkflowWorkbench = lazy(() => import('./P1WorkflowWorkbench'));
+const MasterDataChangeRequests = lazy(() => import('./MasterDataChangeRequests'));
+const PortNetworkPage = lazy(() => import('./PortNetworkPage'));
+const MaritimeOperationsWorkspace = lazy(() => import('./MaritimeOperationsWorkspace'));
+const RegulatoryCoreWorkspace = lazy(() => import('./RegulatoryCoreWorkspace'));
+const FieldCapturePage = lazy(() => import('./FieldCapturePage'));
 
 type AnyRecord = Record<string, any>;
 type PageKey = 'dashboard' | 'field' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network' | 'maritime-operations';
@@ -203,7 +203,7 @@ function App() {
           </div>
         </header>
         <div className="page-content">
-          <Routes>
+          <Suspense fallback={<div className="screen-center"><div className="loader" /><span>Memuat halaman workspace…</span></div>}><Routes>
             <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><RoleDashboardPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/pks-sites" element={<RoleGuard allowedKeys={['pks-sites']} activeUser={workspaceUser}><PksSitesPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
@@ -240,7 +240,7 @@ function App() {
             <Route path="/forgot-password" element={<Navigate to="/" replace />} />
             <Route path="/reset-password" element={<ResetPasswordPage onNotice={notify} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          </Routes></Suspense>
         </div>
         <footer className="app-footer"><span>PKE Export Intelligence & Project Control</span><span>Single-company workspace · IDR base currency</span></footer>
       </main>

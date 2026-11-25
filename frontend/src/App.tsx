@@ -16,9 +16,10 @@ import MasterDataChangeRequests from './MasterDataChangeRequests';
 import PortNetworkPage from './PortNetworkPage';
 import MaritimeOperationsWorkspace from './MaritimeOperationsWorkspace';
 import RegulatoryCoreWorkspace from './RegulatoryCoreWorkspace';
+import FieldCapturePage from './FieldCapturePage';
 
 type AnyRecord = Record<string, any>;
-type PageKey = 'dashboard' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network' | 'maritime-operations';
+type PageKey = 'dashboard' | 'field' | 'projects' | 'contracts' | 'operations' | 'finance' | 'compliance' | 'reports' | 'notifications' | 'access' | 'journal-entries' | 'shipment-allocations' | 'cash-advances' | 'payment-instructions' | 'my-work' | 'buyer' | 'supplier' | 'transporter' | 'warehouse' | 'funder' | 'p1-workflows' | 'pks-sites' | 'port-network' | 'maritime-operations';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -33,6 +34,7 @@ const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDa
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'PROJECT OPERATIONS' },
   { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow Center', icon: Workflow, group: 'PROJECT OPERATIONS' },
   { to: '/my-work', key: 'my-work', label: 'Tugas Saya', icon: ClipboardCheck, group: 'PROJECT OPERATIONS' },
+  { to: '/field', key: 'field', label: 'Field Capture (Offline)', icon: MapPin, group: 'PROJECT OPERATIONS' },
   { to: '/finance', key: 'finance', label: 'Keuangan & FX', icon: Wallet, group: 'CONTROL & INTELLIGENCE' },
   { to: '/compliance', key: 'compliance', label: 'Dokumen & Compliance', icon: ShieldCheck, group: 'CONTROL & INTELLIGENCE' },
   { to: '/journal-entries', key: 'journal-entries', label: 'Jurnal Umum', icon: BookOpen, group: 'CONTROL & INTELLIGENCE' },
@@ -217,6 +219,7 @@ function App() {
             <Route path="/operations" element={<RoleGuard allowedKeys={['operations']} activeUser={workspaceUser}><OperationsPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/p1-workflows" element={<RoleGuard allowedKeys={['p1-workflows']} activeUser={workspaceUser}><P1WorkflowWorkbench projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/my-work" element={<RoleGuard allowedKeys={['my-work']} activeUser={workspaceUser}><MyWorkPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/field" element={<RoleGuard allowedKeys={['field']} activeUser={workspaceUser}><FieldCapturePage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/finance" element={<RoleGuard allowedKeys={['finance']} activeUser={workspaceUser}><FinancePage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/compliance" element={<RoleGuard allowedKeys={['compliance']} activeUser={workspaceUser}><CompliancePage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/journal-entries" element={<RoleGuard allowedKeys={['journal-entries']} activeUser={workspaceUser}><JournalEntriesPage projectId={projectId} activeUser={activeUser} onNotice={notify} /></RoleGuard>} />

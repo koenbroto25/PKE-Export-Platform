@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.65 — simulation-only fixture safety and readiness semantics
+# Master Implementation Plan Rev2.66 — transaction-level synthetic export backtest
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.65 (25 November 2026 — simulation-only fixture safety and readiness semantics)  
+**Revision:** 2.66 (25 November 2026 — transaction-level synthetic export backtest)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10307,3 +10307,8 @@ The initial 20-scenario catalog was expanded to 51. The scenario test validates 
 ### 42.27 Synthetic fixture safety and readiness hardening — 25 November 2026
 
 All 51 catalog entries now carry an explicit `simulationOnly: true` marker. The evaluator cannot return READY for an empty/incomplete stage map: all 12 milestones must be present and READY; any hard blocker (blocked/missing/hold) wins over review, and review-only exceptions remain REVIEW. Regression tests assert empty and partial scenarios fail closed. CI for the 51-case version before this hardening: run `45629558313`, 57/57 test files and 574/574 tests PASS; the subsequent commit will be revalidated.
+
+
+### 42.28 Transaction-level synthetic shipment fixtures — 25 November 2026
+
+Added `src/simulation/export-backtest-fixtures.ts` with 16 synthetic transaction-shaped shipment fixtures (SIM-only Project, shipment, buyer/supplier/PKS, PKE quantity, commitment, production, quality, stock/lot genealogy, allocation, transport, port verification, tally/survey, vessel/AIS, documents, customs, settlement/FX). A pure `backtestSyntheticExport` evaluator produces 12 milestone states and READY/BLOCKED/REVIEW. Tests cover baseline and supply/QC/warehouse/transport/loading/port/traceability/document/customs/FX/AIS/provider cases. Fixtures are in-memory and never persisted; test script includes this matrix. Latest catalog CI run `45629558313` passed 57/57 files and 574/574 tests. Transaction-level fixture work awaits CI.

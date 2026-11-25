@@ -1415,3 +1415,10 @@ Scope:
 Validation required: route/action traceability; backend API and RLS boundary tests; offline queue semantics; component/unit tests; backend/frontend build and typecheck; CI. Real device/browser UAT is not claimed until performed with authorized test users. Vercel deployment remains skipped; Production and migrations remain untouched absent explicit authorization.
 
 Dependencies/blockers to register rather than fake: object-storage/evidence adapter availability; supported browser/device capability; server-side assignment validation; existing checkpoint/task APIs and idempotency support; test identity and authorized field UAT environment.
+
+
+## UX-04A Source Checkpoint (25 November 2026)
+
+Field component placeholders have been replaced with a local draft-capture workspace and IndexedDB storage, including evidence Blob retention and SHA-256, GPS state handling and tests. Detailed record: `docs/UX/UX-04A_Field_Mobile_Offline_Implementation_Checkpoint.md`.
+
+**Not yet complete / blocked:** identity-bound assignment/project validation; sync API/idempotency and retries; upload and server acceptance; conflict resolution; QR/barcode; secure cache isolation; API/RLS negative tests; real-device UAT. CI is pending on the current final source commit. This is local-only prototype functionality and not a field operational release. Do not deploy or use production capture yet.

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.63 — synthetic export backtest scenario coverage
+# Master Implementation Plan Rev2.64 — 51-case synthetic export backtest
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.63 (25 November 2026 — synthetic export backtest scenario coverage)  
+**Revision:** 2.64 (25 November 2026 — 51-case synthetic export backtest)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10292,8 +10292,13 @@ Large workspace modules are lazy-loaded under a route-level Suspense boundary, a
 
 Owner explicitly instructed to use extensive dummy/synthetic scenarios for full backtesting before real users operate the application. This supersedes the prior “BLOCKED_OWNER” limitation only for **non-persistent code/unit/mock simulations**. It does not authorize synthetic business data in Neon Production, additional Neon branches, local/Docker PostgreSQL, storage-provider writes, migrations, or external service calls. Existing single-Production-branch guard remains unchanged.
 
-**Implementation:** `src/simulation/export-scenario-catalog.ts` defines 20 deterministic, clearly simulation-only journeys covering baseline export, supply shortage, production shortfall, QA hold/retest, warehouse lot mismatch, truck delay, GPS denial/poor accuracy, offline capture/retry/idempotency, loading variance, unverified port capability, stale AIS/ETA, missing/expired export documents, customs/NPE pending, FX/invoice variance, cross-Project access, maker-checker self-approval, storage unavailable, buyer acknowledgement pending, HSE stop-work and incomplete onboarding/permission. Each includes expected outcome, persona, plain-language user message and next safe action.
+**Implementation:** `src/simulation/export-scenario-catalog.ts` defines 51 deterministic, clearly simulation-only journeys covering baseline export, supply shortage, production shortfall, QA hold/retest, warehouse lot mismatch, truck delay, GPS denial/poor accuracy, offline capture/retry/idempotency, loading variance, unverified port capability, stale AIS/ETA, missing/expired export documents, customs/NPE pending, FX/invoice variance, cross-Project access, maker-checker self-approval, storage unavailable, buyer acknowledgement pending, HSE stop-work and incomplete onboarding/permission, assignment revocation during offline mode, duplicate sync retry, poor GPS accuracy, invalid file format/size, reservation overstock, partial receipt, vehicle capacity breach, terminal/vessel incompatibility, laytime dispute, LC discrepancy, stale regulatory source, payment execution unavailable, missing permissions, inactive Project, clock skew, duplicate work-item identity, incomplete lot genealogy, buyer document scope denial, supplier cross-Project submission, duplicate invoice, audit closure independence, queued report without generated file, unverified route geometry, quantity-chain variance, external provider outage, partial API payload, expired role, null dashboard values, rejected sync draft, checksum mismatch, and recovery after unexpected error. Each includes expected outcome, persona, plain-language user message and next safe action.
 
 **Backtest harness:** `src/simulation/export-scenario-backtest.test.ts` checks catalog uniqueness/coverage, deterministic expected outcome, non-ready failure states, every export milestone/exception category, user-facing clarity, crosscheck quantity/text/date/presence edge cases, workflow maker-checker/QA/audit gates and Field Capture role isolation. Tests are included in `npm test` and GitHub Actions.
 
 **Initial acceptance boundary:** this is a simulation/backtest model using domain helpers and permission rules; it is not browser-driven E2E and does not prove live SQL/RLS, storage, Neon Auth, provider, sync, or mobile-device behavior. Every simulated exception must be resolved by correct safe behavior (block/review), not by forcing all scenarios to “success.” The healthy baseline alone is expected READY; exceptions must remain BLOCKED or REVIEW with clear next action. Initial harness execution exposed cross-check edge bugs (blank-string coercion, string-presence truthiness, invalid dates, future timestamps and non-pairwise comparison); these were fixed in the same work slice and covered by regressions.
+
+
+### 42.26 Backtest catalog expansion — 51 scenarios
+
+The initial 20-scenario catalog was expanded to 51. The scenario test validates the expected outcomes for all catalog rows. A failure of a critical gate (blocked/missing/hold) must classify as BLOCKED even if downstream stages are not run; mismatch/stale/pending/unverified without a hard blocker classify as REVIEW. The LC discrepancy scenario correctly blocks settlement rather than being treated as a mere review warning. Scenarios intentionally model safe outcomes rather than forcing success; only the fully verified baseline is READY. CI evidence is recorded after the latest branch run completes.

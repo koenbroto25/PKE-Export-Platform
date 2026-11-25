@@ -9776,7 +9776,7 @@ Additional historical backup tables in schema `p2b_backup_082_20261121` are not 
 
 ### 41.7 P20-G exit conditions and status
 
-P20-G is **PLANNED / NOT YET IMPLEMENTED** at the time this section is added. Existing frontend components and backend endpoints are baseline assets, not evidence that the acceptance criteria above have passed.
+P20-G is **PARTIALLY IMPLEMENTED IN SOURCE / NOT ACCEPTANCE-PASSED**. UX-00 route/role source inventory, workspace navigation groups, permission-filtered menu search, Admin/Project Admin/PM cockpit navigation panels, and initial responsive styling have been committed. The global PKS/KCP master, typed port/terminal/berth/warehouse/zone/bin editors, route governance, end-to-end export cross-check, all-role operational dashboards, API/RLS route matrix, and runtime/UI evidence are not complete. Existing frontend components/backend endpoints are baseline assets, not evidence that acceptance criteria passed.
 
 P20-G may be marked complete only when:
 - the role and PM UX matches the protected-role and appointment model;
@@ -10019,3 +10019,103 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 **P20-B disposition:** the middleware and one representative mutation permission-denial path now have in-process execution evidence. The full route-by-route IDOR matrix remains open; do not mark P20-B complete.
 
 **P20 status remains IN PROGRESS / BLOCKED.** No database writes, migration applications, data imports, Neon branch creation, browser UAT or intentional Vercel deployment occurred.
+
+
+
+### 42.12 Role dashboard coverage audit — 25 November 2026
+
+**FACT — VERIFIED by source inspection** of `frontend/src/RoleDashboardPage.tsx`, `frontend/src/role-permissions.ts`, and route composition in `frontend/src/App.tsx`:
+
+- The dashboard is a shared role-aware shell. It displays role focus cards, links from role metadata, permission-gated operational metrics, a Project task queue, source errors, and explicit partial/unavailable labels. Platform Admin and PM have additional cockpit panels; Project Admin has a scoped admin panel.
+- The current shared metric groups are: work items, contract/program, warehouse/inventory, inland logistics, shipment allocation, export documents, Finance/Accounting. These are not complete task-specific operational dashboards for every role.
+- Role metadata covers Platform Admin, Project Admin, PM, Internal Auditor, Procurement, PKS Site Manager, Supplier, Buyer, Contract Manager, Production Manager, Packing Supervisor, QC Officer, Regulatory/Compliance, QA Manager, Laboratory Officer, HSE, Warehouse Manager/Officer, Inventory Controller, Transport Manager, Dispatcher, Transporter, Checker, Driver, Master of Loading, Loading Supervisor/Operator, Terminal Representative, Shipping Agent, Marine Surveyor, Ship Master, Finance, Accounting, Cashier/Treasury, Funder, Document Officer, External Provider, Field Manager and Viewer.
+- Existing dashboard cards explicitly disclose several absent workflows: production actuals, packing, QC/lab/QA release, dispatch board/ETA/SLA, PO matching, survey, loading approval/sign-off, payment execution and bank reconciliation. Role metadata is not proof that a role can perform the corresponding transaction end-to-end.
+
+**Role-view coverage assessment**
+| Role group | Current dashboard view | Coverage | Gap / required work |
+|---|---|---|---|
+| Platform Admin | Platform cockpit: Projects, Access, PM ownership, Control Tower/Reports | Partial | Admin exception queue; identity lifecycle; direct appointment shortcut; source/integration health; master-data governance queue |
+| Project Admin | Configuration, members, roles, access review | Partial | Project setup checklist, member lifecycle, role expiry/revocation and project readiness |
+| PM | Project 360 navigation cockpit + task queue + shared metrics | Partial | Unified milestone/critical path, owner/blocker aggregation, export-readiness gates, hand-offs and quantity reconciliation |
+| Internal Auditor | Reports/Documents links and shared metrics | Partial | Audit evidence timeline, read-only cross-process reconciliation, finding/response register and immutable export pack |
+| Procurement / Contract | Contracts, supplier/requirements, task links | Partial | RFQ/quotation compare, supplier approval, commitment/PO lifecycle and quantity-price variance |
+| PKS Site / Supplier | Supplier/PKS portal or assigned task | Partial | Production/availability declaration, quality, lot creation, weighbridge/dispatch evidence and delivery acknowledgement |
+| Production / Packing | Operations/Warehouse links | **Gap** | Production batch, shift/line, raw kernel→PKE yield, packing/packaging, lot genealogy and QA release workflows |
+| QC / QA / Lab | Compliance/tasks/warehouse links; dashboard says workflows absent | **Gap** | Sampling plan, sample chain-of-custody, lab results, method/spec version, QA hold/release and independent reviewer |
+| HSE | Compliance/tasks | **Gap** | Site/truck/warehouse/port inspections, hazards, incident/corrective action and stop-work gate |
+| Warehouse / Inventory | Warehouse page + receipts/lots metrics | Partial | Scan-first receive/move/pick/reserve/hold, lot/quality linkage, stock count, custody hand-off and discrepancy |
+| Transport / Dispatcher / Checker / Driver | Operations and Transporter portal links | Partial | Dispatch board, vehicle/driver assignment, route constraints, ETA/SLA, offline mobile, GPS/checkpoint/photo/weight proof and checker separation |
+| Loading / Terminal / Shipping / Ship Master | Maritime workspace, shipment allocations, loading evidence read surfaces | Partial / read-only in several roles | Shift/berth readiness, loading ticket action matrix, survey/quantity reconciliation, signed hand-offs, vessel docs and independently verified milestone acceptance |
+| Marine Surveyor | Compliance/document and shipment links | **Gap** | Survey assignment, independent quantity/condition reports, signed evidence, discrepancy workflow |
+| Regulatory / Document Officer / External Provider | Compliance/source registry, document workspace, assigned evidence | Partial | Shipment-specific checklist, document version/expiry, source-linked rule evaluation, missing/invalid/approved states and submission/rejection loop |
+| Finance / Accounting / Cashier | Finance, journal, cash advance, payment instructions and reports | Partial | Budget vs commitment vs accrual vs paid reconciliation; invoice match; payment execution remains out-of-scope; bank evidence/reconciliation gap |
+| Buyer | Buyer portal and assigned shipment/requirements | Partial / fail-closed | Buyer identity grants, requirement acknowledgement, document visibility, shipment milestones and quantity/status reconciliation |
+| Funder | Explicitly restricted/fail-closed | **Not enabled** | Dedicated sharing grants, API/RLS and approval model must precede dashboard activation |
+| Viewer | Read-only domain links/metrics | Partial | Saved scope, evidence provenance, clear read-only status and export controls |
+
+**Conclusion:** the current UX has role awareness and navigational coverage, but not all roles have a functional role-specific dashboard. Do not mark UX-00–UX-03 or P20-G complete. Build dashboards around actionable work and operational evidence rather than just role descriptions and links.
+
+### 42.13 OSS and external source cross-check strategy — researched 25 November 2026
+
+**Decision proposed: use open-source software and open/official datasets selectively; do not make open source a source of legal or transaction truth.** Implement provider-neutral source adapters, provenance, licence metadata, freshness and cross-check rules. Data from public sources is secondary unless the source is designated authoritative for that field.
+
+| Source/tool | PKE use | Reliability role / limitations | Decision |
+|---|---|---|---|
+| DJBC/CEISA official export process and PEB/NPE | Export declaration, customs release, status and loading eligibility cross-check | Transaction authority; PKE must not impersonate/replace customs | Required official evidence; manual verified attachment/API only if access approved |
+| INSW/SINSW and SSm Perizinan | Export permits, Lartas, permits/realisations and cross-agency status | Official service; API/service access may be restricted | Required source registry; do not scrape/private APIs |
+| Kemendag / InaTrade / e-SKA | Export permission, destination/market rules, COO issuance/verification, reporting | Official trade sources; current requirements depend on product/HS/destination | Required regulatory cross-check |
+| BPDP and official levy/Bea Keluar sources | Export levy/tariff obligation validation | Current rule/version and applicable commodity classification must be verified | Required for rule-source register; no guessed tariff |
+| BPS Exim | National aggregate export value/weight, HS, month, destination/port context | Aggregate statistics; not shipment-level transaction proof | Useful anomaly/market cross-check, not shipment acceptance |
+| UN Comtrade API | Reporter/partner/HS export/import aggregates and mirror-statistics comparison | Public preview is limited; subscription tiers and release lag; partner-reported discrepancies are normal | Optional external cross-check adapter; compare at HS/period/country only |
+| UNECE UN/LOCODE | Location and trade-transport code validation | Official code list; confirm redistribution/derivative-data rights before bulk caching | Use code/crosswalk only after licence review |
+| OpenStreetMap (OSM) | Road access, facility/port geometry, geocoding and route context | Community map; coverage/accuracy varies; ODbL attribution/share-alike obligations; not proof of truck suitability | Recommended spatial baseline, with licence/provenance controls |
+| OSRM | OSM-derived road distance/time, map matching and matrix calculation | Default profiles do not prove PKE truck restrictions, road legality, axle/height/weight limits or seasonal constraints | Prototype/local routing; results advisory until truck profile and verified constraints added |
+| GraphHopper | Alternative route engine and configurable routing | OSM-based; inspect edition/licence and profile constraints before selecting | Evaluate alongside OSRM; no vendor commitment yet |
+| QGIS / PostGIS | Master-data spatial QA, duplicate/coordinate checks, port buffers and geospatial review | Analyst tooling; not operational source by itself | Recommended for data QA workflows |
+| Tesseract OCR | Local OCR for document intake | OCR confidence/accuracy; human review required for critical fields | Optional open-source processing adapter; not auto-approval |
+| OpenRefine | Data cleaning, deduplication, reconciliation of source exports | Human-assisted reconciliation; not an identity authority | Recommended import-preparation tool |
+
+**Cross-check tiers:**
+1. Tier 1 — authoritative transaction documents/systems: signed contract/amendments, approved supplier commitment, verified weighbridge tickets, approved warehouse receipts, accepted quality certificates, loading tickets and survey reports, shipping instructions, B/L, PEB, NPE, e-SKA/COO, official permit/levy/payment evidence.
+2. Tier 2 — official master/reference data: DJBC/INSW/Kemendag/BPDP, BPS, UNECE codes, port authority/RIPN, official vessel registry and licensed AIS provider.
+3. Tier 3 — open/secondary context: OSM roads/geometry, routing engines, UN Comtrade aggregate/mirror statistics, open market data. These can flag anomalies but never overwrite Tier 1 evidence.
+
+**Required cross-check design:** compare each shipment's contract quantity/value, supplier committed quantity, facility capacity (effective date/unit), warehouse received/available/held/reserved lots, truck tare/gross/net and checkpoint, port/weighbridge/tally, loading ticket totals, independent survey, B/L quantity, invoice/packing list, PEB/NPE fields, destination/HS/permit/COO, FX and financial obligations. Store source record, field, value/unit, effective time, capture time, document hash, confidence/authority tier, comparison rule/version, variance, reviewer, resolution and audit trail. Never automatically reconcile or overwrite conflicting evidence.
+
+### 42.14 Field-work and end-to-end export support gap register
+
+| Priority | Gap | Required field capability / acceptance |
+|---|---|---|
+| S0 | Export 360 cross-check dashboard | One shipment/Project chain from contract → supplier → production/quality → lot → warehouse → truck → port → loading → vessel → documents → customs → destination; quantity/value/status variance matrix and evidence drill-down |
+| S0 | Quantity reconciliation | Independent quantities by source, unit conversion/measurement basis, tolerances, scale tickets, sampling, loading tally, survey, B/L and customs; maker-checker for overrides |
+| S0 | Field mobile/offline capability | PWA offline task queue, idempotent sync, conflict resolution, last-sync status, geotag/time, photo/document capture, barcode/QR, signature/acknowledgement and assignment-only scope |
+| S0 | Shipment/document readiness | Shipment-specific checklist and hard/soft gates, document versions, expiry, missing/invalid/approved, amendment impact and traceable exception approval |
+| S1 | Production/packing/QA | Batch/shift, production yield, moisture/spec, packing count/weight, sample chain, lab, QA release/hold and lot genealogy |
+| S1 | Dispatch and road logistics | Dispatcher board, truck/driver assignment, legal/operational constraints, route, ETA/SLA, checkpoint sequence, geofence exception, proof-of-delivery and checker independence |
+| S1 | Warehouse | Scan-first receive/move/pick/dispatch, bin location, lot status, reservations, quality hold, count reconciliation, custody and loading-port hand-off |
+| S1 | Port/terminal/loading | Port/terminal/berth readiness, port-call milestones, shift plan, loading tickets, tally, stoppage/downtime, survey and actual quantity independent review |
+| S1 | Maritime/vessel | Vessel identity/IMO crosswalk, nomination/acceptance, voyage, AIS source/licence/freshness, ETA confidence, port-call actual evidence and vessel/terminal constraints |
+| S1 | Regulatory/commercial document checks | Invoice/packing list/contract/LC/shipping instructions/B-L/PEB/NPE/COO and permits compare fields, versioning, status and discrepancy resolution |
+| S1 | Buyer portal | Grant-backed identity, buyer-specific milestone and quantity views, acknowledgement, documents and exception communication |
+| S1 | Finance cross-check | RAB/budget/commitment/obligation/invoice/payment instruction/bank evidence/paid/FX/settlement distinct; avoid calling instructions paid |
+| S2 | Admin/operator control | Provider freshness/licence/quota/health, source update queue, master data provenance, duplicate review, integration retry and audit |
+| S2 | Safety/HSE | Site/vehicle/warehouse/port checklists, hazard/incident, corrective action and fail-closed safety gate; emergency procedures remain site-controlled |
+
+**Acceptance gate:** UX must be task-based per role. Each critical task has a named actor, start context, required data/evidence, permitted action, validation, outcome/status, hand-off, failure/rollback, audit record and source truth. A page or route is not a pass by itself.
+
+### 42.15 UX/P20 execution status and current validation boundary — 25 November 2026
+
+- Implemented source slice: grouped sidebar navigation, phase-language cleanup, permission-filtered menu search, Admin/Project Admin/PM cockpit panels, responsive panel styling. The menu search is local navigation search only, not authorized object search.
+- Corrected the sidebar renderer to suppress empty navigation groups when search/filter returns no items (commit `cc43869ed8fbdc92df0c0c617e9e848632a6256e`).
+- Role coverage and field gap audit are now recorded in this Master Plan; no parallel UX report should be used as active status.
+- Build/typecheck/unit/contract tests are **NOT RUN in this execution environment**. Automatic GitHub Actions status may exist but exact latest head evidence must be checked; Vercel is explicitly excluded.
+- Browser, mobile, real-role task acceptance and live API/RLS route matrix remain **DEFERRED/BLOCKED**; this is not a UX pass.
+- P20 overall remains **IN PROGRESS / BLOCKED**. P20-B full IDOR harness, P20-G typed master editors, global PKS/KCP workflow, PKS-port route governance, P17/P2A live release boundaries, and owner/external evidence remain unresolved.
+
+**Next execution order (continue code work, no deploy):**
+1. Add/complete all-role dashboard action mapping with domain-specific task/exception views that only use verified endpoints; distinguish missing workflow and permissions from empty data.
+2. Add export reconciliation UI/contracts for multi-source quantity/document/status comparisons, fail-closed on missing authoritative evidence.
+3. Implement field/mobile workflow gap closure: offline capture/sync, geotag/time/photo, checkpoint, weighbridge, scan/lot custody and checker workflow, with no Production fixture writes.
+4. Complete typed PKS/KCP, port/terminal/berth, warehouse/zone/bin and PKS-port route master UX against existing canonical API/schema; avoid new schema until audit.
+5. P20-B route-level negative tests and exact-SHA CI. Only non-deployment GitHub Actions workflow is eligible; do not invoke Vercel.
+6. Update this single Master Plan and the latest execution ledger after every acceptance slice.

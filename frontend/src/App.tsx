@@ -76,7 +76,7 @@ function useLoad<T>(loader: () => Promise<T>, deps: unknown[] = []) {
 
 function App() {
   const session = authClient.useSession();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);\n  const [navSearch, setNavSearch] = useState('');
   const [notice, setNotice] = useState<{ kind: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [projectId, setProjectId] = useState(() => sessionStorage.getItem('pke.projectId') || '');
   const location = useLocation();
@@ -149,7 +149,7 @@ function App() {
           <div><strong>PKE<span>CTRL</span></strong><small>EXPORT INTELLIGENCE</small></div>
           <button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Tutup menu"><X size={18} /></button>
         </div>
-        <div className="sidebar-label">NAVIGASI WORKSPACE</div>
+        <div className="sidebar-label">NAVIGASI WORKSPACE</div>\n        <label className="sidebar-menu-search"><Search size={15}/><input value={navSearch} onChange={e => setNavSearch(e.target.value)} placeholder="Cari menu…" aria-label="Cari menu navigasi"/>{navSearch && <button type="button" onClick={() => setNavSearch("")} aria-label="Hapus pencarian"><X size={14}/></button>}</label>
         <div className="sidebar-navigation">
         {['WORKSPACE', 'PROJECT OPERATIONS', 'CONTROL & INTELLIGENCE', 'ADMINISTRATION', 'PARTNER PORTALS'].map(group => {
           const allowedKeys = visiblePageKeys(workspaceUser || {});
@@ -157,7 +157,7 @@ function App() {
             <div className="nav-group" key={group}>
               <div className="nav-group-title">{group}</div>
               {navItems
-                .filter(item => item.group === group && allowedKeys.includes(item.key))
+                .filter(item => item.group === group && allowedKeys.includes(item.key) && (!navSearch.trim() || item.label.toLowerCase().includes(navSearch.trim().toLowerCase())))
                 .map(item => {
                   const Icon = item.icon;
                   return <NavLink key={item.to} to={item.to} end={item.to === '/'} className={({ isActive }) => `nav-link ${isActive ? 'nav-active' : ''}`}>

@@ -6,7 +6,7 @@ import {hasPageAccess} from "../../frontend/src/role-permissions";
 import {readFileSync} from "node:fs";
 import {join} from "node:path";
 const ROLE_DASHBOARD_SOURCE=readFileSync(join(process.cwd(),"frontend","src","RoleDashboardPage.tsx"),"utf8");
-const ROLE_META_KEYS=new Set([...ROLE_DASHBOARD_SOURCE.matchAll(/^\\s{2}([a-z][a-z0-9_]*):\\s*\\{/gm)].map(m=>m[1]));
+const ROLE_META_KEYS=new Set([...EXPORT_SIMULATION_SCENARIOS.map(s=>s.persona)].filter(role=>ROLE_DASHBOARD_SOURCE.includes(role+": {")));
 const NOW=Date.parse("2026-11-25T12:00:00Z");
 describe("PKE simulated export backtest catalog",()=>{
  it("contains at least 20 deterministic, uniquely keyed realistic scenarios",()=>{

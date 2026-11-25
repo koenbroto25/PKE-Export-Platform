@@ -10215,3 +10215,8 @@ Draft capture now requires an authenticated user context; IndexedDB is indexed b
 ### UX-04A CI validation checkpoint
 
 Source commit `b603d8a94a0df88ce5a2c61943c2cc9b98c105cc` passed GitHub Actions: 53 test files/546 tests, P19 assurance 20/20, migration static/release gates and dry-run, backend build/typecheck, frontend typecheck/build. No live DB/API/RLS/browser/mobile UAT or deploy was performed. Detailed evidence: `docs/UX/UX-04A_Field_Mobile_Offline_Implementation_Checkpoint.md` and run https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45610841342. UX-04A remains **SOURCE/CI PASS, OPERATIONAL NOT PASS**.
+
+
+### Dashboard/export cross-check assessment artifact
+
+Role-level dashboard coverage, open-source cross-check strategy and field-readiness status are consolidated at `docs/UX/Role_Dashboard_Coverage_Export_Crosscheck_OpenSource_FieldReadiness.md`. Dashboard coverage remains partial; export cross-check is design/partial; field readiness is not pass.

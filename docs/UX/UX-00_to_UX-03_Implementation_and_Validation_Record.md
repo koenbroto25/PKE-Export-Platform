@@ -42,7 +42,7 @@
 | False-zero metric handling | Implemented; contract assertion updated |
 | Admin / Project Admin / PM cockpit presence | Contract assertions present |
 | Export chain source-coverage wording | Contract assertion updated |
-| GitHub Actions root unit suite | **Pending latest run** |
+| GitHub Actions root unit suite | **PASS — 53 test files / 546 tests** |
 | Backend build/API typecheck | Pending latest run |
 | Frontend typecheck/build | Pending latest run |
 | Browser/mobile UAT | Deferred; Vercel deployment skipped |

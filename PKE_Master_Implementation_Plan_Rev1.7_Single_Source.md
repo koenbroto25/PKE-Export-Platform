@@ -10131,3 +10131,22 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 4. Complete typed PKS/KCP, port/terminal/berth, warehouse/zone/bin and PKS-port route master UX against existing canonical API/schema; avoid new schema until audit.
 5. P20-B route-level negative tests and exact-SHA CI. Only non-deployment GitHub Actions workflow is eligible; do not invoke Vercel.
 6. Update this single Master Plan and the latest execution ledger after every acceptance slice.
+
+
+
+### 42.16 Field-work source audit — current implementation facts
+
+Source inspected in `frontend/src/App.tsx` and `frontend/src/P1WorkflowWorkbench.tsx`:
+- Truck-trip form captures Project, transport-leg ID, plate, driver name, PKS-site ID, vehicle ID, departure and arrival times. It depends on configured transport legs; the form explicitly refuses sample IDs.
+- Checkpoint form captures trip, checker ID, event type, latitude/longitude, GPS accuracy, capture time and notes; browser geolocation can populate coordinates/accuracy.
+- The checkpoint UI explicitly states that photo evidence upload is not available on the endpoint. There is no verified barcode/QR scan, offline queue/service-worker sync, conflict-resolution, or digital-signature evidence in the inspected frontend.
+- Warehouse receipt form captures trip/lot, quantity/unit, checker, condition, exception reason, weighbridge ticket object key, timestamp and status. Object-key entry is not equivalent to a completed field upload/attachment flow.
+- Transporter portal currently shows placeholder metrics/no dummy data and requires assigned real data before it can be considered a functioning field cockpit. Warehouse/operations screens have API-driven actions, but no field UAT evidence.
+- P1 Workflow Center contains defined workflow types for PR/PO, supplier commitment, PO–GRN–invoice matching, production batch, packing batch, QC sample, laboratory result, QA release, HSE inspection/action, dispatch assignment/SLA, vessel/port call, loading plan, loading survey, ship-master acknowledgement, laytime, LC record/clause/discrepancy/presentation and audit finding/response/closure. These are workflow records/actions; their existence does not prove operational end-to-end acceptance or integrations to field evidence.
+
+**UX implementation/validation evidence:**
+- Role metadata dashboard coverage now links operational roles to the existing Workflow Center. Dashboard copy was corrected to distinguish implemented basic workflows from missing dashboard synthesis/field validation.
+- Dashboard Export Chain Source Coverage is role/permission-aware and shows: contract/program, production/packing/quality, warehouse/inventory, inland logistics, port/loading, shipment allocation, export documents, official customs/permit status, quantity/document reconciliation, open-source/external cross-check, finance/accounting, and field mobile/offline gaps. It expressly says source coverage is not automatic reconciliation.
+- Project context picker now labels context clearly, presents Platform-wide only for Platform Admin, confirms context switching when leaving an existing Project, and returns to Dashboard after changing context.
+- CI PASS at exact commit `37bc4c5be06310d0926cdb80e6a82a1b94acfd93` / run `45607367515`: 53 test files, 546 tests passed; dedicated P19 operational assurance 20/20; release migration verification passed; backend build and typecheck passed; frontend typecheck and build passed. No deployment step was run. This is source/CI validation, not live browser, mobile, field or API/RLS acceptance.
+- UX-00–UX-03 status: **SOURCE + CI PASS for this implementation slice; HUMAN TASK UAT / MOBILE FIELD UAT BLOCKED/NOT RUN**. Do not mark full UX acceptance or P20 complete until role task acceptance and field evidence exist.

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.68 — field capture validation backtest
+# Master Implementation Plan Rev2.69 — synthetic export backtest & UX navigation regression
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.68 (25 November 2026 — field capture validation backtest)  
+**Revision:** 2.69 (25 November 2026 — synthetic export backtest & UX navigation regression)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10367,3 +10367,8 @@ The expiry helper's return type omitted `missing`, although the function legitim
 ### 42.37 Synthetic backtest validation checkpoint — 25 November 2026
 
 The latest CI run on branch head c848e8083229b4f62174bbc5d4bfe33676d48d87 passed 58 test files / 593 tests (run 45635701502). The synthetic transaction fixtures number 36 and include baseline, supply shortfall, QA hold/reject, stock/allocation, delayed/pending/capacity/GPS transport, port capability, quantity plan-vs-tally-vs-survey, missing/expired/invalid/duplicate documents, customs, FX, AIS stale/invalid/future, malformed quantities, contaminated Project identity, partial shipment and traceability. The role-dashboard shortcut regression confirms all declared shortcuts map to actual application routes; persona mappings are tested against role metadata. This is source/CI validation, not field-device UAT or end-to-end live-data acceptance.
+
+
+### 42.38 Backtest count and fail-closed risk assertions — 25 November 2026
+
+The synthetic transaction test now asserts exactly 36 fixtures and explicitly verifies 30 critical exception fixtures cannot return READY, including bad quantities, malformed identity, missing/expired/duplicate/invalid documents, invalid/future timestamps, QA/customs rejects, stock/lot, capacity, GPS and quantity variance. This assertion update is pending CI.

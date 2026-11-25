@@ -1172,3 +1172,43 @@ A package is complete only when:
 9. Keep Vercel deployment/browser UAT skipped until explicitly re-authorized; do not touch Production or apply migrations as part of a visual UX pass.
 
 **Owner priority:** UX usability and discoverability come first. Admin and PM are the first two end-to-end experiences to make coherent, while all other roles receive focused and secure workspaces under the same design system.
+
+
+
+## UX-04A — Field Mobile & Offline Detail Contract (25 November 2026)
+
+This work package is the next implementation priority. The UX-00–03 checkpoint validates source/CI contracts only; it does not establish operational field readiness.
+
+### Field task experience
+- One assignment-first task list, grouped by actionable state and urgency, scoped to the signed-in user's assignments and active Project.
+- Task detail shows location, instructions, checklist, required evidence, previous events, next action, owner and due time where available.
+- Context switch and deep-link access must fail closed; stale Project data must be cleared on switch.
+
+### Capture and evidence
+- Capture actor/time from trusted app/server context; geolocation is optional with explicit denied/unavailable/low-accuracy states and no fabricated coordinates.
+- Photo/document capture stores a local queue record and upload lifecycle; evidence is not marked server-accepted until receipt is confirmed.
+- QR/barcode scanning is progressive enhancement with manual entry and validation fallback.
+- Evidence metadata must include object/record linkage, capture time, upload time, checksum where supported, source/capture method, and integrity/validation status.
+
+### Offline and sync semantics
+- Durable queue survives app restart and network loss.
+- Every mutation carries an idempotency token; duplicate retries must not duplicate business records.
+- Sync is observable and recoverable: queued, uploading, synced, rejected, conflict, needs-review.
+- Conflicts are never silently overwritten. Show conflicting values/source and route to authorized resolution.
+- Queue is assignment/project-scoped and must not leak between identities or Projects.
+- Logout/account switch must protect locally cached sensitive records; clear or securely isolate cache according to approved policy.
+
+### Acceptance tests
+1. User sees only assigned tasks and permitted Project scope.
+2. Capture without network survives reload/restart.
+3. Repeated sync/retry creates one server mutation.
+4. Permission denied for GPS is handled without blocking tasks unless location is a required business gate.
+5. Evidence upload failure is visible and retryable; capture is not falsely marked accepted.
+6. Conflict and server rejection are visible with safe next actions.
+7. Identity/Project switch does not expose cached records from prior scope.
+8. Responsive/mobile, keyboard/focus and accessible status semantics pass.
+9. API/RLS negative tests reject direct unauthorized reads/writes.
+10. Build, typecheck, automated tests and CI pass.
+
+### Dependency disposition
+Classify every item as existing backend (A), missing API (B), missing schema/workflow (C), external/owner approval (D), or future/approved-only (E). Do not add schema or migrations solely for UI; record blockers and seek authorization for any DB change.

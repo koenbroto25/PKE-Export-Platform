@@ -6,3 +6,22 @@ describe("Field Capture route access",()=>{
  it("does not expose Field Capture to finance or funder personas",()=>{expect(hasPageAccess("field",userFor("finance"))).toBe(false);expect(hasPageAccess("field",userFor("funder"))).toBe(false)});
  it("fails closed without selected Project or permissions",()=>{expect(hasPageAccess("field",userFor("driver",[]))).toBe(false);expect(hasPageAccess("field",{projectMemberships:[{isActive:true,roleAssignments:[{roleCode:"driver",isActive:true}]}]})).toBe(false)});
 });
+
+import {readFileSync} from "node:fs";
+import {join} from "node:path";
+describe("Field Capture local-data lifecycle UI contract",()=>{
+ const page=readFileSync(join(process.cwd(),"frontend","src","FieldCapturePage.tsx"),"utf8");
+ it("lets users clear cached assignments even when no draft exists",()=>{
+  expect(page).toContain("cache assignment untuk akun dan Project ini");
+  expect(page).toContain("disabled={busy} onClick={()=>void clearProjectDrafts()}");
+  expect(page).toContain("await deleteFieldAssignmentCache(String(activeUser.id),projectId)");
+ });
+ it("clearly labels offline cached assignments as stale and unvalidated",()=>{
+  expect(page).toContain("Assignment tidak dapat diverifikasi ulang secara online");
+  expect(page).toContain("Cache tugas terakhir diperbarui");
+ });
+ it("does not claim local drafts were server accepted",()=>{
+  expect(page).toContain("Belum dikirim atau diterima server");
+  expect(page).toContain("Draft belum disinkronkan");
+ });
+});

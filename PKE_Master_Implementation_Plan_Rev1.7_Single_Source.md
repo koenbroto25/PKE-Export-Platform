@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.66 — transaction-level synthetic export backtest
+# Master Implementation Plan Rev2.67 — field local-data cleanup UX hardening
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.66 (25 November 2026 — transaction-level synthetic export backtest)  
+**Revision:** 2.67 (25 November 2026 — field local-data cleanup UX hardening)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10312,3 +10312,8 @@ All 51 catalog entries now carry an explicit `simulationOnly: true` marker. The 
 ### 42.28 Transaction-level synthetic shipment fixtures — 25 November 2026
 
 Added `src/simulation/export-backtest-fixtures.ts` with 16 synthetic transaction-shaped shipment fixtures (SIM-only Project, shipment, buyer/supplier/PKS, PKE quantity, commitment, production, quality, stock/lot genealogy, allocation, transport, port verification, tally/survey, vessel/AIS, documents, customs, settlement/FX). A pure `backtestSyntheticExport` evaluator produces 12 milestone states and READY/BLOCKED/REVIEW. Tests cover baseline and supply/QC/warehouse/transport/loading/port/traceability/document/customs/FX/AIS/provider cases. Fixtures are in-memory and never persisted; test script includes this matrix. Latest catalog CI run `45629558313` passed 57/57 files and 574/574 tests. Transaction-level fixture work awaits CI.
+
+
+### 42.29 Field local-data cleanup usability fix — 25 November 2026
+
+Field Capture's cleanup action is now available even when the draft list is empty, so cached assignments can be deleted independently. Confirmation explicitly names local drafts/photos and assignment cache; success message reports both. Regression contract checks that the cleanup control is not disabled by an empty draft count, stale-cache timestamp/warning is shown, and local drafts are never described as server accepted. CI pending for this commit.

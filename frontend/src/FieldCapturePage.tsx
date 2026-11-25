@@ -72,7 +72,11 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     } catch (e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal disimpan.'); }
     finally { setBusy(false); }
   };
-  const clearProjectDrafts = async () => {\n    if (!activeUser?.id || !projectId || !drafts.length || !window.confirm('Hapus SEMUA draft lokal dan foto untuk akun dan Project ini? Draft belum disinkronkan dan tindakan tidak dapat dibatalkan.')) return;\n    setBusy(true); try { const removed=await deleteFieldDrafts(String(activeUser.id),projectId); await refreshDrafts(); onNotice('success',removed+' draft lokal dihapus.'); } catch(e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal dibersihkan.'); } finally { setBusy(false); }\n  };\n  const remove = async (id:string) => {
+  const clearProjectDrafts = async () => {
+    if (!activeUser?.id || !projectId || !drafts.length || !window.confirm('Hapus SEMUA draft lokal dan foto untuk akun dan Project ini? Draft belum disinkronkan dan tindakan tidak dapat dibatalkan.')) return;
+    setBusy(true); try { const removed=await deleteFieldDrafts(String(activeUser.id),projectId); await refreshDrafts(); onNotice('success',removed+' draft lokal dihapus.'); } catch(e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal dibersihkan.'); } finally { setBusy(false); }
+  };
+  const remove = async (id:string) => {
     if (!window.confirm('Hapus draft lokal dan bukti dari perangkat ini?')) return;
     setBusy(true); try { await deleteFieldDraft(id); await refreshDrafts(); onNotice('success','Draft lokal dihapus.'); }
     catch(e) { onNotice('error',e instanceof Error?e.message:'Draft gagal dihapus.'); } finally { setBusy(false); }

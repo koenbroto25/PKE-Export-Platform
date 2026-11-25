@@ -21,6 +21,16 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: false,
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('/node_modules/@neondatabase/')) return 'vendor-neon-auth';
+            if (id.includes('/node_modules/lucide-react/')) return 'vendor-icons';
+            if (id.includes('/node_modules/zod/')) return 'vendor-validation';
+            if (/\/node_modules\/(react|react-dom|react-router|react-router-dom)\//.test(id)) return 'vendor-react';
+          },
+        },
+      },
     },
   };
 });

@@ -76,3 +76,8 @@ The later commits on the branch are documentation-only. Vercel remains intention
 The current branch head inspected for this addendum is `4259bb231d2ea83b11d179b7feb1fe0a28dacb4d`. The source remains a local-only draft collector. The SyncEngine component only displays online/offline state and draft counts; it does not synchronize to the server. Assignment ID and Project ID are manually entered and are not verified by backend authorization. Evidence is selected and preserved locally but is not uploaded. The inspected tests validate draft factory metadata but not IndexedDB persistence in a browser, server sync, idempotency, conflict handling, or identity-switch cleanup.
 
 **Current disposition:** Local capture source implemented; server/operational readiness **NOT PASS**. Earlier CI evidence is historical and must not be treated as proof that this exact current head has passed CI. Current-head CI remains to be checked. No DB, migration, Vercel, or field-device action was performed.
+
+
+## Local-draft deletion usability revision
+
+Commit `abbcc255be7953c0a4c988b801f4714a71b70a2f` fixes a malformed escaped newline in the workspace import and exposes a confirmation-protected local delete action. Deletion removes the IndexedDB draft and its retained Blob from this browser/device only; it is not a server deletion. GitHub Actions run `45618662253` passed: unit/security tests, P19 contracts, migration static/release gates and dry-run, backend build/typecheck, frontend typecheck and build. This does not establish operational field readiness.

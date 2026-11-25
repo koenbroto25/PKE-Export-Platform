@@ -10233,3 +10233,10 @@ Role-level dashboard coverage, open-source cross-check strategy and field-readin
 **Next safe execution:** (1) trace existing auth/project-role assignment and task/work-item APIs; (2) determine whether an authorized assignment read endpoint already exists; (3) add typed assignment selector/list only against verified endpoint; (4) add server sync only when an existing idempotent API contract is verified—otherwise register missing endpoint as a backend blocker and avoid fabricating client calls; (5) harden local queue deletion/account-switch isolation without changing transaction semantics; (6) add unit/contract tests for queue status and failure handling; (7) run GitHub Actions and current-head build/typecheck. Production writes, migrations and Vercel remain skipped.
 
 **Evidence limitations:** inspection was source-level through Git blobs. No local checkout, browser/device UAT, live API request, RLS test, or current-head CI execution was performed in this audit.
+
+
+### 42.18 UX-04A local-draft usability hardening (25 November 2026)
+
+Commit `abbcc255be7953c0a4c988b801f4714a71b70a2f` fixes a malformed literal escape in the FieldWorkspace import line and adds an explicit, confirmation-protected action to delete a selected local draft (including its retained evidence Blob) from this device. This is a local-only deletion; it does not delete any server record.
+
+GitHub Actions Unit Tests run `45618662253` for this commit: **PASS**. Root offline tests, P19 assurance, migration/static gates and dry-run, backend build/typecheck, frontend typecheck and frontend build all passed. No database connection, Production mutation, migration apply, or deployment was performed. This commit does not close assignment authorization, upload, server sync, conflict resolution, or field UAT.

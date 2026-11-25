@@ -1431,3 +1431,8 @@ Local drafts are now partitioned by authenticated principal and selected Project
 ### UX-04A CI result
 
 Source code commit `b603d8a94a0df88ce5a2c61943c2cc9b98c105cc` passed CI: 53 files / 546 tests; P19 assurance 20/20; migration static gates/dry-run; backend build/typecheck; frontend typecheck/build. No live API/RLS, device/browser UAT or deploy. UX-04A remains prototype-only. Evidence: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45610841342.
+
+
+### Dashboard/export cross-check assessment artifact
+
+Role-level dashboard coverage, open-source cross-check strategy and field-readiness status are consolidated at `docs/UX/Role_Dashboard_Coverage_Export_Crosscheck_OpenSource_FieldReadiness.md`. Dashboard coverage remains partial; export cross-check is design/partial; field readiness is not pass.

@@ -1396,3 +1396,22 @@ Primary PKE route now requires a KCP or integrated mill facility type, not a pal
 
 
 Leading national port master candidate: DJPL MaritimHub Data Master Pelabuhan (`dwh-djpl-port`), catalog updated 21 November 2026 with Excel/JSON resources. Official Hubdat ferry-port list and Satu Data Indonesia Kemenhub port datasets are supplements/cross-checks. No source is rights-approved or imported yet; P17-A source rights/field-purpose evidence must pass first. No paid third-party port API activated. Details and source links are recorded in P17 plan §16.8.
+
+
+
+## UX Rebuild Continuation — UX-04A Field Mobile & Offline (25 November 2026)
+
+**Status: PLANNED / NOT IMPLEMENTED OR ACCEPTED.** This is the next UX work package after UX-00–03 CI/source-contract validation. Do not imply full field readiness from dashboard or navigation work.
+
+Scope:
+- field task PWA/mobile-first task list/detail, assignment and Project context;
+- offline capture queue, persistence, idempotent synchronization, retries and conflict/rejection handling;
+- geotag/time/actor metadata and permission/accuracy states;
+- photo/document evidence capture and storage lifecycle;
+- QR/barcode scan and manual fallback;
+- clear pending/synced/failed/conflict/needs-review state;
+- responsive/accessibility and field task flows.
+
+Validation required: route/action traceability; backend API and RLS boundary tests; offline queue semantics; component/unit tests; backend/frontend build and typecheck; CI. Real device/browser UAT is not claimed until performed with authorized test users. Vercel deployment remains skipped; Production and migrations remain untouched absent explicit authorization.
+
+Dependencies/blockers to register rather than fake: object-storage/evidence adapter availability; supported browser/device capability; server-side assignment validation; existing checkpoint/task APIs and idempotency support; test identity and authorized field UAT environment.

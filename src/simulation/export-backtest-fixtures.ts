@@ -55,11 +55,22 @@ export const SYNTHETIC_EXPORT_TRANSACTIONS:SyntheticShipment[]=[
  make("SIM-067","SIM-SHIP-067",{documents:[]}),
  make("SIM-068","SIM-SHIP-068",{tallyMt:2500,surveyMt:2500,quantityToleranceMt:0}),
  make("SIM-069","SIM-SHIP-069",{stockAvailableMt:2500,allocatedMt:2500,lotGenealogyVerified:false}),
+ make("SIM-070","SIM-SHIP-070",{documents:[{code:"COA",required:true,status:"verified",expiresAt:"2026-11-24T00:00:00Z"},{code:"INVOICE",required:true,status:"verified"},{code:"PACKING_LIST",required:true,status:"verified"},{code:"PEB",required:true,status:"verified"},{code:"NPE",required:true,status:"verified"}]}),
+ make("SIM-071","SIM-SHIP-071",{documents:[{code:"COA",required:true,status:"verified",expiresAt:"invalid"},{code:"INVOICE",required:true,status:"verified"},{code:"PACKING_LIST",required:true,status:"verified"},{code:"PEB",required:true,status:"verified"},{code:"NPE",required:true,status:"verified"}]}),
 ];
 const freshness=3*60*60*1000;
 const REQUIRED_DOCUMENTS=["COA","INVOICE","PACKING_LIST","PEB","NPE"];
 function validNonNegative(...values:number[]):boolean{return values.every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=0);}
 function validTimestamp(v:string|null):boolean{return v===null||Number.isFinite(Date.parse(v));}
+function documentExpiryState(docs:SyntheticDocument[],nowMs:number):"ready"|"stale"|"unverified"{
+ const required=docs.filter(d=>d.required);
+ if(required.some(d=>d.expiresAt!==undefined&&!Number.isFinite(Date.parse(d.expiresAt))))return "unverified";
+ if(required.some(d=>d.expiresAt!==undefined&&Date.parse(d.expiresAt)<=nowMs))return "stale";
+ if(required.some(d=>d.status==="expired"))return "stale";
+ if(required.some(d=>d.status==="unverified"))return "unverified";
+ if(required.some(d=>d.status==="missing"))return "missing";
+ return "ready";
+}
 function invalidDocumentSet(docs:SyntheticDocument[]):boolean{
  const codes=docs.map(d=>d.code.trim().toUpperCase());
  return docs.some(d=>!d.code.trim()||!["verified","missing","expired","unverified"].includes(d.status))||new Set(codes).size!==codes.length||REQUIRED_DOCUMENTS.some(code=>!codes.includes(code));
@@ -83,7 +94,7 @@ export function backtestSyntheticExport(s:SyntheticShipment,nowMs=Date.parse("20
   port:s.portCapabilityVerified?"ready":"unverified",
   loading:!quantityValid?"blocked":mapCrosscheck(evaluateCrosscheck({field:"loading_quantity",label:"Loading quantity",type:"quantity",tolerance:s.quantityToleranceMt,canonicalUnit:"MT"},[{sourceId:"shipment_plan",sourceLabel:"Approved shipment allocation",tier:1,value:s.shipmentQuantityMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()},{sourceId:"tally",sourceLabel:"Tally",tier:1,value:s.tallyMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()},{sourceId:"survey",sourceLabel:"Survey",tier:1,value:s.surveyMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()}],nowMs).status),
   vessel:invalidTimestamp?"unverified":s.vesselAisObservedAt===null?"pending":!Number.isFinite(Date.parse(s.vesselAisObservedAt))||nowMs-Date.parse(s.vesselAisObservedAt)>freshness||Date.parse(s.vesselAisObservedAt)-nowMs>5*60_000?"stale":"ready",
-  documents:invalidDocs?"missing":s.documents.some(d=>d.required&&d.status==="missing")?"missing":s.documents.some(d=>d.required&&d.status==="expired")?"stale":s.documents.some(d=>d.required&&d.status!=="verified")?"unverified":"ready",
+  documents:invalidDocs?"missing":documentExpiryState(s.documents,nowMs),
   customs:s.customsStatus==="npe-verified"?"ready":s.customsStatus==="rejected"?"blocked":"pending",
   settlement:invalidFx?"blocked":s.settlementStatus==="blocked"?"blocked":Math.abs(s.fxVariancePercent)>2?"mismatch":s.settlementStatus==="pending"?"pending":"ready",
  };

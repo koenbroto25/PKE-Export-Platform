@@ -43,6 +43,10 @@ describe("synthetic transaction-level export readiness backtest",()=>{
   const wrongTally=backtestSyntheticExport({...SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-058")!,tallyMt:1250});
   expect(wrongTally.stages.loading).toBe("mismatch");
  });
+ it("validates document expiry timestamp against simulated current time",()=>{
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-070")!).stages.documents).toBe("stale");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-071")!).stages.documents).toBe("unverified");
+ });
  it("handles operational partial shipment, expired documents, GPS unverified, rejected QA/customs and pending settlement",()=>{
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-058")!).expectedOutcome).toBe("ready");
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-059")!).stages.documents).toBe("stale");

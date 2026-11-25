@@ -10352,3 +10352,8 @@ Added a regression audit that extracts role-dashboard shortcuts and application 
 ### 42.34 Required-document expiry validation — 25 November 2026
 
 Document expiry is now evaluated from the simulated clock as well as the status field. Required documents whose expiry is in the past are STALE even if marked verified; invalid expiry timestamps are UNVERIFIED. Added fixtures for both cases. This prevents stale certificates/permits from incorrectly allowing export readiness.
+
+
+### 42.35 Route-link regression regex correction — 25 November 2026
+
+CI identified a test-only escaping defect in the dashboard route audit: the regex searched for a literal backslash instead of whitespace, so valid routes appeared missing. Corrected the regex. The application routing was not broken; this was an inaccurate regression assertion. CI revalidation pending.

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.59 — UX-05 advisory cross-check engine
+# Master Implementation Plan Rev2.60 — field dashboard integration and UX-05
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.59 (25 November 2026 — UX-05 cross-check engine contract)  
+**Revision:** 2.60 (25 November 2026 — field capture dashboard integration)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10267,3 +10267,8 @@ Added `src/export-crosscheck.ts` with pure, deterministic cross-check evaluation
 **CI:** Unit Tests run `45620358296` on commit `eb3f41ea3cbc35be1d3a72d93c248dc1ed846714` **PASS**: 54 test files / 553 tests (including the new cross-check suite), P19 20/20, migration static/release gates and dry-run, backend build/typecheck, frontend typecheck/build. No deployment or DB mutation.
 
 **Scope boundary:** this is a tested advisory core, not a connected export chain. No API adapter, source-of-truth data mapping, dashboard, document reconciliation UI, field-to-transaction evidence linkage, or authoritative regulatory integration has been implemented. Those require source API/schema mapping and owner/domain validation; no schema/migration was created.
+
+
+### 42.22 Field Capture dashboard hand-off (25 November 2026)
+
+The active Role Dashboard metadata for `field_manager` now links directly to `/field` (Field Capture). This improves discovery for the role without implying additional permission: route access and API scope remain independently enforced. Commit `f574325b5f479c93e85303921d46b58c7d74d66a` passed GitHub Actions run `45620774343` (**PASS**), including frontend typecheck/build. The cross-check core is still not wired to transaction APIs or a reconciliation dashboard.

@@ -127,3 +127,8 @@ A role-scoped `/field` page is now integrated in the active Vite frontend and th
 ## 11. UX-05 cross-check engine implementation slice
 
 A pure advisory cross-check core is now in `src/export-crosscheck.ts`, with unit contracts for normalized quantities, tolerance, text/date comparison, missing values, freshness, unverified/pending sources and unknown units. CI passed on commit `eb3f41ea3cbc35be1d3a72d93c248dc1ed846714` (run `45620358296`). This is not yet connected to Project transaction data or a dashboard; export cross-check remains **PARTIAL / ADVISORY CORE ONLY**.
+
+
+## 12. Field Capture discoverability
+
+Field Manager dashboard now includes a direct link to `/field`. This is navigation only; API authorization remains authoritative. Commit `f574325b5f479c93e85303921d46b58c7d74d66a` passed CI run `45620774343`. Dashboard operational completeness remains partial.

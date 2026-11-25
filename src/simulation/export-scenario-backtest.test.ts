@@ -1,7 +1,7 @@
 import {describe,it,expect} from "vitest";
 import {EXPORT_SIMULATION_SCENARIOS,evaluateScenario,SIMULATION_STAGE_ORDER} from "./export-scenario-catalog";
 import {evaluateCrosscheck} from "../export-crosscheck";
-import {validateP1Create,validateP1Transition,canApprovePurchaseOrder,canDecideQaRelease,canCloseAuditFinding} from "../p1-workflow-engine";
+import {P1_RECORD_TYPES,initialP1Status,validateP1Create,validateP1Transition,canApprovePurchaseOrder,canDecideQaRelease,canCloseAuditFinding} from "../p1-workflow-engine";
 import {hasPageAccess} from "../../frontend/src/role-permissions";
 import {readFileSync} from "node:fs";
 import {join} from "node:path";
@@ -102,5 +102,47 @@ describe("simulated role access / confusion matrix",()=>{
   const inactive={selectedProjectId:"SIM-PROJECT-A",projectPermissions:["operations.view"],projectMemberships:[{isActive:true,projectId:"SIM-PROJECT-A",roleAssignments:[{roleCode:"driver",isActive:false,roleIsActive:true}]}]};
   const expired={selectedProjectId:"SIM-PROJECT-A",projectPermissions:["operations.view"],projectMemberships:[{isActive:true,projectId:"SIM-PROJECT-A",roleAssignments:[{roleCode:"driver",isActive:true,roleIsActive:true,expiresAt:"2020-01-01T00:00:00Z"}]}]};
   expect(hasPageAccess("field",inactive)).toBe(false);expect(hasPageAccess("field",expired)).toBe(false);
+ });
+});
+
+describe("complete P1 workflow type synthetic validation backtest",()=>{
+ const validPayloads:Record<string,Record<string,unknown>>={
+  purchase_requisition:{currencyCode:"IDR",items:[{description:"PKE",quantity:100,unitCode:"MT",unitPrice:0}]},
+  purchase_order:{currencyCode:"IDR",supplierId:"SIM-SUP-01",items:[{description:"PKE",quantity:100,unitCode:"MT",unitPrice:1000}]},
+  supplier_commitment:{purchaseOrderRecordId:"SIM-PO-01",committedQuantity:100,unitCode:"MT",committedAt:"2026-11-25T10:00:00Z"},
+  goods_receipt_match:{purchaseOrderRecordId:"SIM-PO-01",warehouseReceiptId:"SIM-GR-01",apInvoiceId:"SIM-INV-01",matchedQuantity:100,matchedAmount:100000,unitCode:"MT",currencyCode:"IDR"},
+  production_batch:{quantity:100,unitCode:"MT",startedAt:"2026-11-25T10:00:00Z"},
+  packing_batch:{quantity:100,unitCode:"MT",startedAt:"2026-11-25T10:00:00Z"},
+  quality_sample:{sampleId:"SIM-SAMPLE-01",sampleType:"PKE"},
+  quality_result:{sampleId:"SIM-SAMPLE-01",attributeId:"MOISTURE",methodCode:"SIM-METHOD",resultNumeric:8.5},
+  qa_release:{sourceRecordId:"SIM-LOT-01",decisionReason:"Synthetic test decision",decision:"release"},
+  hse_inspection:{category:"site",severity:"low",observedAt:"2026-11-25T10:00:00Z"},
+  hse_action:{findingRecordId:"SIM-HSE-01",actionOwnerRoleCode:"hse_officer",dueAt:"2026-11-26T10:00:00Z"},
+  dispatch_assignment:{tripId:"SIM-TRIP-01",driverUserId:"SIM-DRIVER-01",vehicleId:"SIM-TRUCK-01",plannedDepartureAt:"2026-11-25T10:00:00Z",plannedArrivalAt:"2026-11-25T12:00:00Z"},
+  vessel_call:{voyageId:"SIM-VOYAGE-01",vesselId:"SIM-VESSEL-01",portId:"SIM-PORT-01",predictedArrivalAt:"2026-11-26T10:00:00Z"},
+  loading_plan:{loadingOperationId:"SIM-LOAD-01",shipmentId:"SIM-SHIP-01",plannedQuantity:100,unitCode:"MT"},
+  loading_survey:{loadingOperationId:"SIM-LOAD-01",certificateObjectKey:"sim/certificate.pdf",sha256Checksum:"a".repeat(64),surveyedQuantity:100,certificateFileSizeBytes:1000},
+  ship_master_ack:{voyageId:"SIM-VOYAGE-01",acknowledgementType:"cargo_received",acknowledgedAt:"2026-11-25T10:00:00Z"},
+  laytime_event:{voyageId:"SIM-VOYAGE-01",eventCode:"NOR",eventAt:"2026-11-25T10:00:00Z",startAt:"2026-11-25T10:00:00Z",endAt:"2026-11-25T11:00:00Z",allowedHours:24,excludedHours:0},
+  lc_record:{lcNumber:"SIM-LC-01",issuingBank:"Synthetic Bank",currencyCode:"USD",amount:100000,expiryAt:"2026-12-31T00:00:00Z",latestShipmentAt:"2026-12-15T00:00:00Z"},
+  lc_clause:{lcRecordId:"SIM-LC-01",clauseCode:"DOC-01",requirementText:"Synthetic required document",documentTypeCode:"INVOICE",requiredOriginals:1,requiredCopies:2},
+  lc_discrepancy:{lcRecordId:"SIM-LC-01",clauseRecordId:"SIM-CLAUSE-01",description:"Synthetic discrepancy",resolutionDueAt:"2026-11-26T00:00:00Z"},
+  lc_presentation:{lcRecordId:"SIM-LC-01",documentSelections:[{documentRecordId:"SIM-DOC-01",clauseCode:"DOC-01",copyType:"original"}],presentationReference:"SIM-PRESENT-01"},
+  audit_finding:{findingCode:"SIM-AUD-01",criteria:"Synthetic criterion",condition:"Synthetic condition",cause:"Synthetic cause",effect:"Synthetic effect",recommendation:"Synthetic recommendation",ownerRoleCode:"pm",dueAt:"2026-11-26T00:00:00Z",severity:"moderate"},
+  audit_response:{findingRecordId:"SIM-AUD-01",response:"Synthetic response",correctiveAction:"Synthetic action",dueAt:"2026-11-26T00:00:00Z"},
+  audit_closure:{findingRecordId:"SIM-AUD-01",verificationResult:"Verified",closureReason:"Synthetic closure"},
+ };
+ const nextInitial:Record<string,string>={
+  purchase_requisition:"submitted",purchase_order:"submitted",supplier_commitment:"submitted",goods_receipt_match:"matched",production_batch:"in_progress",packing_batch:"in_progress",quality_sample:"submitted",quality_result:"submitted",qa_release:"submitted",hse_inspection:"submitted",hse_action:"in_progress",dispatch_assignment:"approved",vessel_call:"submitted",loading_plan:"submitted",loading_survey:"submitted",ship_master_ack:"submitted",laytime_event:"submitted",lc_record:"issued",lc_clause:"submitted",lc_discrepancy:"responded",lc_presentation:"presented",audit_finding:"responded",audit_response:"submitted",audit_closure:"submitted"
+ };
+ it("provides valid synthetic payloads for every P1 record type",()=>{
+  expect(Object.keys(validPayloads).sort()).toEqual([...P1_RECORD_TYPES].sort());
+  for(const type of P1_RECORD_TYPES)expect(validateP1Create(type,validPayloads[type]),type).toEqual([]);
+ });
+ it("fails incomplete payloads closed for every P1 record type",()=>{
+  for(const type of P1_RECORD_TYPES)expect(validateP1Create(type,{}).length,type).toBeGreaterThan(0);
+ });
+ it("tests each record type's initial transition and rejects invalid closure shortcut",()=>{
+  for(const type of P1_RECORD_TYPES){const from=initialP1Status(type);expect(validateP1Transition(type,from,nextInitial[type]),type+" initial transition").toBe(true);expect(validateP1Transition(type,from,"closed"),type+" invalid shortcut").toBe(false);}
  });
 });

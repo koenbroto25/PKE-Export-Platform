@@ -43,8 +43,8 @@
 | Admin / Project Admin / PM cockpit presence | Contract assertions present |
 | Export chain source-coverage wording | Contract assertion updated |
 | GitHub Actions root unit suite | **PASS — 53 test files / 546 tests** |
-| Backend build/API typecheck | Pending latest run |
-| Frontend typecheck/build | Pending latest run |
+| Backend build/API typecheck | **PASS** |
+| Frontend typecheck/build | **PASS** |
 | Browser/mobile UAT | Deferred; Vercel deployment skipped |
 | API/RLS negative tests against UAT | Separate evidence required |
 

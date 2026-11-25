@@ -1212,3 +1212,8 @@ This work package is the next implementation priority. The UX-00–03 checkpoint
 
 ### Dependency disposition
 Classify every item as existing backend (A), missing API (B), missing schema/workflow (C), external/owner approval (D), or future/approved-only (E). Do not add schema or migrations solely for UI; record blockers and seek authorization for any DB change.
+
+
+## UX-04A implementation status
+
+The source checkpoint is tracked in `docs/UX/UX-04A_Field_Mobile_Offline_Implementation_Checkpoint.md`. Current code supports local draft capture and IndexedDB persistence only. Server-backed assignment validation, synchronization, upload, conflict resolution, cache security and field UAT remain acceptance blockers. This spec remains the authority for the target UX; implementation checkpoint records evidence/status.

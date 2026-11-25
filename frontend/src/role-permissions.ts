@@ -73,6 +73,13 @@ function activeProjectRoleCodes(user: WorkspaceAccessUser): string[] {
     .filter(Boolean);
 }
 
+const FIELD_CAPTURE_ROLES = new Set([
+  'field_manager','transport_manager','dispatcher','transporter','driver','checker',
+  'warehouse_manager','warehouse_officer','warehouse','master_of_loading','loading_supervisor','loading_operator',
+  'pks_site_manager','production_manager','packing_supervisor','qc_officer','laboratory_officer','qa_manager','hse_officer',
+  'marine_surveyor','terminal_representative','shipping_agent'
+]);
+
 const FINANCE_PAGE_ROLES = new Set(["pm", "project_admin", "finance", "internal_auditor", "cashier"]);
 const REPORT_PAGE_ROLES = new Set(["pm", "project_admin", "internal_auditor", "finance", "accounting", "cashier", "viewer"]);
 function hasAuthorizedRoleForPage(user: WorkspaceAccessUser, allowedRoles: Set<string>): boolean {
@@ -95,7 +102,8 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
     return [...permissions].some(permission => !externalOnly.has(permission))
       && PAGE_PERMISSION_REQUIREMENTS.compliance.some(permission => permissions.has(permission));
   }
-  if (pageKey === 'my-work' || pageKey === 'field') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");
+  if (pageKey === 'field') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => FIELD_CAPTURE_ROLES.has(roleCode));
+  if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");
   if (pageKey === 'projects') return user.platformAdmin === true || hasActiveProjectMembership(user);
   if (pageKey === 'funder') return activeProjectRoleCodes(user).includes('funder') && hasProjectPermission('funder.view', user);
   if (pageKey === 'pks-sites') return user.platformAdmin === true || hasProjectPermission('pks.site.view', user);

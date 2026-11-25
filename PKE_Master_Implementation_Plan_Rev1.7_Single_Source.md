@@ -10357,3 +10357,8 @@ Document expiry is now evaluated from the simulated clock as well as the status 
 ### 42.35 Route-link regression regex correction — 25 November 2026
 
 CI identified a test-only escaping defect in the dashboard route audit: the regex searched for a literal backslash instead of whitespace, so valid routes appeared missing. Corrected the regex. The application routing was not broken; this was an inaccurate regression assertion. CI revalidation pending.
+
+
+### 42.36 CI type error correction for document state union — 25 November 2026
+
+The expiry helper's return type omitted `missing`, although the function legitimately returns that state for a required document marked missing. Added the missing union member. The issue is type-only; missing-document behavior is unchanged. Re-run pending.

@@ -154,7 +154,8 @@ describe("Project-scoped effective permission UX", () => {
     expect(dashboardSource).toContain("Boolean(projectId && canViewTasks)]");
     expect(dashboardSource).toContain("activeUser?.platformAdmin === true ? false");
     expect(dashboardSource).toContain("sourceFailed(key) || !Object.prototype.hasOwnProperty.call(data, key)");
-    expect(dashboardSource).toContain("FOKUS ROLE");\n    expect(dashboardSource).toContain("role.outputs");
+    expect(dashboardSource).toContain("FOKUS ROLE");
+    expect(dashboardSource).toContain("role.outputs");
     expect(dashboardSource).toContain("Antrean tugas saya");
   });
 

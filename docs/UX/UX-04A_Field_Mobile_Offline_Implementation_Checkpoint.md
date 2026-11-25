@@ -54,3 +54,12 @@ The component is intentionally a local draft collector, not a transaction submis
 ## Next revision
 
 UX-04A.2 must add assignment-bound read APIs and authorization integration, then implement server sync using existing verified endpoint contracts (or register missing APIs as blockers). Do not introduce schema/migration changes without the project approval and hash workflow. Deployment remains skipped.
+
+
+## Additional hardening revision
+
+- Local draft store schema upgraded to index by authenticated principal ID; field capture requires a loaded authenticated user context.
+- Local draft reads are restricted to the current principal and selected Project; changing Project clears the visible draft list.
+- Selected evidence Blob is retained in IndexedDB, with SHA-256 calculated using Web Crypto where available.
+
+This is local isolation only, not server authorization. Project/Assignment IDs remain manually entered and are not verified against membership/assignment API. Cache encryption, logout cleanup, cross-device recovery and authorized sync remain open.

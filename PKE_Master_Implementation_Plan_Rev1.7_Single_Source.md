@@ -10206,3 +10206,8 @@ Source implementation began after the document update. The field components were
 Checkpoint details: `docs/UX/UX-04A_Field_Mobile_Offline_Implementation_Checkpoint.md`.
 
 **Status boundary:** this is not operationally accepted. Assignment/identity authorization, backend sync/idempotency, evidence upload, conflict resolution, QR/barcode, secure cache isolation, live API/RLS and device UAT remain unimplemented or untested. CI for the final source head is pending. The UI must not be used as a production transaction capture or official evidence path until these gates are closed. Vercel remains skipped; no migrations or Production data were changed.
+
+
+### UX-04A local identity/scope hardening
+
+Draft capture now requires an authenticated user context; IndexedDB is indexed by principal and visible drafts are filtered by principal plus selected Project. Evidence Blob and checksum are retained locally. This does not authorize the manually entered Project/Assignment IDs, and cache lifecycle/sync remain blocked. The package remains a local-only prototype pending current CI.

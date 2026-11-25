@@ -76,7 +76,8 @@ function useLoad<T>(loader: () => Promise<T>, deps: unknown[] = []) {
 
 function App() {
   const session = authClient.useSession();
-  const [mobileOpen, setMobileOpen] = useState(false);\n  const [navSearch, setNavSearch] = useState('');
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [navSearch, setNavSearch] = useState('');
   const [notice, setNotice] = useState<{ kind: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [projectId, setProjectId] = useState(() => sessionStorage.getItem('pke.projectId') || '');
   const location = useLocation();

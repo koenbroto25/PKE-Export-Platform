@@ -2,7 +2,33 @@ export type FieldQueueStatus = "queued" | "syncing" | "synced" | "failed" | "con
 export type FieldDraft = { id: string; principalId: string; projectId: string; assignmentId: string; assignmentLabel?: string; kind: string; note: string; capturedAt: string; latitude?: number; longitude?: number; accuracy?: number; gpsCapturedAt?: string; evidenceName?: string; evidenceType?: string; evidenceSize?: number; evidenceBlob?: Blob; checksum?: string; status: FieldQueueStatus; lastError?: string; };
 const DB_NAME = "pke-field-local"; const DB_VERSION = 3; const STORE = "drafts"; const ASSIGNMENT_STORE = "assignment-cache";
 export type FieldAssignmentCache = { cacheKey:string; principalId:string; projectId:string; cachedAt:string; assignments:Array<{id:string;title:string;status:string;priority?:string;due_at?:string|null;assignee_user_id?:string|null;owner_role_code?:string}>; };
+export function validateFieldDraftInput(input: Omit<FieldDraft,"id"|"capturedAt"|"status"|"checksum">): string[] {
+ const errors:string[]=[];
+ if(!input.principalId?.trim())errors.push("principalId is required");
+ if(!input.projectId?.trim())errors.push("projectId is required");
+ if(!input.assignmentId?.trim())errors.push("assignmentId is required");
+ if(!input.note?.trim())errors.push("note is required");
+ if(input.note?.length>4000)errors.push("note must be at most 4000 characters");
+ const gpsProvided=input.latitude!==undefined||input.longitude!==undefined||input.accuracy!==undefined||input.gpsCapturedAt!==undefined;
+ if(gpsProvided){
+  if(typeof input.latitude!=="number"||!Number.isFinite(input.latitude)||input.latitude < -90||input.latitude > 90)errors.push("latitude must be within -90..90");
+  if(typeof input.longitude!=="number"||!Number.isFinite(input.longitude)||input.longitude < -180||input.longitude > 180)errors.push("longitude must be within -180..180");
+  if(typeof input.accuracy!=="number"||!Number.isFinite(input.accuracy)||input.accuracy<=0)errors.push("GPS accuracy must be positive and finite");
+  if(!input.gpsCapturedAt||!Number.isFinite(Date.parse(input.gpsCapturedAt)))errors.push("gpsCapturedAt must be a valid timestamp");
+ }
+ const evidenceProvided=Boolean(input.evidenceBlob)||input.evidenceName!==undefined||input.evidenceType!==undefined||input.evidenceSize!==undefined;
+ if(evidenceProvided){
+  if(!(input.evidenceBlob instanceof Blob))errors.push("evidenceBlob is required when evidence metadata is supplied");
+  if(!input.evidenceName?.trim())errors.push("evidenceName is required");
+  if(!/^image\/(jpeg|png|webp)$/i.test(input.evidenceType||""))errors.push("evidenceType must be JPEG, PNG or WebP");
+  if(input.evidenceBlob && (input.evidenceBlob.size<=0||input.evidenceBlob.size>15*1024*1024))errors.push("evidenceBlob size must be 1 byte to 15 MB");
+  if(input.evidenceBlob&&input.evidenceType!==input.evidenceBlob.type)errors.push("evidenceType must match Blob MIME type");
+  if(input.evidenceBlob&&input.evidenceSize!==input.evidenceBlob.size)errors.push("evidenceSize must match Blob size");
+ }
+ return errors;
+}
 export async function createFieldDraft(input: Omit<FieldDraft,"id"|"capturedAt"|"status"|"checksum">): Promise<FieldDraft> {
+ const errors=validateFieldDraftInput(input);if(errors.length)throw new Error(errors.join("; "));
  let checksum:string|undefined;
  if(input.evidenceBlob && typeof crypto!=="undefined" && crypto.subtle){const digest=await crypto.subtle.digest("SHA-256",await input.evidenceBlob.arrayBuffer());checksum=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}
  return {...input,id:crypto.randomUUID(),capturedAt:new Date().toISOString(),status:"queued",...(checksum?{checksum}:{})};

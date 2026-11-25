@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.67 — field local-data cleanup UX hardening
+# Master Implementation Plan Rev2.68 — field capture validation backtest
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.67 (25 November 2026 — field local-data cleanup UX hardening)  
+**Revision:** 2.68 (25 November 2026 — field capture validation backtest)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10317,3 +10317,8 @@ Added `src/simulation/export-backtest-fixtures.ts` with 16 synthetic transaction
 ### 42.29 Field local-data cleanup usability fix — 25 November 2026
 
 Field Capture's cleanup action is now available even when the draft list is empty, so cached assignments can be deleted independently. Confirmation explicitly names local drafts/photos and assignment cache; success message reports both. Regression contract checks that the cleanup control is not disabled by an empty draft count, stale-cache timestamp/warning is shown, and local drafts are never described as server accepted. CI pending for this commit.
+
+
+### 42.30 Field Capture input validation — synthetic edge tests — 25 November 2026
+
+The local draft creator now validates required principal/Project/assignment identity and non-empty/max-4000 note; GPS metadata must be complete, coordinates in legal numeric ranges, accuracy positive finite and timestamp parseable; evidence metadata must accompany a Blob, allowed image MIME, 1 byte–15 MB, and exact MIME/size consistency. Invalid input is rejected before IndexedDB write. Tests cover identity omissions, empty note, out-of-range/invalid GPS, evidence metadata without Blob, invalid MIME, oversized Blob and metadata mismatch. GPS source quality/timestamp trust remains a review concern; this validation does not assert server verification. CI pending.

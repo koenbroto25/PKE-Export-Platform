@@ -55,7 +55,18 @@ function isStale(e:CrosscheckEvidence,rule:CrosscheckRule,nowMs:number):boolean 
   if(!rule.maxAgeMs)return false;
   if(!e.observedAt)return true;
   const stamp=Date.parse(e.observedAt);
-  return !Number.isFinite(stamp)||nowMs-stamp>rule.maxAgeMs;
+  if(!Number.isFinite(stamp))return true;
+  return nowMs-stamp>rule.maxAgeMs||stamp-nowMs>5*60_000;
+}
+function isEmptyEvidenceValue(value:unknown):boolean{return value===null||value===undefined||(typeof value==="string"&&value.trim()==="");}
+function normalizePresence(value:unknown):boolean|null{
+  if(typeof value==="boolean")return value;
+  if(typeof value==="number")return value===1?true:value===0?false:null;
+  if(typeof value!=="string")return null;
+  const v=normalizedText(value);
+  if(["true","1","yes","y","present","available","verified"].includes(v))return true;
+  if(["false","0","no","n","absent","missing","unavailable"].includes(v))return false;
+  return null;
 }
 export function evaluateCrosscheck(rule:CrosscheckRule,evidence:CrosscheckEvidence[],nowMs=Date.now()):CrosscheckFinding {
   const sources=evidence.map(e=>({sourceId:e.sourceId,sourceLabel:e.sourceLabel,tier:e.tier,value:e.value,unit:e.unit,observedAt:e.observedAt}));

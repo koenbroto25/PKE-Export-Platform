@@ -6,6 +6,9 @@ import {hasPageAccess} from "../../frontend/src/role-permissions";
 import {readFileSync} from "node:fs";
 import {join} from "node:path";
 const ROLE_DASHBOARD_SOURCE=readFileSync(join(process.cwd(),"frontend","src","RoleDashboardPage.tsx"),"utf8");
+const APP_ROUTE_SOURCE=readFileSync(join(process.cwd(),"frontend","src","App.tsx"),"utf8");
+const DASHBOARD_LINK_PATHS=[...ROLE_DASHBOARD_SOURCE.matchAll(/to:\s*'([^']+)'/g)].map(m=>m[1]);
+const APP_ROUTE_PATHS=new Set([...APP_ROUTE_SOURCE.matchAll(/<Route\\s+path="([^"]+)"/g)].map(m=>m[1]));
 const ROLE_META_KEYS=new Set([...EXPORT_SIMULATION_SCENARIOS.map(s=>s.persona)].filter(role=>ROLE_DASHBOARD_SOURCE.includes(role+": {")));
 const NOW=Date.parse("2026-11-25T12:00:00Z");
 describe("PKE simulated export backtest catalog",()=>{
@@ -29,6 +32,9 @@ describe("PKE simulated export backtest catalog",()=>{
   expect(evaluateScenario({...happy,stages:{...happy.stages,loading:"mismatch"}})).toBe("review");
   expect(evaluateScenario({...happy,stages:{}})).toBe("blocked");
   expect(evaluateScenario({...happy,stages:{contract:"ready"}})).toBe("blocked");
+ });
+ it("maps every dashboard shortcut to a declared application route",()=>{
+  for(const path of DASHBOARD_LINK_PATHS)expect(APP_ROUTE_PATHS.has(path),path).toBe(true);
  });
  it("maps every simulated persona to an actual role dashboard definition",()=>{
   for(const s of EXPORT_SIMULATION_SCENARIOS)expect(ROLE_META_KEYS.has(s.persona),s.id+" persona "+s.persona).toBe(true);

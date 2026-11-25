@@ -10342,3 +10342,8 @@ The second CI run revealed that the identity contamination fixture was still ove
 ### 42.32 Shipment-plan quantity reconciliation — 25 November 2026
 
 Synthetic transaction fixtures now include `shipmentQuantityMt` as the approved shipment/allocation quantity. Warehouse gate validates allocation equals the approved shipment quantity, and loading cross-check evaluates the approved plan, tally and survey as a three-source pairwise reconciliation. A realistic partial shipment fixture (1,200 MT of a 2,500 MT contract) passes when allocation, stock, tally and survey consistently reflect the partial shipment; allocation or tally deviation is tested and flagged. This avoids falsely requiring every individual shipment to equal the full contract quantity while still checking the shipment-specific reconciliation.
+
+
+### 42.33 Role dashboard route-link regression — 25 November 2026
+
+Added a regression audit that extracts role-dashboard shortcuts and application route definitions and verifies every shortcut target exists. Initial static audit found all 21 distinct dashboard link paths are declared in the router; the regression now guards against future broken dashboard navigation. Dashboard operational completeness remains partial and is tracked in the UX coverage document; route validity is not task-completion acceptance.

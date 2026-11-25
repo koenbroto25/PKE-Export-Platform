@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.69 — synthetic export backtest & UX navigation regression
+# Master Implementation Plan Rev2.70 — 595-test synthetic backtest pass
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.69 (25 November 2026 — synthetic export backtest & UX navigation regression)  
+**Revision:** 2.70 (25 November 2026 — 595-test synthetic backtest pass)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10372,3 +10372,8 @@ The latest CI run on branch head c848e8083229b4f62174bbc5d4bfe33676d48d87 passed
 ### 42.38 Backtest count and fail-closed risk assertions — 25 November 2026
 
 The synthetic transaction test now asserts exactly 36 fixtures and explicitly verifies 30 critical exception fixtures cannot return READY, including bad quantities, malformed identity, missing/expired/duplicate/invalid documents, invalid/future timestamps, QA/customs rejects, stock/lot, capacity, GPS and quantity variance. This assertion update is pending CI.
+
+
+### 42.39 Final checkpoint for current backtest slice — 25 November 2026
+
+Branch head `989f002826d0ec582d9cd72735b6ea021f3c147c` CI run `45637092523` completed successfully: **58 test files / 595 tests PASS**. Scenario catalog outcome distribution (51 scenarios): 1 READY (baseline only), 24 BLOCKED, 26 REVIEW. This is intentionally fail-safe: realistic exceptions are not forced to READY. Transaction-level fixture count is 36; dashboard link regression and persona coverage pass. No Vercel deployment or Production DB changes were made.

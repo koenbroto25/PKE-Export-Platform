@@ -6744,6 +6744,14 @@ eondb) credentials/access not available in env (no target DATABASE_URL configure
 - Changes committed: Master Plan update `d613c94cb09ce2151d143e804656000479249891`; sidebar empty-group correction `cc43869ed8fbdc92df0c0c617e9e848632a6256e`; parallel UX report files deleted to comply with single-source policy.
 - Next active work: implement role-task cockpit and export reconciliation contracts; field capture/offline workflow; typed global PKS/KCP and port/warehouse/route editors; add API/RLS negative tests; run exact-SHA non-deployment CI after code slice completes. Continue only safe source/tests; no Vercel, no Neon branch, no Production/UAT writes.
 
+### Execution update — UX-00 to UX-03 source/CI validation PASS — 25 November 2026
+
+- Exact validated source commit: `aaffb6d08648fc536b71b861caa6557d5f88427f`; GitHub Actions run `45608162760` PASS.
+- Root suite: 53 test files, 546 tests passed. Dedicated P19 operational assurance: 20/20. Migration verifiers/dry-run, backend build/API typecheck, frontend typecheck/build passed.
+- UX source slice includes menu search, role cockpit links, safe context switching, export process source-coverage view, permission-aware not-integrated states and field gap visibility.
+- Full browser/mobile/task UAT and live API/RLS negative matrix remain deferred. Do not report UX certification or P20 overall PASS.
+- Vercel and database deployments remain skipped; no Production/UAT DDL/DML/migration or business data writes occurred.
+
 ## 32.6 Execution guardrails (Revision 4 — PERMANENT SINGLE PROJECT/BRANCH)
 
 1. This file alone is the PKE reference and execution-control document until completion. Keep it updated in place.
@@ -10117,12 +10125,13 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 
 ### 42.15 UX/P20 execution status and current validation boundary — 25 November 2026
 
-- Implemented source slice: grouped sidebar navigation, phase-language cleanup, permission-filtered menu search, Admin/Project Admin/PM cockpit panels, responsive panel styling. The menu search is local navigation search only, not authorized object search.
+- Implemented source slice: grouped sidebar navigation, phase-language cleanup, permission-filtered menu search, Admin/Project Admin/PM cockpit panels, responsive styling, safe Project context switch confirmation and dashboard reset, role-specific Workflow Center links, permission-scoped Export Process cross-check/source-coverage panel, and field-gap visibility.
 - Corrected the sidebar renderer to suppress empty navigation groups when search/filter returns no items (commit `cc43869ed8fbdc92df0c0c617e9e848632a6256e`).
-- Role coverage and field gap audit are now recorded in this Master Plan; no parallel UX report should be used as active status.
-- Build/typecheck/unit/contract tests are **NOT RUN in this execution environment**. Automatic GitHub Actions status may exist but exact latest head evidence must be checked; Vercel is explicitly excluded.
-- Browser, mobile, real-role task acceptance and live API/RLS route matrix remain **DEFERRED/BLOCKED**; this is not a UX pass.
-- P20 overall remains **IN PROGRESS / BLOCKED**. P20-B full IDOR harness, P20-G typed master editors, global PKS/KCP workflow, PKS-port route governance, P17/P2A live release boundaries, and owner/external evidence remain unresolved.
+- Role coverage, OSS strategy, export cross-check architecture and field-gap audit are consolidated in §§42.12–42.16. The Master Plan remains the active single source.
+- **PASS — exact-SHA GitHub Actions Unit Tests** at commit `aaffb6d08648fc536b71b861caa6557d5f88427f` (run `45608162760`): 53 test files / 546 tests passed; dedicated P19 operational assurance 20/20; migration verifiers and dry-run passed; backend build/API typecheck and frontend typecheck/build passed. No deployment job was run.
+- Source-level UX-00–UX-03 acceptance contracts pass at that exact code SHA. A later documentation-only commit must be checked separately, but does not change the validated source.
+- Browser/mobile, real-role task acceptance, field UAT and live API/RLS negative matrix remain **DEFERRED/BLOCKED**; CI source validation is not full UX certification.
+- P20 overall remains **IN PROGRESS / BLOCKED**. P20-B full IDOR harness, P20-G typed master editors and authoritative master-data onboarding, PKS-port route governance, P17/P2A live release boundaries, and owner/external evidence remain unresolved.
 
 **Next execution order (continue code work, no deploy):**
 1. Add/complete all-role dashboard action mapping with domain-specific task/exception views that only use verified endpoints; distinguish missing workflow and permissions from empty data.

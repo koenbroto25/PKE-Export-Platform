@@ -41,7 +41,7 @@ function normalizedUnit(unit?:string|null):string { return (unit||"").trim().toL
 function quantityKg(value:unknown,unit?:string|null):number|null {
   const n=typeof value==="number"?value:typeof value==="string"?Number(value.trim()):NaN;
   const factor=unitFactorToKg[normalizedUnit(unit)];
-  return Number.isFinite(n)&&factor!==undefined?n*factor:null;
+  return Number.isFinite(n)&&n>=0&&factor!==undefined?n*factor:null;
 }
 function normalizedText(value:unknown):string {
   return String(value??"").normalize("NFKC").trim().toLowerCase().replace(/\s+/g," ");

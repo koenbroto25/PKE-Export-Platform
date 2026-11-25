@@ -10326,7 +10326,7 @@ The local draft creator now validates required principal/Project/assignment iden
 
 ### 42.29 Transaction fixture edge-case expansion — 25 November 2026
 
-The transaction backtest matrix is expanded from 16 to 31 fixtures (SIM-001–069, curated IDs) and adds invalid/future vessel timestamps, missing/duplicate required documents, negative/non-finite quantities, invalid currency/negative FX variance, partial shipment, expired document, GPS-unverified, pending transport, rejected QA/customs, and identity contamination. Evaluator now validates synthetic IDs, nonnegative finite quantities, timestamp validity/future clock skew, complete required document codes/uniqueness, and currency/FX inputs. Invalid inputs fail closed rather than silently reaching READY. This work awaits CI evidence.
+The transaction backtest matrix is expanded from 16 to 34 fixtures (SIM-001–069, curated IDs) and adds invalid/future vessel timestamps, missing/duplicate required documents, negative/non-finite quantities, invalid currency/negative FX variance, partial shipment, expired document, GPS-unverified, pending transport, rejected QA/customs, and identity contamination. Evaluator now validates synthetic IDs, nonnegative finite quantities, timestamp validity/future clock skew, complete required document codes/uniqueness, and currency/FX inputs. Invalid inputs fail closed rather than silently reaching READY. This work awaits CI evidence.
 
 
 ### 42.30 CI failure diagnosis and correction — 25 November 2026
@@ -10337,3 +10337,8 @@ CI for commit `8959d716` failed two assertions in the newly added fixture suite:
 ### 42.31 Fixture isolation assertion correction — 25 November 2026
 
 The second CI run revealed that the identity contamination fixture was still overriding its synthetic shipment ID, because the previous patch targeted the wrong literal. The fixture now keeps a `SIM-` shipment identity and deliberately contaminates only the Project identifier. The isolation test therefore validates synthetic IDs while the evaluator separately rejects contamination. Revalidation pending.
+
+
+### 42.32 Shipment-plan quantity reconciliation — 25 November 2026
+
+Synthetic transaction fixtures now include `shipmentQuantityMt` as the approved shipment/allocation quantity. Warehouse gate validates allocation equals the approved shipment quantity, and loading cross-check evaluates the approved plan, tally and survey as a three-source pairwise reconciliation. A realistic partial shipment fixture (1,200 MT of a 2,500 MT contract) passes when allocation, stock, tally and survey consistently reflect the partial shipment; allocation or tally deviation is tested and flagged. This avoids falsely requiring every individual shipment to equal the full contract quantity while still checking the shipment-specific reconciliation.

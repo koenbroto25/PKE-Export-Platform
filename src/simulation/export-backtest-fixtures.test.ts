@@ -34,6 +34,15 @@ describe("synthetic transaction-level export readiness backtest",()=>{
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-055")!).stages.settlement).toBe("blocked");
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-066")!).stages.contract).toBe("blocked");
  });
+ it("validates partial shipment quantity against approved allocation and physical evidence",()=>{
+  const partial=backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-058")!);
+  expect(partial.expectedOutcome).toBe("ready");
+  expect(partial.stages.warehouse).toBe("ready");expect(partial.stages.loading).toBe("ready");
+  const wrongAllocation=backtestSyntheticExport({...SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-058")!,allocatedMt:1000});
+  expect(wrongAllocation.stages.warehouse).toBe("mismatch");
+  const wrongTally=backtestSyntheticExport({...SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-058")!,tallyMt:1250});
+  expect(wrongTally.stages.loading).toBe("mismatch");
+ });
  it("handles operational partial shipment, expired documents, GPS unverified, rejected QA/customs and pending settlement",()=>{
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-058")!).expectedOutcome).toBe("ready");
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-059")!).stages.documents).toBe("stale");

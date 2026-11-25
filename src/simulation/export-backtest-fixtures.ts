@@ -3,7 +3,7 @@ import {evaluateScenario,type SimScenario,type SimStage,type SimState} from "./e
 export type SyntheticDocument={code:string;required:boolean;status:"verified"|"missing"|"expired"|"unverified";expiresAt?:string};
 export type SyntheticShipment={
  simulationOnly:true;scenarioId:string;shipmentId:string;projectId:string;buyer:string;supplier:string;pksSite:string;product:"PKE";
- contractMt:number;committedMt:number;producedMt:number;qualityStatus:"released"|"hold"|"rejected"|"pending";
+ contractMt:number;shipmentQuantityMt:number;committedMt:number;producedMt:number;qualityStatus:"released"|"hold"|"rejected"|"pending";
  stockAvailableMt:number;allocatedMt:number;lotGenealogyVerified:boolean;
  transportStatus:"completed"|"delayed"|"pending"|"capacity-exceeded"|"gps-unverified";
  portCapabilityVerified:boolean;tallyMt:number;surveyMt:number;quantityToleranceMt:number;
@@ -13,7 +13,7 @@ export type SyntheticShipment={
 };
 const base:Omit<SyntheticShipment,"scenarioId"|"shipmentId">={
  simulationOnly:true,projectId:"SIM-PROJECT-001",buyer:"PT Buyer Contoh (SIM)",supplier:"Supplier Demo A (SIM)",pksSite:"KCP Demo Kumai (SIM)",product:"PKE",
- contractMt:2500,committedMt:2500,producedMt:2600,qualityStatus:"released",stockAvailableMt:2500,allocatedMt:2500,lotGenealogyVerified:true,
+ contractMt:2500,shipmentQuantityMt:2500,committedMt:2500,producedMt:2600,qualityStatus:"released",stockAvailableMt:2500,allocatedMt:2500,lotGenealogyVerified:true,
  transportStatus:"completed",portCapabilityVerified:true,tallyMt:2498,surveyMt:2498,quantityToleranceMt:5,
  vesselAisObservedAt:"2026-11-25T11:30:00Z",vesselEta:"2026-11-26T04:00:00Z",
  documents:[{code:"COA",required:true,status:"verified"},{code:"INVOICE",required:true,status:"verified"},{code:"PACKING_LIST",required:true,status:"verified"},{code:"PEB",required:true,status:"verified"},{code:"NPE",required:true,status:"verified"}],
@@ -22,7 +22,7 @@ const base:Omit<SyntheticShipment,"scenarioId"|"shipmentId">={
 const make=(scenarioId:string,shipmentId:string,patch:Partial<SyntheticShipment>):SyntheticShipment=>({...base,scenarioId,shipmentId,...patch} as SyntheticShipment);
 export const SYNTHETIC_EXPORT_TRANSACTIONS:SyntheticShipment[]=[
  make("SIM-001","SIM-SHIP-001",{}),
- make("SIM-002","SIM-SHIP-002",{committedMt:1800,producedMt:1800,stockAvailableMt:1800,allocatedMt:1800,tallyMt:1798,surveyMt:1798}),
+ make("SIM-002","SIM-SHIP-002",{shipmentQuantityMt:1800,committedMt:1800,producedMt:1800,stockAvailableMt:1800,allocatedMt:1800,tallyMt:1798,surveyMt:1798}),
  make("SIM-004","SIM-SHIP-004",{qualityStatus:"hold",stockAvailableMt:0,allocatedMt:0}),
  make("SIM-005","SIM-SHIP-005",{stockAvailableMt:1900,allocatedMt:2500}),
  make("SIM-006","SIM-SHIP-006",{transportStatus:"delayed"}),
@@ -43,7 +43,7 @@ export const SYNTHETIC_EXPORT_TRANSACTIONS:SyntheticShipment[]=[
  make("SIM-055","SIM-SHIP-055",{currency:"BAD!",fxVariancePercent:-5}),
  make("SIM-056","SIM-SHIP-056",{documents:[{code:"COA",required:true,status:"verified"},{code:"COA",required:true,status:"verified"},{code:"INVOICE",required:true,status:"verified"},{code:"PACKING_LIST",required:true,status:"verified"},{code:"PEB",required:true,status:"verified"},{code:"NPE",required:true,status:"verified"}]}),
  make("SIM-057","SIM-SHIP-057",{vesselAisObservedAt:"2026-11-25T14:00:00Z"}),
- make("SIM-058","SIM-SHIP-058",{committedMt:2500,producedMt:2500,stockAvailableMt:2500,allocatedMt:1200,tallyMt:1200,surveyMt:1200}),
+ make("SIM-058","SIM-SHIP-058",{shipmentQuantityMt:1200,committedMt:2500,producedMt:2500,stockAvailableMt:1200,allocatedMt:1200,tallyMt:1200,surveyMt:1200}),
  make("SIM-059","SIM-SHIP-059",{documents:[{code:"COA",required:true,status:"expired",expiresAt:"2026-11-24T00:00:00Z"},{code:"INVOICE",required:true,status:"verified"},{code:"PACKING_LIST",required:true,status:"verified"},{code:"PEB",required:true,status:"verified"},{code:"NPE",required:true,status:"verified"}]}),
  make("SIM-060","SIM-SHIP-060",{transportStatus:"gps-unverified"}),
  make("SIM-061","SIM-SHIP-061",{transportStatus:"pending"}),
@@ -68,7 +68,7 @@ function mapCrosscheck(status:string):SimState{
  return status==="MATCH"?"ready":status==="MISMATCH"?"mismatch":status==="MISSING"?"missing":status==="STALE"?"stale":status==="EXTERNAL_CONFIRMATION_PENDING"?"pending":"unverified";
 }
 export function backtestSyntheticExport(s:SyntheticShipment,nowMs=Date.parse("2026-11-25T12:00:00Z")):SimScenario{
- const quantityValid=validNonNegative(s.contractMt,s.committedMt,s.producedMt,s.stockAvailableMt,s.allocatedMt,s.tallyMt,s.surveyMt,s.quantityToleranceMt);
+ const quantityValid=validNonNegative(s.contractMt,s.shipmentQuantityMt,s.committedMt,s.producedMt,s.stockAvailableMt,s.allocatedMt,s.tallyMt,s.surveyMt,s.quantityToleranceMt);
  const invalidIdentity=!s.shipmentId.startsWith("SIM-")||!s.projectId.startsWith("SIM-")||!s.simulationOnly;
  const invalidTimestamp=!validTimestamp(s.vesselAisObservedAt)||!validTimestamp(s.vesselEta);
  const invalidFx=!Number.isFinite(s.fxVariancePercent)||s.fxVariancePercent<0||!/^([A-Z]{3})$/.test(s.currency);
@@ -78,10 +78,10 @@ export function backtestSyntheticExport(s:SyntheticShipment,nowMs=Date.parse("20
   supplier:!quantityValid?"blocked":s.committedMt>=s.contractMt?"ready":"mismatch",
   production:!quantityValid?"blocked":s.producedMt>=s.contractMt?"ready":"mismatch",
   quality:s.qualityStatus==="released"?"ready":s.qualityStatus==="hold"?"hold":s.qualityStatus==="rejected"?"blocked":"pending",
-  warehouse:!quantityValid?"blocked":!s.lotGenealogyVerified?"missing":s.stockAvailableMt<s.allocatedMt?"blocked":"ready",
+  warehouse:!quantityValid?"blocked":!s.lotGenealogyVerified?"missing":s.allocatedMt!==s.shipmentQuantityMt?"mismatch":s.stockAvailableMt<s.allocatedMt?"blocked":"ready",
   transport:s.transportStatus==="completed"?"ready":s.transportStatus==="delayed"?"stale":s.transportStatus==="capacity-exceeded"?"blocked":s.transportStatus==="gps-unverified"?"unverified":"pending",
   port:s.portCapabilityVerified?"ready":"unverified",
-  loading:!quantityValid?"blocked":mapCrosscheck(evaluateCrosscheck({field:"loading_quantity",label:"Loading quantity",type:"quantity",tolerance:s.quantityToleranceMt,canonicalUnit:"MT"},[{sourceId:"tally",sourceLabel:"Tally",tier:1,value:s.tallyMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()},{sourceId:"survey",sourceLabel:"Survey",tier:1,value:s.surveyMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()}],nowMs).status),
+  loading:!quantityValid?"blocked":mapCrosscheck(evaluateCrosscheck({field:"loading_quantity",label:"Loading quantity",type:"quantity",tolerance:s.quantityToleranceMt,canonicalUnit:"MT"},[{sourceId:"shipment_plan",sourceLabel:"Approved shipment allocation",tier:1,value:s.shipmentQuantityMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()},{sourceId:"tally",sourceLabel:"Tally",tier:1,value:s.tallyMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()},{sourceId:"survey",sourceLabel:"Survey",tier:1,value:s.surveyMt,unit:"MT",verification:"verified",observedAt:new Date(nowMs).toISOString()}],nowMs).status),
   vessel:invalidTimestamp?"unverified":s.vesselAisObservedAt===null?"pending":!Number.isFinite(Date.parse(s.vesselAisObservedAt))||nowMs-Date.parse(s.vesselAisObservedAt)>freshness||Date.parse(s.vesselAisObservedAt)-nowMs>5*60_000?"stale":"ready",
   documents:invalidDocs?"missing":s.documents.some(d=>d.required&&d.status==="missing")?"missing":s.documents.some(d=>d.required&&d.status==="expired")?"stale":s.documents.some(d=>d.required&&d.status!=="verified")?"unverified":"ready",
   customs:s.customsStatus==="npe-verified"?"ready":s.customsStatus==="rejected"?"blocked":"pending",

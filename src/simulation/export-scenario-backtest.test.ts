@@ -6,10 +6,10 @@ import {hasPageAccess} from "../../frontend/src/role-permissions";
 const NOW=Date.parse("2026-11-25T12:00:00Z");
 describe("PKE simulated export backtest catalog",()=>{
  it("contains at least 20 deterministic, uniquely keyed realistic scenarios",()=>{
-  expect(EXPORT_SIMULATION_SCENARIOS.length).toBeGreaterThanOrEqual(20);
+  expect(EXPORT_SIMULATION_SCENARIOS.length).toBe(51);
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.id)).size).toBe(EXPORT_SIMULATION_SCENARIOS.length);
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.category)).size).toBeGreaterThanOrEqual(10);
-  for(const s of EXPORT_SIMULATION_SCENARIOS){expect(s.description.length).toBeGreaterThan(20);expect(s.userFacingMessage.trim()).not.toBe("");expect(s.nextAction.trim()).not.toBe("");}
+  for(const s of EXPORT_SIMULATION_SCENARIOS){expect(s.simulationOnly).toBe(true);expect(s.description.length).toBeGreaterThan(20);expect(s.userFacingMessage.trim()).not.toBe("");expect(s.nextAction.trim()).not.toBe("");}
  });
  it("catalog outcomes agree with expected outcomes and no non-ready case is reported ready",()=>{
   for(const s of EXPORT_SIMULATION_SCENARIOS){const actual=evaluateScenario(s);expect(actual,s.id+" "+s.title).toBe(s.expectedOutcome);if(s.expectedOutcome!=="ready")expect(actual).not.toBe("ready");}
@@ -23,6 +23,8 @@ describe("PKE simulated export backtest catalog",()=>{
   expect(evaluateScenario(happy)).toBe("ready");
   expect(evaluateScenario({...happy,stages:{...happy.stages,documents:"missing"}})).toBe("blocked");
   expect(evaluateScenario({...happy,stages:{...happy.stages,loading:"mismatch"}})).toBe("review");
+  expect(evaluateScenario({...happy,stages:{}})).toBe("blocked");
+  expect(evaluateScenario({...happy,stages:{contract:"ready"}})).toBe("blocked");
  });
  it("uses clear, actionable Indonesian messages rather than raw technical error language",()=>{
   for(const s of EXPORT_SIMULATION_SCENARIOS){expect(s.userFacingMessage).not.toMatch(/stack trace|undefined|null pointer|SQLSTATE/i);expect(s.nextAction).toMatch(/\S/);}

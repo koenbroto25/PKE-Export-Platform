@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.64 — 51-case synthetic export backtest
+# Master Implementation Plan Rev2.65 — simulation-only fixture safety and readiness semantics
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.64 (25 November 2026 — 51-case synthetic export backtest)  
+**Revision:** 2.65 (25 November 2026 — simulation-only fixture safety and readiness semantics)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10302,3 +10302,8 @@ Owner explicitly instructed to use extensive dummy/synthetic scenarios for full 
 ### 42.26 Backtest catalog expansion — 51 scenarios
 
 The initial 20-scenario catalog was expanded to 51. The scenario test validates the expected outcomes for all catalog rows. A failure of a critical gate (blocked/missing/hold) must classify as BLOCKED even if downstream stages are not run; mismatch/stale/pending/unverified without a hard blocker classify as REVIEW. The LC discrepancy scenario correctly blocks settlement rather than being treated as a mere review warning. Scenarios intentionally model safe outcomes rather than forcing success; only the fully verified baseline is READY. CI evidence is recorded after the latest branch run completes.
+
+
+### 42.27 Synthetic fixture safety and readiness hardening — 25 November 2026
+
+All 51 catalog entries now carry an explicit `simulationOnly: true` marker. The evaluator cannot return READY for an empty/incomplete stage map: all 12 milestones must be present and READY; any hard blocker (blocked/missing/hold) wins over review, and review-only exceptions remain REVIEW. Regression tests assert empty and partial scenarios fail closed. CI for the 51-case version before this hardening: run `45629558313`, 57/57 test files and 574/574 tests PASS; the subsequent commit will be revalidated.

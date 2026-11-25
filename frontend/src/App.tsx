@@ -122,6 +122,14 @@ function App() {
   useEffect(() => { if (projectId) sessionStorage.setItem('pke.projectId', projectId); else sessionStorage.removeItem('pke.projectId'); }, [projectId]);
   useEffect(() => { const active = document.querySelector('.nav-active'); if (active && typeof (active as any).scrollIntoView === 'function') (active as any).scrollIntoView({ block: 'nearest', inline: 'nearest' }); }, [location.pathname]);
 
+  const handleProjectContextChange = (nextProjectId: string) => {
+    if (nextProjectId === projectId) return;
+    if (projectId && !window.confirm('Pindah Project context? Form atau detail yang sedang dibuka akan ditinggalkan. Data dan permission akan dimuat ulang untuk context baru.')) return;
+    setProjectId(nextProjectId);
+    navigate('/');
+    notify('info', nextProjectId ? 'Project context berubah. Dashboard dimuat ulang untuk scope baru.' : 'Project context dikosongkan. Anda berada pada platform scope atau belum memilih Project.');
+  };
+
   const signOut = async () => {
     await authClient.signOut();
     navigate('/login');
@@ -187,7 +195,7 @@ function App() {
             <div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{navItems.find(item => item.to === location.pathname)?.label || 'PKE Platform'}</strong></div>
           </div>
           <div className="topbar-actions">
-            <ProjectPicker value={projectId} onChange={setProjectId} platformAdmin={workspaceUser?.platformAdmin === true} />
+            <ProjectPicker value={projectId} onChange={handleProjectContextChange} platformAdmin={workspaceUser?.platformAdmin === true} />
             <div className="topbar-divider" />
             <div className="top-user"><div className="avatar avatar-small">{String(activeUser?.name || activeUser?.email || 'P').slice(0, 1).toUpperCase()}</div><span>{activeUser?.name || activeUser?.email}</span><ChevronDown size={15} /></div>
           </div>
@@ -241,8 +249,8 @@ function App() {
 function ProjectPicker({ value, onChange, platformAdmin }: { value: string; onChange: (id: string) => void; platformAdmin?: boolean }) {
   const { data } = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const projects = data?.projects || [];
-  return <label className="project-picker"><span>PROJECT</span><select value={value} onChange={e => onChange(e.target.value)}>
-    <option value="">Semua proyek</option>
+  return <label className="project-picker"><span>PROJECT CONTEXT</span><select value={value} onChange={e => onChange(e.target.value)}>
+    <option value="">{platformAdmin ? 'Platform-wide' : 'Pilih Project'}</option>
     {projects.map(project => <option value={project.id} key={project.id}>{project.name}</option>)}
   </select><ChevronDown size={14} /></label>;
 }

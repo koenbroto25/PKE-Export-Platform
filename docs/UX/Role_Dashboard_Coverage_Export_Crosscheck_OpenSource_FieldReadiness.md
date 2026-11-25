@@ -142,3 +142,27 @@ Field Capture now has principal/Project-keyed cached task context with stale-cac
 ## 14. Frontend loading/performance slice
 
 Workspace route modules are lazy-loaded and vendor chunks are separated in the active JS Vite config. Build passed at commit `cd8ef51287149bcbb08f72fa7bdc4e578e761584` (run `45623037899`), with main bundle about 220 kB / 50.48 kB gzip, React/vendor about 263 kB / 83.57 kB gzip and Field Capture about 12.2 kB / 4.28 kB gzip. No >500 kB chunk warning. Deployment and field-device performance are unverified.
+
+
+## 15. Synthetic export backtest & dashboard navigation audit (25 November 2026)
+
+- **51 scenario catalog entries** cover role/persona, all 12 export milestones, and READY/BLOCKED/REVIEW outcomes.
+- **36 transaction-shaped synthetic fixtures** exercise realistic shipment data across contract, supplier, production, QA, stock/lot, allocation, transport, port, approved shipment quantity, tally/survey, vessel/AIS, document completeness/expiry, customs and settlement/FX.
+- Shipment loading reconciliation compares approved shipment quantity + tally + survey pairwise, not only tally vs survey. Partial shipment can be READY when shipment-level quantities and available stock/allocation agree; the full contract balance remains outstanding rather than falsely forcing each shipment to equal contract quantity.
+- Hard blockers (invalid/negative quantities, bad synthetic scope, missing required documents, invalid FX/currency, QA reject/hold, stock shortage, customs reject, invalid/incomplete traceability) fail closed. Freshness/uncertainty states are stale/unverified/pending and cannot be READY.
+- Role-dashboard shortcut regression checks every distinct declared route path (21) against the router. Persona catalog coverage maps simulation personas to role metadata.
+- Latest CI evidence: **58 files / 593 tests PASS**, run 45635701502, commit c848e8083229b4f62174bbc5d4bfe33676d48d87.
+
+**Important limitation:** synthetic backtest logic and navigation regression do not certify all role dashboards operationally complete. Current dashboard metadata itself records partial/absent task-specific views (production yield, QC sample/lineage, dispatch board, driver offline sync, loading shift/tally/sign-off, terminal confirmations, AIS source freshness, buyer/supplier scoped detail, settlement reconciliation, audit evidence drilldown). Those remain UX implementation and real-device/permissioned UAT gaps.
+
+## 16. UX acceptance next work (backtest-informed)
+
+1. **UX-04A Field:** server-side assignment validation, upload receipt/checksum, idempotent sync, conflict/rejection recovery, cache secure lifecycle, QR/barcode and mobile-device UAT.
+2. **UX-04B Production & QA:** batch/yield/packing dashboard, sample custody and QC trend, independent release/hold, lot genealogy.
+3. **UX-04C Warehouse & Transport:** scan-first custody, stock available/hold/reserved, dispatch board, capacity/route/ETA, checkpoint/POD, trip exception queue.
+4. **UX-04D Port & Loading:** terminal/berth acceptance, shift/equipment/downtime, approved shipment quantity vs tally/survey, discrepancy owner and independent sign-off.
+5. **UX-05 Export cross-check:** wire the pure cross-check engine to transaction evidence, show source/freshness/version, field-level differences, reviewer/owner, resolution/audit trail; preserve advisory vs authoritative boundaries.
+6. **UX-06 Official integrations:** permission/licensing, provider-health, rate-limit, freshness and unavailable-state backtests; no public/open data may silently verify shipment-level facts.
+7. **UX-07 Dashboard intelligence:** actionable queues by role, overdue/blocked/missing, owner and next action, no false zero, evidence drill-down and cross-role hand-off visibility.
+
+Current field readiness remains NOT PASS; dashboard coverage PARTIAL; cross-check ADVISORY CORE ONLY. Do not claim production-ready from simulation CI.

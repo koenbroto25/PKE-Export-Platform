@@ -1,9 +1,13 @@
 import {describe,it,expect} from "vitest";
 import {SYNTHETIC_EXPORT_TRANSACTIONS,backtestSyntheticExport} from "./export-backtest-fixtures";
 describe("synthetic transaction-level export readiness backtest",()=>{
- it("uses clearly synthetic identities and unique shipment IDs",()=>{
+ it("contains 36 unique synthetic transaction fixtures and isolated identities",()=>{
+  expect(SYNTHETIC_EXPORT_TRANSACTIONS).toHaveLength(36);
   expect(SYNTHETIC_EXPORT_TRANSACTIONS.every(s=>s.simulationOnly===true&&s.scenarioId.startsWith("SIM-")&&s.shipmentId.startsWith("SIM-"))).toBe(true);
   expect(new Set(SYNTHETIC_EXPORT_TRANSACTIONS.map(s=>s.shipmentId)).size).toBe(SYNTHETIC_EXPORT_TRANSACTIONS.length);
+ });
+ it("all safety-critical exceptions never evaluate READY",()=>{
+  for(const id of ["SIM-002","SIM-004","SIM-005","SIM-006","SIM-009","SIM-012","SIM-014","SIM-027","SIM-028","SIM-030","SIM-037","SIM-044","SIM-045","SIM-052","SIM-053","SIM-054","SIM-055","SIM-056","SIM-057","SIM-059","SIM-060","SIM-061","SIM-063","SIM-064","SIM-065","SIM-066","SIM-067","SIM-069","SIM-070","SIM-071"])expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId===id)!).expectedOutcome,id).not.toBe("ready");
  });
  it("ready complete shipment passes all milestone gates",()=>{
   const f=backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-001")!);

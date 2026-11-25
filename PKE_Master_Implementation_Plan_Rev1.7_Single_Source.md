@@ -10362,3 +10362,8 @@ CI identified a test-only escaping defect in the dashboard route audit: the rege
 ### 42.36 CI type error correction for document state union — 25 November 2026
 
 The expiry helper's return type omitted `missing`, although the function legitimately returns that state for a required document marked missing. Added the missing union member. The issue is type-only; missing-document behavior is unchanged. Re-run pending.
+
+
+### 42.37 Synthetic backtest validation checkpoint — 25 November 2026
+
+The latest CI run on branch head c848e8083229b4f62174bbc5d4bfe33676d48d87 passed 58 test files / 593 tests (run 45635701502). The synthetic transaction fixtures number 36 and include baseline, supply shortfall, QA hold/reject, stock/allocation, delayed/pending/capacity/GPS transport, port capability, quantity plan-vs-tally-vs-survey, missing/expired/invalid/duplicate documents, customs, FX, AIS stale/invalid/future, malformed quantities, contaminated Project identity, partial shipment and traceability. The role-dashboard shortcut regression confirms all declared shortcuts map to actual application routes; persona mappings are tested against role metadata. This is source/CI validation, not field-device UAT or end-to-end live-data acceptance.

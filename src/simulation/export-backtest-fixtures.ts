@@ -51,7 +51,7 @@ export const SYNTHETIC_EXPORT_TRANSACTIONS:SyntheticShipment[]=[
  make("SIM-063","SIM-SHIP-063",{qualityStatus:"rejected"}),
  make("SIM-064","SIM-SHIP-064",{customsStatus:"rejected"}),
  make("SIM-065","SIM-SHIP-065",{vesselEta:"bad-eta"}),
- make("SIM-066","SIM-SHIP-066",{shipmentId:"REAL-SHIP-066"}),
+ make("SIM-066","SIM-SHIP-066",{projectId:"REAL-PROJECT-066"}),
  make("SIM-067","SIM-SHIP-067",{documents:[]}),
  make("SIM-068","SIM-SHIP-068",{tallyMt:2500,surveyMt:2500,quantityToleranceMt:0}),
  make("SIM-069","SIM-SHIP-069",{stockAvailableMt:2500,allocatedMt:2500,lotGenealogyVerified:false}),

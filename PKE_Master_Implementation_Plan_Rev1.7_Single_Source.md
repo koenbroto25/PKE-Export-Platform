@@ -10332,3 +10332,8 @@ The transaction backtest matrix is expanded from 16 to 31 fixtures (SIM-001–06
 ### 42.30 CI failure diagnosis and correction — 25 November 2026
 
 CI for commit `8959d716` failed two assertions in the newly added fixture suite: the contamination fixture had a non-SIM shipment ID (breaking fixture-isolation assertion), and malformed timestamp correctly classified as `unverified` rather than `stale`. Corrected the contamination fixture to retain a synthetic shipment ID while using a deliberately contaminated project identifier; adjusted the expected timestamp classification. Re-run required before acceptance.
+
+
+### 42.31 Fixture isolation assertion correction — 25 November 2026
+
+The second CI run revealed that the identity contamination fixture was still overriding its synthetic shipment ID, because the previous patch targeted the wrong literal. The fixture now keeps a `SIM-` shipment identity and deliberately contaminates only the Project identifier. The isolation test therefore validates synthetic IDs while the evaluator separately rejects contamination. Revalidation pending.

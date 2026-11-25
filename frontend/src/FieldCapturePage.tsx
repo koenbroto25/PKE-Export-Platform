@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { get } from './api';
-import { createFieldDraft, saveFieldDraft, listFieldDrafts, deleteFieldDraft, deleteFieldDrafts, type FieldDraft } from '../../src/components/field/field-offline-queue';
+import { createFieldDraft, saveFieldDraft, listFieldDrafts, deleteFieldDraft, deleteFieldDrafts, saveFieldAssignmentCache, getFieldAssignmentCache, deleteFieldAssignmentCache, type FieldDraft } from '../../src/components/field/field-offline-queue';
 
 type WorkItem = { id: string; title: string; description?: string | null; status: string; priority?: string; due_at?: string | null; assignee_user_id?: string | null; owner_role_code?: string };
 type Props = { projectId: string; activeUser?: Record<string, any>; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void };
 
 export default function FieldCapturePage({ projectId, activeUser, onNotice }: Props) {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
-  const [scope, setScope] = useState<'assigned' | 'project' | ''>('');
+  const [scope, setScope] = useState<'assigned' | 'project' | 'cached' | ''>('');
+  const [tasksFromCache,setTasksFromCache]=useState(false);
+  const [taskCacheAt,setTaskCacheAt]=useState('');
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [taskError, setTaskError] = useState('');
   const [taskId, setTaskId] = useState('');
@@ -27,20 +29,30 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
 
   useEffect(() => {
     let alive = true;
-    setWorkItems([]); setTaskId(''); setTaskError(''); setScope('');
+    setWorkItems([]); setTaskId(''); setTaskError(''); setScope(''); setTasksFromCache(false); setTaskCacheAt('');
     if (!projectId || !activeUser?.id) return;
     setLoadingTasks(true);
-    get<{workItems?:WorkItem[];scope?:string}>(`/projects/${encodeURIComponent(projectId)}/work-items`)
-      .then(payload => {
+    const load = async () => {
+      try {
+        const payload = await get<{workItems?:WorkItem[];scope?:string}>(`/projects/${encodeURIComponent(projectId)}/work-items`);
         if (!alive) return;
         const rows = Array.isArray(payload.workItems) ? payload.workItems : [];
         const activeRows = rows.filter(row => !['resolved','closed','cancelled'].includes(String(row.status||'').toLowerCase()));
         const visible = payload.scope === 'project' ? activeRows.filter(row => row.assignee_user_id === activeUser.id) : activeRows;
         setWorkItems(visible); setScope(payload.scope === 'project' ? 'project' : 'assigned');
         if (payload.scope === 'project') setTaskError('PM memiliki scope Project; Field Capture hanya menampilkan tugas yang ditugaskan secara eksplisit kepada akun ini.');
-      })
-      .catch(e => { if (alive) { setWorkItems([]); setTaskError(e instanceof Error ? e.message : 'Daftar tugas gagal dimuat.'); } })
-      .finally(() => { if (alive) setLoadingTasks(false); });
+        try { await saveFieldAssignmentCache(String(activeUser.id),projectId,visible.map(({id,title,status,priority,due_at,assignee_user_id,owner_role_code})=>({id,title,status,priority,due_at,assignee_user_id,owner_role_code}))); } catch { /* server list remains usable if local cache write fails */ }
+      } catch (e) {
+        const cached = await getFieldAssignmentCache(String(activeUser.id),projectId).catch(()=>null);
+        if (!alive) return;
+        if (cached) {
+          const activeRows=cached.assignments.filter(row=>!['resolved','closed','cancelled'].includes(String(row.status||'').toLowerCase()));
+          setWorkItems(activeRows);setScope('cached');setTasksFromCache(true);setTaskCacheAt(cached.cachedAt);
+          setTaskError('API tugas tidak tersedia. Daftar cache digunakan; Assignment tidak dapat diverifikasi ulang secara online.');
+        } else { setWorkItems([]);setTaskError(e instanceof Error ? e.message : 'Daftar tugas gagal dimuat; cache offline tidak tersedia.'); }
+      } finally { if (alive) setLoadingTasks(false); }
+    };
+    void load();
     return () => { alive = false; };
   }, [projectId, activeUser?.id]);
 
@@ -75,7 +87,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
   };
   const clearProjectDrafts = async () => {
     if (!activeUser?.id || !projectId || !drafts.length || !window.confirm('Hapus SEMUA draft lokal dan foto untuk akun dan Project ini? Draft belum disinkronkan dan tindakan tidak dapat dibatalkan.')) return;
-    setBusy(true); try { const removed=await deleteFieldDrafts(String(activeUser.id),projectId); await refreshDrafts(); onNotice('success',removed+' draft lokal dihapus.'); } catch(e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal dibersihkan.'); } finally { setBusy(false); }
+    setBusy(true); try { const removed=await deleteFieldDrafts(String(activeUser.id),projectId); await deleteFieldAssignmentCache(String(activeUser.id),projectId); await refreshDrafts(); onNotice('success',removed+' draft lokal dihapus.'); } catch(e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal dibersihkan.'); } finally { setBusy(false); }
   };
   const remove = async (id:string) => {
     if (!window.confirm('Hapus draft lokal dan bukti dari perangkat ini?')) return;
@@ -89,6 +101,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     <section className="card"><div className="panel-heading"><div><h2>Capture tugas</h2><p>Project scope dan task list dikontrol server.</p></div></div>
       {loadingTasks ? <div className="loading-state">Memuat tugas…</div> : taskError && !workItems.length ? <div className="inline-warning">{taskError}</div> : null}
       {taskError && workItems.length>0 && <p className="muted">{taskError}</p>}
+      {tasksFromCache&&<div className="inline-warning">Cache tugas terakhir diperbarui {new Date(taskCacheAt).toLocaleString()}. Capture hanya draft lokal; status assignment belum divalidasi ulang.</div>}
       {!loadingTasks&&!taskError&&!workItems.length&&projectId&&<div className="empty-state"><h3>Tidak ada tugas aktif</h3><p>Hanya tugas yang belum ditutup atau dibatalkan yang dapat dipilih untuk capture.</p></div>}
       <form onSubmit={save} className="form-grid">
         <label className="form-field form-wide"><span>Tugas / Assignment</span><select value={taskId} onChange={e=>setTaskId(e.target.value)} required disabled={!workItems.length||loadingTasks}><option value="">Pilih tugas aktif</option>{workItems.map(item=><option key={item.id} value={item.id}>{item.title} · {item.status}{item.priority?' · '+item.priority:''}</option>)}</select></label>

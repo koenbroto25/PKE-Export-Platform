@@ -10,3 +10,17 @@ export function openFieldDraftDb():Promise<IDBDatabase>{return new Promise((reso
 export async function saveFieldDraft(draft:FieldDraft):Promise<void>{const db=await openFieldDraftDb();await new Promise<void>((resolve,reject)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(draft);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});db.close();}
 export async function listFieldDrafts(principalId:string,projectId:string):Promise<FieldDraft[]>{const db=await openFieldDraftDb();const rows=await new Promise<FieldDraft[]>((resolve,reject)=>{const tx=db.transaction(STORE,"readonly");const req=tx.objectStore(STORE).index("principalId").getAll(principalId);req.onsuccess=()=>resolve(req.result as FieldDraft[]);req.onerror=()=>reject(req.error);});db.close();return rows.filter(r=>r.projectId===projectId).sort((a,b)=>b.capturedAt.localeCompare(a.capturedAt));}
 export async function deleteFieldDraft(id:string):Promise<void>{const db=await openFieldDraftDb();await new Promise<void>((resolve,reject)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});db.close();}
+
+export async function deleteFieldDrafts(principalId:string,projectId:string):Promise<number>{
+ const db=await openFieldDraftDb();
+ let deleted=0;
+ await new Promise<void>((resolve,reject)=>{
+  const tx=db.transaction(STORE,"readwrite");
+  const store=tx.objectStore(STORE);
+  const request=store.index("principalId").getAll(principalId);
+  request.onsuccess=()=>{for(const row of request.result as FieldDraft[]){if(row.projectId===projectId){store.delete(row.id);deleted++;}}};
+  request.onerror=()=>reject(request.error);
+  tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+ });
+ db.close();return deleted;
+}

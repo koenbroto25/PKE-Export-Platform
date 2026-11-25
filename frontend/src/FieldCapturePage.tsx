@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { get } from './api';
-import { createFieldDraft, saveFieldDraft, listFieldDrafts, deleteFieldDraft, type FieldDraft } from '../../src/components/field/field-offline-queue';
+import { createFieldDraft, saveFieldDraft, listFieldDrafts, deleteFieldDraft, deleteFieldDrafts, type FieldDraft } from '../../src/components/field/field-offline-queue';
 
 type WorkItem = { id: string; title: string; description?: string | null; status: string; priority?: string; due_at?: string | null; assignee_user_id?: string | null; owner_role_code?: string };
 type Props = { projectId: string; activeUser?: Record<string, any>; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void };
@@ -72,7 +72,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     } catch (e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal disimpan.'); }
     finally { setBusy(false); }
   };
-  const remove = async (id:string) => {
+  const clearProjectDrafts = async () => {\n    if (!activeUser?.id || !projectId || !drafts.length || !window.confirm('Hapus SEMUA draft lokal dan foto untuk akun dan Project ini? Draft belum disinkronkan dan tindakan tidak dapat dibatalkan.')) return;\n    setBusy(true); try { const removed=await deleteFieldDrafts(String(activeUser.id),projectId); await refreshDrafts(); onNotice('success',removed+' draft lokal dihapus.'); } catch(e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal dibersihkan.'); } finally { setBusy(false); }\n  };\n  const remove = async (id:string) => {
     if (!window.confirm('Hapus draft lokal dan bukti dari perangkat ini?')) return;
     setBusy(true); try { await deleteFieldDraft(id); await refreshDrafts(); onNotice('success','Draft lokal dihapus.'); }
     catch(e) { onNotice('error',e instanceof Error?e.message:'Draft gagal dihapus.'); } finally { setBusy(false); }
@@ -93,7 +93,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
         <div className="form-actions form-wide"><button className="primary-button" disabled={busy||!taskId||!note.trim()}>{busy?'Menyimpan…':'Simpan draft offline'}</button></div>
       </form>
     </section>
-    <section className="card"><div className="panel-heading"><div><h2>Draft lokal</h2><p>{drafts.length} draft untuk akun dan Project saat ini. Status tidak berarti sudah dikirim.</p></div><button type="button" className="secondary-button" onClick={()=>void refreshDrafts()}>Refresh</button></div>
+    <section className="card"><div className="panel-heading"><div><h2>Draft lokal</h2><p>{drafts.length} draft untuk akun dan Project saat ini. Status tidak berarti sudah dikirim.</p></div><div className="form-actions"><button type="button" className="secondary-button" onClick={()=>void refreshDrafts()}>Refresh</button><button type="button" className="text-button danger" disabled={busy||!drafts.length} onClick={()=>void clearProjectDrafts()}>Hapus semua draft lokal</button></div></div>
       {!drafts.length?<div className="empty-state"><h3>Belum ada draft lokal</h3><p>Capture baru akan muncul di sini.</p></div>:<div className="data-list">{drafts.map(d=><article key={d.id} className="data-list-row"><div><strong>{d.assignmentLabel||d.assignmentId}</strong><p>{d.kind} · {d.status}</p><p>{d.note}</p><small>{new Date(d.capturedAt).toLocaleString()} · {d.evidenceName||'Tanpa foto'}{d.gpsCapturedAt?' · GPS capture '+new Date(d.gpsCapturedAt).toLocaleString():''}{d.checksum?' · SHA-256 tersimpan':''}</small></div><button type="button" className="text-button danger" disabled={busy} onClick={()=>void remove(d.id)}>Hapus lokal</button></article>)}</div>}
     </section>
     <div className="inline-warning">Sync server, upload evidence, conflict handling, and authoritative acceptance are not available in this package. Drafts are not official transaction evidence.</div>

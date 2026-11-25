@@ -26,10 +26,10 @@ const PASSWORD_MAX_LENGTH = 128;
 const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDashboard; group: string }[] = [
   { to: '/', key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, group: 'WORKSPACE' },
   { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'WORKSPACE' },
-  { to: '/pks-sites', key: 'pks-sites', label: 'PKS & Supplier', icon: Building2, group: 'WORKSPACE' },
-  { to: '/port-network', key: 'port-network', label: 'Pelabuhan & Gudang', icon: Ship, group: 'WORKSPACE' },
+  { to: '/pks-sites', key: 'pks-sites', label: 'PKS & Supplier', icon: Building2, group: 'PARTNER PORTALS' },
+  { to: '/port-network', key: 'port-network', label: 'Pelabuhan & Gudang', icon: Ship, group: 'PROJECT OPERATIONS' },
   { to: '/maritime-operations', key: 'maritime-operations', label: 'Voyage & Kapal', icon: Ship, group: 'PROJECT OPERATIONS' },
-  { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'WORKSPACE' },
+  { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'PROJECT OPERATIONS' },
   { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'PROJECT OPERATIONS' },
   { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow Center', icon: Workflow, group: 'PROJECT OPERATIONS' },
   { to: '/my-work', key: 'my-work', label: 'Tugas Saya', icon: ClipboardCheck, group: 'PROJECT OPERATIONS' },

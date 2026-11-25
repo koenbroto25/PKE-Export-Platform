@@ -75,10 +75,10 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     }
     expect(dashboard).toContain("role-focus-grid");
     expect(dashboard).toContain("Antrean instruksi Project");
-    expect(dashboard).toContain("Data kerja yang tersedia");
-    expect(dashboard).toContain("Produksi, packing & QA release");
-    expect(dashboard).toContain("Maritime & loading workflow");
-    expect(dashboard).toContain("bank execution dan reconciliation belum tersedia");
+    expect(dashboard).toContain("Export Chain · Source Coverage");
+    expect(dashboard).toContain("Production, packing & quality");
+    expect(dashboard).toContain("Port & loading");
+    expect(dashboard).toContain("bank execution dan reconciliation belum tersedia");\n    expect(dashboard).toContain("Official customs / permit status");\n    expect(dashboard).toContain("Quantity / document reconciliation");\n    expect(dashboard).toContain("Open-source / external cross-check");\n    expect(dashboard).toContain("Snapshot sumber untuk cross-check");
     expect(permissions).toContain("PAGE_PERMISSION_REQUIREMENTS");
     expect(appShell).toContain("sidebar-menu-search");
     expect(appShell).toContain("navSearch.trim()");

@@ -10197,3 +10197,12 @@ Priority: **P0/S0 operational readiness**. This package must deliver a mobile-fi
 6. No migration or Production mutation without separate approval and SHA-256 verification workflow.
 
 The role-dashboard gap assessment, export cross-check tiers, open-source context and field-readiness gaps must be maintained in the UX master specification and this Master Plan. Open-source routing/geospatial/trade context is advisory; Tier 1 shipment evidence and official regulatory status remain authoritative.
+
+
+## UX-04A Field Mobile & Offline — Source Checkpoint (25 November 2026)
+
+Source implementation began after the document update. The field components were audited and found to be placeholders despite an earlier setup document describing offline/PWA capabilities. A local draft collector now replaces those placeholders: assignment/project context fields (not yet server-authorized), task category/note, point-in-time GPS with error/permission/accuracy states, image selection validation, IndexedDB local draft persistence, Blob retention and SHA-256 evidence checksum, unique draft ID, and explicit local-only/unsynced labels. Automated contract tests were added.
+
+Checkpoint details: `docs/UX/UX-04A_Field_Mobile_Offline_Implementation_Checkpoint.md`.
+
+**Status boundary:** this is not operationally accepted. Assignment/identity authorization, backend sync/idempotency, evidence upload, conflict resolution, QR/barcode, secure cache isolation, live API/RLS and device UAT remain unimplemented or untested. CI for the final source head is pending. The UI must not be used as a production transaction capture or official evidence path until these gates are closed. Vercel remains skipped; no migrations or Production data were changed.

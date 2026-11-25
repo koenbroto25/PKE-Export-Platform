@@ -7,7 +7,7 @@ describe("field offline draft contract",()=>{
   expect(a.id).not.toBe(b.id);expect(a.projectId).toBe("P-1");expect(a.assignmentId).toBe("A-1");expect(a.status).toBe("queued");expect(Date.parse(a.capturedAt)).not.toBeNaN();
  });
  it("preserves optional evidence and GPS metadata without asserting server verification",async()=>{
-  const blob=new Blob(["field-evidence"],{type:"image/jpeg"});const d=await createFieldDraft({principalId:"U-1",projectId:"P",assignmentId:"A",kind:"inspection",note:"ok",latitude:-3,longitude:114,accuracy:10,evidenceName:"photo.jpg",evidenceType:"image/jpeg",evidenceSize:blob.size,evidenceBlob:blob});
-  expect(d.latitude).toBe(-3);expect(d.longitude).toBe(114);expect(d.gpsCapturedAt).toBeUndefined();expect(d.evidenceName).toBe("photo.jpg");expect(d.status).toBe("queued");expect(d.evidenceBlob).toBe(blob);expect(d.checksum).toMatch(/^[a-f0-9]{64}$/);
+  const blob=new Blob(["field-evidence"],{type:"image/jpeg"});const d=await createFieldDraft({principalId:"U-1",projectId:"P",assignmentId:"A",kind:"inspection",note:"ok",latitude:-3,longitude:114,accuracy:10,gpsCapturedAt:"2026-11-25T12:30:00.000Z",evidenceName:"photo.jpg",evidenceType:"image/jpeg",evidenceSize:blob.size,evidenceBlob:blob});
+  expect(d.latitude).toBe(-3);expect(d.longitude).toBe(114);expect(d.gpsCapturedAt).toBe("2026-11-25T12:30:00.000Z");expect(d.evidenceName).toBe("photo.jpg");expect(d.status).toBe("queued");expect(d.evidenceBlob).toBe(blob);expect(d.checksum).toMatch(/^[a-f0-9]{64}$/);
  });
 });

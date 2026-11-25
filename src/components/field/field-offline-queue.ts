@@ -1,5 +1,5 @@
 export type FieldQueueStatus = "queued" | "syncing" | "synced" | "failed" | "conflict" | "needs-review";
-export type FieldDraft = { id: string; principalId: string; projectId: string; assignmentId: string; assignmentLabel?: string; kind: string; note: string; capturedAt: string; latitude?: number; longitude?: number; accuracy?: number; evidenceName?: string; evidenceType?: string; evidenceSize?: number; evidenceBlob?: Blob; checksum?: string; status: FieldQueueStatus; lastError?: string; };
+export type FieldDraft = { id: string; principalId: string; projectId: string; assignmentId: string; assignmentLabel?: string; kind: string; note: string; capturedAt: string; latitude?: number; longitude?: number; accuracy?: number; gpsCapturedAt?: string; evidenceName?: string; evidenceType?: string; evidenceSize?: number; evidenceBlob?: Blob; checksum?: string; status: FieldQueueStatus; lastError?: string; };
 const DB_NAME = "pke-field-local"; const DB_VERSION = 2; const STORE = "drafts";
 export async function createFieldDraft(input: Omit<FieldDraft,"id"|"capturedAt"|"status"|"checksum">): Promise<FieldDraft> {
  let checksum:string|undefined;

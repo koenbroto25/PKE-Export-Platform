@@ -66,7 +66,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     if (!activeUser?.id || !projectId || !selected || !note.trim()) { onNotice('error','Pilih tugas server yang tersedia dan isi catatan.'); return; }
     setBusy(true);
     try {
-      const draft = await createFieldDraft({principalId:String(activeUser.id),projectId,assignmentId:selected.id,assignmentLabel:selected.title,kind,note:note.trim(),...(gps?{latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy}:{}),...(file?{evidenceName:file.name,evidenceType:file.type,evidenceSize:file.size,evidenceBlob:file}:{})});
+      const draft = await createFieldDraft({principalId:String(activeUser.id),projectId,assignmentId:selected.id,assignmentLabel:selected.title,kind,note:note.trim(),...(gps?{latitude:gps.latitude,longitude:gps.longitude,accuracy:gps.accuracy,gpsCapturedAt:gps.capturedAt}:{}),...(file?{evidenceName:file.name,evidenceType:file.type,evidenceSize:file.size,evidenceBlob:file}:{})});
       await saveFieldDraft(draft); setNote(''); setGps(null); setFile(null); await refreshDrafts();
       onNotice('success','Draft dan bukti tersimpan lokal. Belum dikirim atau diterima server.');
     } catch (e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal disimpan.'); }
@@ -94,7 +94,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
       </form>
     </section>
     <section className="card"><div className="panel-heading"><div><h2>Draft lokal</h2><p>{drafts.length} draft untuk akun dan Project saat ini. Status tidak berarti sudah dikirim.</p></div><button type="button" className="secondary-button" onClick={()=>void refreshDrafts()}>Refresh</button></div>
-      {!drafts.length?<div className="empty-state"><h3>Belum ada draft lokal</h3><p>Capture baru akan muncul di sini.</p></div>:<div className="data-list">{drafts.map(d=><article key={d.id} className="data-list-row"><div><strong>{d.assignmentLabel||d.assignmentId}</strong><p>{d.kind} · {d.status}</p><p>{d.note}</p><small>{new Date(d.capturedAt).toLocaleString()} · {d.evidenceName||'Tanpa foto'}{d.checksum?' · SHA-256 tersimpan':''}</small></div><button type="button" className="text-button danger" disabled={busy} onClick={()=>void remove(d.id)}>Hapus lokal</button></article>)}</div>}
+      {!drafts.length?<div className="empty-state"><h3>Belum ada draft lokal</h3><p>Capture baru akan muncul di sini.</p></div>:<div className="data-list">{drafts.map(d=><article key={d.id} className="data-list-row"><div><strong>{d.assignmentLabel||d.assignmentId}</strong><p>{d.kind} · {d.status}</p><p>{d.note}</p><small>{new Date(d.capturedAt).toLocaleString()} · {d.evidenceName||'Tanpa foto'}{d.gpsCapturedAt?' · GPS capture '+new Date(d.gpsCapturedAt).toLocaleString():''}{d.checksum?' · SHA-256 tersimpan':''}</small></div><button type="button" className="text-button danger" disabled={busy} onClick={()=>void remove(d.id)}>Hapus lokal</button></article>)}</div>}
     </section>
     <div className="inline-warning">Sync server, upload evidence, conflict handling, and authoritative acceptance are not available in this package. Drafts are not official transaction evidence.</div>
   </div>;

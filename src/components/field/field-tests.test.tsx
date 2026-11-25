@@ -8,6 +8,6 @@ describe("field offline draft contract",()=>{
  });
  it("preserves optional evidence and GPS metadata without asserting server verification",async()=>{
   const blob=new Blob(["field-evidence"],{type:"image/jpeg"});const d=await createFieldDraft({principalId:"U-1",projectId:"P",assignmentId:"A",kind:"inspection",note:"ok",latitude:-3,longitude:114,accuracy:10,evidenceName:"photo.jpg",evidenceType:"image/jpeg",evidenceSize:blob.size,evidenceBlob:blob});
-  expect(d.latitude).toBe(-3);expect(d.longitude).toBe(114);expect(d.evidenceName).toBe("photo.jpg");expect(d.status).toBe("queued");expect(d.evidenceBlob).toBe(blob);expect(d.checksum).toMatch(/^[a-f0-9]{64}$/);
+  expect(d.latitude).toBe(-3);expect(d.longitude).toBe(114);expect(d.gpsCapturedAt).toBeUndefined();expect(d.evidenceName).toBe("photo.jpg");expect(d.status).toBe("queued");expect(d.evidenceBlob).toBe(blob);expect(d.checksum).toMatch(/^[a-f0-9]{64}$/);
  });
 });

@@ -1,6 +1,7 @@
 export type FieldQueueStatus = "queued" | "syncing" | "synced" | "failed" | "conflict" | "needs-review";
 export type FieldDraft = { id: string; principalId: string; projectId: string; assignmentId: string; assignmentLabel?: string; kind: string; note: string; capturedAt: string; latitude?: number; longitude?: number; accuracy?: number; gpsCapturedAt?: string; evidenceName?: string; evidenceType?: string; evidenceSize?: number; evidenceBlob?: Blob; checksum?: string; status: FieldQueueStatus; lastError?: string; };
-const DB_NAME = "pke-field-local"; const DB_VERSION = 3; const STORE = "drafts"; const ASSIGNMENT_STORE = "assignment-cache";\nexport type FieldAssignmentCache = { cacheKey:string; principalId:string; projectId:string; cachedAt:string; assignments:Array<{id:string;title:string;status:string;priority?:string;due_at?:string|null;assignee_user_id?:string|null;owner_role_code?:string}>; };
+const DB_NAME = "pke-field-local"; const DB_VERSION = 3; const STORE = "drafts"; const ASSIGNMENT_STORE = "assignment-cache";
+export type FieldAssignmentCache = { cacheKey:string; principalId:string; projectId:string; cachedAt:string; assignments:Array<{id:string;title:string;status:string;priority?:string;due_at?:string|null;assignee_user_id?:string|null;owner_role_code?:string}>; };
 export async function createFieldDraft(input: Omit<FieldDraft,"id"|"capturedAt"|"status"|"checksum">): Promise<FieldDraft> {
  let checksum:string|undefined;
  if(input.evidenceBlob && typeof crypto!=="undefined" && crypto.subtle){const digest=await crypto.subtle.digest("SHA-256",await input.evidenceBlob.arrayBuffer());checksum=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}

@@ -69,3 +69,10 @@ This is local isolation only, not server authorization. Project/Assignment IDs r
 GitHub Actions Unit Tests run for code commit `b603d8a94a0df88ce5a2c61943c2cc9b98c105cc`: **PASS**. Root unit/security suite: **53 test files, 546 tests passed**. Dedicated P19 assurance: **20/20 passed**. Migration release/static gates and migration dry-run passed (dry-run; no DB connection). Backend build/typecheck, frontend typecheck and frontend build passed. This is static/CI evidence only; no live DB mutations, live HTTP/browser/mobile tests, UAT or deployment occurred. CI link: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45610841342
 
 The later commits on the branch are documentation-only. Vercel remains intentionally skipped.
+
+
+## Current-head source audit addendum — 25 November 2026
+
+The current branch head inspected for this addendum is `4259bb231d2ea83b11d179b7feb1fe0a28dacb4d`. The source remains a local-only draft collector. The SyncEngine component only displays online/offline state and draft counts; it does not synchronize to the server. Assignment ID and Project ID are manually entered and are not verified by backend authorization. Evidence is selected and preserved locally but is not uploaded. The inspected tests validate draft factory metadata but not IndexedDB persistence in a browser, server sync, idempotency, conflict handling, or identity-switch cleanup.
+
+**Current disposition:** Local capture source implemented; server/operational readiness **NOT PASS**. Earlier CI evidence is historical and must not be treated as proof that this exact current head has passed CI. Current-head CI remains to be checked. No DB, migration, Vercel, or field-device action was performed.

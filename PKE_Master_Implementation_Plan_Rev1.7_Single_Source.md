@@ -1,14 +1,14 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.56 — P19 operational assurance scoped completion
+# Master Implementation Plan Rev2.57 — UX continuation and field readiness audit
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.56 (23 November 2026 — P19 operational assurance scoped completion)  
+**Revision:** 2.57 (25 November 2026 — UX continuation / UX-04A source audit)  
 
-**Tanggal dokumen:** 23 November 2026  
+**Tanggal dokumen:** 25 November 2026  
 
 **Repository:** `D:\PKE`  
 
@@ -10220,3 +10220,16 @@ Source commit `b603d8a94a0df88ce5a2c61943c2cc9b98c105cc` passed GitHub Actions: 
 ### Dashboard/export cross-check assessment artifact
 
 Role-level dashboard coverage, open-source cross-check strategy and field-readiness status are consolidated at `docs/UX/Role_Dashboard_Coverage_Export_Crosscheck_OpenSource_FieldReadiness.md`. Dashboard coverage remains partial; export cross-check is design/partial; field readiness is not pass.
+
+
+### 42.17 Repository continuation audit — UX-04A (25 November 2026)
+
+**Source:** direct Git tree/blob inspection at branch `p20/platform-continuation-20261123`, head `4259bb231d2ea83b11d179b7feb1fe0a28dacb4d`. No Vercel deploy, Production DB write, or migration was performed.
+
+**Verified implementation facts:** FieldWorkspace has authenticated-principal local draft capture, but Project and Assignment IDs remain manually entered and unvalidated. GPS is point capture with error/permission feedback. Evidence selection allows JPEG/PNG/WebP up to 15 MB and retains Blob/checksum locally. IndexedDB stores principal/project metadata. SyncEngine only displays online state and local queue; it does not invoke server synchronization. No server receipt, upload, assignment authorization, conflict resolution, retry/backoff, QR/barcode, or logout cache cleanup is implemented in the inspected source. The inspected field contract tests cover draft creation and metadata only; they do not test persistence in a real browser, authorization, server idempotency, sync, or conflict behavior.
+
+**Disposition:** UX-04A = **LOCAL CAPTURE SOURCE IMPLEMENTED; SERVER/OPERATIONAL ACCEPTANCE NOT PASS**. Do not use for official field transactions. Existing CI evidence applies to the cited commit/run and does not automatically certify current head; current-head CI must be checked.
+
+**Next safe execution:** (1) trace existing auth/project-role assignment and task/work-item APIs; (2) determine whether an authorized assignment read endpoint already exists; (3) add typed assignment selector/list only against verified endpoint; (4) add server sync only when an existing idempotent API contract is verified—otherwise register missing endpoint as a backend blocker and avoid fabricating client calls; (5) harden local queue deletion/account-switch isolation without changing transaction semantics; (6) add unit/contract tests for queue status and failure handling; (7) run GitHub Actions and current-head build/typecheck. Production writes, migrations and Vercel remain skipped.
+
+**Evidence limitations:** inspection was source-level through Git blobs. No local checkout, browser/device UAT, live API request, RLS test, or current-head CI execution was performed in this audit.

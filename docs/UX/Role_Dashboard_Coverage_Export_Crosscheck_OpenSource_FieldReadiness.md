@@ -112,3 +112,8 @@ The current branch includes a local draft-capture workspace, GPS capture states,
 - UX-04A local draft capture: **IMPLEMENTED IN SOURCE; CI PENDING ON CURRENT HEAD**.
 - Vercel deployment: **SKIPPED BY INSTRUCTION**.
 - Production database/migrations: **UNCHANGED**.
+
+
+## 9. Current-head verification addendum (25 November 2026)
+
+Direct source audit at head `4259bb231d2ea83b11d179b7feb1fe0a28dacb4d` confirms the field workspace is local-only: manual Project/Assignment context, local IndexedDB drafts, optional GPS, locally selected evidence Blob/checksum, and a connectivity display. The SyncEngine does not call a server API. Assignment validation, server receipt, upload, idempotent sync, conflict handling, cache cleanup, QR/barcode and live API/RLS/mobile UAT are absent or unverified. Current-head CI is not verified in this audit. Accordingly field readiness remains **NOT PASS**, not merely pending UI polish.

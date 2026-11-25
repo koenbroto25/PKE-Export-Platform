@@ -55,6 +55,47 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(api).toContain('app.post("/api/v1/admin/projects/:projectId/pm-appointment"');
   });
 
+  it("keeps the shared role dashboard discoverable and honest about workflow gaps", () => {
+    const dashboard = read("frontend/src/RoleDashboardPage.tsx");
+    const permissions = read("frontend/src/role-permissions.ts");
+    const appShell = read("frontend/src/App.tsx");
+
+    for (const role of [
+      "platform_admin", "project_admin", "pm", "internal_auditor", "procurement",
+      "pks_site_manager", "supplier", "buyer", "contract_manager", "production_manager",
+      "packing_supervisor", "qc_officer", "regulatory_compliance_officer", "qa_manager",
+      "laboratory_officer", "hse_officer", "warehouse_manager", "warehouse_officer",
+      "inventory_controller", "transport_manager", "dispatcher", "transporter", "checker",
+      "driver", "master_of_loading", "loading_supervisor", "loading_operator",
+      "terminal_representative", "shipping_agent", "marine_surveyor", "ship_master",
+      "finance", "accounting", "cashier", "funder", "document_officer",
+      "external_provider", "field_manager", "viewer",
+    ]) {
+      expect(dashboard).toContain(role + ": {");
+    }
+    expect(dashboard).toContain("role-focus-grid");
+    expect(dashboard).toContain("Antrean instruksi Project");
+    expect(dashboard).toContain("Data kerja yang tersedia");
+    expect(dashboard).toContain("Produksi, packing & QA release");
+    expect(dashboard).toContain("Maritime & loading workflow");
+    expect(dashboard).toContain("bank execution dan reconciliation belum tersedia");
+    expect(permissions).toContain("PAGE_PERMISSION_REQUIREMENTS");
+    expect(appShell).toContain("sidebar-menu-search");
+    expect(appShell).toContain("navSearch.trim()");
+    expect(appShell).toContain("if (!groupItems.length) return null");
+  });
+
+  it("documents role dashboard as a shared permission-gated view rather than falsely claiming every workflow is complete", () => {
+    const dashboard = read("frontend/src/RoleDashboardPage.tsx");
+    expect(dashboard).toContain("ROLE_META");
+    expect(dashboard).toContain("hasProjectPermission");
+    expect(dashboard).toContain("sourceFailed");
+    expect(dashboard).toContain("Tidak termasuk permission aktif pada Project ini");
+    expect(dashboard).toContain("Belum tersedia");
+    expect(dashboard).toContain("UX-02 · ADMIN CONTROL CENTER");
+    expect(dashboard).toContain("UX-03 · PROJECT MANAGER COCKPIT");
+    expect(dashboard).toContain("Project-scoped");
+  });
   it("keeps port and warehouse master writes behind Platform Admin and provenance review", () => {
     expect(ports).toContain("platformAdmin = activeUser?.platformAdmin === true");
     expect(ports).toContain("{platformAdmin ?");

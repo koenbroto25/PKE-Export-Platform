@@ -132,3 +132,8 @@ A pure advisory cross-check core is now in `src/export-crosscheck.ts`, with unit
 ## 12. Field Capture discoverability
 
 Field Manager dashboard now includes a direct link to `/field`. This is navigation only; API authorization remains authoritative. Commit `f574325b5f479c93e85303921d46b58c7d74d66a` passed CI run `45620774343`. Dashboard operational completeness remains partial.
+
+
+## 13. UX-04A offline task context
+
+Field Capture now has principal/Project-keyed cached task context with stale-cache fallback after API failure, timestamped GPS, local draft cleanup and operational-role route gating. CI passed on `5dff10d9e6bb6f37aa0e744a009816240cdad17a` (run `45622309215`). Cache/evidence are unencrypted browser IndexedDB; stale permission and offline validation risks remain. Server sync/upload/conflict and field UAT are still blockers.

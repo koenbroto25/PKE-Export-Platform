@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.60 — field dashboard integration and UX-05
+# Master Implementation Plan Rev2.61 — UX-04A offline task cache hardening
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.60 (25 November 2026 — field capture dashboard integration)  
+**Revision:** 2.61 (25 November 2026 — UX-04A offline task cache hardening)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10272,3 +10272,12 @@ Added `src/export-crosscheck.ts` with pure, deterministic cross-check evaluation
 ### 42.22 Field Capture dashboard hand-off (25 November 2026)
 
 The active Role Dashboard metadata for `field_manager` now links directly to `/field` (Field Capture). This improves discovery for the role without implying additional permission: route access and API scope remain independently enforced. Commit `f574325b5f479c93e85303921d46b58c7d74d66a` passed GitHub Actions run `45620774343` (**PASS**), including frontend typecheck/build. The cross-check core is still not wired to transaction APIs or a reconciliation dashboard.
+
+
+### 42.23 UX-04A offline task-cache and data lifecycle hardening (25 November 2026)
+
+Field Capture now persists the server-returned active work-item list in IndexedDB `assignment-cache`, schema version 3, keyed by principal + Project. If the authenticated API cannot be reached after a prior successful load, the UI falls back to that cached task list and marks it stale/unvalidated; terminal tasks are filtered. Selected capture remains a local draft only. The GPS capture timestamp is preserved separately from draft save time. Operational role access is restricted by page access rules; the field route is not shown to finance/funder roles. A confirmation-protected clear-all action removes local drafts and the Project's cached task list.
+
+**CI:** GitHub Actions run `45622309215` on commit `5dff10d9e6bb6f37aa0e744a009816240cdad17a` **PASS**: unit/security, P19 contracts, migration release gates/dry-run, backend build/typecheck, frontend typecheck/build. Field draft tests and Field Capture role-access contract are included in root tests. Vercel is skipped.
+
+**Privacy / field readiness caveat:** IndexedDB cache and evidence Blobs are local browser storage and are not encrypted by this implementation. Offline cache may contain stale or revoked assignment information; offline capture does not revalidate permissions and must never be treated as server accepted. Device policy/encryption, authenticated sync, server receipts, evidence upload/verification, conflicts and UAT remain open.

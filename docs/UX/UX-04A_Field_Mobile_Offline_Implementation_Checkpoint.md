@@ -95,3 +95,10 @@ The prototype now fetches the selected Project's work items from the authenticat
 Field Capture is now wired into the active Vite SPA at `/field`, with navigation and role/page access registration. It reads the server-authorized Project work-item endpoint; PM project-wide results are filtered to explicitly assigned tasks. Captures include selected task ID/title, notes, optional GPS, optional validated image Blob and checksum, and are stored in the existing local queue partitioned by principal and Project. Users can delete local drafts. No server sync/upload is available and status remains local/unverified.
 
 Corrected integration commit `673a18ea9e3b6af4576eace9e0ba5076d3419fdf` passed GitHub Actions run `45619713863`: root unit/security tests, P19 contracts, migration static/release gates and dry-run, backend build/typecheck, frontend typecheck and frontend build. This proves compilation and automated gates only, not live authorization or field-device acceptance.
+
+
+## Offline task cache and local-data lifecycle — 25 November 2026
+
+The active Field Capture page stores a server-returned task list in IndexedDB v3, partitioned by principal and Project. API failure may fall back to this cache; the UI labels its timestamp and warns assignment is not revalidated. Closed/resolved/cancelled tasks are filtered. GPS timestamp is stored separately. Clear-all removes current Project drafts and its task cache.
+
+**Privacy limitation:** IndexedDB data and evidence Blobs are not encrypted by this code. Cache may be stale or permissions revoked. Local capture remains unverified and cannot be submitted as official evidence. CI run `45622309215` passed on commit `5dff10d9e6bb6f37aa0e744a009816240cdad17a`.

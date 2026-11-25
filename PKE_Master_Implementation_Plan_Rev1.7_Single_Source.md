@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.61 — UX-04A offline task cache hardening
+# Master Implementation Plan Rev2.62 — UX-04A offline cache and frontend performance
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.61 (25 November 2026 — UX-04A offline task cache hardening)  
+**Revision:** 2.62 (25 November 2026 — UX-04A offline cache and frontend performance)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10281,3 +10281,8 @@ Field Capture now persists the server-returned active work-item list in IndexedD
 **CI:** GitHub Actions run `45622309215` on commit `5dff10d9e6bb6f37aa0e744a009816240cdad17a` **PASS**: unit/security, P19 contracts, migration release gates/dry-run, backend build/typecheck, frontend typecheck/build. Field draft tests and Field Capture role-access contract are included in root tests. Vercel is skipped.
 
 **Privacy / field readiness caveat:** IndexedDB cache and evidence Blobs are local browser storage and are not encrypted by this implementation. Offline cache may contain stale or revoked assignment information; offline capture does not revalidate permissions and must never be treated as server accepted. Device policy/encryption, authenticated sync, server receipts, evidence upload/verification, conflicts and UAT remain open.
+
+
+### 42.24 Active frontend performance split (25 November 2026)
+
+Large workspace modules are lazy-loaded under a route-level Suspense boundary, and the active `frontend/vite.config.js` now applies vendor chunk splitting (React/router, icons, Neon auth, validation). The TypeScript Vite config was also aligned. CI run `45623037899` on commit `cd8ef51287149bcbb08f72fa7bdc4e578e761584` **PASS**. Build output no longer has the >500 kB chunk warning: main chunk ~220 kB (50.48 kB gzip), React/vendor ~263 kB (83.57 kB gzip), and field route chunk ~12.2 kB (4.28 kB gzip); other workspaces are split into route chunks. This is build evidence only, not deployed/real-device performance. Vercel remains skipped.

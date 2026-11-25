@@ -137,3 +137,8 @@ Field Manager dashboard now includes a direct link to `/field`. This is navigati
 ## 13. UX-04A offline task context
 
 Field Capture now has principal/Project-keyed cached task context with stale-cache fallback after API failure, timestamped GPS, local draft cleanup and operational-role route gating. CI passed on `5dff10d9e6bb6f37aa0e744a009816240cdad17a` (run `45622309215`). Cache/evidence are unencrypted browser IndexedDB; stale permission and offline validation risks remain. Server sync/upload/conflict and field UAT are still blockers.
+
+
+## 14. Frontend loading/performance slice
+
+Workspace route modules are lazy-loaded and vendor chunks are separated in the active JS Vite config. Build passed at commit `cd8ef51287149bcbb08f72fa7bdc4e578e761584` (run `45623037899`), with main bundle about 220 kB / 50.48 kB gzip, React/vendor about 263 kB / 83.57 kB gzip and Field Capture about 12.2 kB / 4.28 kB gzip. No >500 kB chunk warning. Deployment and field-device performance are unverified.

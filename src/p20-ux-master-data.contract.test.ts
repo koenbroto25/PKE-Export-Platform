@@ -73,7 +73,8 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     ]) {
       expect(dashboard).toContain(role + ": {");
     }
-    expect(dashboard).toContain("role-focus-grid");\n    expect(dashboard).toContain("hasOwnProperty.call(data, key)");
+    expect(dashboard).toContain("role-focus-grid");
+    expect(dashboard).toContain("hasOwnProperty.call(data, key)");
     expect(dashboard).toContain("Antrean instruksi Project");
     expect(dashboard).toContain("Export Process · Cross-check & Source Coverage");
     expect(dashboard).toContain("Production, packing & quality");

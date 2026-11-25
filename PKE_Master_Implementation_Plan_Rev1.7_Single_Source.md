@@ -10102,6 +10102,14 @@ Original UAT migration ledger evidence (exact SHA-256 as returned by the live UA
 
 **Required cross-check design:** compare each shipment's contract quantity/value, supplier committed quantity, facility capacity (effective date/unit), warehouse received/available/held/reserved lots, truck tare/gross/net and checkpoint, port/weighbridge/tally, loading ticket totals, independent survey, B/L quantity, invoice/packing list, PEB/NPE fields, destination/HS/permit/COO, FX and financial obligations. Store source record, field, value/unit, effective time, capture time, document hash, confidence/authority tier, comparison rule/version, variance, reviewer, resolution and audit trail. Never automatically reconcile or overwrite conflicting evidence.
 
+**Verified source references (25 November 2026)**
+
+- OpenStreetMap licensing: https://www.openstreetmap.org/copyright — ODbL; attribution required; database share-alike obligations may apply when distributing adapted databases. Review licence impact before caching/redistributing OSM-derived data.
+- OSRM: https://github.com/Project-OSRM/osrm-backend — BSD-2-Clause routing engine; route, distance/time matrix, map matching and nearest-road capabilities. OSRM output is a route estimate and does not establish PKE truck legal/safety suitability unless custom profiles and verified constraints are supplied.
+- UN Comtrade API: https://comtrade.un.org/en/api-docs — public preview API without key, limited to preview selection and up to 500 records; full data/API access may require account/subscription. Use at aggregate HS/period/reporter/destination level only.
+- BPS Indonesia Export Statistics 2025: https://www.bps.go.id/en/publication/2026/08/10/556d446e35c86054cb33739f/statistik-perdagangan-luar-negeri-indonesia-ekspor-2025.html — aggregate statistics derived primarily from PEB documents, with net weight and FOB value, commodity, destination, loading port and origin province. Not a shipment-level acceptance source.
+- DJBC export procedure: https://kendari.beacukai.go.id/mandatory/ekspor.html — procedure includes PEB submission, Lartas/INSW validation where applicable, customs document/physical review, NPE, loading and departure. The app must treat official customs status/documents as authority, not public aggregate data.
+
 ### 42.14 Field-work and end-to-end export support gap register
 
 | Priority | Gap | Required field capability / acceptance |

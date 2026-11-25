@@ -10327,3 +10327,8 @@ The local draft creator now validates required principal/Project/assignment iden
 ### 42.29 Transaction fixture edge-case expansion — 25 November 2026
 
 The transaction backtest matrix is expanded from 16 to 31 fixtures (SIM-001–069, curated IDs) and adds invalid/future vessel timestamps, missing/duplicate required documents, negative/non-finite quantities, invalid currency/negative FX variance, partial shipment, expired document, GPS-unverified, pending transport, rejected QA/customs, and identity contamination. Evaluator now validates synthetic IDs, nonnegative finite quantities, timestamp validity/future clock skew, complete required document codes/uniqueness, and currency/FX inputs. Invalid inputs fail closed rather than silently reaching READY. This work awaits CI evidence.
+
+
+### 42.30 CI failure diagnosis and correction — 25 November 2026
+
+CI for commit `8959d716` failed two assertions in the newly added fixture suite: the contamination fixture had a non-SIM shipment ID (breaking fixture-isolation assertion), and malformed timestamp correctly classified as `unverified` rather than `stale`. Corrected the contamination fixture to retain a synthetic shipment ID while using a deliberately contaminated project identifier; adjusted the expected timestamp classification. Re-run required before acceptance.

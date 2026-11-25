@@ -2,7 +2,7 @@ import {describe,it,expect} from "vitest";
 import {SYNTHETIC_EXPORT_TRANSACTIONS,backtestSyntheticExport} from "./export-backtest-fixtures";
 describe("synthetic transaction-level export readiness backtest",()=>{
  it("uses clearly synthetic identities and unique shipment IDs",()=>{
-  expect(SYNTHETIC_EXPORT_TRANSACTIONS.every(s=>s.simulationOnly===true&&s.projectId.startsWith("SIM-")&&s.shipmentId.startsWith("SIM-"))).toBe(true);
+  expect(SYNTHETIC_EXPORT_TRANSACTIONS.every(s=>s.simulationOnly===true&&s.scenarioId.startsWith("SIM-")&&s.shipmentId.startsWith("SIM-"))).toBe(true);
   expect(new Set(SYNTHETIC_EXPORT_TRANSACTIONS.map(s=>s.shipmentId)).size).toBe(SYNTHETIC_EXPORT_TRANSACTIONS.length);
  });
  it("ready complete shipment passes all milestone gates",()=>{
@@ -29,7 +29,7 @@ describe("synthetic transaction-level export readiness backtest",()=>{
  });
  it("fails closed on invalid numeric inputs, identity, documents, timestamps and FX values",()=>{
   for(const id of ["SIM-052","SIM-054","SIM-055","SIM-056","SIM-057","SIM-065","SIM-066","SIM-067"])expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId===id)!).expectedOutcome).not.toBe("ready");
-  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-052")!).stages.vessel).toBe("stale");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-052")!).stages.vessel).toBe("unverified");
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-054")!).stages.contract).toBe("blocked");
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-055")!).stages.settlement).toBe("blocked");
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-066")!).stages.contract).toBe("blocked");

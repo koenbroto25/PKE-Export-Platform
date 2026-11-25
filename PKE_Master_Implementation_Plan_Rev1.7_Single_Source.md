@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.58 — active frontend field capture integration
+# Master Implementation Plan Rev2.59 — UX-05 advisory cross-check engine
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.58 (25 November 2026 — UX-04A active frontend integration)  
+**Revision:** 2.59 (25 November 2026 — UX-05 cross-check engine contract)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10258,3 +10258,12 @@ A new `frontend/src/FieldCapturePage.tsx` is now integrated into the active Vite
 **CI:** Unit Tests run `45619713863` on commit `673a18ea9e3b6af4576eace9e0ba5076d3419fdf` **PASS**. Offline security/unit tests, P19 contracts, migration/static release gates and dry-run, backend build/typecheck, frontend typecheck and frontend build passed. The earlier active-frontend integration commit failed typecheck because the role-permission key was not registered; the correction is in this commit and the corrected run passed. Vercel deployment remains skipped.
 
 **Remaining S0 blockers:** server sync/idempotency and receipt, evidence upload/verification, conflict/rejection resolution, cache lifecycle/logout policy, QR/barcode, field device/mobile UAT and API/RLS negative testing. No Production database, migration, or business data was changed.
+
+
+### 42.21 UX-05 export cross-check engine — advisory core (25 November 2026)
+
+Added `src/export-crosscheck.ts` with pure, deterministic cross-check evaluation and `src/export-crosscheck.test.ts` (7 tests, wired into root `npm test`). Supported value types: quantity (kg/MT normalization, configured tolerance), text (NFKC/case/whitespace normalization), date (day comparison), and presence. Statuses: MATCH, MISMATCH, MISSING, STALE, UNVERIFIED, EXTERNAL_CONFIRMATION_PENDING. Evidence source metadata (ID/label/tier/value/unit/observedAt/verification) is retained in findings. Freshness rules require observation timestamps. Unknown quantity units fail as UNVERIFIED. Match never implies transaction approval/certification.
+
+**CI:** Unit Tests run `45620358296` on commit `eb3f41ea3cbc35be1d3a72d93c248dc1ed846714` **PASS**: 54 test files / 553 tests (including the new cross-check suite), P19 20/20, migration static/release gates and dry-run, backend build/typecheck, frontend typecheck/build. No deployment or DB mutation.
+
+**Scope boundary:** this is a tested advisory core, not a connected export chain. No API adapter, source-of-truth data mapping, dashboard, document reconciliation UI, field-to-transaction evidence linkage, or authoritative regulatory integration has been implemented. Those require source API/schema mapping and owner/domain validation; no schema/migration was created.

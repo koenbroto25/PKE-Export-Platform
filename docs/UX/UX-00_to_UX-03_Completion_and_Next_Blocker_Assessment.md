@@ -16,13 +16,13 @@ UX-00 source inventory and UX-01–03 first implementation slice are committed t
 | `96eda933c7f34bf41ce8464095c723313005cae7` | Remove phase terminology from user navigation |
 | `1140d7ed8e6ad630a120b41b2e45b51cc8e98913` | Scoped Project Admin cockpit |
 | `0474bce472fb17af7ea85ccf659804c56335072d` | Refine source audit and provisional P20 blocker assessment |
-| `04687236aaeb4f7c84835c091854ed16bda12f28` | Clarify PM appointment workflow availability |
+| `04687236aaeb4f7c84835c091854ed16bda12f28` | Clarify PM appointment workflow availability |\n| `25c7f0d8e15159f0b673e07aa8068419f4c8851a` | Place Project operations and master/partner routes in correct navigation groups |\n| `d7ae63d3b4cb9a92384059547c7be2f73db9a59b` | Permission-filtered menu search |\n| `40c87e237fcc18c87d93b176f782e3799d56d7c5` | Sidebar search styling |
 
 ## UX-00–UX-03 completion matrix
 | Workstream | Completed in source | Remaining |
 |---|---|---|
 | UX-00 Route inventory | App route map and role-permission mapping inventoried | Full component/modal/action/API/schema matrix and runtime evidence |
-| UX-01 Foundation | Workspace navigation group labels, phase-label cleanup, context picker label, permission-aware existing route shell retained | Context-switch confirmation, global authorized search, unified notification/task affordances, accessibility audit, consistent component states |
+| UX-01 Foundation | Workspace navigation group labels, phase-label cleanup, context picker label, permission-filtered menu search, existing route shell retained | Context-switch confirmation, global authorized search, unified notification/task affordances, accessibility audit, consistent component states |
 | UX-02 Platform Admin | Admin priority cockpit with portfolio, user/access, PM ownership, Control Tower links | Consolidate admin queue; verify identity lifecycle; PM appointment/replacement history; master-data change request; integration health; backend/API mapping |
 | UX-02 Project Admin | Project-scoped configuration, members, roles, access links and explicit scope warning | Verify permission-specific visibility; test project switching/deep links |
 | UX-03 PM | Project Manager priority cockpit linking task inbox, contract/supply, operations, port, maritime, compliance, finance, reports; project context warning | True Project 360 data synthesis, milestone timeline, blocker/owner aggregation, workstream readiness, team hand-offs, KPI reconciliation |

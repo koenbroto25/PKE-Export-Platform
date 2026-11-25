@@ -34,7 +34,8 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
       .then(payload => {
         if (!alive) return;
         const rows = Array.isArray(payload.workItems) ? payload.workItems : [];
-        const visible = payload.scope === 'project' ? rows.filter(row => row.assignee_user_id === activeUser.id) : rows;
+        const activeRows = rows.filter(row => !['resolved','closed','cancelled'].includes(String(row.status||'').toLowerCase()));
+        const visible = payload.scope === 'project' ? activeRows.filter(row => row.assignee_user_id === activeUser.id) : activeRows;
         setWorkItems(visible); setScope(payload.scope === 'project' ? 'project' : 'assigned');
         if (payload.scope === 'project') setTaskError('PM memiliki scope Project; Field Capture hanya menampilkan tugas yang ditugaskan secara eksplisit kepada akun ini.');
       })
@@ -88,6 +89,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     <section className="card"><div className="panel-heading"><div><h2>Capture tugas</h2><p>Project scope dan task list dikontrol server.</p></div></div>
       {loadingTasks ? <div className="loading-state">Memuat tugas…</div> : taskError && !workItems.length ? <div className="inline-warning">{taskError}</div> : null}
       {taskError && workItems.length>0 && <p className="muted">{taskError}</p>}
+      {!loadingTasks&&!taskError&&!workItems.length&&projectId&&<div className="empty-state"><h3>Tidak ada tugas aktif</h3><p>Hanya tugas yang belum ditutup atau dibatalkan yang dapat dipilih untuk capture.</p></div>}
       <form onSubmit={save} className="form-grid">
         <label className="form-field form-wide"><span>Tugas / Assignment</span><select value={taskId} onChange={e=>setTaskId(e.target.value)} required disabled={!workItems.length||loadingTasks}><option value="">Pilih tugas aktif</option>{workItems.map(item=><option key={item.id} value={item.id}>{item.title} · {item.status}{item.priority?' · '+item.priority:''}</option>)}</select></label>
         <label className="form-field"><span>Jenis capture</span><select value={kind} onChange={e=>setKind(e.target.value)}><option value="checkpoint">Checkpoint</option><option value="warehouse">Warehouse / receiving</option><option value="inspection">Inspection</option><option value="exception">Exception / discrepancy</option></select></label>

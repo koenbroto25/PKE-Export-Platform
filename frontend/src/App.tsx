@@ -154,12 +154,12 @@ function App() {
         <div className="sidebar-navigation">
         {['WORKSPACE', 'PROJECT OPERATIONS', 'CONTROL & INTELLIGENCE', 'ADMINISTRATION', 'PARTNER PORTALS'].map(group => {
           const allowedKeys = visiblePageKeys(workspaceUser || {});
+          const groupItems = navItems.filter(item => item.group === group && allowedKeys.includes(item.key) && (!navSearch.trim() || item.label.toLowerCase().includes(navSearch.trim().toLowerCase())));
+          if (!groupItems.length) return null;
           return (
             <div className="nav-group" key={group}>
               <div className="nav-group-title">{group}</div>
-              {navItems
-                .filter(item => item.group === group && allowedKeys.includes(item.key) && (!navSearch.trim() || item.label.toLowerCase().includes(navSearch.trim().toLowerCase())))
-                .map(item => {
+              {groupItems.map(item => {
                   const Icon = item.icon;
                   return <NavLink key={item.to} to={item.to} end={item.to === '/'} className={({ isActive }) => `nav-link ${isActive ? 'nav-active' : ''}`}>
                     <Icon size={18} /><span>{item.label}</span>{item.key === 'notifications' ? <span className="nav-dot" /> : null}

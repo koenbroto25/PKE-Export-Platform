@@ -173,3 +173,8 @@ Current field readiness remains NOT PASS; dashboard coverage PARTIAL; cross-chec
 The branch's simulation CI checkpoint passed **58 test files / 594 tests** at commit `7736c098e3c51ef0c57d865d6d6b8ed16820c160` (run `45636285698`). The suite validates 51 scenario catalog cases, 36 transaction fixtures, fail-closed gates, persona-to-role metadata mapping and all dashboard shortcut paths against the frontend router. A further explicit exact-fixture-count and critical exception assertion was committed after this checkpoint and is awaiting CI.
 
 This is a regression gate for source logic and navigation. It does not replace user task UAT, mobile/offline device testing, server sync/API authorization testing or role-specific dashboard completion.
+
+
+## 18. Final checkpoint for current backtest slice
+
+Current branch checkpoint `989f002826d0ec582d9cd72735b6ea021f3c147c`: CI run `45637092523` passed **58 files / 595 tests**. The 51-scenario catalog has 1 READY baseline, 24 BLOCKED cases and 26 REVIEW cases. The 36 transaction fixtures and all critical exception assertions pass. All role-dashboard shortcut routes resolve, and every catalog persona has role metadata. The simulation slice is green; operational UX gaps in Sections 15–16 remain open and are not cleared by this test suite.

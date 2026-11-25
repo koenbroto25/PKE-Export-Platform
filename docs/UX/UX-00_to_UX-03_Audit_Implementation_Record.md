@@ -86,7 +86,7 @@ UX-00 audited the current frontend shell, route map, role permission model, role
 7. Integration health and audit
 8. Direct links to Projects, Access, Project membership and Control Tower
 
-**Current backend mapping:** Existing route evidence supports Projects, Access, Project roles/members, and the P17 Admin Control Tower. Dedicated PM appointment workflow and unified identity lifecycle dashboard are not verified in the inspected frontend/API contracts. They must be recorded as backend dependencies, not simulated.
+**Current backend mapping:** Existing route evidence supports Projects, Access, Project roles/members, and the P17 Admin Control Tower. PM appointment is present in the Project detail/admin flow: frontend submits to `/admin/projects/:projectId/pm-appointment`, requires an active mapped account and reason, and reports appointment history. It is not yet integrated into the new cockpit shortcut; the shortcut should route Admin to Projects where the Project detail workflow is available. A unified identity lifecycle dashboard is not verified as one consolidated workspace.
 
 **Acceptance:** Admin can navigate to each verified area from one landing; platform scope is explicit; unsupported governance workflow is labeled as dependency; no cross-Project business-data access is implied.
 
@@ -107,8 +107,8 @@ UX-00 audited the current frontend shell, route map, role permission model, role
 ## UX-00 to UX-03 dependency register
 | ID | Dependency / blocker | Class | Required next action |
 |---|---|---|---|
-| UXB-01 | Dedicated PM appointment lifecycle API/UI not verified | B/C | Audit backend endpoints and schema; implement only if contract exists |
-| UXB-02 | Unified Admin identity lifecycle view not verified | B | Map existing identity/admin endpoints; compose UI or request API |
+| UXB-01 | PM appointment workflow exists, but Admin cockpit shortcut does not lead directly to appointment | A | Improve navigation to Projects/Project detail; do not duplicate appointment workflow |
+| UXB-02 | User identity lifecycle is spread across Admin user/access surfaces | A/B | Consolidate discovery and record which identity actions are supported by current API |
 | UXB-03 | Cross-workstream Project milestone aggregation not verified | B/C | Trace project report/workflow APIs; define source-backed milestone rules |
 | UXB-04 | Global authorized search not verified | B | Identify search API; otherwise backend dependency, no client-side cross-scope search |
 | UXB-05 | Platform-vs-Project context switch confirmation and permission reset require testing | A/B | Add UX safeguards and test direct links/context changes |

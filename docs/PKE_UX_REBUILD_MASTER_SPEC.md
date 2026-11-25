@@ -1217,3 +1217,8 @@ Classify every item as existing backend (A), missing API (B), missing schema/wor
 ## UX-04A implementation status
 
 The source checkpoint is tracked in `docs/UX/UX-04A_Field_Mobile_Offline_Implementation_Checkpoint.md`. Current code supports local draft capture and IndexedDB persistence only. Server-backed assignment validation, synchronization, upload, conflict resolution, cache security and field UAT remain acceptance blockers. This spec remains the authority for the target UX; implementation checkpoint records evidence/status.
+
+
+### UX-04A hardening addendum
+
+Local field drafts now partition by authenticated principal and selected Project, with local evidence Blob and checksum. This is not equivalent to server-side authorization. Assignment and Project membership validation, secure cache lifecycle and server sync are still blockers. See the implementation checkpoint.

@@ -60,7 +60,7 @@ function isStale(e:CrosscheckEvidence,rule:CrosscheckRule,nowMs:number):boolean 
 export function evaluateCrosscheck(rule:CrosscheckRule,evidence:CrosscheckEvidence[],nowMs=Date.now()):CrosscheckFinding {
   const sources=evidence.map(e=>({sourceId:e.sourceId,sourceLabel:e.sourceLabel,tier:e.tier,value:e.value,unit:e.unit,observedAt:e.observedAt}));
   const reasons:string[]=[];
-  if(evidence.length<2||evidence.some(e=>e.value===null||e.value===undefined||e.value==="")) {
+  if(evidence.length<2||evidence.some(e=>isEmptyEvidenceValue(e.value))) {
     reasons.push("At least two non-empty evidence values are required for comparison.");
     return {field:rule.field,label:rule.label,status:"MISSING",sources,comparedPairs:0,mismatchPairs:0,reasons};
   }
@@ -77,18 +77,24 @@ export function evaluateCrosscheck(rule:CrosscheckRule,evidence:CrosscheckEviden
     return {field:rule.field,label:rule.label,status:"UNVERIFIED",sources,comparedPairs:0,mismatchPairs:0,reasons};
   }
   let comparedPairs=0,mismatchPairs=0,variance:number|undefined;
-  const baseline=evidence[0];
-  for(const current of evidence.slice(1)) {
-    comparedPairs++;
+  for(let i=0;i<evidence.length;i++)for(let j=i+1;j<evidence.length;j++) {
+    const aEvidence=evidence[i],bEvidence=evidence[j];comparedPairs++;
     let match=false;
     if(rule.type==="quantity") {
-      const a=quantityKg(baseline.value,baseline.unit),b=quantityKg(current.value,current.unit);
+      const a=quantityKg(aEvidence.value,aEvidence.unit),b=quantityKg(bEvidence.value,bEvidence.unit);
       if(a===null||b===null){reasons.push("Quantity unit/value is not recognized; comparison is advisory and unverified.");return {field:rule.field,label:rule.label,status:"UNVERIFIED",sources,comparedPairs,mismatchPairs,reasons};}
       const deltaKg=b-a;variance=deltaKg/(rule.canonicalUnit==="MT"?1000:1);
       match=Math.abs(deltaKg)<=Math.max(0,rule.tolerance??0)*(rule.canonicalUnit==="MT"?1000:1);
-    } else if(rule.type==="text") match=normalizedText(baseline.value)===normalizedText(current.value);
-    else if(rule.type==="date") match=dateDay(baseline.value)!==null&&dateDay(baseline.value)===dateDay(current.value);
-    else match=Boolean(baseline.value)===Boolean(current.value);
+    } else if(rule.type==="text") match=normalizedText(aEvidence.value)===normalizedText(bEvidence.value);
+    else if(rule.type==="date") {
+      const a=dateDay(aEvidence.value),b=dateDay(bEvidence.value);
+      if(a===null||b===null){reasons.push("One or more date values are invalid; comparison cannot be verified.");return {field:rule.field,label:rule.label,status:"UNVERIFIED",sources,comparedPairs,mismatchPairs,reasons};}
+      match=a===b;
+    } else {
+      const a=normalizePresence(aEvidence.value),b=normalizePresence(bEvidence.value);
+      if(a===null||b===null){reasons.push("One or more presence values are not recognized; comparison cannot be verified.");return {field:rule.field,label:rule.label,status:"UNVERIFIED",sources,comparedPairs,mismatchPairs,reasons};}
+      match=a===b;
+    }
     if(!match)mismatchPairs++;
   }
   if(mismatchPairs>0) {

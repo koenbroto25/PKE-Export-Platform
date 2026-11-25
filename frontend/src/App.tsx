@@ -24,29 +24,29 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 
 const navItems: { to: string; key: PageKey; label: string; icon: typeof LayoutDashboard; group: string }[] = [
-  { to: '/', key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, group: 'Workspace' },
-  { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'Workspace' },
-  { to: '/pks-sites', key: 'pks-sites', label: 'PKS & Supplier', icon: Building2, group: 'Workspace' },
-  { to: '/port-network', key: 'port-network', label: 'Pelabuhan & Gudang', icon: Ship, group: 'Workspace' },
-  { to: '/maritime-operations', key: 'maritime-operations', label: 'Voyage & Kapal', icon: Ship, group: 'Eksekusi' },
-  { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'Workspace' },
-  { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'Eksekusi' },
-  { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow P1', icon: Workflow, group: 'Eksekusi' },
-  { to: '/my-work', key: 'my-work', label: 'Tugas Saya', icon: ClipboardCheck, group: 'Eksekusi' },
-  { to: '/finance', key: 'finance', label: 'Keuangan & FX', icon: Wallet, group: 'Kontrol' },
-  { to: '/compliance', key: 'compliance', label: 'Dokumen & Compliance', icon: ShieldCheck, group: 'Kontrol' },
-  { to: '/journal-entries', key: 'journal-entries', label: 'Jurnal Umum', icon: BookOpen, group: 'Kontrol' },
-  { to: '/shipment-allocations', key: 'shipment-allocations', label: 'Alokasi Pengiriman', icon: Ship, group: 'Eksekusi' },
-  { to: '/cash-advances', key: 'cash-advances', label: 'Uang Muka Operasional', icon: Wallet, group: 'Kontrol' },
-  { to: '/payment-instructions', key: 'payment-instructions', label: 'Instruksi Pembayaran', icon: FileText, group: 'Kontrol' },
-  { to: '/reports', key: 'reports', label: 'Laporan', icon: TrendingUp, group: 'Kontrol' },
-  { to: '/notifications', key: 'notifications', label: 'Notifikasi', icon: Bell, group: 'Sistem' },
-  { to: '/access', key: 'access', label: 'Role & Permission', icon: Users, group: 'Sistem' },
-  { to: '/buyer', key: 'buyer', label: 'Buyer Portal', icon: Building2, group: 'Stakeholder' },
-  { to: '/supplier', key: 'supplier', label: 'Supplier / PKS', icon: PackageCheck, group: 'Stakeholder' },
-  { to: '/transporter', key: 'transporter', label: 'Transporter', icon: Truck, group: 'Stakeholder' },
-  { to: '/warehouse', key: 'warehouse', label: 'Warehouse', icon: Boxes, group: 'Stakeholder' },
-  { to: '/funder', key: 'funder', label: 'Funder', icon: Flag, group: 'Stakeholder' },
+  { to: '/', key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, group: 'WORKSPACE' },
+  { to: '/projects', key: 'projects', label: 'Proyek', icon: BriefcaseBusiness, group: 'WORKSPACE' },
+  { to: '/pks-sites', key: 'pks-sites', label: 'PKS & Supplier', icon: Building2, group: 'WORKSPACE' },
+  { to: '/port-network', key: 'port-network', label: 'Pelabuhan & Gudang', icon: Ship, group: 'WORKSPACE' },
+  { to: '/maritime-operations', key: 'maritime-operations', label: 'Voyage & Kapal', icon: Ship, group: 'PROJECT OPERATIONS' },
+  { to: '/contracts', key: 'contracts', label: 'Program Kontrak', icon: FileText, group: 'WORKSPACE' },
+  { to: '/operations', key: 'operations', label: 'Operasional', icon: Truck, group: 'PROJECT OPERATIONS' },
+  { to: '/p1-workflows', key: 'p1-workflows', label: 'Workflow P1', icon: Workflow, group: 'PROJECT OPERATIONS' },
+  { to: '/my-work', key: 'my-work', label: 'Tugas Saya', icon: ClipboardCheck, group: 'PROJECT OPERATIONS' },
+  { to: '/finance', key: 'finance', label: 'Keuangan & FX', icon: Wallet, group: 'CONTROL & INTELLIGENCE' },
+  { to: '/compliance', key: 'compliance', label: 'Dokumen & Compliance', icon: ShieldCheck, group: 'CONTROL & INTELLIGENCE' },
+  { to: '/journal-entries', key: 'journal-entries', label: 'Jurnal Umum', icon: BookOpen, group: 'CONTROL & INTELLIGENCE' },
+  { to: '/shipment-allocations', key: 'shipment-allocations', label: 'Alokasi Pengiriman', icon: Ship, group: 'PROJECT OPERATIONS' },
+  { to: '/cash-advances', key: 'cash-advances', label: 'Uang Muka Operasional', icon: Wallet, group: 'CONTROL & INTELLIGENCE' },
+  { to: '/payment-instructions', key: 'payment-instructions', label: 'Instruksi Pembayaran', icon: FileText, group: 'CONTROL & INTELLIGENCE' },
+  { to: '/reports', key: 'reports', label: 'Laporan', icon: TrendingUp, group: 'CONTROL & INTELLIGENCE' },
+  { to: '/notifications', key: 'notifications', label: 'Notifikasi', icon: Bell, group: 'ADMINISTRATION' },
+  { to: '/access', key: 'access', label: 'Role & Permission', icon: Users, group: 'ADMINISTRATION' },
+  { to: '/buyer', key: 'buyer', label: 'Buyer Portal', icon: Building2, group: 'PARTNER PORTALS' },
+  { to: '/supplier', key: 'supplier', label: 'Supplier / PKS', icon: PackageCheck, group: 'PARTNER PORTALS' },
+  { to: '/transporter', key: 'transporter', label: 'Transporter', icon: Truck, group: 'PARTNER PORTALS' },
+  { to: '/warehouse', key: 'warehouse', label: 'Warehouse', icon: Boxes, group: 'PARTNER PORTALS' },
+  { to: '/funder', key: 'funder', label: 'Funder', icon: Flag, group: 'PARTNER PORTALS' },
 ];
 
 const idr = (value: unknown) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -151,7 +151,7 @@ function App() {
         </div>
         <div className="sidebar-label">OPERATIONS</div>
         <div className="sidebar-navigation">
-        {['Workspace', 'Eksekusi', 'Kontrol', 'Sistem', 'Stakeholder'].map(group => {
+        {['WORKSPACE', 'PROJECT OPERATIONS', 'CONTROL & INTELLIGENCE', 'ADMINISTRATION', 'PARTNER PORTALS'].map(group => {
           const allowedKeys = visiblePageKeys(workspaceUser || {});
           return (
             <div className="nav-group" key={group}>
@@ -185,7 +185,7 @@ function App() {
             <div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{navItems.find(item => item.to === location.pathname)?.label || 'PKE Platform'}</strong></div>
           </div>
           <div className="topbar-actions">
-            <ProjectPicker value={projectId} onChange={setProjectId} />
+            <ProjectPicker value={projectId} onChange={setProjectId} platformAdmin={workspaceUser?.platformAdmin === true} />
             <div className="topbar-divider" />
             <div className="top-user"><div className="avatar avatar-small">{String(activeUser?.name || activeUser?.email || 'P').slice(0, 1).toUpperCase()}</div><span>{activeUser?.name || activeUser?.email}</span><ChevronDown size={15} /></div>
           </div>
@@ -236,7 +236,7 @@ function App() {
   );
 }
 
-function ProjectPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+function ProjectPicker({ value, onChange, platformAdmin }: { value: string; onChange: (id: string) => void; platformAdmin?: boolean }) {
   const { data } = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
   const projects = data?.projects || [];
   return <label className="project-picker"><span>PROJECT</span><select value={value} onChange={e => onChange(e.target.value)}>

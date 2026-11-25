@@ -166,3 +166,10 @@ Workspace route modules are lazy-loaded and vendor chunks are separated in the a
 7. **UX-07 Dashboard intelligence:** actionable queues by role, overdue/blocked/missing, owner and next action, no false zero, evidence drill-down and cross-role hand-off visibility.
 
 Current field readiness remains NOT PASS; dashboard coverage PARTIAL; cross-check ADVISORY CORE ONLY. Do not claim production-ready from simulation CI.
+
+
+## 17. Latest synthetic backtest and UX navigation gate
+
+The branch's simulation CI checkpoint passed **58 test files / 594 tests** at commit `7736c098e3c51ef0c57d865d6d6b8ed16820c160` (run `45636285698`). The suite validates 51 scenario catalog cases, 36 transaction fixtures, fail-closed gates, persona-to-role metadata mapping and all dashboard shortcut paths against the frontend router. A further explicit exact-fixture-count and critical exception assertion was committed after this checkpoint and is awaiting CI.
+
+This is a regression gate for source logic and navigation. It does not replace user task UAT, mobile/offline device testing, server sync/API authorization testing or role-specific dashboard completion.

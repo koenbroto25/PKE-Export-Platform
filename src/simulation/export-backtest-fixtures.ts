@@ -62,7 +62,7 @@ const freshness=3*60*60*1000;
 const REQUIRED_DOCUMENTS=["COA","INVOICE","PACKING_LIST","PEB","NPE"];
 function validNonNegative(...values:number[]):boolean{return values.every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=0);}
 function validTimestamp(v:string|null):boolean{return v===null||Number.isFinite(Date.parse(v));}
-function documentExpiryState(docs:SyntheticDocument[],nowMs:number):"ready"|"stale"|"unverified"{
+function documentExpiryState(docs:SyntheticDocument[],nowMs:number):"ready"|"stale"|"unverified"|"missing"{
  const required=docs.filter(d=>d.required);
  if(required.some(d=>d.expiresAt!==undefined&&!Number.isFinite(Date.parse(d.expiresAt))))return "unverified";
  if(required.some(d=>d.expiresAt!==undefined&&Date.parse(d.expiresAt)<=nowMs))return "stale";

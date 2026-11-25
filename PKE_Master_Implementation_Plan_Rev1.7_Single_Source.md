@@ -10322,3 +10322,8 @@ Field Capture's cleanup action is now available even when the draft list is empt
 ### 42.30 Field Capture input validation — synthetic edge tests — 25 November 2026
 
 The local draft creator now validates required principal/Project/assignment identity and non-empty/max-4000 note; GPS metadata must be complete, coordinates in legal numeric ranges, accuracy positive finite and timestamp parseable; evidence metadata must accompany a Blob, allowed image MIME, 1 byte–15 MB, and exact MIME/size consistency. Invalid input is rejected before IndexedDB write. Tests cover identity omissions, empty note, out-of-range/invalid GPS, evidence metadata without Blob, invalid MIME, oversized Blob and metadata mismatch. GPS source quality/timestamp trust remains a review concern; this validation does not assert server verification. CI pending.
+
+
+### 42.29 Transaction fixture edge-case expansion — 25 November 2026
+
+The transaction backtest matrix is expanded from 16 to 31 fixtures (SIM-001–069, curated IDs) and adds invalid/future vessel timestamps, missing/duplicate required documents, negative/non-finite quantities, invalid currency/negative FX variance, partial shipment, expired document, GPS-unverified, pending transport, rejected QA/customs, and identity contamination. Evaluator now validates synthetic IDs, nonnegative finite quantities, timestamp validity/future clock skew, complete required document codes/uniqueness, and currency/FX inputs. Invalid inputs fail closed rather than silently reaching READY. This work awaits CI evidence.

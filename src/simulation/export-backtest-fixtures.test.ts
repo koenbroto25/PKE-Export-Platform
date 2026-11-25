@@ -27,6 +27,21 @@ describe("synthetic transaction-level export readiness backtest",()=>{
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-011")!).stages.vessel).toBe("stale");
   expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-045")!).expectedOutcome).toBe("review");
  });
+ it("fails closed on invalid numeric inputs, identity, documents, timestamps and FX values",()=>{
+  for(const id of ["SIM-052","SIM-054","SIM-055","SIM-056","SIM-057","SIM-065","SIM-066","SIM-067"])expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId===id)!).expectedOutcome).not.toBe("ready");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-052")!).stages.vessel).toBe("stale");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-054")!).stages.contract).toBe("blocked");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-055")!).stages.settlement).toBe("blocked");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-066")!).stages.contract).toBe("blocked");
+ });
+ it("handles operational partial shipment, expired documents, GPS unverified, rejected QA/customs and pending settlement",()=>{
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-058")!).expectedOutcome).toBe("ready");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-059")!).stages.documents).toBe("stale");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-060")!).stages.transport).toBe("unverified");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-063")!).stages.quality).toBe("blocked");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-064")!).stages.customs).toBe("blocked");
+  expect(backtestSyntheticExport(SYNTHETIC_EXPORT_TRANSACTIONS.find(s=>s.scenarioId==="SIM-062")!).stages.settlement).toBe("pending");
+ });
  it("evaluates the stage-by-stage chain and always returns actionable simulation labels",()=>{
   for(const s of SYNTHETIC_EXPORT_TRANSACTIONS){const f=backtestSyntheticExport(s);expect(Object.keys(f.stages)).toHaveLength(12);expect(f.simulationOnly).toBe(true);expect(f.userFacingMessage).toContain("Backtest");}
  });

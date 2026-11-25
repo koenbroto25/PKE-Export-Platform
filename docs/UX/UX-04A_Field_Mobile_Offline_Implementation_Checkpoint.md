@@ -81,3 +81,10 @@ The current branch head inspected for this addendum is `4259bb231d2ea83b11d179b7
 ## Local-draft deletion usability revision
 
 Commit `abbcc255be7953c0a4c988b801f4714a71b70a2f` fixes a malformed escaped newline in the workspace import and exposes a confirmation-protected local delete action. Deletion removes the IndexedDB draft and its retained Blob from this browser/device only; it is not a server deletion. GitHub Actions run `45618662253` passed: unit/security tests, P19 contracts, migration static/release gates and dry-run, backend build/typecheck, frontend typecheck and build. This does not establish operational field readiness.
+
+
+## Assignment-bound local capture revision
+
+The prototype now fetches the selected Project's work items from the authenticated API and lets the user choose a returned task. For Project-wide (PM) API scope, the prototype only shows tasks explicitly assigned to the current user. Project switching clears assignment selection immediately; selected work-item ID/title is retained in the local draft. No generic sync or evidence upload API is invoked.
+
+**Critical integration gap:** `src/components/field/workspace.tsx` is not wired into the active Vite frontend's `frontend/src/App.tsx` route table. Root TypeScript configuration excludes the root field TSX and `app/` routes, so root build does not typecheck this prototype. Current frontend CI does not compile this field workspace. The field page is therefore not verified as runtime-ready and must be integrated into the active frontend plus a typecheck/test gate. Server sync remains blocked because existing task/evidence APIs are not a generic capture synchronization contract.

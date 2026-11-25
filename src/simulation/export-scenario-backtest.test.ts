@@ -3,6 +3,10 @@ import {EXPORT_SIMULATION_SCENARIOS,evaluateScenario,SIMULATION_STAGE_ORDER} fro
 import {evaluateCrosscheck} from "../export-crosscheck";
 import {validateP1Create,validateP1Transition,canApprovePurchaseOrder,canDecideQaRelease,canCloseAuditFinding} from "../p1-workflow-engine";
 import {hasPageAccess} from "../../frontend/src/role-permissions";
+import {readFileSync} from "node:fs";
+import {join} from "node:path";
+const ROLE_DASHBOARD_SOURCE=readFileSync(join(process.cwd(),"frontend","src","RoleDashboardPage.tsx"),"utf8");
+const ROLE_META_KEYS=new Set([...ROLE_DASHBOARD_SOURCE.matchAll(/^\\s{2}([a-z][a-z0-9_]*):\\s*\\{/gm)].map(m=>m[1]));
 const NOW=Date.parse("2026-11-25T12:00:00Z");
 describe("PKE simulated export backtest catalog",()=>{
  it("contains at least 20 deterministic, uniquely keyed realistic scenarios",()=>{
@@ -25,6 +29,9 @@ describe("PKE simulated export backtest catalog",()=>{
   expect(evaluateScenario({...happy,stages:{...happy.stages,loading:"mismatch"}})).toBe("review");
   expect(evaluateScenario({...happy,stages:{}})).toBe("blocked");
   expect(evaluateScenario({...happy,stages:{contract:"ready"}})).toBe("blocked");
+ });
+ it("maps every simulated persona to an actual role dashboard definition",()=>{
+  for(const s of EXPORT_SIMULATION_SCENARIOS)expect(ROLE_META_KEYS.has(s.persona),s.id+" persona "+s.persona).toBe(true);
  });
  it("uses clear, actionable Indonesian messages rather than raw technical error language",()=>{
   for(const s of EXPORT_SIMULATION_SCENARIOS){expect(s.userFacingMessage).not.toMatch(/stack trace|undefined|null pointer|SQLSTATE/i);expect(s.nextAction).toMatch(/\S/);}

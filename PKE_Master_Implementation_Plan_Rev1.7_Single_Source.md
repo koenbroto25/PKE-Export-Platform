@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.57 — UX continuation and field readiness audit
+# Master Implementation Plan Rev2.58 — active frontend field capture integration
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.57 (25 November 2026 — UX continuation / UX-04A source audit)  
+**Revision:** 2.58 (25 November 2026 — UX-04A active frontend integration)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10249,3 +10249,12 @@ The prototype FieldWorkspace now loads Project work items from the authenticated
 **Critical integration finding:** this field component is under root `src/components/field` and is referenced by `app/field/page.tsx`, but the active Vite frontend routes in `frontend/src/App.tsx` do not include `/field`. Root `tsconfig.json` explicitly excludes `src/**/*.tsx`, `src/components/**`, `src/auth-context.tsx` and `app`; root build therefore does not typecheck this field page. The passing frontend build targets `frontend/` and does not include the field prototype. Thus the field UX changes are **source-only prototype, not verified active-runtime UI**. This gap must be closed by integrating a field route/workspace into the active frontend and adding an appropriate typecheck/test gate before UX-04A can progress to operational acceptance.
 
 No server sync endpoint was fabricated. Existing work-item status transitions are not a generic field-evidence mutation; existing evidence APIs are tied to specific domain workflow records and authorization. A generic sync/upload contract requires backend design, permission/schema review and owner approval if a migration is necessary.
+
+
+### 42.20 UX-04A active frontend integration slice (25 November 2026)
+
+A new `frontend/src/FieldCapturePage.tsx` is now integrated into the active Vite SPA at `/field`, with navigation `Field Capture (Offline)`. Role/page access is registered in `frontend/src/role-permissions.ts` and requires a selected Project plus active non-funder role/project permission context. The page loads server-authorized Project work items via the existing API client; for project-wide PM responses, it limits Field Capture to tasks explicitly assigned to the signed-in user. It supports task selection, local notes, optional GPS capture, image validation (JPG/PNG/WebP, 15 MB), IndexedDB persistence using the existing queue, principal/Project filtering, SHA-256 checksum where available, online/offline display and local deletion. No server sync/upload action is present and UI explicitly states capture is local/unverified.
+
+**CI:** Unit Tests run `45619713863` on commit `673a18ea9e3b6af4576eace9e0ba5076d3419fdf` **PASS**. Offline security/unit tests, P19 contracts, migration/static release gates and dry-run, backend build/typecheck, frontend typecheck and frontend build passed. The earlier active-frontend integration commit failed typecheck because the role-permission key was not registered; the correction is in this commit and the corrected run passed. Vercel deployment remains skipped.
+
+**Remaining S0 blockers:** server sync/idempotency and receipt, evidence upload/verification, conflict/rejection resolution, cache lifecycle/logout policy, QR/barcode, field device/mobile UAT and API/RLS negative testing. No Production database, migration, or business data was changed.

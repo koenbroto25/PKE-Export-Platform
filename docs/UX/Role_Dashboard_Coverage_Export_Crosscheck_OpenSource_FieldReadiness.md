@@ -117,3 +117,8 @@ The current branch includes a local draft-capture workspace, GPS capture states,
 ## 9. Current-head verification addendum (25 November 2026)
 
 Direct source audit at head `4259bb231d2ea83b11d179b7feb1fe0a28dacb4d` confirms the field workspace is local-only: manual Project/Assignment context, local IndexedDB drafts, optional GPS, locally selected evidence Blob/checksum, and a connectivity display. The SyncEngine does not call a server API. Assignment validation, server receipt, upload, idempotent sync, conflict handling, cache cleanup, QR/barcode and live API/RLS/mobile UAT are absent or unverified. Current-head CI is not verified in this audit. Accordingly field readiness remains **NOT PASS**, not merely pending UI polish.
+
+
+## 10. Field capture active-frontend implementation update (25 November 2026)
+
+A role-scoped `/field` page is now integrated in the active Vite frontend and the navigation label is **Field Capture (Offline)**. It reads authorized work items from the Project API, supports local note/GPS/photo capture, IndexedDB persistence and local draft deletion. It does not upload or sync. The page's current CI build/typecheck passed at commit `673a18ea9e3b6af4576eace9e0ba5076d3419fdf` (run `45619713863`). Field readiness remains **NOT PASS** until server sync, upload integrity/receipt, conflict handling, cache security, API/RLS negative tests and mobile UAT are completed.

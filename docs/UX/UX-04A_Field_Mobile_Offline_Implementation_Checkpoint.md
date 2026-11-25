@@ -88,3 +88,10 @@ Commit `abbcc255be7953c0a4c988b801f4714a71b70a2f` fixes a malformed escaped newl
 The prototype now fetches the selected Project's work items from the authenticated API and lets the user choose a returned task. For Project-wide (PM) API scope, the prototype only shows tasks explicitly assigned to the current user. Project switching clears assignment selection immediately; selected work-item ID/title is retained in the local draft. No generic sync or evidence upload API is invoked.
 
 **Critical integration gap:** `src/components/field/workspace.tsx` is not wired into the active Vite frontend's `frontend/src/App.tsx` route table. Root TypeScript configuration excludes the root field TSX and `app/` routes, so root build does not typecheck this prototype. Current frontend CI does not compile this field workspace. The field page is therefore not verified as runtime-ready and must be integrated into the active frontend plus a typecheck/test gate. Server sync remains blocked because existing task/evidence APIs are not a generic capture synchronization contract.
+
+
+## Active frontend integration checkpoint — 25 November 2026
+
+Field Capture is now wired into the active Vite SPA at `/field`, with navigation and role/page access registration. It reads the server-authorized Project work-item endpoint; PM project-wide results are filtered to explicitly assigned tasks. Captures include selected task ID/title, notes, optional GPS, optional validated image Blob and checksum, and are stored in the existing local queue partitioned by principal and Project. Users can delete local drafts. No server sync/upload is available and status remains local/unverified.
+
+Corrected integration commit `673a18ea9e3b6af4576eace9e0ba5076d3419fdf` passed GitHub Actions run `45619713863`: root unit/security tests, P19 contracts, migration static/release gates and dry-run, backend build/typecheck, frontend typecheck and frontend build. This proves compilation and automated gates only, not live authorization or field-device acceptance.

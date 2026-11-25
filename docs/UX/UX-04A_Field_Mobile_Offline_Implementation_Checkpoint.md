@@ -63,3 +63,9 @@ UX-04A.2 must add assignment-bound read APIs and authorization integration, then
 - Selected evidence Blob is retained in IndexedDB, with SHA-256 calculated using Web Crypto where available.
 
 This is local isolation only, not server authorization. Project/Assignment IDs remain manually entered and are not verified against membership/assignment API. Cache encryption, logout cleanup, cross-device recovery and authorized sync remain open.
+
+## CI evidence (source head)
+
+GitHub Actions Unit Tests run for code commit `b603d8a94a0df88ce5a2c61943c2cc9b98c105cc`: **PASS**. Root unit/security suite: **53 test files, 546 tests passed**. Dedicated P19 assurance: **20/20 passed**. Migration release/static gates and migration dry-run passed (dry-run; no DB connection). Backend build/typecheck, frontend typecheck and frontend build passed. This is static/CI evidence only; no live DB mutations, live HTTP/browser/mobile tests, UAT or deployment occurred. CI link: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45610841342
+
+The later commits on the branch are documentation-only. Vercel remains intentionally skipped.

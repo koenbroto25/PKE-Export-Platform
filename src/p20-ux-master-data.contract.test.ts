@@ -87,6 +87,11 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(appShell).toContain("sidebar-menu-search");
     expect(appShell).toContain("navSearch.trim()");
     expect(appShell).toContain("if (!groupItems.length) return null");
+    expect(appShell).toContain("handleProjectContextChange");
+    expect(appShell).toContain("window.confirm('Pindah Project context?");
+    expect(appShell).toContain("navigate('/')");
+    expect(appShell).toContain("PROJECT CONTEXT");
+    expect(appShell).toContain("Platform-wide");
   });
 
   it("documents role dashboard as a shared permission-gated view rather than falsely claiming every workflow is complete", () => {

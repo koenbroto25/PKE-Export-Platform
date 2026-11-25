@@ -149,7 +149,8 @@ function App() {
           <div><strong>PKE<span>CTRL</span></strong><small>EXPORT INTELLIGENCE</small></div>
           <button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Tutup menu"><X size={18} /></button>
         </div>
-        <div className="sidebar-label">NAVIGASI WORKSPACE</div>\n        <div className="sidebar-menu-search"><Search size={15}/><input value={navSearch} onChange={e => setNavSearch(e.target.value)} placeholder="Cari menu…" aria-label="Cari menu navigasi"/>{navSearch && <button type="button" onClick={() => setNavSearch("")} aria-label="Hapus pencarian"><X size={14}/></button>}</label>
+        <div className="sidebar-label">NAVIGASI WORKSPACE</div>
+        <div className="sidebar-menu-search"><Search size={15}/><input value={navSearch} onChange={e => setNavSearch(e.target.value)} placeholder="Cari menu…" aria-label="Cari menu navigasi"/>{navSearch && <button type="button" onClick={() => setNavSearch("")} aria-label="Hapus pencarian"><X size={14}/></button>}</div>
         <div className="sidebar-navigation">
         {['WORKSPACE', 'PROJECT OPERATIONS', 'CONTROL & INTELLIGENCE', 'ADMINISTRATION', 'PARTNER PORTALS'].map(group => {
           const allowedKeys = visiblePageKeys(workspaceUser || {});

@@ -1222,3 +1222,7 @@ The source checkpoint is tracked in `docs/UX/UX-04A_Field_Mobile_Offline_Impleme
 ### UX-04A hardening addendum
 
 Local field drafts now partition by authenticated principal and selected Project, with local evidence Blob and checksum. This is not equivalent to server-side authorization. Assignment and Project membership validation, secure cache lifecycle and server sync are still blockers. See the implementation checkpoint.
+
+### Dashboard/export cross-check assessment artifact
+
+Role-level dashboard coverage, open-source cross-check strategy and field-readiness status are consolidated at `docs/UX/Role_Dashboard_Coverage_Export_Crosscheck_OpenSource_FieldReadiness.md`. Dashboard coverage remains partial; export cross-check is design/partial; field readiness is not pass.

@@ -1,12 +1,12 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.62 — UX-04A offline cache and frontend performance
+# Master Implementation Plan Rev2.63 — synthetic export backtest scenario coverage
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.62 (25 November 2026 — UX-04A offline cache and frontend performance)  
+**Revision:** 2.63 (25 November 2026 — synthetic export backtest scenario coverage)  
 
 **Tanggal dokumen:** 25 November 2026  
 
@@ -10286,3 +10286,14 @@ Field Capture now persists the server-returned active work-item list in IndexedD
 ### 42.24 Active frontend performance split (25 November 2026)
 
 Large workspace modules are lazy-loaded under a route-level Suspense boundary, and the active `frontend/vite.config.js` now applies vendor chunk splitting (React/router, icons, Neon auth, validation). The TypeScript Vite config was also aligned. CI run `45623037899` on commit `cd8ef51287149bcbb08f72fa7bdc4e578e761584` **PASS**. Build output no longer has the >500 kB chunk warning: main chunk ~220 kB (50.48 kB gzip), React/vendor ~263 kB (83.57 kB gzip), and field route chunk ~12.2 kB (4.28 kB gzip); other workspaces are split into route chunks. This is build evidence only, not deployed/real-device performance. Vercel remains skipped.
+
+
+### 42.25 Owner-approved synthetic export backtest matrix — 25 November 2026
+
+Owner explicitly instructed to use extensive dummy/synthetic scenarios for full backtesting before real users operate the application. This supersedes the prior “BLOCKED_OWNER” limitation only for **non-persistent code/unit/mock simulations**. It does not authorize synthetic business data in Neon Production, additional Neon branches, local/Docker PostgreSQL, storage-provider writes, migrations, or external service calls. Existing single-Production-branch guard remains unchanged.
+
+**Implementation:** `src/simulation/export-scenario-catalog.ts` defines 20 deterministic, clearly simulation-only journeys covering baseline export, supply shortage, production shortfall, QA hold/retest, warehouse lot mismatch, truck delay, GPS denial/poor accuracy, offline capture/retry/idempotency, loading variance, unverified port capability, stale AIS/ETA, missing/expired export documents, customs/NPE pending, FX/invoice variance, cross-Project access, maker-checker self-approval, storage unavailable, buyer acknowledgement pending, HSE stop-work and incomplete onboarding/permission. Each includes expected outcome, persona, plain-language user message and next safe action.
+
+**Backtest harness:** `src/simulation/export-scenario-backtest.test.ts` checks catalog uniqueness/coverage, deterministic expected outcome, non-ready failure states, every export milestone/exception category, user-facing clarity, crosscheck quantity/text/date/presence edge cases, workflow maker-checker/QA/audit gates and Field Capture role isolation. Tests are included in `npm test` and GitHub Actions.
+
+**Initial acceptance boundary:** this is a simulation/backtest model using domain helpers and permission rules; it is not browser-driven E2E and does not prove live SQL/RLS, storage, Neon Auth, provider, sync, or mobile-device behavior. Every simulated exception must be resolved by correct safe behavior (block/review), not by forcing all scenarios to “success.” The healthy baseline alone is expected READY; exceptions must remain BLOCKED or REVIEW with clear next action.

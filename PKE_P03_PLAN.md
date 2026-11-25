@@ -1422,3 +1422,8 @@ Dependencies/blockers to register rather than fake: object-storage/evidence adap
 Field component placeholders have been replaced with a local draft-capture workspace and IndexedDB storage, including evidence Blob retention and SHA-256, GPS state handling and tests. Detailed record: `docs/UX/UX-04A_Field_Mobile_Offline_Implementation_Checkpoint.md`.
 
 **Not yet complete / blocked:** identity-bound assignment/project validation; sync API/idempotency and retries; upload and server acceptance; conflict resolution; QR/barcode; secure cache isolation; API/RLS negative tests; real-device UAT. CI is pending on the current final source commit. This is local-only prototype functionality and not a field operational release. Do not deploy or use production capture yet.
+
+
+### UX-04A scope hardening
+
+Local drafts are now partitioned by authenticated principal and selected Project, and evidence Blob/checksum are retained. This is not server-side permission validation; assignment/project membership checks and secure cache cleanup are outstanding. CI for the current revision is pending.

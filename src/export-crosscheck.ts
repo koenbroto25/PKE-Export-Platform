@@ -52,7 +52,8 @@ function dateDay(value:unknown):string|null {
   return d.toISOString().slice(0,10);
 }
 function isStale(e:CrosscheckEvidence,rule:CrosscheckRule,nowMs:number):boolean {
-  if(!rule.maxAgeMs)return false;\n  if(!e.observedAt)return true;
+  if(!rule.maxAgeMs)return false;
+  if(!e.observedAt)return true;
   const stamp=Date.parse(e.observedAt);
   return !Number.isFinite(stamp)||nowMs-stamp>rule.maxAgeMs;
 }

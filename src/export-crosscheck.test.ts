@@ -18,7 +18,8 @@ describe("export cross-check engine advisory contract",()=>{
   expect(evaluateCrosscheck({field:"qty",label:"Qty",type:"quantity"},[ev("a",2,"MT")]).status).toBe("MISSING");
  });
  it("returns STALE when evidence exceeds freshness rule",()=>{
-  expect(evaluateCrosscheck({field:"eta",label:"ETA",type:"date",maxAgeMs:3600000},[ev("a","2026-11-20",undefined,"verified","2026-11-20T10:00:00Z"),ev("b","2026-11-25",undefined,"verified","2026-11-25T10:00:00Z")],Date.parse("2026-11-25T11:00:00Z")).status).toBe("STALE");\n  expect(evaluateCrosscheck({field:"eta",label:"ETA",type:"date",maxAgeMs:3600000},[ev("a","2026-11-25",undefined,"verified",""),ev("b","2026-11-25",undefined,"verified","")]).status).toBe("STALE");
+  expect(evaluateCrosscheck({field:"eta",label:"ETA",type:"date",maxAgeMs:3600000},[ev("a","2026-11-20",undefined,"verified","2026-11-20T10:00:00Z"),ev("b","2026-11-25",undefined,"verified","2026-11-25T10:00:00Z")],Date.parse("2026-11-25T11:00:00Z")).status).toBe("STALE");
+  expect(evaluateCrosscheck({field:"eta",label:"ETA",type:"date",maxAgeMs:3600000},[ev("a","2026-11-25",undefined,"verified",""),ev("b","2026-11-25",undefined,"verified","")]).status).toBe("STALE");
  });
  it("does not treat pending or unverified sources as authoritative",()=>{
   expect(evaluateCrosscheck({field:"qty",label:"Qty",type:"quantity"},[ev("a",1,"MT"),ev("b",1,"MT","pending")]).status).toBe("EXTERNAL_CONFIRMATION_PENDING");

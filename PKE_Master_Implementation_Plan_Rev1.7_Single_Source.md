@@ -10167,3 +10167,33 @@ Source inspected in `frontend/src/App.tsx` and `frontend/src/P1WorkflowWorkbench
 - Project context picker now labels context clearly, presents Platform-wide only for Platform Admin, confirms context switching when leaving an existing Project, and returns to Dashboard after changing context.
 - CI PASS at exact commit `37bc4c5be06310d0926cdb80e6a82a1b94acfd93` / run `45607367515`: 53 test files, 546 tests passed; dedicated P19 operational assurance 20/20; release migration verification passed; backend build and typecheck passed; frontend typecheck and build passed. No deployment step was run. This is source/CI validation, not live browser, mobile, field or API/RLS acceptance.
 - UX-00–UX-03 status: **SOURCE + CI PASS for this implementation slice; HUMAN TASK UAT / MOBILE FIELD UAT BLOCKED/NOT RUN**. Do not mark full UX acceptance or P20 complete until role task acceptance and field evidence exist.
+
+
+
+## UX Rebuild Continuation — Document Control (25 November 2026)
+
+**Working branch:** `p20/platform-continuation-20261123`. **Deployment boundary:** Vercel deployment remains skipped. Production database and migration application remain out of scope without explicit authorization.
+
+The UX rebuild is governed by `docs/PKE_UX_REBUILD_MASTER_SPEC.md`. The current validated source/CI checkpoint covers UX-00 through UX-03 foundations and role navigation/dashboard contracts; it is **not** a full operational UX or field-readiness acceptance. Dashboard coverage remains partial by role, and live browser/mobile/API/RLS UAT is not certified.
+
+### Immediate next package: UX-04A Field Mobile & Offline
+
+Priority: **P0/S0 operational readiness**. This package must deliver a mobile-first field task surface for assigned tasks only, robust capture/evidence, and truthful sync state. Required capability contract:
+- assignment-scoped task list/detail; active Project/assignment context always visible;
+- capture timestamp and actor identity from trusted runtime; geolocation permission/accuracy/denied states clearly represented;
+- photo/document evidence with object-storage status, integrity metadata and retry;
+- QR/barcode scanning where supported, with manual fallback;
+- offline queue with durable pending state, idempotency keys, retry/backoff, conflict handling, duplicate prevention and explicit rejected/needs-review states;
+- signature/acknowledgement only where the existing workflow and legal/business authority support it;
+- sync states: Draft, Queued Offline, Uploading, Synced, Rejected, Conflict, Needs Review; do not display a capture as accepted until server confirmation;
+- narrow-view responsive behavior and accessible controls; avoid claiming offline support where persistence or synchronization is not implemented.
+
+### UX continuation acceptance gates
+1. Route/action inventory and UI-to-API-to-permission-to-data/workflow trace for the package.
+2. Backend-supported actions only; unsupported dependencies are visibly blocked/absent and registered.
+3. Unit/contract tests for offline queue/idempotency/conflict/sync-state semantics and access boundaries.
+4. Build/typecheck and CI pass; Vercel remains skipped.
+5. Field/browser UAT is separately marked **NOT RUN** unless test device/browser and authorized test identity are available.
+6. No migration or Production mutation without separate approval and SHA-256 verification workflow.
+
+The role-dashboard gap assessment, export cross-check tiers, open-source context and field-readiness gaps must be maintained in the UX master specification and this Master Plan. Open-source routing/geospatial/trade context is advisory; Tier 1 shipment evidence and official regulatory status remain authoritative.

@@ -2025,3 +2025,52 @@ Commit: `fdeda6bcd000f49789d26763856bcd4bdff3336d`.
 - [ ] Browser QA for PM Project 360 dependency map across roles, filters, responsive breakpoints and access-denied states.
 - [ ] Capture actual GitHub Actions run/check evidence (excluding Vercel) and fix all relevant failures.
 - [ ] Phase C typed evidence/conflict model and extended backtest pass before any live data correlation.
+
+
+## Phase B2 — typed evidence & conflict backtest (26 November 2026)
+
+### Source implementation added
+- `src/knowledge/typed-evidence-backtest.ts`: deterministic typed evidence evaluator, normalization, conflict detection, quantity reconciliation, allocation duplicate detection, over-allocation, partial shipment, freshness/expiry, event-arrival ordering, cancellation/reversal/supersession, correction references, verification, source-authority bounds, permission scope, missing evidence, and upstream blocker handling.
+- `src/knowledge/typed-evidence-backtest.test.ts`: targeted fault tests plus generated **99-case edge/fault matrix** (11 lifecycle edges × 9 fault types).
+- Root `npm test` script includes the new B2 test file.
+
+### Backtest scope authored
+- Mixed-unit normalization (g/kg/tonne/MT).
+- Contradictory evidence keys fail as conflict; source authority is not used to silently select a winner.
+- Duplicate record IDs and allocation references fail.
+- Aggregate quantity mismatch and over-allocation fail.
+- Partial shipment is a gap, not a pass.
+- Invalid quantity/unit and authority score fail closed.
+- Deterministic stale/expiry clock.
+- Event-time / receive-time reversal warning.
+- Cancelled/reversed/superseded records excluded from active evidence.
+- Correction/reversal references validated; valid superseding correction recovery tested.
+- Verification and permission-scope checks.
+- Missing required quantity groups.
+- Upstream blocked propagation and multi-edge recovery.
+- A 99-case matrix applies complete, missing, conflict, unverified, stale, duplicate allocation, partial shipment, rejected and upstream blocked scenarios to every lifecycle edge.
+
+### B2 status
+**Implementation and test authoring completed; acceptance is not yet verified.** Tests have not been executed because no repository runtime/checkout is available in this workflow. No pass claim is made. Typecheck/build and CI execution are still required to catch compiler/runtime issues.
+
+### Known limitations / explicit non-authority
+- `sourceAuthority` is metadata and range-validated; it never auto-resolves conflicting evidence.
+- Quantity groups are explicitly additive buckets; source-specific aggregation policy still needs adapter definitions to avoid mixing independent cross-check totals.
+- No live records, source APIs, AI decisions, production approval, database writes or migrations are involved.
+- Correction graph validation currently checks references and supersession selection, not full cycle detection or immutable audit-log semantics.
+- The model is a simulation contract, not an operational readiness/approval engine.
+
+### Next phase mapping
+1. Phase C Knowledge Review Queue (synthetic/read-only) — consume typed findings with role-scoped reviewer assignment, evidence provenance, correction request, and review decision boundary.
+2. Route/role registry audit and frontend/browser QA — verify every edge link, permission page key, keyboard access and responsive layout.
+3. Live adapters only after separately reviewed contracts, read-only permission scope, freshness, source authority, error/abstention, integration tests and explicit authorization.
+
+### Acceptance gates
+- [ ] Root test suite and release policy checks execute successfully.
+- [ ] Backend build/typecheck succeeds.
+- [ ] Frontend typecheck/build/tests succeed.
+- [ ] Eligible GitHub Actions checks (excluding Vercel) are captured and pass.
+- [ ] Browser QA across roles, edge filters, responsive layouts and denied access.
+- [ ] Review aggregation semantics and correction/audit-log policy before any live adapter.
+
+No Vercel deployment, Neon mutation, migration, production-data access, merge, or rebase was performed.

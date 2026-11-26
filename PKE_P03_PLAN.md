@@ -2651,3 +2651,35 @@ The real-world workflow is **PM appointment first → PM establishes Buyer agree
 
 ### Status
 This is a **business requirement correction and audit scope**, not a claim that the workflow is already implemented. Implementation status for appointment schema, creation authorization, automatic PM ownership, buyer/contract linkage, UI, portfolio, and integration tests remains to be established by source and schema audit. No Neon schema/data change is authorized by this note.
+
+
+## Source audit — appointment-first workflow gap (2026-11-26)
+
+The corrected business requirement was compared with source on P20 branch.
+
+### Verified current implementation (not aligned)
+- POST /api/v1/projects is guarded by requireAuth, requireAdmin; PM cannot create Projects through the current route.
+- Project create UI (ProjectsPage) shows the form only when activeUser.platformAdmin === true and explicitly says Admin creates the Project shell first, then PM adds Contract Program.
+- Project PM appointment route is POST /api/v1/admin/projects/:projectId/pm-appointment; appointment requires an already-existing active Project. The governance query and PM role assignment are project-scoped.
+- project_role_assignments requires a Project membership (project_member_id) and project-specific PM role (project_role_id); it cannot represent a PM appointment before any Project exists.
+- PM appointment management UI requires a selected Project and is housed in Admin's Project staffing/governance view.
+- PM workspace component is currently a placeholder (“PM Workspace”); it does not itself implement the new appointment-first create-Project/portfolio flow.
+- Project creation UI currently collects name, target quantity, settlement unit, status, and description. It does not collect Buyer agreement/contract basis as the stated creation basis.
+
+### Classification
+**Critical business-workflow mismatch / NOT IMPLEMENTED.** Current flow is Admin creates Project → Admin appoints PM to that Project → PM may create Contract Program. Required flow is Admin appoints PM at platform level → PM creates Project from Buyer agreement/contract → Project automatically links responsible PM → PM portfolio.
+
+### Required implementation slices
+A. Global PM appointment lifecycle independent of Project: active, suspended/revoked, audit actor/time/reason; allow multiple appointed PMs, each with their own authority (unless business governance later states otherwise).
+B. Authorization: PM create-Project is checked server-side against active platform appointment. Admin retains appointment governance. No client-supplied PM identity is trusted.
+C. Project creation wizard: Buyer and agreement/contract basis (agreement vs executed contract), commercial fields and evidence; validation and draft/confirmed state as policy requires.
+D. Atomic create: Project + commercial basis + responsible PM ownership + Project PM membership/role/permissions; idempotency/rollback prevents orphan records.
+E. PM portfolio: all Projects linked to current PM, with portfolio rollup and navigation; project workspace remains permission-scoped.
+F. Admin lifecycle: appoint/suspend/revoke/transfer; preserve history and require explicit audited reassignment for active Projects.
+G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration remains draft until reviewed and explicitly approved for UAT/Production.
+
+### Do not assume
+- No global PM appointment table is proven by the inspected migrations; the inspected role-assignment model is Project-scoped.
+- The current PM appointment endpoint does not meet pre-Project appointment needs.
+- Current green CI only validates existing behavior/contracts, not this new business flow.
+- No Neon migration or data change is performed as part of this audit.

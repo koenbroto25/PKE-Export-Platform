@@ -85,8 +85,8 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(dashboard).toContain("Open-source / external cross-check");
     expect(dashboard).toContain("Status record tidak berarti bukti independen sudah cocok");
     expect(dashboard).toContain("Field mobile capture & offline sync");
-    expect(dashboard).toContain("status: canViewShipping ? 'not_integrated' : 'permission'");
-    expect(dashboard).toContain("status: canViewDocuments ? 'not_integrated' : 'permission'");
+    expect(dashboard).toContain("hasPageAccess('maritime-operations', activeUser as WorkspaceAccessUser)");
+    expect(dashboard).toContain("hasPageAccess('compliance', activeUser as WorkspaceAccessUser)");
     expect(permissions).toContain("PAGE_PERMISSION_REQUIREMENTS");
     expect(appShell).toContain("sidebar-menu-search");
     expect(appShell).toContain("navSearch.trim()");

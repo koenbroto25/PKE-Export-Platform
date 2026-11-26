@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const read=(path:string)=>readFileSync(join(process.cwd(),path),"utf8");
+const migration=read("migrations/113_pm_appointment_first_project_creation.sql");
+const api=read("src/index.ts");
+const ui=read("frontend/src/App.tsx");
+
+describe("P20 appointment-first PM workflow contract",()=>{
+  it("creates global appointments independently from Projects and preserves an append-only audit trail",()=>{
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.pm_appointments");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.pm_appointment_events");
+    expect(migration).toContain("pke_admin_appoint_pm");
+    expect(migration).toContain("pke_admin_set_pm_appointment_status");
+    expect(migration).toContain("pm_appointments_one_active_user");
+    expect(migration).toContain("Platform Admin required");
+    expect(migration).toContain("PM user must be active and linked to Neon Auth");
+    expect(migration).toContain("pm_appointment_events_admin_select");
+    expect(migration).toContain("pm_appointment_events_self_select");
+  });
+  it("atomically links Project, Contract Program, buyer basis, ownership, membership, PM role and idempotency record",()=>{
+    expect(migration).toContain("pke_pm_create_project");
+    expect(migration).toContain("project_commercial_basis");
+    expect(migration).toContain("project_pm_ownership");
+    expect(migration).toContain("project_role_assignments");
+    expect(migration).toContain("pm_project_create_idempotency");
+    expect(migration).toContain("SAVEPOINT");
+    expect(migration).toContain("pke_current_user_id()");
+    expect(migration).toContain("Active global PM appointment required");
+    expect(migration).toContain("executed_contract");
+    expect(migration).toContain("buyer_agreement");
+    expect(migration).toContain("pke_pm_project_create");
+    expect(migration).toContain("idempotentReplay");
+  });
+  it("suspension and revocation remove operational PM assignments without deleting ownership history",()=>{
+    expect(migration).toContain("UPDATE public.project_role_assignments a");
+    expect(migration).toContain("status IN ('suspended','revoked')");
+    expect(migration).toContain("project_pm_ownership_events");
+    expect(migration).toContain("pke_admin_transfer_project_pm");
+    expect(migration).toContain("Only one active PM assignment per Project");
+  });
+  it("exposes authenticated appointment, portfolio, Buyer catalog, project creation and Admin governance routes",()=>{
+    expect(api).toContain("/api/v1/pm/appointment/me");
+    expect(api).toContain("/api/v1/pm/portfolio");
+    expect(api).toContain("/api/v1/pm/buyers");
+    expect(api).toContain("/api/v1/pm/projects");
+    expect(api).toContain("/api/v1/admin/pm-appointments");
+    expect(api).toContain("/api/v1/admin/projects/:projectId/pm-transfer");
+    expect(api).toContain("PM_APPOINTMENT_REQUIRED");
+  });
+  it("provides appointment-first UI, Buyer agreement/contract basis, and portfolio roll-up",()=>{
+    expect(ui).toContain("Appointment PM belum aktif");
+    expect(ui).toContain("buyer_agreement");
+    expect(ui).toContain("executed_contract");
+    expect(ui).toContain("Portfolio overview");
+    expect(ui).toContain("Global PM Appointment");
+    expect(ui).toContain("Project berhasil dibuat dan otomatis masuk portfolio PM");
+  });
+  it("migration is transaction-wrapped and contains no destructive table/schema operations",()=>{
+    expect((migration.match(/^BEGIN;$/gm)||[]).length).toBe(1);
+    expect((migration.match(/^COMMIT;$/gm)||[]).length).toBe(1);
+    expect(migration).not.toMatch(/^\s*(DROP TABLE|DROP SCHEMA|TRUNCATE)\b/im);
+  });
+});

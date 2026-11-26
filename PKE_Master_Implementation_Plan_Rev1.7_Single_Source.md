@@ -1,14 +1,14 @@
 # PKE Export Intelligence & Project Control Platform
 
-# Master Implementation Plan Rev2.19 — Single-Source Execution Edition
+# Master Implementation Plan Rev2.21 — Single-Source Execution Edition
 
 
 
 **Status:** Satu-satunya dokumen referensi dan catatan eksekusi aktif PKE — living document  
 
-**Revision:** 2.20 (22 November 2026 — P17 consolidated single-source realignment)  
+**Revision:** 2.21 (26 November 2026 — UX rebuilding program integrated; P17 baseline preserved)  
 
-**Tanggal dokumen:** 22 November 2026  
+**Tanggal dokumen:** 26 November 2026  
 
 **Repository:** `D:\PKE`  
 
@@ -6699,6 +6699,7 @@ Validasi di atas dieksekusi dalam sesi ini dengan command, timestamp dan exit co
 
 ## 32.5 Living Execution Ledger
 
+| 2026-11-26 | UX rebuilding program integrated into master plan — Rev2.21 | Reviewed the current single-source document on `phase0/reconcile-source-20261117` (content was Rev2.20 although the filename says Rev1.7). Added Section 56: role-centric information architecture, shared design system, Admin Control Center, PM Project 360, domain workspaces, full role matrix, Field Sync contract, cross-check/Control Tower, integrations, notifications/handoffs, synthetic scenarios, acceptance scorecard and release gates. Updated revision/date metadata. | GitHub blob SHA checked before replacement. Planning/design only; no source implementation, build or test pass claimed. | NONE — no Neon query/write/migration, no Production seed, no Vercel deploy, no main update/merge. | UX program is DESIGN / NOT YET IMPLEMENTED AS A COMPLETE EXPERIENCE; prior implementation statuses remain unchanged. | Execute UX-00 inventory, then UX-01 foundations; prioritize Admin and PM. Keep Field Sync and schema/auth-sensitive actions fail-closed until server-side acceptance tests pass. |
 Cline appends one concise dated entry per session to the table below. Keep newest entry first. Update or supersede facts when new evidence is obtained; do not delete historical entries.
 
 | Date | Work package | Changes performed | Verification/evidence | Production mutation | Status / blockers | Next action |
@@ -8355,3 +8356,189 @@ Read-only inspection of canonical Production confirmed:
 - Existing `buyer-projects` API is not accepted as a buyer identity boundary because it joins Project membership and accepts an optional client-supplied `buyerId`. Do not use it for buyer-facing export data.
 - No Project role or permission was expanded as part of this UI guard. Project role assignments and permission grants remain unchanged.
 - Static contract assertions were added. They are not yet executed because the deferred `npm test`/frontend validation is intentionally sequenced after the remaining P17 feature tranche.
+
+---
+
+# 56. UX REBUILDING PROGRAM — ROLE-CENTRIC OPERATIONAL EXPERIENCE (Revision 2.21 — 26 November 2026)
+
+> **DESIGN — PROPOSED.** This owner-requested planning addendum extends existing PKE domain/security specifications. It does not claim UI/API/schema implementation or acceptance. All changes must preserve Project scope, authentication, permissions, RLS, maker-checker, quantity controls and source-of-truth rules.
+
+## 56.1 Objective and UX contract
+
+Rebuild around actual user work rather than database tables or disconnected CRUD pages. Each user must quickly see assigned work, due/overdue/blocked/review queues, verified Project/export state, permitted next action, required evidence, accountable owner and event history.
+
+Every operational screen defines role, Project/record scope, permitted actions, required fields/evidence, validation, status, loading/empty/error/offline/conflict states, audit trace, responsive behavior, accessibility and test evidence. A KPI must link to a permission-filtered source and a useful next action.
+
+Never represent unknown as zero, stale as live, simulation as actual, or advisory assessment as an operational/legal clearance.
+
+## 56.2 Information architecture
+
+- **Global shell:** company/workspace identity, Project selector, role context, authorized search, notification center and account/session controls.
+- **Primary navigation:** My Work, Projects, Operations, Control Tower, Master Data, Documents, Reports, Integrations and Administration. Navigation visibility follows effective permissions and readiness; server authorization remains decisive.
+- **Persistent Project context:** code/name, buyer, product, shipment window, lifecycle state, PM, blockers and last update. Client state does not establish membership.
+- **Work queues:** status, owner, due date, Project, location/facility, severity and source freshness filters.
+- **Record workspace:** summary, workflow/timeline, evidence/documents, quantities, related records, approvals, audit history and next action.
+- **Consistent interactions:** form validation, confirmation, optimistic concurrency, conflicts, retry, notifications, pagination and clear feedback.
+
+Organize navigation by work intent, not table names. Explicitly distinguish read-only, disabled, schema-blocked, unavailable and unauthorized states.
+
+## 56.3 Shared design system
+
+Create/reuse shared primitives before large page rewrites: responsive shell/sidebar/mobile nav, breadcrumbs, Project switcher, page header, cards, tables, detail drawer, modal, tabs, stepper, timeline and activity feed; KPI with source timestamp; status/freshness badges; quantity/unit and currency display; provenance/confidence; owner/due date; evidence and approval indicators; reusable forms, inline server validation, unsaved-change warning and retry-safe actions.
+
+Feedback primitives must cover loading, actionable empty state, permission denied, integration unavailable, stale data, schema blocked, conflict, validation failure, partial success and safe retry. Accessibility includes keyboard/focus, semantic labels, contrast, screen-reader announcements, non-color-only status, touch targets, zoom/reflow and reduced motion.
+
+Use canonical cross-domain statuses where suitable: `DRAFT`, `PENDING`, `IN_PROGRESS`, `REVIEW`, `APPROVED`, `REJECTED`, `BLOCKED`, `ON_HOLD`, `COMPLETED`, `CANCELLED`, `EXPIRED`, `STALE`, `UNVERIFIED`. Map existing domain enums explicitly; do not silently rename DB values. Show status, owner and next action together.
+
+## 56.4 Admin Control Center
+
+Admin needs authorized cross-Project governance, not merely user management. Dashboard groups: portfolio health and lifecycle; overdue milestones and severe blockers; QA/inventory/transport/loading/document exceptions; pending approvals and maker-checker anomalies; unassigned work and overdue reviews; API/Auth/storage/integration availability; failed jobs, sync backlog, rate limits and source freshness; sensitive account/membership/configuration audit.
+
+Admin workspaces:
+
+1. **Portfolio Overview:** authorized cross-Project filters and drill-down.
+2. **People & Access:** account lifecycle, Project memberships, role assignments, effective permissions and supported session controls. Preserve owner D-107; do not imply MFA is enabled.
+3. **Approvals & Exceptions:** requester, independent reviewer, evidence, reason, time and decision history.
+4. **System & Integrations:** adapter status, errors, freshness, rights/limits and credential metadata; never expose secret values.
+5. **Audit & Configuration:** sensitive changes, actor, reason, before/after and permission-governed exports.
+
+Acceptance: Admin identifies highest-risk Project/exception, owner, age, evidence and next permitted action. Every KPI has a traceable source. Unknown/unavailable is not zero; unauthorized records remain inaccessible.
+
+## 56.5 PM — Project 360
+
+PM coordinates export lifecycle without taking specialist authority. Project 360 includes Project/commercial context; milestones from contract and procurement through production, QA, warehouse, allocation, transport, port/loading, survey, documents, shipment and settlement; each milestone's state, planned/actual time, owner, dependency, evidence, quantity/unit, blocker and next action; due/overdue/blocked/review/discrepancy/handoff queues; team workload/escalation; and immutable actor/time/source/reason timeline.
+
+Quantity reconciliation displays contract vs produced, QA-released, received, allocated, dispatched, loaded, surveyed and shipped quantities with units, tolerance, source and verification state. Corrections are explicit events, not silent overwrites.
+
+PM may coordinate only where authorized. PM must not self-approve maker-checker decisions, override QA/quantity holds, invent actual vessel events, post journals, execute payments or promote advisory data to authoritative evidence.
+
+Acceptance: one Project page exposes readiness, next milestone, critical blocker, owner and evidence trail; metrics drill into authorized source rows; PM does not cross approval boundaries.
+
+## 56.6 Domain workspaces
+
+All operational pages are queue/assignment-first, not unfiltered master tables.
+
+### A. Field capture and checkpoint
+
+Mobile-first assignment list, Project context and guided capture for event, quantity/unit, timestamp, relevant GPS accuracy, checklist, notes and evidence. Offline states: `LOCAL_DRAFT` → `QUEUED` → `UPLOADING` → `SYNCED`; exception states: `REJECTED`, `CONFLICT`, `RETRY_REQUIRED`, `NEEDS_REVIEW`. Show last sync, pending count and per-item failure. Server validates actor from session, Project membership, assignment, allowed transition, payload, evidence scope/checksum, idempotency and duplicates. Never show `SYNCED` before durable server acceptance. Account/Project switch, revoked access and stale cached tasks fail safely.
+
+### B. Procurement, production and QA
+
+Show supplier commitments and delivery readiness; production plans/batches/facility/input/output/yield/shift; QA samples, specification results, reviewer and disposition (`RELEASED`, `HOLD`, `REJECTED`). Preserve genealogy: source material → batch → QA → packed lot → warehouse → shipment. QA hold/reject propagates downstream; held/rejected stock cannot be allocated.
+
+### C. Warehouse and inventory
+
+Separate available, reserved, allocated, hold, rejected, damaged and in-transit stock by Project/facility/location/product/lot. Support receipt, put-away, lot verification, reservation, hold/release, picking, dispatch and movement timeline. Show unit/source/last update. Enforce over-reservation prevention server-side and transactionally; client checks are advisory. Variance lifecycle: detected → assigned → investigated → evidence → reviewed → approved/rejected → closed.
+
+### D. Transport and driver
+
+Dispatcher board covers trip, vehicle/driver, cargo, route, planned/actual schedule, ETA source timestamp, checkpoints, exceptions and POD. Driver mobile view shows assigned trip, next checkpoint, capture requirements, offline queue and escalation. GPS is supporting location evidence, not proof of custody/delivery alone. Handover records sender, receiver, quantity, time, location, evidence and acknowledgement.
+
+### E. Port, vessel and loading
+
+Board covers Project/shipment, vessel identity confidence, berth/terminal, planned window, nomination, loading queue, documents, quantity and exceptions. Separate planned, predicted, observed and actual values. IMO is preferred identity; vessel master reference is not Project assignment. AIS shows provider, source/receive timestamps, freshness (`FRESH`, `DELAYED`, `STALE`, `UNKNOWN`, `PROVIDER_UNAVAILABLE`) and rights/coverage. Never label cached/stale data live. Loading includes shift, supervisor/operator, equipment, tally tickets, partial loads, downtime, survey, variance and independent sign-off. Compatibility remains advisory absent authoritative evidence and qualified approval. No completion while critical quantity/survey/custody gates remain open.
+
+### F. Documents and export compliance
+
+Project checklist by destination/country/product/contract, with required/optional, owner and due date. Upload/review/approve/reject/expire/re-request with private storage, metadata, checksum, scoped access and download audit. Distinguish draft/uploaded/review/accepted/rejected/expired/not applicable. Regulatory results show authority, jurisdiction, effective/retrieval dates, citation and legal-review state. AI is advisory/draft only.
+
+### G. Finance, accounting and settlement
+
+Preserve P07 Finance v1.2. Role views cover RAB/budget, commitments, accruals, expense, cash planning, FX, receivables/payables and journals. Distinguish planned/approved/posted/paid/settled. A draft is not posted; a payment instruction is not execution. Keep server-side balance/period/permission/approval controls. Payment execution stays unavailable/fail-closed until owner-approved design/schema/provider exists.
+
+## 56.7 Role dashboard and access matrix
+
+Role names alone never authorize access. Effective access derives from authenticated identity, active Project membership, role assignment, explicit permission and row scope. UI visibility is convenience; API and RLS remain the security boundary.
+
+| Role | Landing view | Primary work |
+|---|---|---|
+| Admin | Portfolio Control Center | Access, governance, system health, exceptions and audit |
+| PM | Project 360 | Milestones, coordination, assignments, dependencies and handoffs |
+| Field Manager | Field Operations Board | Assignments, capture quality and exceptions |
+| Procurement | Procurement Queue | Supplier commitments and delivery readiness |
+| Checker / QA | QA Review Queue | Samples, release/hold/reject and evidence |
+| Warehouse Manager | Warehouse Control | Receipts, lots, holds, reservations and dispatch |
+| Packing Supervisor | Production & Packing | Batch, packing, yield and genealogy |
+| Master of Loading | Loading Control | Plan, tickets, tally, quantity reconciliation and authorized sign-off |
+| Loading Operator | My Loading Tasks | Assigned shift, capture, equipment and evidence |
+| Document Officer | Document Readiness | Checklist, upload, version, review and expiry |
+| Finance | Finance Overview | RAB, obligations, cash planning, FX and reports |
+| Cashier | Cash Operations | Authorized cash advance/receipt records under P07 |
+| Accounting | Ledger & Close | Journals, accounts, period, review and posting |
+| Buyer | Buyer Shipment View | Explicit grant-backed shipment projection/documents only |
+| Supplier / PKS | Supplier Commitments | Own approved orders, schedules and evidence |
+| Transporter | Dispatch & Trip Board | Assigned trips, driver, checkpoints and POD |
+| Warehouse Portal | Partner Warehouse Tasks | Contracted receipt/stock/custody scope only |
+| Terminal Representative | Terminal Operations | Assigned terminal/loading coordination |
+| Shipping Agent | Voyage & Document Handoff | Authorized nomination/port-call/document coordination |
+| Ship Master | Vessel/Port-call Updates | Assigned voyage/port-call information only |
+| Funder | Funding Portfolio | Explicitly shared funding/project/financial summaries |
+| Viewer | Read-only Overview | Authorized records only; no mutation |
+
+Every role requires acceptance of landing page, routes, permissions, Project/partner scope, allowed/prohibited actions, filters, notifications, mobile behavior, empty/loading/error states, audit visibility and negative access tests. Test external roles against cross-Project, buyer, supplier and shipment IDOR.
+
+## 56.8 Cross-check and Export Control Tower
+
+Unify discrepancy/readiness views while domain records remain source of truth. Reconcile contract ↔ procurement ↔ production ↔ QA ↔ warehouse ↔ allocation ↔ transport ↔ port/loading ↔ tally/survey ↔ documents/customs evidence ↔ shipment ↔ settlement. Each rule records version, scope, severity, source fields, comparison, tolerance, evidence and authoritative reviewer.
+
+Outcomes: `PASS`, `REVIEW`, `BLOCK`, `UNVERIFIED`, `STALE`, `NOT_APPLICABLE`. Findings show source rows, values/units, tolerance, time/freshness, evidence, owner, due date and resolution. Lifecycle: detected → assigned → investigating → evidence → proposed resolution → review → approved/rejected → closed. External advisory data can trigger review, never authorize loading/compliance/settlement. Missing source means `UNAVAILABLE/UNKNOWN`, never zero or assumed pass.
+
+## 56.9 Integration Center, notifications and handoffs
+
+Integration cards show purpose, owner, provider, entitlement, availability, credential metadata, last success/failure, rate limits, source time and freshness. States: `CONNECTED`, `DEGRADED`, `RATE_LIMITED`, `ERROR`, `DISCONNECTED`, `EXPIRED`, `UNAVAILABLE`, `STALE`, `NOT_CONFIGURED`. Failures create scoped actionable work with correlation ID, bounded retry, owner and impact. Never expose secrets/raw sensitive payloads.
+
+Notifications are event-driven, Project/role-scoped, deduplicated, prioritized and actionable. Read/unread does not change business state. Handoff records include sending/receiving role, required response/evidence, sent/due time, acknowledgement and escalation. A notification alone is not accepted handoff.
+
+## 56.10 UX-04A Field Capture and Sync contract
+
+Existing local draft/cache/evidence is incomplete until real server sync and receipt behavior is verified.
+
+Server sequence: (1) authenticate actor from server session; ignore client actor; (2) verify Project membership, active permission, assignment and allowed transition; (3) validate payload, fields, quantity/unit/range, timestamp and applicable GPS; (4) validate evidence against private storage scope, metadata, size/type, checksum and ownership; (5) actor-scoped idempotency and canonical request hash—same key/same payload returns prior receipt, same key/different payload conflicts; (6) enforce duplicate event rules, optimistic concurrency and invariants transactionally; (7) persist event/evidence links atomically where supported; (8) return server event ID, actor, Project, task, accepted time, hashes, resulting state and review requirement.
+
+Never silently overwrite server state with an old offline draft. Explain client/server versions and offer only permission-valid merge/resubmit/review. Retry transient failures with same key for unchanged payload. Expired/revoked membership or reassignment blocks upload but safely preserves local draft. Test commit timeout, duplicate submit, partial evidence, checksum mismatch, storage outage, stale assignment, revoked permission, account switch and conflict.
+
+Acceptance target: 20+ normal/offline/retry/conflict cases and 20+ auth/permission/Project negative cases; device reconnect tests; proven server idempotency; no SYNCED before receipt; no data loss on refresh/crash/account switch; no cross-Project evidence exposure. Any schema need requires canonical Production reconciliation, exact SQL/SHA/preflight/rollback and explicit owner approval. Reuse eligible existing tables; never bypass RLS.
+
+## 56.11 Work packages, order and exit gates
+
+| Order | Package | Scope | Exit gate |
+|---:|---|---|---|
+| 1 | UX-00 Source inventory | Route/page/component/API/permission/schema-to-role/workflow map; dead links, duplicates and orphan actions | Evidence-backed inventory |
+| 2 | UX-01 Design system | Shell, nav, Project context, shared data/form/feedback primitives | Component, responsive and accessibility tests |
+| 3 | UX-02 Role navigation | My Work, role landing pages, permission-aware routes | Role × route × action matrix and negative tests |
+| 4 | UX-03 Admin | Portfolio, people/access, approvals, exceptions, integrations and audit | Source-grounded/drillable metrics and scope tests |
+| 5 | UX-04 PM | Project 360, milestones, quantities, blockers, team/handoffs | Project source map and PM permission acceptance |
+| 6 | UX-04A Field | Mobile/offline capture, server sync, evidence, idempotency, receipt/conflict | Real server round-trip and negative tests |
+| 7 | UX-04B Production/QA | Batch genealogy, samples, disposition and hold propagation | Released-only inventory verified |
+| 8 | UX-04C Warehouse/Transport | Lots, custody, trips, checkpoints and POD | Transactional quantity/custody acceptance |
+| 9 | UX-04D Port/Loading | Port call, tickets, survey and reconciliation | Freshness, Project linkage, quantity and maker-checker gates |
+| 10 | UX-05 Cross-check | Rules, provenance, tolerance, severity, owner and closure | Rule tests and stale/unverified behavior |
+| 11 | UX-06 Integrations | Provider rights, freshness, errors and retry | Provider contract and unavailable-state tests |
+| 12 | UX-07 Notifications/handoffs | Scoped notifications, acknowledgement and escalation | Dedup/actionable notification tests |
+| 13 | UX-08 Role completion | Internal/external roles and Viewer | Role-by-role acceptance |
+| 14 | UX-09 Reports/audit | Project/export/operational/finance reports and event history | Source trace and permission tests |
+| 15 | UX-10 Usability/accessibility/performance | Desktop/tablet/mobile, keyboard, contrast, load and recovery | Automated + hands-on evidence |
+| 16 | UX-11 Synthetic backtest | Full lifecycle representative scenarios | Critical scenarios pass; no Production business seed |
+| 17 | UX-12 Release regression | Frontend/backend/API/RLS/contract/evidence | No S1/S2 UX/workflow/security blockers |
+
+Priority: UX-00/01 foundation; UX-02/03 Admin/04 PM next (management priority); then Field, Production/QA, Warehouse/Transport, Port/Loading; then Cross-check, Integrations, Notifications; finally all-role completion, reporting, accessibility/performance, synthetic backtest and full regression. Build Admin/PM incrementally with honest readiness indicators.
+
+## 56.12 Synthetic scenario and backtest requirements
+
+Target 100+ variations covering happy path; supplier delay/shortfall/spec mismatch; production yield variance; QA hold/reject; duplicate receipt/over-reservation/damage/count variance; missed transport checkpoint/GPS outage/reassignment/POD rejection; vessel identity conflict/stale AIS/partial loading/duplicate ticket/survey variance/custody gap; missing/expired/wrong-version documents; FX/journal control; cross-Project/partner IDOR; expired/revoked membership; provider timeout/quota/credential expiry; storage outage/partial upload/duplicate webhook; unassigned/overdue work, rejected handoff and escalation.
+
+Each scenario records fixture ID, precondition, acting role, expected state/action, prohibited action, event/audit assertion and cleanup/rollback. Use permitted mocks or explicitly authorized transaction-and-rollback tests on the single canonical Production branch only. Never create Neon branches/local databases or seed fake business data in Production. Mark outputs `SIMULATION`; never feed real-world ranking/operational selection. Target count is not execution evidence.
+
+## 56.13 UX acceptance scorecard
+
+A role/workflow is PASS only with evidence for: discoverability of assigned/urgent work; clear status/quantity/unit/owner/due/source/freshness; valid actions and server-rejected prohibited actions; actor/time/source/reason/evidence/reviewer trace; loading/empty/validation/denied/offline/stale/conflict/unavailable/recovery states; Admin/PM/Finance desktop, Warehouse/Production/Port tablet and Field/Driver/Loading mobile; keyboard/focus/labels/contrast/announcements/touch/zoom; bounded lists/pagination/performance; direct URL/API, IDOR, cross-Project/partner, revoked access and maker-checker negatives; and automated plus runtime/browser or approved manual UAT evidence recorded in Section 32. Static assertion or screenshot alone does not prove server permission/workflow acceptance.
+
+## 56.14 UX COMPLETE and release blockers
+
+UX COMPLETE requires: all role routes/actions audited; Admin and PM accepted; real Field server sync receipt/conflict/idempotency; domain evidence gates; explainable/closable discrepancies; accurate integration/notification/handoff/reporting/audit; 100+ targeted and actually evidenced scenario variations; desktop/tablet/mobile usability/accessibility; no S1/S2 security/scope/integrity/duplicate/silent-overwrite/misleading-status defects; and exact-candidate frontend/backend builds, typechecks and tests.
+
+Blockers include false SYNCED; unauthorized visible/accepted action; client-trusted actor/Project/buyer; cross-Project exposure; stale labelled live; unknown shown as zero/pass; QA hold bypass; over-allocation; custody without acknowledgement; loading with critical variance; fake payment success; untraceable approval; non-idempotent retry; destructive conflict overwrite; or schema mismatch hidden by UI success.
+
+## 56.15 Integration with P01–P20 and existing governance
+
+This UX program does not replace P01–P20, P07 Finance v1.2, P15–P18 domain specifications, Section 32 owner decisions or Production migration governance. It translates them into complete user journeys. UX package IDs are cross-references, not migration numbers or automatic permission grants. P17 source provenance/advisory/AIS/Project identity/schema/buyer-grant gates remain binding. P18 legal/RAG boundaries remain binding; owner-excluded RAG ingestion/chatbot work is not reopened. Finance preserves P07 and payment restrictions. Schema needs must be reconciled to canonical Production and receive exact SQL/hash/preflight/rollback plus explicit approval before apply. Vercel deploys remain skipped. This addendum performs no Production mutation, migration, dummy seed, branch reconciliation or merge.

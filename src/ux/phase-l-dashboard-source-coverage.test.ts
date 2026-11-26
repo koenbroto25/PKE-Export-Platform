@@ -9,6 +9,9 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
  it("keeps source failures and missing payloads unknown instead of zero",()=>{
   expect(dashboard).toContain("sourceFailed");
   expect(dashboard).toContain("hasOwnProperty.call(data, key)");
+  expect(dashboard).toContain("Array.isArray(rows) ? fmt(rows.length) : '—'");
+  expect(dashboard).toContain("!Array.isArray((data.apInvoices as RecordData)?.apInvoices)");
+  expect(dashboard).toContain("!Array.isArray((data.contracts as RecordData)?.contracts)");
   expect(dashboard).toContain("? '—' : fmt");
   expect(dashboard).toContain("errors.push");
   expect(dashboard).toContain("state.errors");

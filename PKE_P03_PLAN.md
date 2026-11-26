@@ -1644,3 +1644,10 @@ The `frontend/src` directory listing on this exact branch contains only these pa
 The current frontend is therefore materially monolithic: `App.tsx` is 278 KB and includes numerous page functions. This should be treated as a maintainability/UX delivery risk, but refactoring is not automatically justified; first map dependencies, state ownership, API helpers and route guards, then extract incrementally with regression tests. The minimal Project Detail component evidence remains consistent with UX-04: it currently loads `GET /projects/:id/detail` and displays the project ID plus loading/error states; richer lifecycle Project 360 is not evidenced in that function.
 
 The exact package scripts were verified in `frontend/package.json`, but build/typecheck are not run. The updated plan file is documentation-only.
+
+
+## UX-05 route/page inventory — 26 November 2026
+
+Added source-verified route inventory artifact: `docs/audits/UX-05_ROUTE_PAGE_INVENTORY_2026-11-26.md` (commit `586b034aafdcd24763e8e140f732189cdbaa7165`). It records 30 Route declarations and their RoleGuard keys, identifies 48 function declarations in App.tsx, and lays out P0 direct-route/scope/partner IDOR tests and P1 navigation/lifecycle/architecture risks.
+
+The route inventory is source extraction only. It is not runtime proof of role authorization or route health. The frontend monolith remains ~278 KB. Continue route→page→API→permission mapping and obtain an executable checkout before source changes/build/test. No DB, Vercel, merge/rebase, main or code changes.

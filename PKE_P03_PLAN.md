@@ -1964,3 +1964,14 @@ Commits: `631c51600148c393ea847fc9935b49d6ff9254f2`, `21dcfb5e674b2daddbcb0b3b77
 Commits: `f81a3ef746c6ef8efc00f637430dc9b880ad1b65`, `44f20807b426157c47a18f6a5d4d4e52f1583062`, `8dcf2e8af91694532bfebfb93f050da25aa9a783`, `4e298fffb62e5195d93071c9ff9874ce3966b870`.
 
 **Phase B status: deterministic matrix and assertions implemented; verification pending.**
+
+
+### Phase A4 checkpoint — dependency map usability (26 November 2026)
+
+- [x] Added status summary counters to the PM Project 360 dependency map: total visible, gaps, blocked, stale, unknown, evidence-complete.
+- [x] Added status filter and filtered-empty state.
+- [x] Responsive styling for desktop/tablet/mobile.
+- [x] Filtering does not bypass API permission filtering or add data access.
+- [ ] Frontend typecheck/build and browser QA pending; no pass claim.
+
+Commit: `1df30d9542553dda4cdd7633ace197c7876282ed` (component), `782dd557353499b37b39a04dc8b2975ed458351f` (styles), `2f5e361344627651ef059f300045616612236d70` (report).

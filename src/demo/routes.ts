@@ -1,6 +1,6 @@
 ﻿import type { Express, Request, Response } from "express";
 import { getDemoState, resetDemoState, nextDemoId, touchDemoState, demoPermissionsForRole } from "./store.ts";
-import { demoRequireAuth, demoRequireProjectPermission, registerDemoAuthRoutes } from "./auth.ts";
+import { demoRequireAuth, demoRequireAdmin, demoRequireProjectPermission, registerDemoAuthRoutes } from "./auth.ts";
 
 function ok(res: Response, body: any) { return res.json(body); }
 function created(res: Response, body: any) { return res.status(201).json(body); }
@@ -15,7 +15,7 @@ function projectById(id: string) {
 export function registerDemoApiRoutes(app: Express) {
   registerDemoAuthRoutes(app);
 
-  app.post("/api/v1/demo/reset", demoRequireAuth, (req: Request, res: Response) => {
+  app.post("/api/v1/demo/reset", demoRequireAuth, demoRequireAdmin, (req: Request, res: Response) => {
     resetDemoState();
     ok(res, { ok: true, reset: true, demo: true });
   });

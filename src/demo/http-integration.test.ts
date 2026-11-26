@@ -93,7 +93,7 @@ describe("Manual Trial Mode HTTP integration — in-memory only", () => {
     expect(created.body.code).toBe("DEMO_PERMISSION_REQUIRED");
     const reset = await request("/api/v1/demo/reset", auth(viewer, { method: "POST", body: "{}" }));
     expect(reset.status).toBe(403);
-    expect(reset.body.code).toBe("DEMO_ADMIN_REQUIRED");
+    expect(reset.body.code).toBe("DEMO_ADMIN_REQUIRED");\n    const documentRead = await request("/api/v1/projects/DEMO-PROJECT-0001/documents", auth(viewer));\n    expect(documentRead.status).toBe(403);\n    expect(documentRead.body.code).toBe("DEMO_PERMISSION_REQUIRED");\n    const documentReview = await request("/api/v1/documents/DEMO-DOC-0001", auth(viewer, { method: "PATCH", body: JSON.stringify({ status: "approved" }) }));\n    expect(documentReview.status).toBe(403);\n    expect(documentReview.body.code).toBe("DEMO_PERMISSION_REQUIRED");
     const admin = await login("admin");
     const resetOk = await request("/api/v1/demo/reset", auth(admin, { method: "POST", body: "{}" }));
     expect(resetOk.status).toBe(200);

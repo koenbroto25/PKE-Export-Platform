@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { UXPanel, UXMetric, UXStateBadge, UXFreshness, UXEmpty } from './UXFoundation';
 import './UXFoundation.css';
 import CrossProcessDependencyPanel from './CrossProcessDependencyPanel';
+import KnowledgeReviewQueuePanel from './KnowledgeReviewQueuePanel';
 
 type Row = Record<string, any>;
 type SourceBlock = { rows?: Row[]; loading?: boolean; error?: string; label: string; available?: boolean; authorized?: boolean };
@@ -63,6 +64,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
       })}</div>
     </UXPanel>
     <CrossProcessDependencyPanel projectId={projectId} allowedPages={allowedPages} />
+    <KnowledgeReviewQueuePanel />
     <UXPanel title="Evidence snapshot" subtitle="Counts are source records only; no quality, quantity, release, or settlement conclusion is made from counts.">
       <div className="ux-metric-grid">{evidenceSummary.map(x=><UXMetric key={x.key} label={x.label} value={x.count} detail="Records found" state={metricState(x.key)}/>)}</div>
       {!contracts.length&&!programs.length&&!tasks.length&&!lots.length&&!trips.length&&!docs.length&&!requirements.length && <UXEmpty title="Evidence belum tersedia" description="Source belum mengembalikan record. Ini tidak berarti tahap gagal atau lulus; status harus diverifikasi dari workspace sumber."/>}

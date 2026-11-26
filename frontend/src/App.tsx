@@ -2427,7 +2427,7 @@ function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; o
     <PageTitle eyebrow="PROJECT WORKSPACE" title={detail.data?.project?.name || 'Project 360'} subtitle="Lifecycle, dependency, evidence and next-action view for the selected export project." actions={<button className="secondary-button" onClick={()=>navigate('/projects')}><ArrowLeft size={16}/> Kembali</button>}/>
     {detail.loading ? <Loading text="Memuat project dan source terkait…"/> : detail.error ? <ErrorState message={detail.error} retry={detail.refresh}/> : <>
       <div className="form-actions project-detail-actions">{hasProjectPermission("project.update", activeUser) && <ActionButton onClick={() => navigate("/projects/" + id + "/edit")}>Edit Project</ActionButton>}{hasProjectPermission("project.configuration.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/configuration")}>Konfigurasi</ActionButton>}{hasAnyProjectPermission(["project.members.view", "project.members.manage"], activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/members")}>Anggota</ActionButton>}{hasProjectPermission("project.roles.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/roles")}>Role</ActionButton>}</div>
-      <PMProject360 project={detail.data?.project} sources={sources} projectId={id||''} freshness={sourceFreshness}/>
+      <PMProject360 project={detail.data?.project} sources={sources} projectId={id||''} freshness={sourceFreshness} allowedPages={visiblePageKeys(activeUser || {})}/>
     </>}
   </div>;
 };

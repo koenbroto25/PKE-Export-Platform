@@ -18,7 +18,7 @@ describe("Dependency summary HTTP integration — synthetic permission-filtered 
  beforeAll(async()=>{
   const app=express();
   registerDependencySummaryRoute(app,{
-   requireAuth:(req:any,res:any,next:any)=>{const token=req.headers.authorization?.replace(/^Bearer\\s+/i,"");const role=token?.startsWith("SIM-")?token.slice(4):null;if(!role||!rolePermissions[role])return res.status(401).json({code:"AUTHENTICATION_REQUIRED"});req.user={id:"SIM-USER-"+role,role};next();},
+   requireAuth:(req:any,res:any,next:any)=>{const token=req.headers.authorization?.replace(/^Bearer\s+/i,"");const role=token?.startsWith("SIM-")?token.slice(4):null;if(!role||!rolePermissions[role])return res.status(401).json({code:"AUTHENTICATION_REQUIRED"});req.user={id:"SIM-USER-"+role,role};next();},
    requireProjectPermission:async(req:any,res:any,projectId:string,permission:string)=>{if(projectId!==PROJECT)return res.status(404).json({code:"PROJECT_NOT_FOUND"}),false;if(!rolePermissions[req.user.role].includes(permission))return res.status(403).json({code:"PROJECT_PERMISSION_REQUIRED"}),false;return true;},
    hasProjectPermission:async(req:any,_projectId:string,permission:string)=>{if(req.headers["x-sim-permission-failure"]==="1")throw new Error("Synthetic permission lookup failure");return rolePermissions[req.user.role].includes(permission);},
   });

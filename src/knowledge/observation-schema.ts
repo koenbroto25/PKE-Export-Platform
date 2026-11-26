@@ -54,7 +54,7 @@ export function validateObservation(o:KnowledgeObservation):string[]{
  if(!o.entityType.trim())errors.push("entityType is required");
  if(!o.claimType.trim())errors.push("claimType is required");
  if(!o.sourceId.trim())errors.push("sourceId is required");
- if(!/^https?:\\/\\//.test(o.sourceUrl))errors.push("sourceUrl must be HTTP(S)");
+ if(!(o.sourceUrl.startsWith("http://")||o.sourceUrl.startsWith("https://")))errors.push("sourceUrl must be HTTP(S)");
  if(!o.publisher.trim())errors.push("publisher is required");
  if(!Number.isFinite(o.confidence)||o.confidence<0||o.confidence>1)errors.push("confidence must be between 0 and 1");
  if(!o.confidenceReason.trim())errors.push("confidenceReason is required");

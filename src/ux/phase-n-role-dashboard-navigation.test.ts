@@ -30,5 +30,6 @@ describe("Phase N role-dashboard navigation route coverage",()=>{
   expect(roleDashboard).toContain("item.status === 'permission' || !hasPageAccess(ROLE_LINK_PAGE_KEYS[item.href], activeUser as WorkspaceAccessUser)");
   expect(roleDashboard).toContain("Field mobile capture & offline sync");
   expect(roleDashboard).toContain("href: '/field'");
+  for (const role of ["pks_site_manager","production_manager","packing_supervisor","qc_officer","qa_manager","laboratory_officer","hse_officer","warehouse_manager","warehouse_officer","transport_manager","dispatcher","transporter","checker","driver","master_of_loading","loading_supervisor","loading_operator","terminal_representative","shipping_agent","marine_surveyor"]) { const roleLine = roleDashboard.split("\n").find(line => line.trim().startsWith(role + ":")); expect(roleLine).toContain("to: '/field'"); }
  });
 });

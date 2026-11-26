@@ -248,10 +248,13 @@ BEGIN
   UPDATE public.project_role_assignments SET is_active=false,revoked_at=now(),revoked_by=v_actor,revoke_reason=p_reason,updated_at=now()
    WHERE project_id=p_project_id AND user_id=v_old.pm_user_id AND project_role_id=v_role.id AND is_active=true AND revoked_at IS NULL;
  END IF;
- SELECT * INTO v_member FROM public.project_members WHERE project_id=p_project_id AND user_id=p_new_pm_user_id AND is_active=true FOR UPDATE;
+ SELECT * INTO v_member FROM public.project_members WHERE project_id=p_project_id AND user_id=p_new_pm_user_id ORDER BY joined_at DESC LIMIT 1 FOR UPDATE;
  IF NOT FOUND THEN
   INSERT INTO public.project_members(project_id,user_id,project_role_id,is_active,joined_at,updated_at)
   VALUES(p_project_id,p_new_pm_user_id,NULL,true,now(),now()) RETURNING * INTO v_member;
+ ELSE
+  UPDATE public.project_members SET is_active=true,deactivated_at=NULL,deactivated_by=NULL,expires_at=NULL,updated_at=now()
+   WHERE id=v_member.id RETURNING * INTO v_member;
  END IF;
  INSERT INTO public.project_role_assignments(project_id,project_member_id,user_id,project_role_id,is_active,assigned_at,assigned_by)
  VALUES(p_project_id,v_member.id,p_new_pm_user_id,v_role.id,true,now(),v_actor) RETURNING * INTO v_assignment;
@@ -309,6 +312,7 @@ AS $fn$
  LEFT JOIN public.project_commercial_basis cb ON cb.project_id=p.id
  LEFT JOIN public.buyers b ON b.id=cb.buyer_id
  WHERE o.pm_user_id=public.pke_current_user_id() AND p.is_active=true
+   AND EXISTS(SELECT 1 FROM public.pm_appointments a WHERE a.user_id=o.pm_user_id AND a.status='active')
  ORDER BY p.updated_at DESC;
 $fn$;
 

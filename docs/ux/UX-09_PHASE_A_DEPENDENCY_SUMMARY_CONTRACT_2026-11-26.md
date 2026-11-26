@@ -83,3 +83,12 @@ Authentication, UUID validation, explicit demo mode, synthetic provenance, permi
 
 ### Status
 Source wiring is implemented, but frontend build/typecheck and browser QA are **not verified**. API is demo-only and returns synthetic empty evidence. Live data, persistence, and operational readiness remain out of scope.
+
+
+## Phase A4 — PM UX usability refinement
+
+- Added summary counters for total visible edges, evidence gaps, blocked, stale, unknown, and evidence-complete.
+- Added a status filter so PM can focus on a specific blocker class without losing the lifecycle map.
+- Added empty-filter state and responsive styling for desktop/tablet/mobile.
+- Filter operates only on summaries already authorized by the API; it does not change or broaden permissions.
+- **Verification pending:** frontend typecheck/build and browser QA have not been executed.

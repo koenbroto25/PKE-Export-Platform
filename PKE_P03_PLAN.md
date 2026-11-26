@@ -2474,3 +2474,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 
 ## Executive Overview regression assertion correction — 2026-11-26
 - Run `45834036358` failed one regression assertion because the source uses double-quoted em-dash JSX literal while the assertion expected single quotes; 764/765 tests passed. Corrected the assertion in `879d54a3c837ea0c29a49d8c9a481fd0cca765c4`. Source/build commits `28ab8435c365b339fe86adf668800538923f2546`, `f56f55feb037f7385801e235b3983e6b82a405d7`, `624155f4c79bbaaf1012f8090746550e36865f27`, `0fdb9a83dd10131f93dde3649c8cf68bc46c3477`, `cc603058d1bef2f147ead92d7245b94cfd24559f` individually passed CI. Full regression pending.
+
+
+## Executive Overview project table numeric integrity — 2026-11-26
+- Missing target quantity in project list was formatted as numeric zero. Corrected to em-dash while explicit zero remains numeric.
+- Regression assertion added; CI pending.

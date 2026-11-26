@@ -23,7 +23,8 @@ export default function PMProject360({ project, sources, projectId, freshness, a
   const canOpen = (page:string) => allowedPages.includes(page);
   const contracts=sourceRows('contracts'), programs=sourceRows('programs'), tasks=sourceRows('tasks'), lots=sourceRows('inventory'), trips=sourceRows('trips'), docs=sourceRows('documents'), requirements=sourceRows('requirements');
   const allErrors=Object.values(sources).filter(s=>s.error).map(s=>s.label+': '+s.error);
-  const metricState=(key:string):'partial'|'unknown'|'unavailable' => { const s=sources[key]; if(!s||s.loading||s.error||s.authorized===false) return 'unknown'; return s.available===false?'unavailable':'partial'; };\n  const evidenceSummary = [
+  const metricState=(key:string):'partial'|'unknown'|'unavailable' => { const s=sources[key]; if(!s||s.loading||s.error||s.authorized===false) return 'unknown'; return s.available===false?'unavailable':'partial'; };
+  const evidenceSummary = [
     {label:'Contract',count:contracts.length+programs.length,key:'contracts'},
     {label:'Task / blocker',count:tasks.length,key:'tasks'},
     {label:'Inventory lot',count:lots.length,key:'inventory'},

@@ -183,3 +183,12 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - PM cockpit shortcuts (Task Inbox, Contract, Operations, Port, Maritime, Compliance, Finance and Reports) are now gated through `hasPageAccess`; denied items display a permission explanation instead of a clickable dead-end.
 - Platform Admin's Reports shortcut is gated; when Project-scoped report permission is absent, the dashboard explains that the Control Tower is already available on the dashboard and reports require Project context.
 - Regression assertions added for Admin/PM shortcut permission gates. The first Platform Admin conditional edit had a JSX closing-brace error caught by CI and corrected in commit `7e714033dad0ea811881cf1c2f9159ded2dd68c3`. CI for this latest correction is pending.
+
+
+## Canonical readiness permission + dashboard source integrity validation — 2026-11-26
+- Readiness visibility now uses canonical `hasPageAccess` gates for all workspace stages rather than separate raw permission expressions. Field Capture, Port/Maritime, PM, Finance/Accounting visibility is consistent with the actual route gate.
+- Readiness deep-links choose the workspace variant accessible to the active user (Workflow Center vs Operations; Maritime vs Port Network; Finance vs Journal Entries). Links remain permission-filtered by page mapping.
+- Dashboard count helper and combined count guards prevent absent/non-array payloads from appearing as zero. Field Capture readiness accurately describes implemented local draft capabilities and unavailable server sync.
+- Latest CI run `45827726923`, commit `f509a9c6b5a5b0a7ea060f2e85de47f5fd0161dd`: SUCCESS — 80 test files / 749 tests; P19 assurance 20/20; release/migration policy checks and dry-run; backend/frontend typecheck and builds PASS.
+- Earlier CI failures in this audit were caught and fixed: stale test expectations and a JSX/TypeScript syntax error. No failed source state remains at the verified commit.
+- The audit has corrected several dashboard navigation/data-truth issues, but this is not final acceptance: continue role task workflow and lifecycle correlation audit, then backtest normal/exception/recovery paths. Persisted integration, browser E2E, storage sync and live AI remain environment gates.

@@ -14,11 +14,25 @@ const ROLE_META_KEYS=new Set([...EXPORT_SIMULATION_SCENARIOS.map(s=>s.persona)].
 const NOW=Date.parse("2026-11-25T12:00:00Z");
 describe("PKE simulated export backtest catalog",()=>{
  it("contains at least 20 deterministic, uniquely keyed realistic scenarios",()=>{
-  expect(EXPORT_SIMULATION_SCENARIOS.length).toBe(135);
+  expect(EXPORT_SIMULATION_SCENARIOS.length).toBe(165);
   expect(EXPORT_SIMULATION_SCENARIOS.filter(s=>s.category==='synthetic-matrix').length).toBe(84);
+  expect(EXPORT_SIMULATION_SCENARIOS.filter(s=>s.sourceRefs?.length).length).toBe(30);
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.id)).size).toBe(EXPORT_SIMULATION_SCENARIOS.length);
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.category)).size).toBeGreaterThanOrEqual(10);
   for(const s of EXPORT_SIMULATION_SCENARIOS){expect(s.simulationOnly).toBe(true);expect(s.description.length).toBeGreaterThan(20);expect(s.userFacingMessage.trim()).not.toBe("");expect(s.nextAction.trim()).not.toBe("");}
+ });
+ it("contains 30 researched PKE scenarios with provenance and AI-oriented tags",()=>{
+  const researched=EXPORT_SIMULATION_SCENARIOS.filter(s=>s.id>="SIM-136"&&s.id<="SIM-165");
+  expect(researched).toHaveLength(30);
+  for(const s of researched){
+   expect(s.simulationOnly).toBe(true);
+   expect(s.sourceRefs?.length).toBeGreaterThan(0);
+   expect(s.aiUseTags?.length).toBeGreaterThan(0);
+   expect(s.dataConfidence).toBeTruthy();
+   expect(s.expectedOutcome).not.toBe("ready");
+  }
+  expect(researched.some(s=>s.aiUseTags?.includes("customs-amendment"))).toBe(true);
+  expect(researched.some(s=>s.aiUseTags?.includes("source-conflict"))).toBe(true);
  });
  it("contains a deterministic stage × fault matrix for all 12 stages and 7 exception states",()=>{
   const matrix=EXPORT_SIMULATION_SCENARIOS.filter(s=>s.category==="synthetic-matrix");

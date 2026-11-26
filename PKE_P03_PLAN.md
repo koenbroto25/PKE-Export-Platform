@@ -2368,3 +2368,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Verified commit `983bc76056dd586d9241677869e20c6526ee0365`, CI run `45830044738`: SUCCESS — 80 test files / 755 tests passed; backend/frontend build and typecheck, P19 assurance, release policy checks PASS.
 - Role visibility and action authority are now distinct in the simulation. PM can inspect all stages within its project and manage the contract stage, but cannot execute operational stage actions. Field user can capture evidence but cannot approve/advance lifecycle. Stage actions are limited to explicit owner-role stage maps, same-project human actor, and ready state.
 - Regression coverage includes PM read-only oversight, field evidence-only behavior, Dispatcher transport action, and role-specific action matrix. This is synthetic assurance; actual API/RLS remains a separate gate.
+
+
+## Role-action ownership validation checkpoint — 2026-11-26
+- Verified commit `01832d0545eae3152889f2c94481acc0628a1db2`, CI run `45830336728`: SUCCESS — 80 test files / 756 tests passed.
+- PM may manage contract stage only; direct operational stage execution remains assigned to operational roles. Field capture role is evidence-only. Admin and reviewer cannot execute lifecycle stages.
+- New matrix test ensures all 12 lifecycle stages have at least one explicit operational owner, and Admin/Reviewer/Field User have no stage-action authority. Additional assertion run is pending.

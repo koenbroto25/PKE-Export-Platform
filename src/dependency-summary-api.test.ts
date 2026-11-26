@@ -45,6 +45,12 @@ describe("demo dependency summary API route",()=>{ it("has an explicit permissio
   expect((await h.invoke({user:{id:"u1"},params:{projectId:PROJECT},query:{}})).status).toBe(400);
   expect((await h.invoke({user:{id:"u1"},params:{projectId:PROJECT},query:{mode:"demo"}})).status).toBeUndefined();
  });
+ it("denies authenticated users without project.view",async()=>{
+  const h=harness(["contract.view"]);
+  const response=await h.invoke({user:{id:"u1"},params:{projectId:PROJECT},query:{mode:"demo"}});
+  expect(response.status).toBe(403);
+  expect(response.body.code).toBe("PROJECT_PERMISSION_REQUIRED");
+ });
  it("labels response synthetic and never live/approved",async()=>{
   const h=harness();
   const response=await h.invoke({user:{id:"u1"},params:{projectId:PROJECT},query:{mode:"demo"}});

@@ -52,6 +52,13 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(adminControl).toContain("projectSourceAvailable && projectRows.length===0");
   expect(adminControl).toContain("Project source belum terverifikasi");
   expect(adminControl).toContain("key={p.id || p.name || index}");
+  expect(adminControl).toContain("const canOpen = (page:string) => allowedPages.includes(page)");
+  expect(adminControl).toContain("canOpen('access') ? <Link");
+  expect(adminControl).toContain("canOpen('projects') ? <Link");
+  expect(adminControl).toContain("canOpen('my-work') ? <Link");
+  expect(adminControl).toContain("canOpen('reports') ? <Link");
+  expect(adminControl).toContain("canOpenProjectDetail ? <Link");
+  expect(app).toContain("allowedPages={visiblePageKeys(activeUser || {})} canOpenProjectDetail={hasPageAccess('project-detail', activeUser || {})}");
   expect(adminControl).toContain("typeof p.id === 'string' && p.id ? <Link");
  });
 

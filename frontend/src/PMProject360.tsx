@@ -6,20 +6,21 @@ import './UXFoundation.css';
 type Row = Record<string, any>;
 type SourceBlock = { rows?: Row[]; loading?: boolean; error?: string; label: string; available?: boolean; authorized?: boolean };
 const stages = [
-  { name:'Contract & Buyer', key:'contracts', description:'Contract, buyer terms, quantity, pricing, and contract program.', link:'/contracts' },
-  { name:'Supply & PKS', key:'supply', description:'PKS participation, capacity, delivery commitments, and source traceability.', link:'/pks-sites' },
-  { name:'Production', key:'production', description:'Production batches, genealogy, output, and yield are not confirmed by project metadata.', link:'/operations' },
-  { name:'QA & Lab Release', key:'qa', description:'Quality checks, laboratory evidence, hold/release decision, and specification comparison.', link:'/operations' },
-  { name:'Warehouse', key:'warehouse', description:'Inventory lots, quality status, reservations, and availability.', link:'/warehouse' },
-  { name:'Allocation & Transport', key:'transport', description:'Shipment allocation, dispatch, truck checkpoints, ETA, and handover.', link:'/shipment-allocations' },
-  { name:'Port & Terminal', key:'port', description:'Port suitability, berth/terminal readiness, vessel call, and source freshness.', link:'/port-network' },
-  { name:'Loading & Survey', key:'loading', description:'Loading events, tally, survey, quantity reconciliation, and sign-off.', link:'/maritime-operations' },
-  { name:'Export Documents', key:'documents', description:'Checklist, document versions, evidence, expiry, and cross-checks.', link:'/compliance' },
-  { name:'Shipment & Voyage', key:'voyage', description:'Vessel/voyage, shipment status, and independent source confirmation.', link:'/maritime-operations' },
-  { name:'Finance & Settlement', key:'finance', description:'Budget, obligations, cash planning, FX, AP/AR, and settlement evidence.', link:'/finance' },
+  { name:'Contract & Buyer', key:'contracts', page:'contracts', description:'Contract, buyer terms, quantity, pricing, and contract program.', link:'/contracts' },
+  { name:'Supply & PKS', key:'supply', page:'pks-sites', description:'PKS participation, capacity, delivery commitments, and source traceability.', link:'/pks-sites' },
+  { name:'Production', key:'production', page:'operations', description:'Production batches, genealogy, output, and yield are not confirmed by project metadata.', link:'/operations' },
+  { name:'QA & Lab Release', key:'qa', page:'operations', description:'Quality checks, laboratory evidence, hold/release decision, and specification comparison.', link:'/operations' },
+  { name:'Warehouse', key:'warehouse', page:'warehouse', description:'Inventory lots, quality status, reservations, and availability.', link:'/warehouse' },
+  { name:'Allocation & Transport', key:'transport', page:'shipment-allocations', description:'Shipment allocation, dispatch, truck checkpoints, ETA, and handover.', link:'/shipment-allocations' },
+  { name:'Port & Terminal', key:'port', page:'port-network', description:'Port suitability, berth/terminal readiness, vessel call, and source freshness.', link:'/port-network' },
+  { name:'Loading & Survey', key:'loading', page:'maritime-operations', description:'Loading events, tally, survey, quantity reconciliation, and sign-off.', link:'/maritime-operations' },
+  { name:'Export Documents', key:'documents', page:'compliance', description:'Checklist, document versions, evidence, expiry, and cross-checks.', link:'/compliance' },
+  { name:'Shipment & Voyage', key:'voyage', page:'maritime-operations', description:'Vessel/voyage, shipment status, and independent source confirmation.', link:'/maritime-operations' },
+  { name:'Finance & Settlement', key:'finance', page:'finance', description:'Budget, obligations, cash planning, FX, AP/AR, and settlement evidence.', link:'/finance' },
 ];
-export default function PMProject360({ project, sources, projectId, freshness }: { project?: Row; sources: Record<string,SourceBlock>; projectId: string; freshness?: string | null }) {
+export default function PMProject360({ project, sources, projectId, freshness, allowedPages }: { project?: Row; sources: Record<string,SourceBlock>; projectId: string; freshness?: string | null; allowedPages: string[] }) {
   const sourceRows = (key:string) => sources[key]?.rows || [];
+  const canOpen = (page:string) => allowedPages.includes(page);
   const contracts=sourceRows('contracts'), programs=sourceRows('programs'), tasks=sourceRows('tasks'), lots=sourceRows('inventory'), trips=sourceRows('trips'), docs=sourceRows('documents'), requirements=sourceRows('requirements');
   const allErrors=Object.values(sources).filter(s=>s.error).map(s=>s.label+': '+s.error);
   const evidenceSummary = [
@@ -53,7 +54,7 @@ export default function PMProject360({ project, sources, projectId, freshness }:
         const source=sources[sourceKey];
         const state: 'available'|'partial'|'unavailable'|'unknown' = source ? sourceState(sourceKey) : 'unavailable';
         const stateLabel=source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.available===false?'Belum terintegrasi':source?.error?'Tidak dapat diverifikasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
-        return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':source?.rows?.length!==undefined?'Records: '+source.rows.length:'No verified source'}</div><Link className="ux-action-link" to={stage.link}>Open workspace →</Link></article>;
+        return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':source?.rows?.length!==undefined?'Records: '+source.rows.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
       })}</div>
     </UXPanel>
     <UXPanel title="Evidence snapshot" subtitle="Counts are source records only; no quality, quantity, release, or settlement conclusion is made from counts.">
@@ -62,10 +63,10 @@ export default function PMProject360({ project, sources, projectId, freshness }:
     </UXPanel>
     <UXPanel title="PM next-action checklist" subtitle="Action links membuka source of truth. Keputusan approval dan sign-off tetap pada role/authority yang berwenang.">
       <div className="ux-exception-list">
-        <div className="ux-exception"><div className="ux-exception-copy"><strong>Review contract & supply baseline</strong><span>Konfirmasi buyer, contract program, target, PKS, kapasitas, dan delivery commitment.</span></div><Link className="ux-action-link" to="/contracts">Review →</Link></div>
-        <div className="ux-exception"><div className="ux-exception-copy"><strong>Resolve task blockers and handoffs</strong><span>{tasks.filter(t=>t.status==='blocked').length} blocked task(s); {tasks.filter(t=>t.is_overdue===true).length} overdue task(s) in returned scope.</span></div><Link className="ux-action-link" to="/my-work">Work queue →</Link></div>
-        <div className="ux-exception"><div className="ux-exception-copy"><strong>Verify inventory, allocation, transport</strong><span>Check lot status, allocation, checkpoints, ETA and discrepancy evidence.</span></div><Link className="ux-action-link" to="/operations">Operations →</Link></div>
-        <div className="ux-exception"><div className="ux-exception-copy"><strong>Document completeness & cross-check</strong><span>Checklist, required documents, versions, source consistency and deadlines.</span></div><Link className="ux-action-link" to="/compliance">Compliance →</Link></div>
+        <div className="ux-exception"><div className="ux-exception-copy"><strong>Review contract & supply baseline</strong><span>Konfirmasi buyer, contract program, target, PKS, kapasitas, dan delivery commitment.</span></div>{canOpen('contracts') ? <Link className="ux-action-link" to="/contracts">Review →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
+        <div className="ux-exception"><div className="ux-exception-copy"><strong>Resolve task blockers and handoffs</strong><span>{tasks.filter(t=>t.status==='blocked').length} blocked task(s); {tasks.filter(t=>t.is_overdue===true).length} overdue task(s) in returned scope.</span></div>{canOpen('my-work') ? <Link className="ux-action-link" to="/my-work">Work queue →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
+        <div className="ux-exception"><div className="ux-exception-copy"><strong>Verify inventory, allocation, transport</strong><span>Check lot status, allocation, checkpoints, ETA and discrepancy evidence.</span></div>{canOpen('operations') ? <Link className="ux-action-link" to="/operations">Operations →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
+        <div className="ux-exception"><div className="ux-exception-copy"><strong>Document completeness & cross-check</strong><span>Checklist, required documents, versions, source consistency and deadlines.</span></div>{canOpen('compliance') ? <Link className="ux-action-link" to="/compliance">Compliance →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
       </div>
     </UXPanel>
   </div>;

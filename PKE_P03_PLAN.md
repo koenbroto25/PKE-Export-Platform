@@ -2459,3 +2459,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ## Admin Control Center remediation correction — 2026-11-26
 - CI caught a JSX closing-brace syntax defect in the new conditional Project-detail link. Corrected in commit `bfb9147189b573c6e52ebefc22b3fdff5ca8163a`.
 - Two earlier runs `45833159014` and `45833201610` failed frontend typecheck due this syntax error. Regression assertion commit `c0092b2b4bb69cd03af7eef815f826613f108bb0` is now pending rerun after the correction. Do not mark this batch PASS until CI green.
+
+
+## Admin Control Center KPI state badge correction — 2026-11-26
+- Follow-up: active-count/target-volume badges could still be marked available because a portfolio object existed even when the metric value itself was unknown. Badge state now follows the computed metric value; unknown value remains unknown.
+- Added regression assertions. CI pending with JSX correction batch.

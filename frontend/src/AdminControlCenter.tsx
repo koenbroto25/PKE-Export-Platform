@@ -15,7 +15,9 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
   const blocked = tasks.filter(t => t.status === 'blocked');
   const unassigned = tasks.filter(t => !t.assignee_user_id && ['open','in_progress','blocked','submitted'].includes(t.status));
   const exceptionRows = tasks.filter(t => t.is_overdue === true || t.status === 'blocked' || (!t.assignee_user_id && ['open','in_progress','blocked','submitted'].includes(t.status)));
-  const exceptionCount = new Set(exceptionRows.map(t => t.id || t.title || JSON.stringify(t))).size;
+  const uniqueExceptions = Array.from(new Map(exceptionRows.map(t => [String(t.id || t.title || JSON.stringify(t)), t])).values())
+    .sort((a,b) => Number(b.is_overdue===true)-Number(a.is_overdue===true) || Number(b.status==='blocked')-Number(a.status==='blocked'));
+  const exceptionCount = uniqueExceptions.length;
   const activeCount = portfolio?.activeProjects ?? projectRows.filter(p => p.status === 'active').length;
   const volume = portfolio?.contractVolume ?? projectRows.reduce((n,p)=>n+Number(p.target_quantity||0),0);
   const hasPortfolio = portfolio && Object.keys(portfolio).length > 0;
@@ -39,6 +41,18 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
         <div className="ux-exception"><div className="ux-exception-copy"><strong>Reports & portfolio risk</strong><span>Finance, compliance, committed/actual cost, dan risk metrics hanya ditampilkan jika API memberikan angka.</span></div><Link className="ux-action-link" to="/reports">Buka Reports →</Link></div>
       </div>
     </UXPanel>
+      <UXPanel title="Actionable task exceptions" subtitle="Distinct work items; an item may have more than one exception reason.">
+        {taskSourceAvailable && uniqueExceptions.length === 0 ? <UXEmpty title="Tidak ada exception dari task source" description="Ini hanya mencerminkan task yang berhasil dimuat; tidak menggantikan audit atau monitoring operasional."/> : null}
+        {!taskSourceAvailable ? <UXStateBadge state="unknown" label="Task source belum terverifikasi"/> : null}
+        {taskSourceAvailable && uniqueExceptions.length > 0 ? <div className="ux-exception-list">{uniqueExceptions.slice(0,8).map(t=>{
+          const reasons=[t.is_overdue===true?'Overdue':null,t.status==='blocked'?'Blocked':null,!t.assignee_user_id&&['open','in_progress','blocked','submitted'].includes(t.status)?'Unassigned':null].filter(Boolean);
+          return <div className={`ux-exception ${t.is_overdue===true||t.status==='blocked'?'ux-exception-critical':''}`} key={t.id||t.title}>
+            <div className="ux-exception-copy"><strong>{t.title||'Task tanpa judul'}</strong><span>{reasons.join(' · ')} · Status: {t.status||'unknown'}</span><small>{t.id||'ID tidak tersedia'}{t.due_at?' · Due: '+t.due_at:''}</small></div>
+            <Link className="ux-action-link" to="/my-work">Review task →</Link>
+          </div>;
+        })}</div> : null}
+        {uniqueExceptions.length>8 ? <p className="muted">Menampilkan 8 dari {uniqueExceptions.length} task exception unik. Buka Work Queue untuk daftar lengkap.</p> : null}
+      </UXPanel>
     <UXPanel title="Project attention list" subtitle="Project yang dapat diakses API. Belum ada auto-judgement kesiapan operasional.">
       {errors?.length ? <UXError detail="Daftar project atau portfolio gagal diverifikasi."/> : projectRows.length ? <div className="ux-exception-list">{projectRows.slice(0,8).map(p=><div className="ux-exception" key={p.id}><div className="ux-exception-copy"><strong>{p.name || 'Project tanpa nama'}</strong><span>Status: {p.status || 'unknown'} · Target: {p.target_quantity ?? '—'} {p.settlement_unit || 'MT'}</span><small>{p.id}</small></div><Link className="ux-action-link" to={'/projects/'+encodeURIComponent(p.id)}>Review →</Link></div>)}</div> : <UXEmpty title="Belum ada project dalam source" description="Project list API belum mengembalikan record atau belum dimuat."/>}
     </UXPanel>

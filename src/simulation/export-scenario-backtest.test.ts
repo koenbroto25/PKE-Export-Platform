@@ -7,6 +7,7 @@ import {readFileSync} from "node:fs";
 import {join} from "node:path";
 const ROLE_DASHBOARD_SOURCE=readFileSync(join(process.cwd(),"frontend","src","RoleDashboardPage.tsx"),"utf8");
 const APP_ROUTE_SOURCE=readFileSync(join(process.cwd(),"frontend","src","App.tsx"),"utf8");
+const ADMIN_CONTROL_SOURCE=readFileSync(join(process.cwd(),"frontend","src","AdminControlCenter.tsx"),"utf8");
 const DASHBOARD_LINK_PATHS=[...ROLE_DASHBOARD_SOURCE.matchAll(/to:\s*'([^']+)'/g)].map(m=>m[1]);
 const APP_ROUTE_PATHS=new Set([...APP_ROUTE_SOURCE.matchAll(/<Route\s+path="([^"]+)"/g)].map(m=>m[1]));
 const ROLE_META_KEYS=new Set([...EXPORT_SIMULATION_SCENARIOS.map(s=>s.persona)].filter(role=>ROLE_DASHBOARD_SOURCE.includes(role+": {")));
@@ -18,6 +19,22 @@ describe("PKE simulated export backtest catalog",()=>{
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.id)).size).toBe(EXPORT_SIMULATION_SCENARIOS.length);
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.category)).size).toBeGreaterThanOrEqual(10);
   for(const s of EXPORT_SIMULATION_SCENARIOS){expect(s.simulationOnly).toBe(true);expect(s.description.length).toBeGreaterThan(20);expect(s.userFacingMessage.trim()).not.toBe("");expect(s.nextAction.trim()).not.toBe("");}
+ });
+ it("contains a deterministic stage × fault matrix for all 12 stages and 7 exception states",()=>{
+  const matrix=EXPORT_SIMULATION_SCENARIOS.filter(s=>s.category==="synthetic-matrix");
+  expect(matrix).toHaveLength(84);
+  for(const stage of SIMULATION_STAGE_ORDER) for(const fault of ["blocked","missing","stale","mismatch","pending","unverified","hold"]) {
+   expect(matrix.some(s=>s.stages[stage]===fault),stage+" / "+fault).toBe(true);
+  }
+  for(const s of matrix){expect(s.simulationOnly).toBe(true);expect(s.expectedOutcome).not.toBe("ready");}
+ });
+ it("Admin Control Center surfaces unique exception records with reason and work-queue action",()=>{
+  expect(ADMIN_CONTROL_SOURCE).toContain("uniqueExceptions");
+  expect(ADMIN_CONTROL_SOURCE).toContain("Actionable task exceptions");
+  expect(ADMIN_CONTROL_SOURCE).toContain("Review task");
+  expect(ADMIN_CONTROL_SOURCE).toContain("Overdue");
+  expect(ADMIN_CONTROL_SOURCE).toContain("Blocked");
+  expect(ADMIN_CONTROL_SOURCE).toContain("Unassigned");
  });
  it("catalog outcomes agree with expected outcomes and no non-ready case is reported ready",()=>{
   for(const s of EXPORT_SIMULATION_SCENARIOS){const actual=evaluateScenario(s);expect(actual,s.id+" "+s.title).toBe(s.expectedOutcome);if(s.expectedOutcome!=="ready")expect(actual).not.toBe("ready");}

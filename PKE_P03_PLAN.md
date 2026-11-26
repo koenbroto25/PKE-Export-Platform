@@ -2505,3 +2505,7 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Found Admin shortcuts to Access, Projects, Work Queue, Reports and per-project detail were unconditional, even though route gates may deny the current user. This creates dead-end clicks for platform admin/limited roles.
 - Admin Control Center now receives visible page access and project-detail permission; each shortcut is rendered as a link only when authorized, otherwise a non-link explanation. Project row falls back to Projects list when direct detail permission is absent.
 - Regression tests added. CI pending.
+
+
+## Admin Control Center shortcut assertion correction — 2026-11-26
+- Runs `45835195391`, `45835236706`, `45835265334` failed one stale assertion after project detail link became permission-aware; 764/765 tests passed. Assertion corrected in `402b2938a45d7d7053d54f60372dc1db43e5eaeb`. Full regression pending.

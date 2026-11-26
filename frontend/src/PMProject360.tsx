@@ -39,7 +39,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
   ];
   const evidenceVerifiedEmpty = evidenceSummary.every(x=>x.count===0);
   const sourceState=(key:string):'available'|'partial'|'unavailable'|'unknown' => {
-    const s=sources[key]; if(!s) return 'unknown'; if(s.error) return 'unknown'; if(s.authorized===false) return 'unknown'; if(s.available===false) return 'unavailable'; return (s.rows?.length||0)>0?'partial':'unknown';
+    const s=sources[key]; if(!s) return 'unknown'; if(s.error||s.authorized===false||!sourceVerified(key)) return 'unknown'; if(s.available===false) return 'unavailable'; return s.rows!.length>0?'partial':'unknown';
   };
   return <div className="pm-project-360">
     <UXPanel title="PM Project 360" subtitle="Single-project lifecycle view. Record existence is evidence of data, not proof of stage approval or readiness." >
@@ -65,7 +65,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
         const source=sources[sourceKey];
         const state: 'available'|'partial'|'unavailable'|'unknown' = source ? sourceState(sourceKey) : 'unavailable';
         const stateLabel=source?.loading?'Memuat source…':source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.error?'Tidak dapat diverifikasi':source?.available===false?'Belum terintegrasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
-        return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':source?.rows?.length!==undefined?'Records: '+source.rows.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
+        return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':Array.isArray(source?.rows)?'Records: '+source.rows.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
       })}</div>
     </UXPanel>
     <CrossProcessDependencyPanel projectId={projectId} allowedPages={allowedPages} />

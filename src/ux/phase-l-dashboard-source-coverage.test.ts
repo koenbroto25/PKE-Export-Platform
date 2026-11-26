@@ -38,7 +38,7 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
    "Production Batch","Packing Batch","QC Sample","Lab Result","QA Release",
    "Vessel/Port Call","Loading Plan","survey","laytime","AIS provider rights/freshness",
    "PEB/NPE","Lartas/permit","COO/e-SKA","bank execution","reconciliation",
-   "barcode","offline queue","sync conflict","signature",
+   "barcode","offline draft","sync conflict","signature",
   ];
   for(const gap of gaps)expect(dashboard+pm360).toContain(gap);
  });

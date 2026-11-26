@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPageAccess, visiblePageKeys, type WorkspaceAccessUser } from "../frontend/src/role-permissions";
+import { hasPageAccess, visiblePageKeys, type WorkspaceAccessUser } from "../../frontend/src/role-permissions";
 const make=(role:string,permissions:string[],overrides:Partial<WorkspaceAccessUser>={}) : WorkspaceAccessUser=>({
  selectedProjectId:"SIM-PROJECT-001",projectPermissions:permissions,projectPermissionsLoading:false,
  projectMemberships:[{isActive:true,projectId:"SIM-PROJECT-001",roleAssignments:[{roleCode:role,isActive:true,roleIsActive:true}]}],

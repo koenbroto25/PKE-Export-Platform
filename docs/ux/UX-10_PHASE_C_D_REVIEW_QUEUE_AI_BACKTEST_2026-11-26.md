@@ -4,7 +4,7 @@
 **Branch:** `p20/platform-continuation-20261123`  
 **Scope:** GitHub source only. No Vercel deployment, Neon/database, migrations, production records, external integrations, or live AI calls.
 
-## Phase C — Human Review Queue contract
+## Phase C — Human Review Queue contract and demo UX
 
 Implemented `src/knowledge/knowledge-review-queue.ts` and tests:
 - Typed findings: missing evidence, conflict, stale, scope mismatch, source changed, invalid correction, unknown, quantity mismatch.
@@ -14,11 +14,13 @@ Implemented `src/knowledge/knowledge-review-queue.ts` and tests:
 - Verify/reject/defer require a human decision note; timestamp is validated and cannot precede creation.
 - AI suggestion is an informational field only; it does not perform or authorize a transition.
 - Queue summary is scoped to the project and visible to eligible human reviewers.
+- Added `frontend/src/KnowledgeReviewQueuePanel.tsx` inside PM Project 360. It displays three clearly synthetic review items, provenance/evidence references, non-authoritative AI suggestions, human notes, assignment, verify/reject/defer actions and local-only state.
+- Responsive queue layout has a mobile single-column rule. UX contract test is wired into root `npm test`.
 
 ### Phase C backtest assertions
-10 deterministic test blocks cover item creation/validation, project isolation, non-human denial, separate decision permission, mandatory notes, assignment, verified decision, terminal lock, timestamp reversal, reviewer ownership/override and scoped queue summary.
+11 deterministic test blocks cover item creation/validation, project isolation, non-human denial, separate decision permission, mandatory notes, assignment, verified decision, terminal lock, timestamp reversal, reviewer ownership/override and scoped queue summary. UI contract adds 3 source-level assertions.
 
-**Limit:** This is a pure contract/state-transition module and test harness. No persistence, API route, React queue screen, audit-log storage, notification, or reviewer-directory integration is implemented yet. No real review data is loaded.
+**Limit:** This is a pure contract/state-transition module plus synthetic demo UI. No persistence, API route, audit-log storage, notification, or reviewer-directory integration is implemented. Demo actions change browser state only. No real review data is loaded.
 
 ## Phase D — AI-enrichment scenario pack
 
@@ -55,3 +57,11 @@ Benchmark prompts require source provenance/scope, uncertainty, missing evidence
 - Root test wiring: `362f1582b38365697415a49032a025598f8bb59b`
 - Assigned reviewer hardening: `6f9e741da9f7004643182d6508b18560862adf44`
 - Assigned reviewer regression test: `9ac9402b0e9df9625c6a3f75cd3c4cefc74316d8`
+
+
+## CI-driven bug discovery and corrections
+
+- First GitHub Actions run detected an escaped-newline syntax corruption in the existing typed-evidence backtest source; corrected the source.
+- CI exposed an unsafe-link test mismatch caused by a malformed control-character regex; corrected the regex.
+- CI exposed a supersession test fixture with the relationship reversed; corrected the fixture to model a newer record superseding the older record.
+- The above failures were observed and fixed; the newest run after these corrections and the UI integration is still pending. Do not mark Phase C/D test execution PASS until it completes.

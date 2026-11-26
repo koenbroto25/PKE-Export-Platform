@@ -175,7 +175,7 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   const roleCards = roles.map((role: string) => ROLE_META[role] || { label: labelRole(role), focus: 'Ikuti permission aktif dan tugas yang diberikan pada Project ini.', outputs: 'Data yang dapat diakses mengikuti assignment aktif.', links: [] });
   const data = state.data;
   const sourceFailed = (key: keyof DashboardData) => state.errors.some(error => error.startsWith(String(key) + ':'));
-  const count = (key: keyof DashboardData, field: string) => sourceFailed(key) || !Object.prototype.hasOwnProperty.call(data, key) ? '—' : fmt((data[key] as RecordData | undefined)?.[field]?.length ?? 0);
+  const count = (key: keyof DashboardData, field: string) => { if (sourceFailed(key) || !Object.prototype.hasOwnProperty.call(data, key)) return '—'; const rows = (data[key] as RecordData | undefined)?.[field]; return Array.isArray(rows) ? fmt(rows.length) : '—'; };
   const metrics: Array<{ label: string; value: string; note: string; href: string; icon: typeof Activity }> = [];
   if (canViewWork) metrics.push({ label: 'Tugas Saya', value: count('workItems', 'workItems'), note: canViewTasks ? 'Antrean Project untuk PM' : 'Antrean role/assignee aktif', href: '/my-work', icon: ClipboardList });
   if (canViewContracts) metrics.push({ label: 'Kontrak', value: count('contracts', 'contracts'), note: 'Kontrak dalam Project', href: '/contracts', icon: BriefcaseBusiness });

@@ -49,4 +49,49 @@ describe("appointment-first PM project workflow synthetic rules",()=>{
   expect(portfolio.filter(x=>x.buyer==="B-001").length).toBe(2);
   expect(portfolio.every(x=>x.id.startsWith("P-"))).toBe(true);
  });
+describe("PM creation and portfolio stress scenarios",()=>{
+ it("allows agreement-backed Project creation without requiring a contract reference",()=>{
+  expect(isValidPMProjectCreateInput({...valid,basisType:"buyer_agreement",contractReference:""})).toBe(true);
+ });
+ it("rejects invalid dates, country codes, non-object terms, and unsafe evidence URLs",()=>{
+  for(const input of [
+   {...valid,basisDate:"2026-13-01"},
+   {...valid,basisDate:"2026-02-30"},
+   {...valid,exportCountryCode:"C"},
+   {...valid,exportCountryCode:"CHN"},
+   {...valid,commercialTerms:["not","an","object"]},
+   {...valid,evidenceUrl:"ftp://example.com"}
+  ])expect(isValidPMProjectCreateInput(input)).toBe(false);
+ });
+ it("same PM can create many Projects across Buyers without ownership collisions",()=>{
+  const existing=new Map<string,{projectId:string;buyerId:string;pmId:string}>();
+  let created=0;
+  const pmId="pm-1";
+  const results=[
+   idempotentProjectResult("k1",existing,()=>({projectId:"p1",buyerId:"b1",pmId})),
+   idempotentProjectResult("k2",existing,()=>({projectId:"p2",buyerId:"b2",pmId})),
+   idempotentProjectResult("k3",existing,()=>({projectId:"p3",buyerId:"b1",pmId}))
+  ];
+  created=results.filter(x=>!x.replayed).length;
+  expect(created).toBe(3);
+  expect(new Set(results.map(x=>x.result.projectId)).size).toBe(3);
+  expect(results.every(x=>x.result.pmId===pmId)).toBe(true);
+  expect(new Set(results.map(x=>x.result.buyerId)).size).toBe(2);
+ });
+ it("duplicate retry storms with one idempotency key resolve to one stored Project result",()=>{
+  const existing=new Map<string,{id:string}>();
+  let writes=0;
+  for(let i=0;i<100;i++){
+   idempotentProjectResult("retry-key",existing,()=>{writes++;return{id:"project-one"};});
+  }
+  expect(writes).toBe(1);
+  expect(existing.size).toBe(1);
+ });
+ it("handover/reappointment checks fail closed for suspended or revoked PM",()=>{
+  for(const status of ["suspended","revoked"] as const){
+   expect(canPMCreateProject(status,true,true)).toBe(false);
+   expect(canTransferProjectPM(status,"Approved transfer reason")).toBe(false);
+  }
+ });
+});
 });

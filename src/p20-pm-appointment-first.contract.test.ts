@@ -36,7 +36,10 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(migration).toContain("UPDATE public.project_role_assignments a");
     expect(migration).toContain("status IN ('suspended','revoked')");
     expect(migration).toContain("project_pm_ownership_events");
-    expect(migration).toContain("pke_admin_transfer_project_pm");\n    expect(migration).toContain("pke_pm_project_create_projects_insert");\n    expect(migration).toContain("pke_pm_project_create_assignment_insert");\n    expect(migration).toContain("pke_pm_project_create_basis_insert");
+    expect(migration).toContain("pke_admin_transfer_project_pm");
+    expect(migration).toContain("pke_pm_project_create_projects_insert");
+    expect(migration).toContain("pke_pm_project_create_assignment_insert");
+    expect(migration).toContain("pke_pm_project_create_basis_insert");
     expect(migration).toContain("Only one active PM assignment per Project");
   });
   it("exposes authenticated appointment, portfolio, Buyer catalog, project creation and Admin governance routes",()=>{
@@ -47,7 +50,9 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(api).toContain("/api/v1/admin/pm-appointments");
     expect(api).toContain("/api/v1/admin/projects/:projectId/pm-transfer");
     expect(api).toContain("PM_APPOINTMENT_REQUIRED");
-    expect(api).toContain("APPOINTMENT_FIRST_WORKFLOW_REQUIRED");\n    expect(api).toContain("GLOBAL_PM_APPOINTMENT_REQUIRED");\n    expect(api).toContain("project_pm_ownership_events");
+    expect(api).toContain("APPOINTMENT_FIRST_WORKFLOW_REQUIRED");
+    expect(api).toContain("GLOBAL_PM_APPOINTMENT_REQUIRED");
+    expect(api).toContain("project_pm_ownership_events");
   });
   it("provides appointment-first UI, Buyer agreement/contract basis, and portfolio roll-up",()=>{
     expect(ui).toContain("Appointment PM belum aktif");

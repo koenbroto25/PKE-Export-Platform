@@ -32,7 +32,12 @@ export function demoRequireAuth(req: Request, res: Response, next: NextFunction)
   return next();
 }
 
-export function demoRequireAdmin(req: Request, res: Response, next: NextFunction) {\n  if ((req as any).user?.isAdmin === true) return next();\n  return res.status(403).json({ error: "Admin permission required (demo)", code: "DEMO_ADMIN_REQUIRED", demo: true });\n}\n\nexport function demoRequireProjectPermission(req: Request, res: Response, permissionCode: string): boolean {
+export function demoRequireAdmin(req: Request, res: Response, next: NextFunction) {
+  if ((req as any).user?.isAdmin === true) return next();
+  return res.status(403).json({ error: "Admin permission required (demo)", code: "DEMO_ADMIN_REQUIRED", demo: true });
+}
+
+export function demoRequireProjectPermission(req: Request, res: Response, permissionCode: string): boolean {
   const perms: string[] = ((req as any).demo?.permissions) || [];
   if ((req as any).user?.isAdmin) return true;
   if (perms.includes(permissionCode)) return true;

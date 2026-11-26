@@ -60,6 +60,10 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(app).toContain("const projectRowsVerified = Array.isArray(projects.data?.projects)");
   expect(app).toContain("const projectTargetsVerified = projectRowsVerified");
   expect(app).toContain("const tripRowsVerified = Array.isArray(trips.data?.truckTrips)");
+  expect(app).toContain("Boolean(projectId && canViewLogistics) && Array.isArray(trips.data?.truckTrips)");
+  expect(app).toContain("Promise.resolve({})");
+  expect(app).not.toContain("Promise.resolve({ truckTrips: [] })");
+  expect(app).not.toContain("Promise.resolve({ contracts: [] })");
   expect(app).toContain("const visibleTripCount = tripRowsVerified ? tripRows.length : null");
   expect(app).toContain("const countText = (rows: AnyRecord[] | null) => rows === null ? '—'");
   expect(app).toContain('taskRows === null ? "—"');

@@ -67,3 +67,23 @@ Research scenario pack is committed as test data and catalog metadata only. No b
 - Fixtures cover grounding/provenance, stale/conflicting research, facility/entity classification, quality holds, destination compliance, customs event distinction, quantity/document reconciliation, multimodal custody and candidate-vs-approved logistics.
 - This is a static evaluation dataset only. No LLM is called and no production AI behavior is claimed. The fixture set is intended to become a future offline regression benchmark before any AI-support rollout.
 - Added contract tests for fixture completeness and mandatory abstention/provenance safeguards.
+
+ 
+## Knowledge Observation Seed Register — 26 November 2026
+ 
+The new offline seed dataset is in `src/knowledge/pke-observation-registry.ts`. It contains 9 observations, each preserving source metadata, source scope, confidence rationale, limitations and permitted AI uses. Seed values are research observations only.
+ 
+### Additional research sources
+| Evidence ID | Source | URL | Scope and limitation |
+|---|---|---|---|
+| SRC-DJBC-MANIFEST-FAQ | DJBC, FAQ Ekspor Pengangkutan dan Manifest | https://www.beacukai.go.id/faq-ekspor-pengangkutan-dan-manifest | Manifest correction/redress context for export reconciliation; not a shipment status or authorization |
+| SRC-MPI-PAFP-IHS-2025 | NZ MPI, PAFP.IHS processed plant-origin animal feeds | https://www.mpi.govt.nz/dmsdocument/4514/direct/ | Destination-specific PKE controls/approved-source table; not proof of Indonesia or any facility approval |
+| SRC-FOSFA-COP-2022 | FOSFA Code of Practice | https://www.fosfa.org/wp-content/uploads/2025/04/Revised-Code-of-Practice-Nov-2022-Complete.pdf | Industry loading checklist includes previous cargo, hold/hatch/equipment cleanliness and residue checks; contractual applicability must be verified |
+| SRC-AGRIFEEDS-PKE-2025 | AgriFeeds PKE Nutrition Guide | https://storage.googleapis.com/agrifeeds-prod-web-assets/public/Uploads/Nutrition-Guide-FEB2025.pdf | Typical nutrition values; never use as shipment COA or buyer acceptance criteria |
+ 
+### Schema and engine
+- `src/knowledge/observation-schema.ts`: typed observation contract and deterministic freshness/scope assessment, conflict grouping, and safety metadata warning.
+- `src/knowledge/pke-observation-registry.ts`: seeded source observations.
+- `src/knowledge/observation-schema.test.ts`: offline contract tests.
+- Freshness is policy-driven and configurable by evidence class; it is not a regulatory interpretation.
+- Contradictory claims remain in the dataset. Unit or measurement-basis mismatch is classified as **uncomparable**, not silently converted.

@@ -417,15 +417,15 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
     </Card>}
     <div className="dashboard-grid">
       <Card className="span-2"><PanelHeading title="Proyek berjalan" description="Ringkasan proyek aktif dalam portofolio." action={<Link className="inline-link" to="/projects">Lihat proyek <ArrowRight size={14} /></Link>} />
-        {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={visibleProjects.slice(0, 6)} columns={[
+        {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : projects.data && Array.isArray(projects.data.projects) ? <DataTable rows={visibleProjects.slice(0, 6)} columns={[
           { key: 'name', label: 'Nama proyek', render: r => <div className="primary-cell"><strong>{r.name}</strong><small>{shortId(r.id)}</small></div> },
           { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
           { key: 'target_quantity', label: 'Target volume', render: r => `${number(r.target_quantity)} ${r.settlement_unit || 'MT'}` },
           { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
-        ]} emptyTitle="Belum ada proyek" emptyText="Buat program kontrak, lalu buat project instance pertama." />}
+        ]} emptyTitle="Belum ada proyek" emptyText="Project source terverifikasi mengembalikan nol record." /> : <EmptyState title="Daftar proyek belum terverifikasi" desc="Payload Project belum tersedia atau tidak sesuai kontrak API." />}
       </Card>
       <Card><PanelHeading title="Aktivitas terakhir" description="Checkpoint perjalanan truk." />
-        {events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : <div className="activity-list">{(events.data?.trackingEvents || []).slice(0, 6).map((event, i) => <div className="activity-item" key={event.id || i}><div className="activity-icon"><MapPin size={16} /></div><div className="activity-copy"><strong>{event.event_type || 'Checkpoint'}</strong><span>{event.description || 'Pembaruan perjalanan'}</span><small>{dateTime(event.server_timestamp)}</small></div></div>)}{!events.data?.trackingEvents?.length && <EmptyState title="Belum ada checkpoint" desc="Checkpoint lapangan akan tampil di sini." />}</div>}
+        {events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : events.data && Array.isArray(events.data.trackingEvents) ? <div className="activity-list">{events.data.trackingEvents.slice(0, 6).map((event, i) => <div className="activity-item" key={event.id || i}><div className="activity-icon"><MapPin size={16} /></div><div className="activity-copy"><strong>{event.event_type || 'Checkpoint'}</strong><span>{event.description || 'Pembaruan perjalanan'}</span><small>{dateTime(event.server_timestamp)}</small></div></div>)}{events.data.trackingEvents.length===0 && <EmptyState title="Belum ada checkpoint" desc="Tracking source terverifikasi mengembalikan nol event." />}</div> : <div className="inline-warning">Tracking event payload belum terverifikasi.</div>}
       </Card>
       <Card><PanelHeading title="Kesiapan sistem" description="Status service tidak dinyatakan connected/healthy tanpa health-check runtime yang terverifikasi." />
         <div className="service-list"><div><span>Database production</span><StatusPill value="unverified" /></div><div><span>Neon Auth</span><StatusPill value="unverified" /></div><div><span>PKE API</span><StatusPill value="unverified" /></div><div><span>Email / SMS</span><StatusPill value="not_configured" /></div></div>

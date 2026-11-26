@@ -313,3 +313,6 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Found stale source values retained during refresh/project scope changes, “Perjalanan truk” KPI sourced from portfolio shipment count, and several missing payloads coerced to zero/empty states.
 - Fixed: clear useLoad data at load start; source-verified KPI counts; selected Project aggregates use scoped Project rows; trip KPI uses truck trips only; unknown/malformed payloads render — and distinct warnings; empty project/tracking/task states require verified arrays.
 - Phase L regression assertions added. CI pending.
+
+## Executive Overview assertion correction
+- Regression run `45834036358` failed one test because an assertion expected single quotes while source used double quotes; 764/765 tests passed. Assertion corrected in commit `879d54a3c837ea0c29a49d8c9a481fd0cca765c4`. Full regression rerun pending.

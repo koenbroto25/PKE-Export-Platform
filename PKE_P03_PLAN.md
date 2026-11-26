@@ -1436,3 +1436,25 @@ Source code commit `b603d8a94a0df88ce5a2c61943c2cc9b98c105cc` passed CI: 53 file
 ### Dashboard/export cross-check assessment artifact
 
 Role-level dashboard coverage, open-source cross-check strategy and field-readiness status are consolidated at `docs/UX/Role_Dashboard_Coverage_Export_Crosscheck_OpenSource_FieldReadiness.md`. Dashboard coverage remains partial; export cross-check is design/partial; field readiness is not pass.
+
+
+## 26 November 2026 — continuation/reconnection verification checkpoint
+
+**Status: ACCESS PARTIALLY RESTORED / EXECUTION REQUIRES SOURCE-READ PATH.**
+
+- GitHub repository metadata access is restored: repository koenbroto25/PKE-Export-Platform is public; authenticated permission snapshot reports pull/push/admin. Branch search confirms p20/platform-continuation-20261123 exists.
+- GitHub file reads through the Contents API are unreliable when using a branch ref (404); reading by the known commit SHA 4259bb231d2ea83b11d179b7feb1fe0a28dacb4d works for the Master UX specification, PKE_P03_PLAN.md, the UX-04A checkpoint, dashboard assessment, and selected frontend source files. This is not a complete repository browsing/clone capability and should not be described as a full reconnect.
+- Neon connection is available. Project purple-base-63944903 and branches Production br-damp-shape-b3xlh4nr and UAT br-young-boat-b3re832d are readable. No SQL writes, migrations, fixtures, Production business-data changes, credentials, or deployments were performed in this checkpoint.
+- Read-only migration-ledger reconciliation between Production and UAT for migration filenames 096–110 returned 15/15 SHA-256 matches, with both environments reporting status applied. This confirms filename/hash parity for this range only; it does not substitute for source-file audit, manifest reconciliation, runtime RLS tests, or workflow acceptance.
+- The latest UX-04A checkpoint remains local draft capture only: no assignment-bound server validation, sync/idempotency, server receipt, evidence upload verification, conflict resolution, QR/barcode, cache lifecycle security, live API/RLS tests, or device UAT. Field readiness remains NOT PASS.
+- Dashboard assessment remains partial across roles. UX-05 core cross-check is not yet connected to authoritative transaction records and must not be called operational.
+
+### Next execution order (no Vercel / no Production DB changes)
+1. Recover reliable repository file/tree access or reconnect the GitHub app if the branch-ref Contents API failure persists; verify branch HEAD and current source before any code write.
+2. Audit field sync/evidence contracts against existing APIs, storage adapter, idempotency, assignments, permissions, RLS, and migration constraints. Prefer existing contracts; prepare code-only implementation/tests where no schema change is needed.
+3. Implement and test UX-04A server sync/evidence lifecycle in isolated source/CI. Any schema/migration requirement remains a separate approval gate; no direct DB writes.
+4. Integrate UX-05 cross-check engine with transaction/evidence APIs and a role-scoped discrepancy queue; test normal, mismatch, missing, stale, unverified, pending-external, retry and resolution cases.
+5. Continue UX-04B–04D, UX-05 compliance/finance, UX-06 stakeholder portals, UX-07 reporting/intelligence in roadmap order; prioritize Admin and PM end-to-end workflows.
+6. Run exact-head CI and full role/route/API/RLS regression; update this living plan with commit/run evidence and only mark acceptance after operational evidence.
+
+**Boundary:** Vercel deployment/browser UAT remains skipped; Production DB and migrations remain untouched; external providers/RAG/chatbot remain inactive unless separately approved.

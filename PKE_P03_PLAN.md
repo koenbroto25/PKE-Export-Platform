@@ -1747,3 +1747,27 @@ Scenario catalog assertions updated for 165 total / 30 sourced records. CI is tr
 - Fixtures cover grounding/provenance, stale/conflicting research, facility/entity classification, quality holds, destination compliance, customs event distinction, quantity/document reconciliation, multimodal custody and candidate-vs-approved logistics.
 - This is a static evaluation dataset only. No LLM is called and no production AI behavior is claimed. The fixture set is intended to become a future offline regression benchmark before any AI-support rollout.
 - Added contract tests for fixture completeness and mandatory abstention/provenance safeguards.
+
+ 
+## Knowledge Foundation / Research Expansion — 26 November 2026
+ 
+**Scope:** Offline source-backed knowledge layer groundwork. No database, runtime AI, production integration, migration, or Vercel deployment.
+ 
+- [x] Add typed observation schema with source provenance, publication/retrieval/validity timestamps, scope, evidence type, verification status, confidence rationale, limitations, units/measurement basis, supersession/conflict grouping, reviewer metadata, AI-use permissions and safety boundary.
+- [x] Add deterministic freshness assessment: configurable evidence-class age policy, valid-from/valid-to, invalid/future timestamp detection, geography/product/destination scope mismatch. The policy is configurable and not a universal legal freshness rule.
+- [x] Add conflict grouping: claims are retained rather than auto-selected; unit/measurement-basis mismatches are marked uncomparable rather than treated as conflict or normalized without evidence.
+- [x] Seed 9 offline observations from official DJBC/Barantin, destination regulator, historical Indonesian PKE certification, FOSFA and commercial nutrition guidance. Historical/commercial observations remain unverified and scope-limited.
+- [x] Add deterministic tests for provenance completeness, confidence bounds, historical/commercial boundaries, freshness, expiration, future/invalid dates, scope mismatch, conflict preservation and comparability.
+- [x] Include knowledge observation tests in the root CI test script.
+- [ ] CI execution evidence for the new tests: pending GitHub Actions run on this commit.
+ 
+### Research source additions
+- DJBC FAQ: PEB timing, correction windows by field/event, cancellation reporting, BL/outward-manifest reconciliation and multimodal context: https://www.beacukai.go.id/faq-tatalaksana-ekspor
+- DJBC export/manifest FAQ: outward manifest redress and evidence context: https://www.beacukai.go.id/faq-ekspor-pengangkutan-dan-manifest
+- Barantin phytosanitary guidance, 12 Nov 2026: https://karantinaindonesia.go.id/inspektorat/berita/mau-ekspor-tumbuhan-dan-produk-turunannya-ke-luar-negeri-inilah-cara-mendapatkan-phytosanitary-certificate (verify exact URL/title before operational use)
+- NZ MPI PAFP.IHS: destination-specific PKE approved-source/facility controls; never infer Indonesian facility eligibility from this source: https://www.mpi.govt.nz/dmsdocument/4514/direct/
+- FOSFA Code of Practice loading checklist: previous cargo, holds/hatches and equipment cleanliness/residues: https://www.fosfa.org/wp-content/uploads/2025/04/Revised-Code-of-Practice-Nov-2022-Complete.pdf
+- AgriFeeds nutrition guide: typical PKE values only, not a contract/lot specification: https://storage.googleapis.com/agrifeeds-prod-web-assets/public/Uploads/Nutrition-Guide-FEB2025.pdf
+ 
+### Acceptance boundary
+This is a static, offline schema/registry/assessment utility. It does not invoke an LLM, ingest live sources, authenticate/verify regulatory documents, establish current destination rules, or create operational facts. AI must abstain from authority decisions and must not expose cross-project/private data. Human/authorized-source review remains mandatory.

@@ -11,6 +11,7 @@ import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
 import AdminControlCenter from './AdminControlCenter';
 import PMProject360 from './PMProject360';
+import { UXEmpty, UXMetric } from './UXFoundation';
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 const RoleDashboardPage = lazy(() => import('./RoleDashboardPage'));
 const P1WorkflowWorkbench = lazy(() => import('./P1WorkflowWorkbench'));

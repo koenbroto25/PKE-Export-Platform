@@ -20,6 +20,9 @@ describe("Phase N role-dashboard navigation route coverage",()=>{
   expect(app).toContain("function RoleGuard");
   expect(app).toContain("const allowed = allowedKeys.some(key => hasPageAccess(key, activeUser));");
   expect(app).toContain("if (!allowed) return <div className=\"panel\">");
-  expect(roleDashboard).toContain("role.links.filter");\n  expect(roleDashboard).toContain("hasPageAccess(pageKey, activeUser as WorkspaceAccessUser)");\n  expect(roleDashboard).toContain("ROLE_LINK_PAGE_KEYS");\n  expect(roleDashboard).toContain("Workspace links disembunyikan karena permission belum tersedia.");
+  expect(roleDashboard).toContain("role.links.filter");
+  expect(roleDashboard).toContain("hasPageAccess(pageKey, activeUser as WorkspaceAccessUser)");
+  expect(roleDashboard).toContain("ROLE_LINK_PAGE_KEYS");
+  expect(roleDashboard).toContain("Workspace links disembunyikan karena permission belum tersedia.");
  });
 });

@@ -1771,3 +1771,36 @@ Scenario catalog assertions updated for 165 total / 30 sourced records. CI is tr
  
 ### Acceptance boundary
 This is a static, offline schema/registry/assessment utility. It does not invoke an LLM, ingest live sources, authenticate/verify regulatory documents, establish current destination rules, or create operational facts. AI must abstain from authority decisions and must not expose cross-project/private data. Human/authorized-source review remains mandatory.
+
+ 
+## UX / Process Correlation + AI Knowledge Maturity — 26 November 2026
+ 
+### Implemented on working branch
+- [x] Source register with source types, jurisdiction/product/destination scope, allowed claims, prohibited inference, cadence and review status.
+- [x] Deterministic SHA-256 content fingerprint and snapshot comparison (new/changed/unchanged/missing baseline/invalid hash).
+- [x] Changed source requires human review; review queue transitions enforce decision notes for verified/rejected.
+- [x] 11 lifecycle dependency edges: contract→supply→production→quality→inventory→transport→port→loading→documents→customs→voyage→settlement. Each edge has evidence requirements, failure patterns, owner, AI assistance and human decision boundary.
+- [x] Deterministic dependency assessor marks gaps/blocked/stale/unknown; unknown never becomes ready.
+- [x] 20 AI benchmark cases covering source scope, PKE-vs-other palm commodities, stale/contradictory sources, unit/basis mismatches, role isolation, process dependencies and authority abstention.
+- [x] PM Project 360 includes Cross-process Dependency Map panel. UI clearly labels it design-level; live API correlation remains unknown and must not be mistaken for operational readiness.
+- [x] New regression tests added to root CI.
+ 
+### Research update
+- Official BPK/JDIH Permendag 16/2026 metadata checked: listed as in force from 1 June 2026; summary scope includes listed palm-derived commodities. PKE inclusion is **not inferred**; HS/classification and annex/legal review are required. Source: https://peraturan.bpk.go.id/Details/351555/permendag-no-16-tahun-2026
+- DJBC regulatory index: https://peraturan.beacukai.go.id/regulasi/index.html?page=detail%2Fhal%2F9%2F1556%2Fperaturan-menteri-perdagangan%2Fmdag-16-2026%2Fperaturan-menteri-perdagangan-republik-indonesia-nomor-16-tahun-2026-tentang-kebijakan-dan-pengaturan-ekspor-komoditas-sumber-daya-alam-strategis-kelapa-sawit.html
+- Barantin PC guidance (12 Nov 2026): https://karantinaindonesia.go.id/inspektorat/berita/mau-ekspor-tumbuhan-dan-produknya-ke-luar-negeri-inilah-cara-mendapatkan-phytosanitary-certificate
+- IPPC Indonesia reporting page: https://www.ippc.int/en/countries/indonesia/reportingobligation/4
+ 
+### Validation
+- [ ] CI run for source registry, dependency map, benchmark fixtures, PM UX integration, and docs pending.
+- [ ] Frontend API-backed correlation: pending; requires source endpoints and role-safe data contracts, not just UI.
+- [ ] Automated live ingestion and source snapshot storage: pending; no DB changes authorized in this work.
+- [ ] Human review UX: pending.
+- [ ] Browser QA for the new dependency panel: pending; no browser QA claim.
+ 
+### Next work packages
+1. Build knowledge review queue UI (read-only/demo first, role-gated design).
+2. Add API contract for cross-process evidence summaries without exposing raw private data.
+3. Add 100+ dependency/evidence combinations and scenario-based lifecycle tests.
+4. Expand AI benchmark toward 300–500 curated cases, with source-citation/abstention/role-scope rubric.
+5. Build offline retrieval prototype only after source/version/review and permission checks are demonstrably enforced.

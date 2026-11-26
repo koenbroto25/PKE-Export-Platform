@@ -10,7 +10,8 @@ export interface WorkspaceAccessUser {
   projectPermissions?: string[];
   projectPermissionsLoading?: boolean;
   projectPermissionsError?: string;
-  buyerPortalEnabled?: boolean;\n  globalPmAppointed?: boolean;
+  buyerPortalEnabled?: boolean;
+  globalPmAppointed?: boolean;
   projectMemberships?: Array<{
     isActive?: boolean;
     projectId?: string;

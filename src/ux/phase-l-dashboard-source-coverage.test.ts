@@ -21,7 +21,7 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
  });
  it("PM Project 360 never treats record counts as approval/readiness and links role workspaces",()=>{
   expect(pm360).toContain("Record existence is evidence of data, not proof of stage approval or readiness");
-  expect(pm360).toContain("status disimpulkan hanya dari source yang diketahui");
+  expect(pm360).toContain("Status disimpulkan hanya dari source yang diketahui");
   expect(pm360).toContain("status approval tidak diinferensikan");
   expect(pm360).toContain("CrossProcessDependencyPanel");
   expect(pm360).toContain("KnowledgeReviewQueuePanel");

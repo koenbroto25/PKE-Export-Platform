@@ -2342,3 +2342,10 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Integrity validation now rejects false-ready states contradicted by port suitability, driver license, document evidence, tally/survey quantity, or settlement evidence.
 - Chaos/recovery suite expanded from 8 to 13 declared faults, including five explicit false-ready contradiction injections.
 - Fixture/lifecycle/chaos test expectations updated. CI is pending for this batch; do not mark this expansion PASS until CI completes.
+
+
+## Synthetic lifecycle expansion follow-up — 10 scenarios (2026-11-26)
+- Expanded to 10 synthetic project/shipment cases: complete, QC hold, loading quantity conflict, document gap, unsuitable port, expired transport driver, settlement pending, inventory shortage, PKS capacity shortage, and contract quantity mismatch.
+- Coverage: 120 lifecycle stage slots (10 × 12). Evidence-integrity checks now detect false-ready contract quantity, lot quantity, supply capacity, port suitability, transport license, document, loading quantity and settlement states.
+- Chaos fault catalog expanded to 16 declared cases. Regression tests updated for the ten-scenario dataset and 49 documents after a synthetic missing-document fault.
+- CI currently pending after correcting an assertion syntax issue in the chaos test. Do not claim the 10-scenario expansion PASS until the latest run is green.

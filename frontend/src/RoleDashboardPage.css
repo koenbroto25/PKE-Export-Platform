@@ -52,3 +52,9 @@
 .role-dashboard .ux-priority-grid svg{grid-column:2;grid-row:1/3;align-self:center;color:var(--primary,#2457a7)}
 .role-dashboard .ux-dependency-note{margin:0;color:var(--muted,#64748b);font-size:11px;line-height:1.5}
 @media(max-width:640px){.role-dashboard .ux-priority-panel{padding:15px}.role-dashboard .ux-priority-heading{display:grid}.role-dashboard .ux-priority-grid{grid-template-columns:1fr}.role-dashboard .ux-priority-grid a{min-height:64px}}
+
+/* Accessible disabled shortcuts and keyboard focus states */
+.role-dashboard .ux-priority-grid > div{display:grid;grid-template-columns:1fr;gap:5px;padding:13px;border:1px solid var(--border,#dbe2ea);border-radius:12px;background:var(--surface-muted,#f8fafc);min-height:64px}
+.role-dashboard .ux-priority-grid > div strong{font-size:13px}
+.role-dashboard .ux-priority-grid > div small{color:var(--muted,#64748b);font-size:11px;line-height:1.4}
+.role-dashboard a:focus-visible{outline:3px solid var(--primary,#2457a7);outline-offset:3px;border-radius:8px}

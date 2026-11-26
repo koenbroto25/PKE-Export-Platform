@@ -2115,3 +2115,31 @@ No Vercel deployment, Neon mutation, migration, production-data access, merge, o
 - Phase C synthetic review queue contract and PM Project 360 demo UI are implemented; browser-only actions and human-only decision boundary explicitly shown.
 - Phase D backtest dataset has 341 balanced scenarios (11 edges × 31 fault classes); fixture-quality and safety assertions pass in CI. No model invocation or live AI accuracy claim.
 - This code commit is verified; following commits update documentation only. See UX-10 report and CI run URL.
+
+
+## 2026-11-26 — Marathon continuation (Phases E–I)
+
+**Execution guardrails:** work only on branch `p20/platform-continuation-20261123`; GitHub source and offline tests only. No Vercel deployment, Neon/database access, migrations, live production data, or live AI calls.
+
+### Phase E — End-to-end operational simulation (IN PROGRESS)
+- [x] E1 first unified, deterministic synthetic lifecycle dataset committed: `src/simulation/phase-e-operational-fixtures.ts`.
+- [x] Includes 3 synthetic projects and linked buyer, supplier, PKS, contract, lot/QC, truck/driver, port, vessel, loading, document, finance and shipment records. Namespace is SIM-only.
+- [x] Cases: clean complete flow, QC hold that blocks downstream flow, and loading quantity conflict that blocks documents.
+- [x] Data-integrity validator checks duplicate IDs, project scope, synthetic namespace, positive quantities and key relation links.
+- [x] Tests wired into root `npm test`.
+- [ ] E2 process-state simulation and E3 upstream-change dependency cascade across all 12 lifecycle stages.
+- [ ] Expand synthetic dataset to broader edge-case permutations and multi-entity scenario variants.
+
+### Phase F — Role operational backtest (NOT STARTED)
+Role-specific view/action contracts and workflow task scenarios for Admin, PM, PKS/site, QC, Warehouse, Dispatcher, Master of Loading, Port/Operations, Document/Customs, Finance, reviewer/approver and field roles. Verify project scoping, action availability, blocked states and next safe action.
+
+### Phase G — Chaos, regression and recovery (NOT STARTED)
+Fault injection: missing/duplicate/contradictory/stale/expired evidence, quantity changes, holds, corrections, cancellations, unauthorized/cross-project attempts, concurrency/replay and recovery. Ensure containment and no false-ready transitions.
+
+### Phase H — AI evaluation benchmark (NOT STARTED; offline only)
+Extend synthetic benchmark cases and deterministic evaluation contracts for provenance, scope, uncertainty/abstention, blocker identification, dependency impact, permission leakage and prohibited authority claims. This is NOT a live-model quality measurement.
+
+### Phase I — Traceability/readiness audit (NOT STARTED)
+Map requirement → process/data contract → API/backend → UI/role → test/backtest. Identify gaps, fix source-only feasible defects and report external/integration blockers separately.
+
+**Phase E1 evidence:** commit `7800d556c735e707a7fe954395b602ee16dbc2b0` added fixture generator; `f9ab89a6d26625deace46efd7157513fb42e0e19` added integrity tests; `f7eeaf7544981c9404f8b67a596144ac1d990a50` wired test suite. CI validation is pending and E1 remains provisional until green.

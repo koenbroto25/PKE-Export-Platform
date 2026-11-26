@@ -1651,3 +1651,12 @@ The exact package scripts were verified in `frontend/package.json`, but build/ty
 Added source-verified route inventory artifact: `docs/audits/UX-05_ROUTE_PAGE_INVENTORY_2026-11-26.md` (commit `586b034aafdcd24763e8e140f732189cdbaa7165`). It records 30 Route declarations and their RoleGuard keys, identifies 48 function declarations in App.tsx, and lays out P0 direct-route/scope/partner IDOR tests and P1 navigation/lifecycle/architecture risks.
 
 The route inventory is source extraction only. It is not runtime proof of role authorization or route health. The frontend monolith remains ~278 KB. Continue route→page→API→permission mapping and obtain an executable checkout before source changes/build/test. No DB, Vercel, merge/rebase, main or code changes.
+
+
+## UX-06 Access Gate source review — 26 November 2026
+
+Artifact: `docs/audits/UX-06_ACCESS_GATE_SOURCE_REVIEW_2026-11-26.md` (commit `a7a6ee10a6b02b5fd0816a5087256b50aadf926b`). Verified source behavior: RoleGuard identity/loading/error/deny handling; fail-closed permission helper; role active/revoked/expiry filters; selected Project scope; distinct project-detail/edit/config/roles/members permissions; Finance/Reports role + permission; special partner/field/maritime/P1 route gates.
+
+**P0 test concern:** notifications has a permissive page gate for authenticated users, so API/RLS resource scoping and cross-Project deep-link tests are mandatory. This is a test risk, not a proven vulnerability. P1 workflows use OR-based route access; individual actions must be validated separately. No permission code changed.
+
+Latest documentation commits have a GitHub combined status showing Vercel pending. This is not a test/build pass; no Vercel deployment was requested or initiated. Continue source/API mapping and seek executable validation; avoid modifying access semantics without regression tests.

@@ -1717,3 +1717,26 @@ No Neon, migration, Vercel deployment, Production operation, main merge or rebas
 - This is an explicit user cleanup control, **not automatic logout cleanup**. Local data remains unencrypted and offline drafts are still not server-submitted/verified. Browser IndexedDB persistence behavior is not tested in a real browser.
 - Latest GitHub Actions Unit Tests run #2205, commit `8e0a45ff4ba449b2535fdfcf991aa176fb1827a9`: **SUCCESS**. Offline tests, P19, migration release/contracts/dry-run, backend build/typecheck, frontend typecheck/build all pass.
 - CI URL: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45793914142
+
+
+## UX-09 / AI Knowledge Scenario Expansion — 26 November 2026
+
+### Source research converted to simulation scenarios
+- Added SIM-136–SIM-165 (**30 researched PKE export scenarios**) covering phytosanitary/destination requirements, facility eligibility and audit, treatment evidence, contamination, moisture/storage, cargo-hold readiness, buyer-spec conflicts, PKE vs PKM, KCP input-vs-output capacity, PKS/KCP classification, traceability claims, historical coordinates, port suitability, road-route uncertainty, mandatory PEB upload, PEB timing, physical inspection, NPE, corrections, short shipment, vessel schedule changes, cancellation reporting, multimodal custody and research-source conflicts.
+- Catalog total is now **165** deterministic simulation-only scenarios: 51 original + 84 stage×fault matrix + 30 research-grounded concepts.
+- Each researched scenario includes source IDs, confidence class and AI-use tags. These are source-grounded scenario concepts—not legal determinations or current operational requirements.
+- Added source register `docs/research/PKE_RESEARCH_SCENARIO_SOURCE_REGISTER_2026-11-26.md` with URLs, claims, limitations, observation schema and AI evaluation rubric. Source limitations and historical references are explicitly preserved.
+
+### Sources researched
+- DJBC export procedure, mandatory upload Dokap PEB, and export FAQ
+- Barantin phytosanitary guidance (12 Nov 2026)
+- Historical Indonesian PKE export certification / NZ MPI audit
+- FOSFA cargo damage/contamination guidance
+- InaExport product listing, MPOB reference and nutrition guide (all treated as non-universal specs)
+- Existing PKE Addendum research baseline in repository
+
+### AI groundwork
+Recommended source-observation schema captures publisher, URL, retrieval/publication dates, valid period, geography/product/destination scope, evidence type, verification/conflict/expiry status, units/basis, limitations, supersession and AI-allowed use. Future AI must cite provenance, identify conflicts/staleness, ask for missing evidence, use role-scoped data, and abstain. It cannot approve suppliers, release lots, authorize loading, clear customs, certify quality or approve payment.
+
+### Validation pending
+Scenario catalog assertions updated for 165 total / 30 sourced records. CI is triggered on the branch; results will be reported after completion. No DB, migration, Vercel deployment, production operation, or main merge/rebase performed.

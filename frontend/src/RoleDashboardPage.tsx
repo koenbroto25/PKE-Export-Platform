@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, AlertCircle, ArrowRight, Boxes, BriefcaseBusiness, ClipboardList, Clock3, FileCheck2, RefreshCw, ShieldCheck, Ship, Truck, Wallet } from 'lucide-react';
 import { get, post, patch } from './api';
@@ -112,6 +112,7 @@ function BuyerAccessControlPanel({projectId,platformAdmin,canManage}:{projectId:
 export default function RoleDashboardPage({ projectId, activeUser }: { projectId: string; activeUser?: RecordData }) {
   const [state, setState] = useState<LoadState>({ data: {}, loading: true, errors: [] });
   const [revision, setRevision] = useState(0);
+  const loadGeneration = useRef(0);
   const membership = activeUser?.projectMemberships?.find((m: RecordData) => m.projectId === projectId && m.isActive === true);
   const roles = useMemo(() => activeUser?.platformAdmin === true ? ['platform_admin'] : (membership?.roleAssignments || [])
     .filter((a: RecordData) => a.isActive === true && !a.revokedAt && a.roleIsActive === true && (!a.expiresAt || new Date(a.expiresAt).getTime() > Date.now()))
@@ -134,7 +135,8 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
   const canViewReports = roles.some((role: string) => reportReadRoles.has(role)) && (can('reports.view') || can('report.view'));
 
   const load = useCallback(async () => {
-    setState(current => ({ ...current, loading: true, errors: [] }));
+    const requestGeneration = ++loadGeneration.current;
+    setState({ data: {}, loading: true, errors: [] });
     const requests: Array<[keyof DashboardData, string, boolean]> = [
       ['projects', '/projects', true],
       ['p17AdminControlTower', '/admin/p17-control-tower', activeUser?.platformAdmin === true],
@@ -166,6 +168,7 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
       if (result.error) errors.push(`${String(result.key)}: ${result.error}`);
     }
     if (!projectId && activeUser?.platformAdmin !== true) errors.push('Pilih Project untuk memuat data dashboard.');
+    if (requestGeneration !== loadGeneration.current) return;
     setState({ data, loading: false, errors });
   }, [projectId, activeUser?.platformAdmin, canViewTasks, canViewContracts, canViewInventory, canViewWarehouse, canViewLogistics, canViewShipping, canViewDocuments, canViewFinance, canViewAccounting, canViewReports, revision]);
 

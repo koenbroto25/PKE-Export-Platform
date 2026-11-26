@@ -7180,21 +7180,24 @@ app.post("/api/v1/pm/projects", requireAuth, async (req: express.Request, res: e
   const targetQuantity=Number(b.targetQuantity);
   const idempotencyKey=typeof b.idempotencyKey==="string"?b.idempotencyKey:"";
   const evidenceUrl=typeof b.evidenceUrl==="string"&&b.evidenceUrl.trim()?b.evidenceUrl.trim():null;
+  const basisDate=typeof b.basisDate==="string"&&b.basisDate?b.basisDate:null;
+  const exportCountryCode=typeof b.exportCountryCode==="string"&&b.exportCountryCode?b.exportCountryCode.toUpperCase():null;
+  const validBasisDate=!basisDate||(/^\d{4}-\d{2}-\d{2}$/.test(basisDate)&&!Number.isNaN(Date.parse(basisDate))&&new Date(basisDate).toISOString().slice(0,10)===basisDate);
   const commercialTerms=b.commercialTerms&&typeof b.commercialTerms==="object"&&!Array.isArray(b.commercialTerms)?b.commercialTerms:{};
-  if(name.length<2||name.length>200||!uuidPattern.test(buyerId)||!["buyer_agreement","executed_contract"].includes(basisType)||basisReference.length<2||basisReference.length>200||!settlementUnit||settlementUnit.length>40||!Number.isFinite(targetQuantity)||targetQuantity<=0||!uuidPattern.test(idempotencyKey)||(basisType==="executed_contract"&&contractReference.length<2)||(evidenceUrl&&!/^https:\/\//i.test(evidenceUrl))) {
+  if(name.length<2||name.length>200||!uuidPattern.test(buyerId)||!["buyer_agreement","executed_contract"].includes(basisType)||basisReference.length<2||basisReference.length>200||!settlementUnit||settlementUnit.length>40||!Number.isFinite(targetQuantity)||targetQuantity<=0||!uuidPattern.test(idempotencyKey)||(basisType==="executed_contract"&&contractReference.length<2)||(evidenceUrl&&!/^https:\/\//i.test(evidenceUrl))||!validBasisDate||(exportCountryCode&&!/^[A-Z]{2}$/.test(exportCountryCode))) {
     return res.status(400).json({error:"Project name, active Buyer, agreement/contract basis, valid quantity/unit, and idempotency key are required.",code:"INVALID_PM_PROJECT_INPUT"});
   }
   try {
     const {rows}=await req.db.query(
       `SELECT public.pke_pm_create_project($1::uuid,$2::text,$3::text,$4::uuid,$5::text,$6::text,$7::date,$8::text,$9::text,$10::jsonb,$11::text,$12::numeric,$13::text) AS result`,
-      [idempotencyKey,name,typeof b.description==="string"?b.description:null,buyerId,basisType,basisReference,b.basisDate||null,contractReference||null,evidenceUrl,JSON.stringify(commercialTerms),settlementUnit,targetQuantity,typeof b.exportCountryCode==="string"?b.exportCountryCode:null],
+      [idempotencyKey,name,typeof b.description==="string"?b.description:null,buyerId,basisType,basisReference,basisDate,contractReference||null,evidenceUrl,JSON.stringify(commercialTerms),settlementUnit,targetQuantity,exportCountryCode]
     );
     return res.status(201).json(rows[0]?.result??{});
   } catch(error:any) {
     const code=typeof error?.code==="string"?error.code:"";
     if(code==="42501") return res.status(403).json({error:"An active Platform PM appointment is required.",code:"PM_APPOINTMENT_REQUIRED"});
     if(code==="P0002") return res.status(404).json({error:"Buyer or referenced record was not found.",code:"BUYER_NOT_FOUND"});
-    if(code==="22023"||code==="23514") return res.status(422).json({error:"Project commercial basis failed validation.",code:"PM_PROJECT_VALIDATION_FAILED"});
+    if(code==="22023"||code==="23514"||code==="22007"||code==="22008") return res.status(422).json({error:"Project commercial basis failed validation.",code:"PM_PROJECT_VALIDATION_FAILED"});
     if(code==="23505") return res.status(409).json({error:"Project creation conflicts with existing data.",code:"PM_PROJECT_CONFLICT"});
     req.logger?.error?.("Appointed PM project creation failed",{code:code||"UNKNOWN"});
     return res.status(500).json(internalServerErrorPayload());

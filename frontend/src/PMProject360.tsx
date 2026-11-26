@@ -46,8 +46,8 @@ export default function PMProject360({ project, sources, projectId, freshness, a
       <div className="ux-metric-grid">
         <UXMetric label="Project status" value={project?.status || 'Unknown'} detail="Project metadata" state={project?.status?'available':'unknown'}/>
         <UXMetric label="Contract target" value={project?.target_quantity != null ? Number(project.target_quantity).toLocaleString('id-ID')+' '+(project?.settlement_unit||'MT') : '—'} detail="Target baseline" state={project?.target_quantity!=null?'available':'unknown'}/>
-        <UXMetric label="Task queue" value={taskCount} detail="Work items returned by source" state={sources.tasks?.error?'unknown':sources.tasks?'available':'unknown'}/>
-        <UXMetric label="Document evidence" value={documentCount} detail="Documents / requirements" state={sources.documents?.error||sources.requirements?.error?'unknown':'partial'}/>
+        <UXMetric label="Task queue" value={taskCount} detail="Work items returned by source" state={metricState('tasks')}/>
+        <UXMetric label="Document evidence" value={documentCount} detail="Documents / requirements" state={sources.documents?.error||sources.requirements?.error||!sourceVerified('documents')||!sourceVerified('requirements')?'unknown':'partial'}/>
       </div>
       <UXFreshness source="Project / related APIs" value={freshness}/>
       {allErrors.length>0 && <div className="inline-warning" role="status">Sebagian source gagal: {allErrors.join(' · ')}. Data dari source tersebut tidak digunakan untuk menyimpulkan kesiapan.</div>}

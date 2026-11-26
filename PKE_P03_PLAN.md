@@ -2709,3 +2709,30 @@ G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration
 3. Add/execute synthetic integration matrix for appointment lifecycle, first Project creation, multiple Projects/Buyers, idempotent retries, invalid basis, transfer, suspended/revoked PM, project isolation, rollback and concurrency.
 4. Verify PM Portfolio runtime refresh and workspace switching; Admin governance actions and audit records.
 5. Prepare migration SHA-256 release package and UAT-only application plan; Production is excluded unless separately approved.
+
+
+## PM appointment-first workflow — 2026-11-27 audit continuation
+
+**Business rule confirmed:** appoint PM globally first (Platform Admin governance); the appointed PM creates Projects from Buyer agreement or executed-contract basis. One PM may own a portfolio of Projects and Buyers. Project creation atomically links Project, Contract Program, commercial basis, PM ownership, membership/role assignment, idempotency record and audit event.
+
+**Implementation branch / PR:** `p20/pm-appointment-first-20261126` / Draft PR #5. No Vercel deploy. No Neon Production or UAT mutation.
+
+### Source audit corrections
+- Restored Migration 113 to a clean single-transaction source after an edit accidentally duplicated the SQL tail.
+- Reconstructed the commercial-input validation block and corrected the ISO alpha-2 country-code regex; added explicit rejection for null basis type, null/invalid target quantity, and non-object commercial terms.
+- Confirmed Project's `contract_program_id` may be null at initial insert (Migration 039); the PM RPC inserts Project, then a Project-scoped Contract/Program, then sets the Program FK.
+- Added PM-create RLS policies and role permission allowlist seed plus Admin-only audited legacy ownership assignment policies. Writes remain scoped to the RPC transaction flag and authenticated actor/appointment checks.
+- Added a fail-closed release verifier with lexical quote/dollar-quote/parenthesis validation and SHA-256 pin checks.
+
+### Validation state
+- Previous known-good source-head CI: Unit Tests and Dependency Audit both passed on `f29ddef95c92781ca748b9b1af038c0f323c6f5f`.
+- Audit continuation is re-running after SQL and test corrections; current acceptance is **PENDING** until latest Unit Tests and Dependency Audit both finish green.
+- Source contract/synthetic rule tests cover appointment status, identity readiness, Buyer/agreement/contract input validation, portfolio multi-Project, idempotency, transfer, and revocation. They are not a substitute for isolated PostgreSQL UAT runtime/RLS validation.
+- Migration 113 remains **prepared / not applied**. Its release manifest remains owner-approval pending. Do not apply to Neon without separate explicit approval and isolated UAT.
+
+### Remaining hard gates
+1. Latest GitHub Actions green after corrections.
+2. Verify canonical PM permission catalog completeness against a real isolated UAT database; no runtime assumption is accepted from source-only tests.
+3. UAT execution/backtest across active/suspended/revoked PM, multiple Buyers/Projects, duplicate request, invalid commercial basis, transfer, concurrent creation, project isolation, rollback, and membership/RLS.
+4. Verify UI/API integration from Admin appointment through PM workspace and Project navigation.
+5. Only after these gates pass: update manifest to verified final SHA, prepare UAT apply instructions, and request owner approval. Production is out of scope.

@@ -327,3 +327,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 
 ## Executive Overview permission-gate regression correction
 - Two runs failed one assertion that had not yet included the new Project/logistics guard; 764/765 tests passed. Assertion updated in `57bfe4c1afb57ee01620f8e5316c474360ecc355`. CI pending.
+
+## Project Detail → PM Project 360 payload-validity correlation
+- Parent adapter previously defaulted missing source arrays to empty arrays while marking source available, which could look like verified zero.
+- Added explicit payload-validity flags for all implemented source workspaces; PM360 honors them for counts, stage labels, and empty-state classification. Regression assertions added; CI pending.

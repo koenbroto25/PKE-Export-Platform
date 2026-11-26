@@ -1,5 +1,6 @@
 import {describe,expect,it} from "vitest";
-import {assessTypedEvidence,propagateDependencyChain,type TypedEvidenceObservation} from "./typed-evidence-backtest.js";\nimport {PKE_PROCESS_DEPENDENCIES} from "./process-dependency-map.js";
+import {assessTypedEvidence,propagateDependencyChain,type TypedEvidenceObservation} from "./typed-evidence-backtest.js";
+import {PKE_PROCESS_DEPENDENCIES} from "./process-dependency-map.js";
 const rec=(o:Partial<TypedEvidenceObservation>={}):TypedEvidenceObservation=>({recordId:"r1",evidenceKey:"qty",kind:"shipment",sourceId:"srcA",sourceAuthority:80,verification:"verified",quantity:10,unit:"tonne",quantityGroup:"shipment",shipmentId:"S1",eventAt:"2026-11-26T10:00:00Z",receivedAt:"2026-11-26T10:01:00Z",permissionScope:"project:P1",...o});
 describe("Phase B2 typed evidence",()=>{
 it("normalizes mixed quantity units",()=>expect(assessTypedEvidence([rec(),rec({recordId:"r2",quantity:10000,unit:"kg",quantityGroup:"other"})]).normalizedQuantityGroups).toEqual({shipment:10,other:10}));
@@ -21,7 +22,8 @@ it("flags aggregate quantity mismatch without assuming source authority resolves
 it("accepts a valid superseding correction while excluding the original",()=>{const a=assessTypedEvidence([rec({recordId:"old",quantity:8}),rec({recordId:"new",quantity:10,supersedesRecordId:"old",correctionOfRecordId:"old"})],{expectedQuantities:{shipment:{quantity:10,unit:"tonne"}}});expect(a.activeRecordIds).toContain("new");expect(a.ignoredRecordIds).toContain("old");expect(a.status).toBe("satisfied");});
 it("rejects invalid source authority values",()=>expect(assessTypedEvidence([rec({sourceAuthority:101})]).status).toBe("conflict"));
 it("blocks typed evidence assessment when upstream dependency is blocked",()=>expect(assessTypedEvidence([rec()],{upstreamState:"blocked"}).status).toBe("blocked"));
-\n
+
+
 it("runs a deterministic fault matrix across every lifecycle edge",()=>{
  const faults:[string,()=>TypedEvidenceObservation[],any,string][]=[
   ["complete",()=>[rec({quantity:10})],{expectedQuantities:{shipment:{quantity:10,unit:"tonne"}}},"satisfied"],
@@ -38,5 +40,6 @@ it("runs a deterministic fault matrix across every lifecycle edge",()=>{
  for(const dep of PKE_PROCESS_DEPENDENCIES)for(const [name,make,policy,expected] of faults){const result=assessTypedEvidence(make(),policy);expect(result.status,dep.id+":"+name).toBe(expected);executed++;}
  expect(executed).toBe(PKE_PROCESS_DEPENDENCIES.length*faults.length);
 });
-\nit("never false-passes unresolved contradiction/rejection/overage",()=>{for(const a of [assessTypedEvidence([rec({value:"x"}),rec({recordId:"r2",value:"y"})]),assessTypedEvidence([rec({verification:"rejected"})]),assessTypedEvidence([rec({quantity:12})],{expectedQuantities:{shipment:{quantity:10,unit:"tonne"}}})])expect(a.status).not.toBe("satisfied");});
+
+it("never false-passes unresolved contradiction/rejection/overage",()=>{for(const a of [assessTypedEvidence([rec({value:"x"}),rec({recordId:"r2",value:"y"})]),assessTypedEvidence([rec({verification:"rejected"})]),assessTypedEvidence([rec({quantity:12})],{expectedQuantities:{shipment:{quantity:10,unit:"tonne"}}})])expect(a.status).not.toBe("satisfied");});
 });

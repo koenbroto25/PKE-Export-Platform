@@ -148,3 +148,11 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Fixed in `frontend/src/RoleDashboardPage.tsx`: permission-denied readiness rows now render as non-link labels; Field Capture navigates to `/field`.
 - Regression assertions added to `src/ux/phase-n-role-dashboard-navigation.test.ts`.
 - Validation for this source change is pending CI; do not claim PASS until the workflow completes.
+
+
+### Remediation validation
+- Dashboard readiness links are now gated by actual page permission (`hasPageAccess`) in addition to readiness status; inaccessible workspaces are rendered without clickable navigation.
+- Field Capture link corrected to its dedicated `/field` route.
+- Regression expectations updated to assert the permission helper and source wording.
+- CI run `45825759245`, commit `1c6f387c54bd7a9d0751e7aaa393edb77e9f7f4c`: SUCCESS; 80 test files / 749 tests passed; P19 assurance 20/20; backend/frontend build/typecheck passed.
+- This fix closes only the identified navigation defect. Broader role UX, task-flow and lifecycle correlation audit is still in progress.

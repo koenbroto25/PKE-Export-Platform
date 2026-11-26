@@ -343,7 +343,7 @@ BEGIN
  IF length(btrim(coalesce(p_name,'')))<2
     OR length(btrim(coalesce(p_basis_reference,'')))<2
     OR p_buyer_id IS NULL
-    OR p_basis_type NOT IN ('buyer_agreement','executed_contract')
+    OR p_basis_type IS NULL OR p_basis_type NOT IN ('buyer_agreement','executed_contract')
     OR length(btrim(coalesce(p_settlement_unit,'')))<1
     OR p_target_quantity IS NULL OR p_target_quantity<=0
     OR (p_basis_type='executed_contract' AND length(btrim(coalesce(p_contract_reference,'')))<2)

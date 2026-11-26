@@ -1792,7 +1792,7 @@ This is a static, offline schema/registry/assessment utility. It does not invoke
 - IPPC Indonesia reporting page: https://www.ippc.int/en/countries/indonesia/reportingobligation/4
  
 ### Validation
-- [ ] CI run for source registry, dependency map, benchmark fixtures, PM UX integration, and docs pending.
+- [x] CI run for source registry, dependency map, benchmark fixtures, PM UX integration and code checks: GitHub Actions Unit Tests #2248, commit `49db6fb29e27dfb1734ce3b033fb61dbdaf28077`, SUCCESS. https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45803696324
 - [ ] Frontend API-backed correlation: pending; requires source endpoints and role-safe data contracts, not just UI.
 - [ ] Automated live ingestion and source snapshot storage: pending; no DB changes authorized in this work.
 - [ ] Human review UX: pending.

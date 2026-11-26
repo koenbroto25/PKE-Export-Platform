@@ -46,6 +46,8 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(adminControl).toContain("value={projectSourceAvailable ? projectRows.length : '—'}");
   expect(adminControl).toContain("projectRows.every(p => typeof p.status === 'string')");
   expect(adminControl).toContain("projectVolumeKnown");
+  expect(adminControl).toContain("state={activeCount !== '—' ? 'available' : 'unknown'}");
+  expect(adminControl).toContain("state={volume !== '—' ? 'available' : 'unknown'}");
   expect(adminControl).toContain("projectSourceAvailable && projectRows.length===0");
   expect(adminControl).toContain("Project source belum terverifikasi");
   expect(adminControl).toContain("key={p.id || p.name || index}");

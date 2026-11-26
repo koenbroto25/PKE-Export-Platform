@@ -47,3 +47,22 @@ export function summarizeObservationSafety(o:KnowledgeObservation):string[]{
  if(o.scopeLimitations.length===0)issues.push("No scope limitation documented");
  return issues;
 }
+
+export function validateObservation(o:KnowledgeObservation):string[]{
+ const errors:string[]=[];
+ if(!o.observationId.trim())errors.push("observationId is required");
+ if(!o.entityType.trim())errors.push("entityType is required");
+ if(!o.claimType.trim())errors.push("claimType is required");
+ if(!o.sourceId.trim())errors.push("sourceId is required");
+ if(!/^https?:\\/\\//.test(o.sourceUrl))errors.push("sourceUrl must be HTTP(S)");
+ if(!o.publisher.trim())errors.push("publisher is required");
+ if(!Number.isFinite(o.confidence)||o.confidence<0||o.confidence>1)errors.push("confidence must be between 0 and 1");
+ if(!o.confidenceReason.trim())errors.push("confidenceReason is required");
+ if(!o.scopeLimitations.length)errors.push("at least one scope limitation is required");
+ if(!o.safetyBoundary.trim())errors.push("safetyBoundary is required");
+ if(!o.aiAllowedUse.length)errors.push("aiAllowedUse is required");
+ const dates=["retrievedAt","sourcePublishedAt","validFrom","validTo","reviewedAt"] as const;
+ for(const key of dates){const value=o[key];if(value&&parseDate(value)===undefined)errors.push(key+" must be a valid timestamp/date");}
+ const from=parseDate(o.validFrom),to=parseDate(o.validTo);if(from!==undefined&&to!==undefined&&from>to)errors.push("validFrom must not be after validTo");
+ return errors;
+}

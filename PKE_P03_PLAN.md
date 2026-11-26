@@ -1684,3 +1684,26 @@ GitHub Actions run #2191, commit `592ca58b8e81ce44342fa671c93f5bb0dd87ad29`, com
 Remaining gates: browser visual/accessibility/responsive tests, dedicated component tests, API/RLS negative scope tests, authoritative Admin exception aggregation, verified integrations for Production/QA/Port/Loading/Voyage/Finance stages, and 100+ synthetic end-to-end scenarios. Do not mark these as complete.
 
 No Neon DB operation, Vercel deploy, main merge/rebase or production change.
+
+
+## UX next-phase continuation — 26 November 2026
+
+### Implemented
+- Admin Control Center now shows a source-backed actionable task exception queue (up to 8 unique items) with Overdue/Blocked/Unassigned reasons, status and task details when available. Duplicate exception reasons on the same task do not inflate the distinct count.
+- Export simulation catalog expanded from 51 curated cases to **135 deterministic simulation-only cases**: 51 curated + 84 stage×fault matrix (12 lifecycle stages × 7 states: blocked/missing/stale/mismatch/pending/unverified/hold). Each matrix case has expected outcome, persona, message and stage-specific next action.
+- Contract tests cover matrix completeness, simulation-only/non-ready semantics, Admin exception queue source contract, and evaluator consistency.
+- Initial CI caught the Settlement persona mismatch (finance_manager vs actual finance); mapping corrected before acceptance.
+
+### Validation
+- GitHub Actions Unit Tests run #2199, commit `0b0a7a32643bc32872228de423e7d94b1665e0b9`: **SUCCESS**. Offline security/unit tests, P19 assurance, release/migration contracts, non-DB migration dry-run, backend build/typecheck, frontend typecheck/build all passed.
+- CI URL: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45793345838
+- Report: `docs/ux/UX-08_NEXT_PHASE_EXECUTION_REPORT_2026-11-26.md`
+
+### Still open / not accepted
+- 135 scenarios are deterministic simulation/backtest cases, not live end-to-end tests.
+- Field sync/receipt/idempotency/retry/conflict, submit-time Project/assignment authorization, server evidence upload/validation, secure local-cache retention/logout cleanup, browser/mobile weak-connectivity UAT and API/RLS negative tests remain P0 operational gates.
+- Browser visual/a11y QA and dedicated React component tests remain unrun.
+- Admin authoritative governance/PM anomalies/integration freshness/SLA/dependency risk sources and PM 360 verified lifecycle integrations/quantity reconciliation remain open.
+- UX decomposition of large App.tsx remains a measured maintainability risk; no broad rewrite.
+
+No Neon, migration, Vercel deployment, Production operation, main merge or rebase was performed.

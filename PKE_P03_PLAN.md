@@ -2614,3 +2614,40 @@ Current P20 head must show successful Unit Tests and Dependency Audit workflows.
 - No Neon Production/UAT mutation was performed.
 
 **Acceptance for GitHub Actions: PASS / BLOCKERS RESOLVED.**
+
+
+## Business workflow correction — PM appointed before Project creation (2026-11-26)
+
+### Confirmed field operating model
+The real-world workflow is **PM appointment first → PM establishes Buyer agreement/contract → PM creates Project → Project operational lifecycle**. Project is not created first and then assigned a PM as the default business process.
+
+1. Platform Admin appoints/activates a PM (user-level appointment, before Project exists).
+2. The appointed PM negotiates/records an agreement with Buyer and/or receives the signed contract/contract basis.
+3. PM creates a Project from that commercial agreement/contract, entering buyer, commercial scope, product/specification, quantity, pricing/terms, destination, planned timeline, and related evidence as applicable.
+4. Project creation records the creator and responsible PM. The PM can manage their own portfolio of Projects.
+5. Operational roles and stage assignments are then scoped to the Project; Project-specific permissions and data isolation remain enforced.
+
+### Product/architecture implications — audit required
+- PM appointment must be represented independently of any Project membership so an appointed PM can create the first Project.
+- PM's create-Project permission is based on active appointment, not on membership in a Project that does not yet exist.
+- Newly created Projects should be automatically owned/linked to the creating appointed PM; no redundant post-creation assignment step should be required for the normal path.
+- Admin must be able to appoint, suspend, revoke, and (with audited transfer) replace a PM. Revocation/transfer must not silently erase project history or orphan active Projects.
+- Portfolio view should aggregate all Projects for which the PM is responsible; each Project workspace remains project-scoped.
+- Project creation must capture commercial basis and distinguish draft negotiation/agreement from contract-backed/confirmed status. Do not force a signed contract where a documented agreement is legitimately the basis, but preserve evidence and approval policy.
+- PM appointment and Project creation are separate audit events; record actor, timestamp, status, reason/evidence where required.
+- Database, API, Admin appointment UI, PM create-Project UI, portfolio dashboard, authorization tests, and synthetic lifecycle fixtures must all be checked against this model.
+
+### Acceptance scenarios
+1. No appointed PM cannot create Project; UI and API fail closed.
+2. Appointed active PM can create a Project without pre-existing Project membership.
+3. Created Project is automatically linked to its responsible PM and appears in that PM's portfolio.
+4. PM can create multiple Projects from separate Buyer agreements/contracts.
+5. Project buyer/contract references and commercial details are validated and auditable.
+6. PM A cannot access PM B's Projects unless separately authorized/assigned under an explicit audited exception.
+7. PM suspension/revocation blocks new Project creation; existing Projects follow an explicit reassignment/continuity policy.
+8. PM transfer preserves history and prevents two conflicting responsible-PM states unless co-management is explicitly supported.
+9. Platform Admin governance actions are audited; Admin's platform role does not imply operational PM actions.
+10. Project creation failure is atomic: no orphan contract/agreement/project links.
+
+### Status
+This is a **business requirement correction and audit scope**, not a claim that the workflow is already implemented. Implementation status for appointment schema, creation authorization, automatic PM ownership, buyer/contract linkage, UI, portfolio, and integration tests remains to be established by source and schema audit. No Neon schema/data change is authorized by this note.

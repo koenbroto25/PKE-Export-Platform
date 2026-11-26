@@ -176,3 +176,10 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Dashboard source count rendering now returns unknown/— when an endpoint payload is missing the expected array; it no longer coerces malformed or missing fields into zero. Guards cover contract/program, warehouse/inventory, AP/AR, document, finance/accounting, trip and shipment allocation counts.
 - Field Capture readiness now accurately reports implemented local capabilities (GPS, photo evidence, assignment cache and IndexedDB draft) and separately marks server sync/upload, conflict resolution, barcode and signature as not integrated/validated. This replaces the inaccurate blanket “not available” description.
 - Regression tests were added/updated for source payload shape and Field Capture truthfulness. A TypeScript syntax error in the initial Finance count edit was caught by CI and corrected. One remaining CI run is pending for the latest test expectation update.
+
+
+## Additional dashboard permission audit — Admin and PM cockpits
+- Project Admin Configuration, Members, Roles and Access Review shortcuts are now rendered as non-links when the corresponding permission is unavailable (and route to Project selection when no Project context exists).
+- PM cockpit shortcuts (Task Inbox, Contract, Operations, Port, Maritime, Compliance, Finance and Reports) are now gated through `hasPageAccess`; denied items display a permission explanation instead of a clickable dead-end.
+- Platform Admin's Reports shortcut is gated; when Project-scoped report permission is absent, the dashboard explains that the Control Tower is already available on the dashboard and reports require Project context.
+- Regression assertions added for Admin/PM shortcut permission gates. The first Platform Admin conditional edit had a JSX closing-brace error caught by CI and corrected in commit `7e714033dad0ea811881cf1c2f9159ded2dd68c3`. CI for this latest correction is pending.

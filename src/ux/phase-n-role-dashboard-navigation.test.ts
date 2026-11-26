@@ -17,7 +17,9 @@ describe("Phase N role-dashboard navigation route coverage",()=>{
   expect(app).toContain("hasPageAccess");
   expect(app).toContain("visiblePageKeys");
   expect(app).toContain("allowedPages");
-  expect(roleDashboard).toContain("Access not granted");
-  expect(roleDashboard).toContain("Workspace access not granted");
+  expect(app).toContain("function RoleGuard");
+  expect(app).toContain("const allowed = allowedKeys.some(key => hasPageAccess(key, activeUser));");
+  expect(app).toContain("if (!allowed) return <div className=\"panel\">");
+  expect(roleDashboard).toContain("role.links.map");
  });
 });

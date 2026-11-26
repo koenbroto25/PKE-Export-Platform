@@ -3,6 +3,7 @@ const read=(p:string)=>readFileSync(join(process.cwd(),p),"utf8");
 describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
  const dashboard=read("frontend/src/RoleDashboardPage.tsx");
  const pm360=read("frontend/src/PMProject360.tsx");
+ const adminControl=read("frontend/src/AdminControlCenter.tsx");
  it("loads its dashboard source domains from explicit API endpoints",()=>{
   for(const endpoint of ["/projects","/reports/portfolio","/work-items","/contracts?projectId=","/contract-programs?projectId=","/warehouse-receipts?projectId=","/inventory-lots?projectId=","/truck-trips?projectId=","/shipment-allocations?projectId=","/documents","/document-requirements","/ap-invoices?projectId=","/ar-invoices?projectId=","/cash-advances?projectId=","/journal-entries?projectId=","/reports/project/"])expect(dashboard).toContain(endpoint);
  });
@@ -38,6 +39,17 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
 
  it("Admin Control Tower renders missing nested metrics as unknown rather than zero",()=>{
   for(const field of ["shipment_count","planned_quantity","loading_operations","voyage_count","pending_nominations","actual_port_calls","approved_documents","overdue_work_items","open_exceptions"]) expect(dashboard).toContain(`?.${field}??'—'`);
+ });
+
+ it("Admin Control Center distinguishes unavailable project source from verified zero and preserves partial-source visibility",()=>{
+  expect(adminControl).toContain("const projectSourceAvailable = Array.isArray(projects)");
+  expect(adminControl).toContain("value={projectSourceAvailable ? projectRows.length : '—'}");
+  expect(adminControl).toContain("projectRows.every(p => typeof p.status === 'string')");
+  expect(adminControl).toContain("projectVolumeKnown");
+  expect(adminControl).toContain("projectSourceAvailable && projectRows.length===0");
+  expect(adminControl).toContain("Project source belum terverifikasi");
+  expect(adminControl).toContain("key={p.id || p.name || index}");
+  expect(adminControl).toContain("typeof p.id === 'string' && p.id ? <Link");
  });
  it("keeps source failures and missing payloads unknown instead of zero",()=>{
   expect(dashboard).toContain("sourceFailed");

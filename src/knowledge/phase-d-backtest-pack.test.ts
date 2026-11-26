@@ -1,0 +1,7 @@
+import{describe,it,expect}from"vitest";import{PHASE_D_SCENARIOS,phaseDScenarioCoverage,validatePhaseDScenarioPack}from"./phase-d-backtest-pack.js";import{PKE_PROCESS_DEPENDENCIES}from"./process-dependency-map.js";
+describe("Phase D synthetic AI-enrichment backtest",()=>{
+it("builds a balanced 31-fault matrix for every lifecycle edge",()=>{const c=phaseDScenarioCoverage();expect(c.total).toBe(PKE_PROCESS_DEPENDENCIES.length*31);expect(c.dependencyCount).toBe(PKE_PROCESS_DEPENDENCIES.length);expect(c.faultCount).toBe(31);for(const n of Object.values(c.byFault))expect(n).toBe(PKE_PROCESS_DEPENDENCIES.length);});
+it("has unique IDs and safety fields",()=>{expect(validatePhaseDScenarioPack()).toEqual([]);expect(new Set(PHASE_D_SCENARIOS.map(x=>x.id)).size).toBe(PHASE_D_SCENARIOS.length);for(const s of PHASE_D_SCENARIOS){expect(s.synthetic).toBe(true);expect(s.labels).toContain("offline-backtest");expect(s.mustNotClaim.length).toBeGreaterThan(0);}});
+it("covers recovery and fail-closed faults",()=>{const f=new Set(PHASE_D_SCENARIOS.map(x=>x.fault));for(const x of ["recovery","cancelled-only","unauthorized","cross-project","not-applicable","multiple-faults","expired","correction-valid"])expect(f.has(x)).toBe(true);});
+it("AI behavior always retains scope/provenance and abstention boundaries",()=>{for(const s of PHASE_D_SCENARIOS){expect(s.expectedAIBehavior).toContain("respect project/role permissions");expect(s.mustNotClaim).toContain("approve shipment or customs");expect(s.mustNotClaim).toContain("authorize payment");}});
+});

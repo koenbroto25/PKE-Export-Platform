@@ -331,3 +331,6 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Project Detail → PM Project 360 payload-validity correlation
 - Parent adapter previously defaulted missing source arrays to empty arrays while marking source available, which could look like verified zero.
 - Added explicit payload-validity flags for all implemented source workspaces; PM360 honors them for counts, stage labels, and empty-state classification. Regression assertions added; CI pending.
+
+## PM360 payload-validity test correction
+- CI runs failed one stale assertion (764/765 tests passed); test now matches the explicit `payloadValid` source contract. Rerun pending.

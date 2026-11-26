@@ -1497,3 +1497,30 @@ No migration, SQL write, Production data change, deployment, or external provide
 - Therefore the most conservative code-first path is a dedicated authenticated sync API that validates the work item/assignment, uses existing work-item events with source_event_key and/or idempotency_keys, and stores evidence only through an approved, Project-bound lifecycle. If a dedicated evidence linkage table or object-key policy is required, document a migration proposal and stop at approval boundary; do not improvise a schema change.
 
 This was schema/policy inspection only. No SQL writes, test fixture changes, role changes, migration, or production operation was performed.
+
+
+## UX continuation / main-branch reconciliation checkpoint — 26 November 2026
+
+### Repository state verified
+- GitHub access is working for branch search, file reads, and commit comparison; earlier branch-ref reads were unreliable but this session successfully read the named working branch.
+- Working branch: `p20/platform-continuation-20261123`.
+- `main` is readable and has a different, older frontend surface (App.tsx does not include the field route or role-permission framework visible on the continuation branch).
+- GitHub compare currently reports the working branch and `main` as **DIVERGED**, with `main` 3 commits behind/ahead metadata and working branch 2,108 commits ahead. This compare result is anomalously large and must be validated using exact commit graph/tree evidence before any merge/rebase. No reconciliation/merge is safe yet.
+
+### UX evidence and gaps re-confirmed from branch documentation/source
+- UX-04A Field Capture is integrated into active SPA route and assignment-aware local draft capture, offline assignment cache, GPS/image metadata and local deletion. It is **not server-synchronized**; evidence remains local; no server acceptance receipt, retry/idempotency, server conflict/rejection handling, secure local-data lifecycle, QR/barcode or device UAT.
+- Existing work-item and evidence APIs are not a generic field-sync/upload contract. Do not bypass their auth, assignment, Project-scope, evidence linkage or RLS rules.
+- UX-05 export cross-check has synthetic scenario/backtest coverage and advisory core only; operational evidence linkage, freshness/version provenance, reviewer resolution and audit hand-off remain to be integrated.
+- UX-04B Production/QA, UX-04C Warehouse/Transport, UX-04D Port/Loading, UX-06 integrations, and UX-07 actionable intelligence still have material role-specific operational gaps listed in the UX readiness artifact.
+- Historical CI runs cited in branch artifacts are not proof for the current exact head. Exact-head CI must be verified after any code changes.
+
+### Next implementation gates
+1. Obtain a reliable working tree/branch-head commit and compare its tree with `main` plus recent commits; resolve the 3-commit base drift only after exact graph confirmation.
+2. Implement UX-04A server sync only after API/schema contract review: actor and Project/assignment validation, idempotency, canonical payload hashing, upload lifecycle/receipt, conflict/rejection recovery, and privacy-safe cache cleanup. If schema or migration is required, prepare a proposal and request approval before applying it.
+3. Integrate UX-05 with authoritative transaction evidence, provenance/freshness, field-level differences, owner/reviewer and auditable resolution. Never convert external advisory data into authoritative verification.
+4. Deliver UX-04B/04C/04D role workflows in sequence; test permissions and all role dashboard task routes; then UX-06 provider states and UX-07 queues/drilldowns.
+5. Run exact-head CI and synthetic backtests; verify branch-vs-main reconciliation and preserve all unique UX/P17/P18/P19/P20 work. Open a PR/reconcile only when conflict and regression checks are clear.
+
+### Current execution limitation / safety disposition
+- Connector can read and write individual GitHub files, but this session does not provide a verified checkout/worktree or a dependable source-tree/build/test runner. Therefore code-level implementation cannot be safely claimed or tested from this interface. No code was changed, no migration/SQL write was performed, no Vercel deployment was run, and no branch was merged/rebased.
+- Status: UX roadmap **OPEN / NOT COMPLETE**; main reconciliation **BLOCKED pending exact graph/tree verification and executable test environment**.

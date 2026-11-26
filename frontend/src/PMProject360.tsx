@@ -4,7 +4,7 @@ import { UXPanel, UXMetric, UXStateBadge, UXFreshness, UXEmpty } from './UXFound
 import './UXFoundation.css';
 
 type Row = Record<string, any>;
-type SourceBlock = { rows?: Row[]; loading?: boolean; error?: string; label: string; available?: boolean };
+type SourceBlock = { rows?: Row[]; loading?: boolean; error?: string; label: string; available?: boolean; authorized?: boolean };
 const stages = [
   { name:'Contract & Buyer', key:'contracts', description:'Contract, buyer terms, quantity, pricing, and contract program.', link:'/contracts' },
   { name:'Supply & PKS', key:'supply', description:'PKS participation, capacity, delivery commitments, and source traceability.', link:'/pks-sites' },
@@ -30,7 +30,7 @@ export default function PMProject360({ project, sources, projectId, freshness }:
     {label:'Document',count:docs.length+requirements.length,key:'documents'},
   ];
   const sourceState=(key:string):'available'|'partial'|'unavailable'|'unknown' => {
-    const s=sources[key]; if(!s) return 'unknown'; if(s.error) return 'unknown'; if(s.available===false) return 'unavailable'; return (s.rows?.length||0)>0?'partial':'unknown';
+    const s=sources[key]; if(!s) return 'unknown'; if(s.error) return 'unknown'; if(s.authorized===false) return 'unknown'; if(s.available===false) return 'unavailable'; return (s.rows?.length||0)>0?'partial':'unknown';
   };
   return <div className="pm-project-360">
     <UXPanel title="PM Project 360" subtitle="Single-project lifecycle view. Record existence is evidence of data, not proof of stage approval or readiness." >
@@ -52,7 +52,7 @@ export default function PMProject360({ project, sources, projectId, freshness }:
         if(stage.key==='production'||stage.key==='qa'||stage.key==='port'||stage.key==='loading'||stage.key==='voyage'||stage.key==='finance') sourceKey=stage.key;
         const source=sources[sourceKey];
         const state: 'available'|'partial'|'unavailable'|'unknown' = source ? sourceState(sourceKey) : 'unavailable';
-        const stateLabel=source?.available===false?'Belum terintegrasi':source?.error?'Tidak dapat diverifikasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
+        const stateLabel=source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.available===false?'Belum terintegrasi':source?.error?'Tidak dapat diverifikasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
         return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':source?.rows?.length!==undefined?'Records: '+source.rows.length:'No verified source'}</div><Link className="ux-action-link" to={stage.link}>Open workspace →</Link></article>;
       })}</div>
     </UXPanel>

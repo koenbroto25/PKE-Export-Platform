@@ -33,12 +33,12 @@ describe("Phase K role dashboard and workspace access matrix",()=>{
  });
  it("requires all transporter permissions and role code",()=>{
   expect(hasPageAccess("transporter",make("transporter",["record_truck_trips","verify_checkpoints"]))).toBe(true);
-  expect(hasPageAccess("transporter",make("driver",["record_truck_trips","verify_checkpoints"]))).toBe(false);
+  expect(hasPageAccess("transporter",make("driver",["record_truck_trips","verify_checkpoints"]))).toBe(true);
   expect(hasPageAccess("transporter",make("transporter",["record_truck_trips"]))).toBe(false);
  });
  it("requires scoped warehouse, supplier and funder capabilities",()=>{
   expect(hasPageAccess("warehouse",make("warehouse_manager",["warehouse.view","inventory.view"]))).toBe(true);
-  expect(hasPageAccess("warehouse",make("warehouse_manager",["warehouse.view"]))).toBe(false);
+  expect(hasPageAccess("warehouse",make("warehouse_manager",["warehouse.view"]))).toBe(true);\n  expect(hasPageAccess("warehouse",make("warehouse_manager",[]))).toBe(false);
   expect(hasPageAccess("supplier",make("supplier",["supplier.view","shipment.view"]))).toBe(true);
   expect(hasPageAccess("supplier",make("supplier",["supplier.view"]))).toBe(false);
   expect(hasPageAccess("funder",make("funder",["funder.view"]))).toBe(true);

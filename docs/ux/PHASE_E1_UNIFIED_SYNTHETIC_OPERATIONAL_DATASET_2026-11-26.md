@@ -300,3 +300,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Fixed project count, active count, target-volume, and empty-state semantics: missing source is unknown, verified empty list is zero, active count requires known statuses, volume requires known targets, and missing project IDs do not produce invalid links.
 - Project list remains visible if an unrelated task/portfolio source has an error; the global partial-source warning still communicates failures.
 - Regression coverage added; CI pending.
+
+## Admin Control Center remediation correction
+- CI caught a JSX closing-brace syntax issue in the Project attention list conditional link. Fixed in commit `bfb9147189b573c6e52ebefc22b3fdff5ca8163a`.
+- Runs `45833159014` and `45833201610` failed typecheck before fix. Validation remains pending on corrected source.

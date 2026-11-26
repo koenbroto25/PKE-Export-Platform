@@ -1933,3 +1933,20 @@ Scope unchanged: no Vercel deployment, Neon/Production mutation, migration, live
 Commits: `19fe7e56c70687d9c842931ab58a0aec09e54947`, `051a1d73603b125e6c9f4e7c7f02d55527844af5`, `c691dca309363bfc2f36829bd8b248a17d0ecf4d`, `7341dbc92abe5169179bd00b6677f8faceda46f7`, `e46cb7dbf0afed645bdacae86940215d68c38cd3`, `df17de824d46f3fc58c9c2665d719933287b12a5`.
 
 **Current Phase A status: implementation + synthetic API route authored; awaiting CI/typecheck verification and UI wiring.**
+
+
+### Phase A3 checkpoint — PM Project 360 demo panel wiring (26 November 2026)
+
+- [x] Replaced static-only cross-process dependency panel with API-backed demo summaries.
+- [x] PM Project 360 passes Project ID and role-visible page keys to the panel.
+- [x] Panel fetches only the explicit demo endpoint and displays provenance banner: synthetic, no live integration, no readiness/approval.
+- [x] Loading, error, empty/permission-filtered and refresh states are present.
+- [x] Stage links are rendered only when the page is role-visible; otherwise labels are non-clickable.
+- [x] Displays status, freshness, missing evidence, safe next action, AI-assist boundary and decision owner.
+- [x] Added provenance banner styling.
+- [ ] Frontend typecheck/build and browser QA are pending; do not claim visual/browser verification.
+- [ ] Live source integration and persisted evidence remain not implemented.
+
+Commits: `631c51600148c393ea847fc9935b49d6ff9254f2`, `21dcfb5e674b2daddbcb0b3b7795f64fcd1474f2`, `479e57f72923aea4ba81d2d669c5bba2b1fba289`.
+
+**Phase A implementation status: contract + permission-filtered demo endpoint + PM UI wiring implemented in source. Acceptance remains pending CI/typecheck and browser QA.**

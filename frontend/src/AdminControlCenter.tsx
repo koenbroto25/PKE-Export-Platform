@@ -29,8 +29,8 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
       {loading && <div className="muted">Memuat sumber portofolio…</div>}
       <div className="ux-metric-grid">
         <UXMetric label="Project terlihat" value={projectSourceAvailable ? projectRows.length : '—'} detail="API /projects" state={projectSourceAvailable ? 'available' : 'unknown'}/>
-        <UXMetric label="Project aktif" value={activeCount ?? '—'} detail="Status portfolio / project" state={hasPortfolio ? 'available' : projectSourceAvailable ? 'partial' : 'unknown'}/>
-        <UXMetric label="Target volume" value={Number.isFinite(Number(volume)) ? Number(volume).toLocaleString('id-ID')+' MT' : '—'} detail="Target agregat, bukan volume aktual" state={hasPortfolio || projectVolumeKnown ? 'available' : 'unknown'}/>
+        <UXMetric label="Project aktif" value={activeCount ?? '—'} detail="Status portfolio / project" state={activeCount !== '—' ? 'available' : 'unknown'}/>
+        <UXMetric label="Target volume" value={Number.isFinite(Number(volume)) ? Number(volume).toLocaleString('id-ID')+' MT' : '—'} detail="Target agregat, bukan volume aktual" state={volume !== '—' ? 'available' : 'unknown'}/>
         <UXMetric label="Task exception" value={taskSourceAvailable ? exceptionCount : '—'} detail={taskSourceAvailable ? overdue.length+' overdue · '+blocked.length+' blocked · '+unassigned.length+' unassigned' : 'Task source belum dapat diverifikasi'} state={taskSourceAvailable ? (overdue.length+blocked.length+unassigned.length ? 'partial':'available') : 'unknown'}/>
       </div>
       <UXFreshness source="Portfolio API" value={freshness}/>

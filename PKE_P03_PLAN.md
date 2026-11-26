@@ -1996,3 +1996,32 @@ Latest commits: `9211310655e3edc684f0e4c9c5b8897aa20d9620` (route permission den
 - [ ] Typecheck/build remains unverified. GitHub workflow runs are empty for the follow-up commit; the only commit status is the Vercel rate-limit failure, intentionally skipped.
 
 Commit: `fdeda6bcd000f49789d26763856bcd4bdff3336d`.
+
+
+## Full audit/backtest checkpoint — Phase A/B (26 November 2026)
+
+### Audits completed in source
+- [x] Re-audited all 11 lifecycle dependency definitions and decision precedence. Model precedence: upstream gap/blocked → blocked; upstream stale → stale; upstream/downstream unknown → unknown; local missing evidence → gap; downstream blocked → blocked; otherwise satisfied. `not-applicable` is treated as non-blocking input only; it does not mean approved.
+- [x] Audited all permission codes used by the demo API against `CANONICAL_ROLE_TEMPLATES`; all mapped codes exist in the canonical catalogue. Added a regression assertion.
+- [x] Reviewed frontend role-gated routes, synthetic provenance, loading/error/empty states and data labels. Corrected Unknown filter to include unknown freshness as well as unknown status, and changed evidence label so zero missing items is not incorrectly labelled a gap.
+- [x] Expanded assessor backtest from fixture-only checks to an exhaustive decision-precedence table across 11 edges × 3 evidence classes (complete, all missing, one missing) × 7 upstream states × 7 downstream states = **1,617 deterministic combinations**. Added scenario ID/reference integrity checks. These tests are authored, not executed.
+
+### Current status / integrity boundary
+- Phase A/B source work is implemented and audited; **not acceptance-passed** because no runtime execution, root/frontend typecheck/build, browser QA, or eligible GitHub Actions run is available. The only commit status surfaced is Vercel; deployment is intentionally skipped per instruction and is not an application test result.
+- This model backtests status decision logic only. It does not simulate numeric quantities, contradictory documents, duplicate identifiers/allocations, event-time freshness transitions, source authority/reconciliation, cancelled/partially corrected records, or real role handoffs. Do not infer operational readiness from its synthetic API.
+- No Vercel deploy, Neon mutation, migration, production data, live source integration, model API, merge, or rebase was performed.
+
+### Phase C — next required work (before live integration)
+1. Expand the dependency assessment input from evidence-label presence to typed evidence observations: source/record IDs, quantity/unit, lot/batch/shipment identity, timestamps, source authority, verification state, supersession/correction links, and scoped permissions.
+2. Implement deterministic conflict rules and backtest contradictory records, duplicate allocation, over-allocation, unit mismatch, partial shipment, stale/reordered events, cancellation/reversal, and correction/recovery.
+3. Add multi-edge propagation tests where the same blocker is corrected and downstream edges recover without stale cached state.
+4. Validate every workspace route and role page key; replace heuristic route aliases with a verified route registry and add keyboard/accessibility/browser QA.
+5. Only after Phase C contracts and tests pass: design a live adapter per source workspace, read-only scope, source freshness, permission enforcement, provenance, error/abstention and integration tests. No live adapter is approved in this checkpoint.
+
+### Acceptance gates
+- [ ] Execute root test suite and release-policy scripts.
+- [ ] Execute backend typecheck/build.
+- [ ] Execute frontend typecheck/build and frontend tests.
+- [ ] Browser QA for PM Project 360 dependency map across roles, filters, responsive breakpoints and access-denied states.
+- [ ] Capture actual GitHub Actions run/check evidence (excluding Vercel) and fix all relevant failures.
+- [ ] Phase C typed evidence/conflict model and extended backtest pass before any live data correlation.

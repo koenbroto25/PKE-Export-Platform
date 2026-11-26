@@ -2349,3 +2349,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Coverage: 120 lifecycle stage slots (10 × 12). Evidence-integrity checks now detect false-ready contract quantity, lot quantity, supply capacity, port suitability, transport license, document, loading quantity and settlement states.
 - Chaos fault catalog expanded to 16 declared cases. Regression tests updated for the ten-scenario dataset and 49 documents after a synthetic missing-document fault.
 - CI currently pending after correcting an assertion syntax issue in the chaos test. Do not claim the 10-scenario expansion PASS until the latest run is green.
+
+
+## Ten-scenario synthetic backtest validation checkpoint — 2026-11-26
+- Verified commit `6e3873138c3a6a3aaa93dee61959f1a5a59e313a`, CI run `45829670413`: SUCCESS — 80 test files / 754 tests passed; release/migration policy checks, backend/frontend typecheck/build PASS.
+- The ten-scenario dataset (120 stage slots) validates clean completion, QC hold, loading conflict, document gap, port suitability failure, expired driver, settlement pending, inventory shortage, PKS capacity shortage, and contract quantity mismatch. False-ready contradiction checks cover these evidence domains.
+- The 16-fault chaos catalog is included in the passing run. The separate keyboard-accessibility CSS regression batch is pending its own CI.

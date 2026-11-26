@@ -2,6 +2,7 @@ import{describe,it,expect}from"vitest";import{readFileSync}from"node:fs";import{
 const read=(p:string)=>readFileSync(join(process.cwd(),p),"utf8");
 describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
  const dashboard=read("frontend/src/RoleDashboardPage.tsx");
+ const app=read("frontend/src/App.tsx");
  const pm360=read("frontend/src/PMProject360.tsx");
  const adminControl=read("frontend/src/AdminControlCenter.tsx");
  it("loads its dashboard source domains from explicit API endpoints",()=>{
@@ -52,6 +53,19 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(adminControl).toContain("Project source belum terverifikasi");
   expect(adminControl).toContain("key={p.id || p.name || index}");
   expect(adminControl).toContain("typeof p.id === 'string' && p.id ? <Link");
+ });
+
+ it("Executive Overview clears prior source data and never presents missing project/trip/task payloads as zero",()=>{
+  expect(app).toContain("setData(null)");
+  expect(app).toContain("const projectRowsVerified = Array.isArray(projects.data?.projects)");
+  expect(app).toContain("const projectTargetsVerified = projectRowsVerified");
+  expect(app).toContain("const tripRowsVerified = Array.isArray(trips.data?.truckTrips)");
+  expect(app).toContain("const visibleTripCount = tripRowsVerified ? tripRows.length : null");
+  expect(app).toContain("const countText = (rows: AnyRecord[] | null) => rows === null ? '—'");
+  expect(app).toContain("taskRows === null ? '—'");
+  expect(app).toContain("Project source terverifikasi mengembalikan nol record");
+  expect(app).toContain("Tracking source terverifikasi mengembalikan nol event");
+  expect(app).toContain("Payload task belum terverifikasi; angka 0 tidak ditampilkan.");
  });
  it("keeps source failures and missing payloads unknown instead of zero",()=>{
   expect(dashboard).toContain("sourceFailed");

@@ -1629,3 +1629,18 @@ Branch ref: `p20/platform-continuation-20261123`. Re-fetched source files throug
 4. Obtain a verified executable workspace before implementation claims. Once available, implement shared UX primitives first, then Admin actionable exceptions and PM Project 360, then Field Sync P0, with tests and synthetic scenario coverage.
 
 No code changes, Neon operations, Vercel deployments, merge/rebase or main-branch modifications occurred in this refresh.
+
+
+## UX source-path reconciliation (same refresh)
+
+The `frontend/src` directory listing on this exact branch contains only these page/component files: `App.tsx`, `FieldCapturePage.tsx`, `MaritimeIdentityReview.tsx`, `MaritimeOperationsWorkspace.tsx`, `MaritimeSourceRegistry.tsx`, `MasterDataChangeRequests.tsx`, `P17AisAdminPanel.tsx`, `P17BuyerVisibilityPanel.tsx`, `P17IngestionRunPanel.tsx`, `P17WorkflowActions.tsx`, `P1WorkflowWorkbench.tsx`, `PkeLogisticsScenarioWorkbench.tsx`, `PortNetworkPage.tsx`, `QualityProvenancePanel.tsx`, `RegulatoryCoreWorkspace.tsx`, `RoleDashboardPage.css`, `RoleDashboardPage.tsx`, `api.ts`, `auth-client.ts`, `main.tsx`, `neon-auth.ts`, `role-permissions.ts`, `styles.css`, and `vite-env.d.ts`.
+
+**Architecture correction:** My Work, Access, Projects, Project Detail and many other page functions are defined inside the large `App.tsx` monolith; standalone guessed file names were not found. This is not an implementation absence. Confirmed exact function definitions and route wrappers:
+- `MyWorkPage` is defined inside `App.tsx` and routed at `/my-work` with RoleGuard key `my-work`.
+- `AccessPage` is defined inside `App.tsx` and routed at `/access` with RoleGuard key `access`.
+- `ProjectDetailPage` is defined inside `App.tsx` and routed at `/projects/:id` with RoleGuard key `project-detail`.
+- `FieldCapturePage` is separately imported from `./FieldCapturePage`.
+
+The current frontend is therefore materially monolithic: `App.tsx` is 278 KB and includes numerous page functions. This should be treated as a maintainability/UX delivery risk, but refactoring is not automatically justified; first map dependencies, state ownership, API helpers and route guards, then extract incrementally with regression tests. The minimal Project Detail component evidence remains consistent with UX-04: it currently loads `GET /projects/:id/detail` and displays the project ID plus loading/error states; richer lifecycle Project 360 is not evidenced in that function.
+
+The exact package scripts were verified in `frontend/package.json`, but build/typecheck are not run. The updated plan file is documentation-only.

@@ -141,6 +141,70 @@ CREATE POLICY project_commercial_basis_admin_select ON public.project_commercial
 CREATE POLICY project_commercial_basis_project_select ON public.project_commercial_basis FOR SELECT TO app_runtime_secure USING(public.pke_has_project_permission(project_id,'contract.view'));
 CREATE POLICY pm_project_create_idempotency_self_select ON public.pm_project_create_idempotency FOR SELECT TO app_runtime_secure USING(pm_user_id=public.pke_current_user_id());
 
+-- Ensure the canonical PM permission codes exist in the catalog. This is additive;
+-- existing catalog names/descriptions are preserved and no access is granted by catalog rows alone.
+INSERT INTO public.permissions(code,name,description,is_active)
+VALUES
+('project.view',initcap(replace(replace('project.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.update',initcap(replace(replace('project.update','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.members.view',initcap(replace(replace('project.members.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.members.invite',initcap(replace(replace('project.members.invite','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.members.manage',initcap(replace(replace('project.members.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.roles.manage',initcap(replace(replace('project.roles.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.configuration.manage',initcap(replace(replace('project.configuration.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('audit.finding.view',initcap(replace(replace('audit.finding.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('contract.view',initcap(replace(replace('contract.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('manage_contract_programs',initcap(replace(replace('manage_contract_programs','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('port.view',initcap(replace(replace('port.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('port.depth.view',initcap(replace(replace('port.depth.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('port.depth.submit',initcap(replace(replace('port.depth.submit','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('route.estimate',initcap(replace(replace('route.estimate','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('vessel.view',initcap(replace(replace('vessel.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('vessel.port.assess',initcap(replace(replace('vessel.port.assess','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('voyage.view',initcap(replace(replace('voyage.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('voyage.create',initcap(replace(replace('voyage.create','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('voyage.update',initcap(replace(replace('voyage.update','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('vessel.nomination.review',initcap(replace(replace('vessel.nomination.review','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('vessel.port_call.manage',initcap(replace(replace('vessel.port_call.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('pks.site.view',initcap(replace(replace('pks.site.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('pks.participation.manage',initcap(replace(replace('pks.participation.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('pks.master_data.change_request.view',initcap(replace(replace('pks.master_data.change_request.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('pks.master_data.change_request.manage',initcap(replace(replace('pks.master_data.change_request.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('pke.logistics.master.view',initcap(replace(replace('pke.logistics.master.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('pke.logistics.master.change_request.manage',initcap(replace(replace('pke.logistics.master.change_request.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('facility.view',initcap(replace(replace('facility.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('facility.product.view',initcap(replace(replace('facility.product.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('facility.capacity.view',initcap(replace(replace('facility.capacity.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('product.view',initcap(replace(replace('product.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('supplier.view',initcap(replace(replace('supplier.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('product.requirement.view',initcap(replace(replace('product.requirement.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('product.requirement.manage',initcap(replace(replace('product.requirement.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('shipping.view',initcap(replace(replace('shipping.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('shipment.view',initcap(replace(replace('shipment.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('shipping.survey.view',initcap(replace(replace('shipping.survey.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('shipping.laytime.view',initcap(replace(replace('shipping.laytime.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('finance.view',initcap(replace(replace('finance.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('inventory.view',initcap(replace(replace('inventory.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('operations.view',initcap(replace(replace('operations.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('logistics.view',initcap(replace(replace('logistics.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('warehouse.view',initcap(replace(replace('warehouse.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('documents.view',initcap(replace(replace('documents.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('workflow.view',initcap(replace(replace('workflow.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('approvals.view',initcap(replace(replace('approvals.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('reports.view',initcap(replace(replace('reports.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('audit.view',initcap(replace(replace('audit.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('shipping.survey.review',initcap(replace(replace('shipping.survey.review','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('shipping.laytime.verify',initcap(replace(replace('shipping.laytime.verify','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('loading.quantity.reconcile',initcap(replace(replace('loading.quantity.reconcile','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.tasks.view',initcap(replace(replace('project.tasks.view','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.tasks.create',initcap(replace(replace('project.tasks.create','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.tasks.assign',initcap(replace(replace('project.tasks.assign','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.tasks.update',initcap(replace(replace('project.tasks.update','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.tasks.resolve',initcap(replace(replace('project.tasks.resolve','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('project.tasks.escalate',initcap(replace(replace('project.tasks.escalate','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true),
+('buyer.visibility.manage',initcap(replace(replace('buyer.visibility.manage','.',' '),'_',' ')),'Project Manager template permission; authorization remains Project-scoped.',true)
+ON CONFLICT(code) DO NOTHING;
+
 -- Exact PM role permission template for appointment-first Project provisioning.
 INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
 VALUES

@@ -17,7 +17,7 @@ describe("PM Project 360 dependency panel integration contract",()=>{
   expect(panel).toContain("allowedPages.includes");
  });
  it("includes loading, error, empty, refresh and status/evidence/action presentation",()=>{
-  for(const text of ["UXLoading","UXError","UXEmpty","Refresh","missingEvidenceCount","safeNextAction","freshness"]) expect(panel).toContain(text);
+  for(const text of ["UXLoading","UXError","UXEmpty","Refresh","missingEvidenceCount","safeNextAction","freshness","filter","Missing evidence","Evidence checklist"]) expect(panel).toContain(text);
  });
  it("uses role-gated links and provenance banner styling",()=>{
   expect(panel).toContain("canOpen(d.from)");

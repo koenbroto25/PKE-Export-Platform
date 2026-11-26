@@ -2143,3 +2143,13 @@ Extend synthetic benchmark cases and deterministic evaluation contracts for prov
 Map requirement → process/data contract → API/backend → UI/role → test/backtest. Identify gaps, fix source-only feasible defects and report external/integration blockers separately.
 
 **Phase E1 evidence:** commit `7800d556c735e707a7fe954395b602ee16dbc2b0` added fixture generator; `f9ab89a6d26625deace46efd7157513fb42e0e19` added integrity tests; `f7eeaf7544981c9404f8b67a596144ac1d990a50` wired test suite. CI validation is pending and E1 remains provisional until green.
+
+
+## Marathon checkpoint update — 2026-11-26 (after E2/F/G/H/I source work)
+- [x] E2 lifecycle simulator: 12 stages, complete/QC-blocked/loading-conflict cases, upstream invalidation and downstream readiness suppression. CI run `45816341325` SUCCESS.
+- [x] F synthetic role contracts: 14 roles, project scope, stage visibility and action-owner/readiness constraints. CI run `45816423837` SUCCESS.
+- [x] G offline chaos/recovery test cases added (8 fault types).
+- [x] H offline AI safety evaluator added (6 synthetic cases); explicitly NOT live AI evaluation.
+- [x] I traceability matrix added (6 rows: 4 covered, 1 partial, 1 actual UI/API integration gap).
+- [ ] Newest combined G–I test run and full pipeline validation pending. Correct any CI failure before status update.
+- [ ] Real API/UI E2E integration, runtime permission testing, and live-model evaluation remain external environment gates; no deployment/database/AI was used.

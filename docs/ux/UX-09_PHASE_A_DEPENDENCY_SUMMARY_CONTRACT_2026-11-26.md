@@ -92,3 +92,12 @@ Source wiring is implemented, but frontend build/typecheck and browser QA are **
 - Added empty-filter state and responsive styling for desktop/tablet/mobile.
 - Filter operates only on summaries already authorized by the API; it does not change or broaden permissions.
 - **Verification pending:** frontend typecheck/build and browser QA have not been executed.
+
+
+## Latest validation checkpoint
+
+- Added static UI contract tests at `src/dependency-summary-ui.contract.test.ts`.
+- Added explicit route denial test for authenticated users without `project.view`.
+- Root `npm test` includes both tests.
+- Runtime tests/typechecks/builds/browser QA remain **unverified** because this workflow has no repository checkout/runtime execution. GitHub Actions run lookup returned no run; Vercel check is rate-limited and intentionally skipped.
+- The demo panel is source-wired; no live evidence adapter or production readiness is asserted.

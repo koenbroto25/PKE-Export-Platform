@@ -64,3 +64,20 @@ export async function deleteFieldAssignmentCache(principalId:string,projectId:st
  const db=await openFieldDraftDb(),cacheKey=principalId+"::"+projectId;
  await new Promise<void>((resolve,reject)=>{const tx=db.transaction(ASSIGNMENT_STORE,"readwrite");tx.objectStore(ASSIGNMENT_STORE).delete(cacheKey);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});db.close();
 }
+export async function deleteFieldLocalDataForPrincipal(principalId:string):Promise<{drafts:number;assignmentCaches:number}>{
+ if(!principalId.trim())throw new Error("principalId is required");
+ const db=await openFieldDraftDb();let drafts=0,assignmentCaches=0;
+ await new Promise<void>((resolve,reject)=>{
+  const tx=db.transaction([STORE,ASSIGNMENT_STORE],"readwrite");
+  const draftStore=tx.objectStore(STORE),cacheStore=tx.objectStore(ASSIGNMENT_STORE);
+  const draftRequest=draftStore.index("principalId").getAll(principalId);
+  draftRequest.onsuccess=()=>{for(const row of draftRequest.result as FieldDraft[]){draftStore.delete(row.id);drafts++;}};
+  draftRequest.onerror=()=>reject(draftRequest.error);
+  const cacheRequest=cacheStore.index("principalId").getAll(principalId);
+  cacheRequest.onsuccess=()=>{for(const row of cacheRequest.result as FieldAssignmentCache[]){cacheStore.delete(row.cacheKey);assignmentCaches++;}};
+  cacheRequest.onerror=()=>reject(cacheRequest.error);
+  tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+ });
+ db.close();return {drafts,assignmentCaches};
+}
+

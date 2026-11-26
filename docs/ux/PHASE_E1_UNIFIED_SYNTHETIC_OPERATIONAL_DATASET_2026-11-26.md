@@ -268,3 +268,9 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Dashboard metric source loads/visibility could rely on data permission or role without checking the destination page permission. This risks showing a metric link to a workspace that route guards deny, and unnecessarily fetching data for inaccessible workspaces.
 - Source request/metric gates now require both data permission and destination page access for task, contract, warehouse, operations, shipment allocation, compliance, finance, accounting journal, and report workspaces.
 - Phase L regression assertions added; CI pending.
+
+## PM Project 360 source-truth audit
+- Found source failure/missing payload could be rendered as zero counts and empty evidence, and task blocker/overdue counts could misleadingly show zero.
+- PM Project 360 now requires verified source payloads before displaying numeric counts; unknown counts render as em-dash. Verified-empty message requires all evidence source counts to be verified zero. Blocker/overdue figures are unknown unless task source is verified. Error labels take precedence over “not integrated.”
+- Added regression coverage. CI pending for PM360 source fix.
+- Prior metric destination permission alignment regression passed: run `45831671290`, 80 files / 761 tests.

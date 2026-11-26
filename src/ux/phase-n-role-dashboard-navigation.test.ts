@@ -8,6 +8,10 @@ describe("Phase N role-dashboard navigation route coverage",()=>{
   const unique=[...new Set(links)];
   const missing=unique.filter(path=>!app.includes(`to: '${path}'`)&&!app.includes(`path="${path}"`)&&!app.includes(`path='${path}'`));
   expect(missing).toEqual([]);
+  const linkPageKeys=[...roleDashboard.matchAll(/\x27(\\\/[^\x27]+)\x27\s*:/g)].map(m=>m[1]);
+  const roleLinkMap=read("frontend/src/RoleDashboardPage.tsx");
+  const unmapped=unique.filter(path=>!roleLinkMap.includes(`\x27${path}\x27:`));
+  expect(unmapped).toEqual([]);
   expect(unique.length).toBeGreaterThan(15);
  });
  it("dashboard links include work queues and all major export-process workspaces",()=>{

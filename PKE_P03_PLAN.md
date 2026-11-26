@@ -1485,3 +1485,15 @@ Before implementation, map field draft kinds to allowed work-item event types, s
 - RLS/runtime role tests, API tests, CI and mobile/offline UAT remain required.
 
 No migration, SQL write, Production data change, deployment, or external provider activation was performed during this audit.
+
+
+### UX-04A RLS and idempotency reuse audit (read-only, 26 Nov 2026)
+
+- `project_work_item_events` INSERT policy requires actor = current authenticated principal and an existing same-Project parent work item; SELECT is parent-work-item scoped. The same-Project composite FK protects event linkage.
+- Work-item RLS SELECT is `project.tasks.view` or active owner-role assignment with assignee scope. UPDATE is PM task-update/resolve permission or active assigned-role/user. Endpoint checks remain stricter than relying on RLS alone and must be preserved.
+- `source_event_key` has a partial unique index on `(project_id, source_event_key)` when non-null. It is a viable dedupe primitive for event ingestion, subject to canonical event key/payload hashing and explicit conflict behavior.
+- `idempotency_keys` RLS is actor-owned. It enforces unique `(actor_user_id, scope, idempotency_key)`, request SHA-256 format, bounded key length, and processing/completed/failed states. The existing table can be evaluated for field-sync replay protection; do not bypass actor scope or reuse a key across incompatible endpoint scopes.
+- `p1_domain_evidence` RLS is record-type/Project/permission-specific and references `p1_domain_records`; arbitrary field evidence cannot be inserted safely without a valid domain record and required permission. No direct reuse for work-item evidence is approved.
+- Therefore the most conservative code-first path is a dedicated authenticated sync API that validates the work item/assignment, uses existing work-item events with source_event_key and/or idempotency_keys, and stores evidence only through an approved, Project-bound lifecycle. If a dedicated evidence linkage table or object-key policy is required, document a migration proposal and stop at approval boundary; do not improvise a schema change.
+
+This was schema/policy inspection only. No SQL writes, test fixture changes, role changes, migration, or production operation was performed.

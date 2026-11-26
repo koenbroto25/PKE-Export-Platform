@@ -2427,3 +2427,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - PM360 source-truth fix + regression run `45831948051`, commit `f80a94edd6a818fda0102e8a5b84d8d6c8a8a257`: SUCCESS — 80 test files / 762 tests; P19 assurance 20/20; migration release policy and dry-run; backend/frontend typecheck and builds PASS.
 - Implementation source commits `355f429be44227225991871ee58c8a0cb8df8985` and `422575657a1270ad8f63107798868c930b370ece`: SUCCESS.
 - Follow-up aligns KPI state badges with source-verification status; latest CI pending.
+
+
+## PM360 state-classification correction — 2026-11-26
+- Follow-up found explicit `available=false` sources were being collapsed into unknown because count-verification and source-state classification shared a helper. Corrected classification: malformed/missing/loading/error/unauthorized remains unknown; explicitly unavailable becomes unavailable; verified rows remain partial evidence, never readiness.
+- Added regression assertion. CI pending.

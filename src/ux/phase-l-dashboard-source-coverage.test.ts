@@ -20,6 +20,21 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(dashboard).toContain("workItemRows?.length === 0");
   expect(dashboard).toContain("Antrean belum tersedia karena payload sumber belum terverifikasi.");
  });
+
+ it("only loads dashboard metrics when their destination workspace is accessible",()=>{
+  for(const pair of [
+   "can('project.tasks.view') && hasPageAccess('my-work'",
+   "can('contract.view') && hasPageAccess('contracts'",
+   "can('inventory.view') && hasPageAccess('warehouse'",
+   "can('warehouse.view') && hasPageAccess('warehouse'",
+   "can('logistics.view') && hasPageAccess('operations'",
+   "can('shipping.view') && hasPageAccess('shipment-allocations'",
+   "can('documents.view') && hasPageAccess('compliance'",
+   "can('finance.view') && hasPageAccess('finance'",
+   "can('accounting.view') && hasPageAccess('journal-entries'",
+   "(can('reports.view') || can('report.view')) && hasPageAccess('reports'",
+  ]) expect(dashboard).toContain(pair);
+ });
  it("keeps source failures and missing payloads unknown instead of zero",()=>{
   expect(dashboard).toContain("sourceFailed");
   expect(dashboard).toContain("hasOwnProperty.call(data, key)");

@@ -340,10 +340,17 @@ DECLARE
  v_default_configuration jsonb:='{"schema_version":1,"modules":{"pks":{"enabled":false},"supplier":{"enabled":false},"product_specs":{"enabled":true},"procurement":{"enabled":false},"inventory":{"enabled":false},"trucking":{"enabled":false},"warehouse":{"enabled":false},"port_operations":{"enabled":false},"loading":{"enabled":false},"vessel":{"enabled":false},"voyage":{"enabled":false},"shipment":{"enabled":false},"tracking":{"enabled":false},"documents":{"enabled":true},"compliance":{"enabled":true},"finance":{"enabled":false},"accounting":{"enabled":false},"fx":{"enabled":false},"financing":{"enabled":false},"reporting":{"enabled":false},"visual_reporting":{"enabled":false},"workflow":{"enabled":true},"approvals":{"enabled":true},"notifications":{"enabled":true}}}';
 BEGIN
  IF v_pm IS NULL OR p_idempotency_key IS NULL THEN RAISE EXCEPTION 'Authenticated PM and idempotency key required' USING ERRCODE='42501'; END IF;
- IF length(btrim(coalesce(p_name,'')))<2 OR length(btrim(coalesce(p_basis_reference,'')))<2 OR p_buyer_id IS NULL OR
-    p_basis_type NOT IN ('buyer_agreement','executed_contract') OR length(btrim(coalesce(p_settlement_unit,'')))<1 OR p_target_quantity<=0 OR
-    (p_basis_type='executed_contract' AND length(btrim(coalesce(p_contract_reference,'')))<2) OR
-    (p_evidence_url IS NOT NULL AND p_evidence_url !~ '^https://') OR (p_export_country_code IS NOT NULL AND p_export_country_code !~ '^[A-Z]{2} RAISE EXCEPTION 'Commercial basis/project input invalid' USING ERRCODE='22023'; END IF;
+ IF length(btrim(coalesce(p_name,'')))<2
+    OR length(btrim(coalesce(p_basis_reference,'')))<2
+    OR p_buyer_id IS NULL
+    OR p_basis_type NOT IN ('buyer_agreement','executed_contract')
+    OR length(btrim(coalesce(p_settlement_unit,'')))<1
+    OR p_target_quantity IS NULL OR p_target_quantity<=0
+    OR (p_basis_type='executed_contract' AND length(btrim(coalesce(p_contract_reference,'')))<2)
+    OR (p_evidence_url IS NOT NULL AND p_evidence_url !~ '^https://')
+    OR (p_export_country_code IS NOT NULL AND p_export_country_code !~ '^[A-Z]{2}$')
+    OR jsonb_typeof(coalesce(p_commercial_terms,'{}'::jsonb))<>'object'
+ THEN RAISE EXCEPTION 'Commercial basis/project input invalid' USING ERRCODE='22023'; END IF;
  SELECT * INTO v_appt FROM public.pm_appointments WHERE user_id=v_pm AND status='active' FOR SHARE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Active global PM appointment required' USING ERRCODE='42501'; END IF;
  SELECT * INTO v_buyer FROM public.buyers WHERE id=p_buyer_id AND is_active=true;

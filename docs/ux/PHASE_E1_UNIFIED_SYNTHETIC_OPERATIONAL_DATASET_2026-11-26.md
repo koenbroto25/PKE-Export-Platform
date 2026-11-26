@@ -405,3 +405,28 @@ Acceptance: the source-contract suite and full CI must pass after the follow-up 
 - Dependency Audit: runs `45844153047` and `45844192636` **SUCCESS**; root/frontend production audit and evidence artifact steps PASS.
 - P20 workflow push trigger and PR target coverage corrected. GitHub Actions acceptance: **PASS**.
 - Vercel free-tier deployment quota failure is external and intentionally excluded per owner instruction. PR remains draft/unmerged. No Neon database mutation.
+
+
+## Business workflow correction: appointed PM creates Projects (2026-11-26)
+
+**Field reality / required sequence:** Platform Admin appoints an active PM first. The PM then reaches a Buyer agreement and/or obtains the contract basis and creates a Project from it. Project creation is not normally initiated by Admin and then assigned to PM afterward.
+
+### UX flow to implement/verify
+- Admin Governance: PM appointment/activation, suspension, revocation, transfer/reassignment, audit history. Appointment exists before any Project.
+- PM home: clearly show “Create Project” only while PM appointment is active and permission is valid; no empty-state confusion requiring a pre-existing Project.
+- Project creation wizard: capture Buyer and agreement/contract basis, commercial scope, product/specification, quantity, price/terms, destination, timing, and evidence/attachments where applicable. Validate required fields and disclose whether the basis is preliminary agreement or executed contract.
+- On successful creation, automatically bind the Project to its responsible PM and display it in the PM Portfolio. Avoid an extra Admin assignment step in the normal path.
+- PM Portfolio: all PM-owned/assigned Projects, portfolio KPIs and exceptions, with project switching into the isolated Project workspace.
+- PM departure/suspension/transfer: communicate existing Project continuity and require an explicit audited reassignment; do not silently orphan or erase historical ownership.
+
+### Database/API acceptance contract
+- PM appointment must be independent of project membership; it authorizes the first Project creation.
+- Create-Project API verifies appointment state server-side and uses the authenticated PM identity (never trusts client-supplied responsible-PM ID alone).
+- Create Project + commercial-basis record + PM ownership linkage must be atomic or safely idempotent.
+- Audit events capture appointment, project creation, responsible-PM assignment and subsequent transfer/revocation.
+- Portfolio queries use authorized PM relationship and preserve project isolation; exceptions require explicit scope grants.
+
+### Required synthetic integration scenarios
+Inactive/unappointed PM denied; active PM creates first Project; multi-Project portfolio; separate Buyer/contracts; PM isolation; Admin appointment lifecycle; PM revoke blocks creation; existing Project continuity; transfer with preserved audit; incomplete/invalid commercial basis; duplicate/idempotent submission; transaction rollback; portfolio refresh after creation; newly created Project appears without manual reassignment.
+
+**Implementation status: NOT YET VERIFIED.** This section records corrected business intent and acceptance requirements; it is not evidence of completed schema, UI, API, or runtime integration. No database mutation is included.

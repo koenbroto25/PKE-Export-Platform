@@ -81,3 +81,6 @@ Hardening performed alongside the tests:
 - Document review/status mutation requires `documents.review`.
 
 The latest combined CI run is pending. This harness verifies the demo route set, not the production API/database. Production integration, RLS, persisted workflows, private storage, and browser E2E remain external blockers.
+
+- Expanded the HTTP suite to exercise all 7 demo roles across project read, document view/create and project activation. Role capability assertions are explicit and each role run resets deterministic state.
+- Added document review lifecycle checks: uploaded → in_review → rejected (mandatory reason and reviewer stamp); invalid direct approval is rejected; terminal transition behavior is guarded.

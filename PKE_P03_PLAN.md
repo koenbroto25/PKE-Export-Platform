@@ -1759,7 +1759,7 @@ Scenario catalog assertions updated for 165 total / 30 sourced records. CI is tr
 - [x] Seed 9 offline observations from official DJBC/Barantin, destination regulator, historical Indonesian PKE certification, FOSFA and commercial nutrition guidance. Historical/commercial observations remain unverified and scope-limited.
 - [x] Add deterministic tests for provenance completeness, confidence bounds, historical/commercial boundaries, freshness, expiration, future/invalid dates, scope mismatch, conflict preservation and comparability.
 - [x] Include knowledge observation tests in the root CI test script.
-- [ ] CI execution evidence for the new tests: pending GitHub Actions run on this commit.
+- [x] CI execution evidence: GitHub Actions Unit Tests run #2231 on commit `fc3efaa9849f48850e4018945aab77f341624ada` SUCCESS; offline tests, P19 assurance, migration contracts/dry-run, backend/frontend build/typecheck passed. https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45799603285
  
 ### Research source additions
 - DJBC FAQ: PEB timing, correction windows by field/event, cancellation reporting, BL/outward-manifest reconciliation and multimodal context: https://www.beacukai.go.id/faq-tatalaksana-ekspor

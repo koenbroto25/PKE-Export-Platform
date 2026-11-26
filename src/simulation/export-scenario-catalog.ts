@@ -65,7 +65,8 @@ const generatedFaultScenarios:SimScenario[]=allStages.flatMap((stage,stageIndex)
  const expectedOutcome:SimScenario["expectedOutcome"]=["blocked","missing","hold"].includes(fault)?"blocked":"review";
  return {simulationOnly:true as const,id:"SIM-"+String(52+stageIndex*faultStates.length+faultIndex).padStart(3,"0"),title:`Synthetic matrix: ${stageLabels[stage]} — ${fault}`,category:"synthetic-matrix",description:`Deterministic single-stage fault injection: ${stageLabels[stage]} is ${fault}; all other lifecycle stages are ready. This checks safe status propagation and next-action behavior.`,stages,expectedOutcome,persona:stagePersona[stage],userFacingMessage:`Status ${stageLabels[stage]}: ${fault}. Export readiness must not be inferred as ready.`,nextAction:stageActions[stage]};
 }));
-export const EXPORT_SIMULATION_SCENARIOS_EXTENDED=[...EXPORT_SIMULATION_SCENARIOS,...generatedFaultScenarios];
+EXPORT_SIMULATION_SCENARIOS.push(...generatedFaultScenarios);
+export const EXPORT_SIMULATION_SCENARIOS_EXTENDED=EXPORT_SIMULATION_SCENARIOS;
 export const SIMULATION_STAGE_ORDER=allStages;
 export function evaluateScenario(s:SimScenario):"ready"|"blocked"|"review"{
  const states=Object.values(s.stages);

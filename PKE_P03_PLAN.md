@@ -2582,3 +2582,35 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 
 ### Next acceptance gate
 Current P20 head must show successful Unit Tests and Dependency Audit workflows. If failures occur, fetch logs and fix them before final readiness. Source-contract checks remain 16/16 PASS; they do not substitute for CI.
+
+
+## GitHub Actions blocker resolution — 2026-11-26 (verified)
+
+### CI trigger coverage and validation PR
+- Draft PR #4 opened against P19 base to trigger validation: https://github.com/koenbroto25/PKE-Export-Platform/pull/4
+- Unit Tests and Dependency Audit workflows now include P19 as pull-request target, plus P20 push trigger.
+- Dependency Audit branch-trigger omission for P20 was fixed.
+
+### First CI failure and remediation
+- Initial Unit Tests run `45844059239` failed 1 of 765 tests because a source-contract assertion expected obsolete text `canOpenProjectDetail ? <Link`, while current implementation correctly checks selected Project ID and permission: `canOpenProjectDetail && selectedProjectId === String(p.id) ? <Link`.
+- Fixed the test to assert the actual stricter guard. Commit `f04ee3dcaa1ff7eeeecf6dbf532b6d584ec42d74`.
+
+### Final verified CI for code head
+- Unit Tests run `45844152884`: **SUCCESS**.
+- Duplicate validation run `45844192614`: **SUCCESS**.
+- Both ran on the same code head `f04ee3dcaa1ff7eeeecf6dbf532b6d584ec42d74`.
+- Unit tests: **80/80 files; 765/765 tests PASS**.
+- P19 operational assurance: **20/20 PASS**.
+- Production migration ledger/release gate: PASS.
+- Migration 052, 054, 055 verifiers: PASS.
+- Migration runner dry-run: PASS (no DB connection).
+- Backend build and API typecheck: PASS.
+- Frontend dependency install, typecheck and build: PASS.
+- Dependency Audit run `45844153047` and duplicate `45844192636`: **SUCCESS**; root and frontend production audits and evidence uploads PASS.
+
+### Remaining external status (not GitHub Actions blocker)
+- Vercel status remains failure due free-plan deployment rate limit (`api-deployments-free-per-day`). Owner explicitly directed Vercel to be skipped. No deployment was attempted by this execution and no workaround was applied.
+- PR #4 is draft and intentionally unmerged. CI is green; this does not authorize merging or deployment.
+- No Neon Production/UAT mutation was performed.
+
+**Acceptance for GitHub Actions: PASS / BLOCKERS RESOLVED.**

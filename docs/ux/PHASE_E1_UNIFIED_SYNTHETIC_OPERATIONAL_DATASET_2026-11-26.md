@@ -456,3 +456,10 @@ Inactive/unappointed PM denied; active PM creates first Project; multi-Project p
 7. Add synthetic HTTP integration and schema contract tests for first Project, multiple Projects, scope isolation, revocation, transfer, duplicate submission, invalid basis, and rollback.
 
 Implementation remains **OPEN / NOT IMPLEMENTED**. No database mutation was made.
+
+
+## PM appointment-first implementation progress (2026-11-26)
+
+Feature branch implementation now includes prepared Migration 113 and API/UI paths for global PM appointment, Buyer-basis Project creation by active PM, automatic ownership/membership/PM role, portfolio, Admin governance, suspension/revocation, and transfer. Legacy Admin Project-shell creation is blocked by API (410) and removed from the frontend normal path.
+
+**Validation is pending:** no Neon application, no Vercel deployment, no UAT runtime validation. CI must pass; then schema/RLS integration and synthetic lifecycle backtests are required before calling the workflow complete.

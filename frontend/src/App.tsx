@@ -68,6 +68,7 @@ function useLoad<T>(loader: () => Promise<T>, deps: unknown[] = []) {
     let alive = true;
     setLoading(true);
     setError('');
+    setData(null);
     loader().then(value => { if (alive) setData(value); })
       .catch(e => { if (alive) setError(e instanceof Error ? e.message : 'Data tidak dapat dimuat.'); })
       .finally(() => { if (alive) setLoading(false); });
@@ -363,12 +364,27 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
   const documentRequirements = useLoad<{ documentRequirements?: AnyRecord[] }>(() => projectId && canViewTasks && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/document-requirements`) : Promise.resolve({ documentRequirements: [] }), [projectId, canViewTasks, canViewDocuments]);
   const projectDocuments = useLoad<{ documents?: AnyRecord[] }>(() => projectId && canViewTasks && canViewDocuments ? get(`/projects/${encodeURIComponent(projectId)}/documents`) : Promise.resolve({ documents: [] }), [projectId, canViewTasks, canViewDocuments]);
   const workItems = useLoad<{ workItems?: AnyRecord[] }>(() => projectId && canViewTasks ? get(`/projects/${encodeURIComponent(projectId)}/work-items`) : Promise.resolve({ workItems: [] }), [projectId, canViewTasks]);
-  const recentTrips = (trips.data?.truckTrips || []).slice(0, 5);
   const p = portfolio.data || {};
-  const visibleProjects = (projects.data?.projects || []).filter(project => !projectId || project.id === projectId);
-  const activeProjectCount = p.activeProjects ?? visibleProjects.filter(project => project.status === 'active').length;
-  const visibleContractVolume = p.contractVolume ?? visibleProjects.reduce((sum, project) => sum + Number(project.target_quantity || 0), 0);
-  const visibleTripCount = p.shipmentCount ?? trips.data?.truckTrips?.length ?? 0;
+  const projectRowsVerified = Array.isArray(projects.data?.projects) && !projects.error && !projects.loading;
+  const allProjectRows = projectRowsVerified ? projects.data!.projects! : [];
+  const visibleProjects = allProjectRows.filter(project => !projectId || project.id === projectId);
+  const projectStatusVerified = projectRowsVerified && visibleProjects.every(project => typeof project.status === 'string');
+  const projectTargetsVerified = projectRowsVerified && visibleProjects.every(project => project.target_quantity !== null && project.target_quantity !== undefined && Number.isFinite(Number(project.target_quantity)));
+  const portfolioVerified = Boolean(portfolio.data && !portfolio.error && !portfolio.loading);
+  const activeProjectCount = !projectId && portfolioVerified && p.activeProjects !== null && p.activeProjects !== undefined ? p.activeProjects : projectStatusVerified ? visibleProjects.filter(project => project.status === 'active').length : null;
+  const visibleContractVolume = !projectId && portfolioVerified && p.contractVolume !== null && p.contractVolume !== undefined ? p.contractVolume : projectTargetsVerified ? visibleProjects.reduce((sum, project) => sum + Number(project.target_quantity), 0) : null;
+  const tripRowsVerified = Array.isArray(trips.data?.truckTrips) && !trips.error && !trips.loading;
+  const tripRows = tripRowsVerified ? trips.data!.truckTrips! : [];
+  const visibleTripCount = tripRowsVerified ? tripRows.length : null;
+  const recentTrips = tripRows.slice(0, 5);
+  const countText = (rows: AnyRecord[] | null) => rows === null ? '—' : number(rows.length, 0);
+  const verifiedRows = <T extends AnyRecord>(data: T | null, key: string, error: string, loading: boolean): AnyRecord[] | null => data && !error && !loading && Array.isArray((data as AnyRecord)[key]) ? (data as AnyRecord)[key] : null;
+  const contractRows = verifiedRows(contracts.data, 'contracts', contracts.error, contracts.loading);
+  const programRows = verifiedRows(contractPrograms.data, 'contractPrograms', contractPrograms.error, contractPrograms.loading);
+  const lotRows = verifiedRows(inventoryLots.data, 'inventoryLots', inventoryLots.error, inventoryLots.loading);
+  const documentRows = verifiedRows(projectDocuments.data, 'documents', projectDocuments.error, projectDocuments.loading);
+  const requirementRows = verifiedRows(documentRequirements.data, 'documentRequirements', documentRequirements.error, documentRequirements.loading);
+  const taskRows = verifiedRows(workItems.data, 'workItems', workItems.error, workItems.loading);
   const loading = portfolio.loading || projects.loading || trips.loading;
   const refresh = () => { portfolio.refresh(); projects.refresh(); trips.refresh(); events.refresh(); workItems.refresh(); projectReport.refresh(); contractPrograms.refresh(); contracts.refresh(); inventoryLots.refresh(); documentRequirements.refresh(); projectDocuments.refresh(); };
   return <>

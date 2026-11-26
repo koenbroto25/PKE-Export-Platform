@@ -308,3 +308,8 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Admin Control Center KPI badge follow-up
 - KPI state badges now follow whether the metric value is known, not merely whether a portfolio object exists. Unknown value stays unknown.
 - Regression assertions added; CI pending.
+
+## Executive Overview all-role dashboard audit
+- Found stale source values retained during refresh/project scope changes, “Perjalanan truk” KPI sourced from portfolio shipment count, and several missing payloads coerced to zero/empty states.
+- Fixed: clear useLoad data at load start; source-verified KPI counts; selected Project aggregates use scoped Project rows; trip KPI uses truck trips only; unknown/malformed payloads render — and distinct warnings; empty project/tracking/task states require verified arrays.
+- Phase L regression assertions added. CI pending.

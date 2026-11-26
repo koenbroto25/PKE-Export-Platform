@@ -209,7 +209,7 @@ function App() {
         <div className="page-content">
           <Suspense fallback={<div className="screen-center"><div className="loader" /><span>Memuat halaman workspace…</span></div>}><Routes>
             <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><RoleDashboardPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
-            <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} onSelectProject={handleProjectContextChange} /></RoleGuard>} />
             <Route path="/pks-sites" element={<RoleGuard allowedKeys={['pks-sites']} activeUser={workspaceUser}><PksSitesPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/port-network" element={<RoleGuard allowedKeys={['port-network']} activeUser={workspaceUser}><PortNetworkPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/maritime-operations" element={<RoleGuard allowedKeys={['maritime-operations']} activeUser={workspaceUser}><MaritimeOperationsWorkspace projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
@@ -440,7 +440,7 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
   </>;
 }
 
-function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
+function ProjectsPage({ activeUser, onNotice, onSelectProject }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void; onSelectProject: (projectId: string) => void }) {
   const isAdmin = activeUser?.platformAdmin === true;
   const appointment = useLoad<{appointment?:AnyRecord|null;canCreateProject?:boolean}>(() => isAdmin ? Promise.resolve({}) : get('/pm/appointment/me'), [isAdmin,activeUser?.id]);
   const pmPortfolio = useLoad<{projects?:AnyRecord[];portfolioCount?:number}>(() => isAdmin ? Promise.resolve({projects:[]}) : get('/pm/portfolio'), [isAdmin,activeUser?.id]);
@@ -530,6 +530,7 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
         {key:'target_quantity',label:'Target',render:r=>number(r.target_quantity)+' '+(r.settlement_unit||'MT')},
         {key:'basis_reference',label:'Basis',render:r=>r.basis_reference||'—'},
         {key:'created_at',label:'Dibuat',render:r=>dateTime(r.created_at)},
+        {key:'workspace',label:'Workspace',render:r=><button className="secondary-button" onClick={()=>onSelectProject(r.project_id||r.id)}>Buka Project</button>},
         ...(isAdmin?[{key:'pm-transfer',label:'Handover PM',render:(r:AnyRecord)=><div className="inline-actions"><select value={transferPmId[r.id]||''} onChange={e=>setTransferPmId(v=>({...v,[r.id]:e.target.value}))}><option value="">PM baru…</option>{activeAppointedPms.filter((a:AnyRecord)=>a.user_id!==r.pm_user_id).map((a:AnyRecord)=><option key={a.user_id} value={a.user_id}>{a.name||a.email}</option>)}</select><button className="secondary-button" disabled={!transferPmId[r.id]} onClick={()=>transferPm(r)}>Transfer</button></div>}]:[])
       ]}/>}
     </Card>

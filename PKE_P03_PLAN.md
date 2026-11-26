@@ -2289,3 +2289,12 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Regression assertions added to Phase N route/navigation test.
 - Commits: source fix `d5f9be843e8c050d3c59c5bc7c40edf518243e4b`; regression `17863945f6e3a84143c6c5ecf2b1114b47263812`; UX evidence `2064b9bc276a30f023720ee672663118dbbd8d05`.
 - CI validation is pending. Continue the audit/fix/test cycle; this is not the final acceptance checkpoint.
+
+
+## Dashboard UX remediation validation checkpoint — 2026-11-26
+- Readiness-row links are now filtered by the actual `hasPageAccess` page permission helper, not only by a row's readiness status. Permission denial renders a non-link label; no misleading route entry is shown.
+- Field Capture readiness destination is corrected to `/field`.
+- Regression tests updated after the first CI runs exposed stale assertions in two legacy contract tests; assertions were reconciled with the intentional UX wording/logic change.
+- Final verification run `45825759245`, commit `1c6f387c54bd7a9d0751e7aaa393edb77e9f7f4c`: SUCCESS — 80 test files / 749 tests; P19 assurance 20/20; migration policy/dry-run; backend and frontend build/typecheck PASS.
+- Earlier failures `45825616851`, `45825671006`, and `45825749605` were regression assertion mismatches caused by stale expected text/logic, not runtime/build defects; corrected and the complete pipeline is green.
+- This is the first UX audit fix only. Continue role/task UX and lifecycle correlation audit; final acceptance remains open.

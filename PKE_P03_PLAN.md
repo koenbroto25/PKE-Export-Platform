@@ -2175,3 +2175,11 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 
 - [x] Role-by-role HTTP backtest added for all 7 Manual Trial roles (admin, PM, finance, buyer, supplier, warehouse, viewer): project read, document read/create, and project activation permission matrix.
 - [ ] Latest CI for expanded role matrix pending.
+
+
+## Phase K — Frontend Role Access Backtest
+- [x] Added permission/page access matrix tests for dashboard, finance, reports, compliance, supplier, buyer, transporter, warehouse, funder, field capture, my-work, port network, notifications and access administration.
+- [x] Verifies fail-closed when project context/permission loading/error state is missing, and verifies role+permission conjunctions and project scope.
+- [x] Wired to root CI test command.
+- [ ] Latest CI pending.
+- [ ] Browser-based interaction/accessibility test remains open because the repository does not currently include a browser E2E test runner; frontend build/typecheck is still the current automated UI baseline.

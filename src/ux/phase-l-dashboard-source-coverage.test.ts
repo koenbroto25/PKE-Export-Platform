@@ -54,7 +54,7 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(adminControl).toContain("key={p.id || p.name || index}");
   expect(adminControl).toContain("const canOpen = (page:string) => allowedPages.includes(page)");
   expect(adminControl).toContain("canOpen('access') ? <Link");
-  expect(adminControl).toMatch(/Review akses & role governance[\\s\\S]*?\\{canOpen\\('access'\\) \\? <Link className="ux-action-link" to="\\/access">Buka Access →<\\/Link> : <span className="ux-stage-meta">Access not granted<\\/span>/);
+  expect(adminControl).toContain('<strong>Review akses & role governance</strong><span>Periksa akun, membership, role aktif/expired, penunjukan PM, dan status provisioning.</span></div>{canOpen(\'access\') ? <Link className="ux-action-link" to="/access">Buka Access →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>');
   expect(adminControl).toContain("canOpen('projects') ? <Link");
   expect(adminControl).toContain("canOpen('my-work') ? <Link");
   expect(adminControl).toContain("canOpen('reports') ? <Link");

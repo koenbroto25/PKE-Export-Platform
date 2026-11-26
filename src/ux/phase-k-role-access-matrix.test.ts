@@ -38,7 +38,8 @@ describe("Phase K role dashboard and workspace access matrix",()=>{
  });
  it("requires scoped warehouse, supplier and funder capabilities",()=>{
   expect(hasPageAccess("warehouse",make("warehouse_manager",["warehouse.view","inventory.view"]))).toBe(true);
-  expect(hasPageAccess("warehouse",make("warehouse_manager",["warehouse.view"]))).toBe(true);\n  expect(hasPageAccess("warehouse",make("warehouse_manager",[]))).toBe(false);
+  expect(hasPageAccess("warehouse",make("warehouse_manager",["warehouse.view"]))).toBe(true);
+  expect(hasPageAccess("warehouse",make("warehouse_manager",[]))).toBe(false);
   expect(hasPageAccess("supplier",make("supplier",["supplier.view","shipment.view"]))).toBe(true);
   expect(hasPageAccess("supplier",make("supplier",["supplier.view"]))).toBe(false);
   expect(hasPageAccess("funder",make("funder",["funder.view"]))).toBe(true);

@@ -49,6 +49,8 @@ jobs:
         run: npm run verify:migration-055
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
+      - name: Verify prepared PM appointment-first Migration 113 release pin
+        run: npm run verify:pm113-release
       - name: Build backend application
         run: npm run build
       - name: Typecheck backend API

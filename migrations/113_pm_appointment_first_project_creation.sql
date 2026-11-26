@@ -185,9 +185,15 @@ WITH CHECK (public.pke_is_platform_admin() AND actor_user_id=public.pke_current_
 DROP POLICY IF EXISTS pke_pm_project_create_ownership_insert ON public.project_pm_ownership;
 CREATE POLICY pke_pm_project_create_ownership_insert ON public.project_pm_ownership FOR INSERT TO app_runtime_secure
 WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND pm_user_id=public.pke_current_user_id() AND assigned_by=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_ownership_admin_insert ON public.project_pm_ownership;
+CREATE POLICY pke_pm_ownership_admin_insert ON public.project_pm_ownership FOR INSERT TO app_runtime_secure
+WITH CHECK (public.pke_is_platform_admin());
 DROP POLICY IF EXISTS pke_pm_ownership_admin_update ON public.project_pm_ownership;
 CREATE POLICY pke_pm_ownership_admin_update ON public.project_pm_ownership FOR UPDATE TO app_runtime_secure
 USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+DROP POLICY IF EXISTS pke_pm_ownership_admin_event_insert ON public.project_pm_ownership_events;
+CREATE POLICY pke_pm_ownership_admin_event_insert ON public.project_pm_ownership_events FOR INSERT TO app_runtime_secure
+WITH CHECK (public.pke_is_platform_admin() AND actor_user_id=public.pke_current_user_id());
 DROP POLICY IF EXISTS pke_pm_ownership_event_insert ON public.project_pm_ownership_events;
 CREATE POLICY pke_pm_ownership_event_insert ON public.project_pm_ownership_events FOR INSERT TO app_runtime_secure
 WITH CHECK ((current_setting('app.pke_pm_project_create',true)='on' AND actor_user_id=public.pke_current_user_id())

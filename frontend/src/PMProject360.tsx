@@ -23,7 +23,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
   const canOpen = (page:string) => allowedPages.includes(page);
   const contracts=sourceRows('contracts'), programs=sourceRows('programs'), tasks=sourceRows('tasks'), lots=sourceRows('inventory'), trips=sourceRows('trips'), docs=sourceRows('documents'), requirements=sourceRows('requirements');
   const allErrors=Object.values(sources).filter(s=>s.error).map(s=>s.label+': '+s.error);
-  const evidenceSummary = [
+  const metricState=(key:string):'partial'|'unknown'|'unavailable' => { const s=sources[key]; if(!s||s.loading||s.error||s.authorized===false) return 'unknown'; return s.available===false?'unavailable':'partial'; };\n  const evidenceSummary = [
     {label:'Contract',count:contracts.length+programs.length,key:'contracts'},
     {label:'Task / blocker',count:tasks.length,key:'tasks'},
     {label:'Inventory lot',count:lots.length,key:'inventory'},
@@ -61,7 +61,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
       })}</div>
     </UXPanel>
     <UXPanel title="Evidence snapshot" subtitle="Counts are source records only; no quality, quantity, release, or settlement conclusion is made from counts.">
-      <div className="ux-metric-grid">{evidenceSummary.map(x=><UXMetric key={x.key} label={x.label} value={x.count} detail="Records found" state={sources[x.key]?.error?'unknown':sources[x.key]?'partial':'unknown'}/>)}</div>
+      <div className="ux-metric-grid">{evidenceSummary.map(x=><UXMetric key={x.key} label={x.label} value={x.count} detail="Records found" state={metricState(x.key)}/>)}</div>
       {!contracts.length&&!programs.length&&!tasks.length&&!lots.length&&!trips.length&&!docs.length&&!requirements.length && <UXEmpty title="Evidence belum tersedia" description="Source belum mengembalikan record. Ini tidak berarti tahap gagal atau lulus; status harus diverifikasi dari workspace sumber."/>}
     </UXPanel>
     <UXPanel title="PM next-action checklist" subtitle="Action links membuka source of truth. Keputusan approval dan sign-off tetap pada role/authority yang berwenang.">

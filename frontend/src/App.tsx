@@ -453,7 +453,8 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
   const [busy,setBusy]=useState(false);
   const [appointUserId,setAppointUserId]=useState('');
   const [appointReason,setAppointReason]=useState('');
-  const [appointmentBusy,setAppointmentBusy]=useState(false);\n  const [transferPmId,setTransferPmId]=useState<Record<string,string>>({});
+  const [appointmentBusy,setAppointmentBusy]=useState(false);
+  const [transferPmId,setTransferPmId]=useState<Record<string,string>>({});
   const save=async(e:FormEvent)=>{
     e.preventDefault();if(!canCreateProject)return;setBusy(true);
     try{
@@ -480,7 +481,9 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
     try{await patch('/admin/pm-appointments/'+row.id,{status,reason});onNotice('success','Appointment PM '+status+'.');adminAppointments.refresh();}
     catch(e){onNotice('error',e instanceof Error?e.message:'Status appointment tidak dapat diubah.');}
   };
-  const availableUsers=(users.data?.users||[]).filter((u:AnyRecord)=>u.is_active===true&&u.neon_auth_user_id&&!(adminAppointments.data?.appointments||[]).some((a:AnyRecord)=>a.user_id===u.id&&a.status==='active'));\n  const activeAppointedPms=(adminAppointments.data?.appointments||[]).filter((a:AnyRecord)=>a.status==='active'&&a.is_active!==false);\n  const transferPm=async(project:AnyRecord)=>{const target=transferPmId[project.id];if(!target)return;const reason=window.prompt('Alasan handover PM Project '+project.name+' (minimal 5 karakter):');if(!reason||reason.trim().length<5)return;try{await post('/admin/projects/'+project.id+'/pm-transfer',{userId:target,reason});onNotice('success','PM Project berhasil ditransfer; history appointment dipertahankan.');projects.refresh();adminAppointments.refresh();}catch(e){onNotice('error',e instanceof Error?e.message:'Transfer PM gagal.');}};
+  const availableUsers=(users.data?.users||[]).filter((u:AnyRecord)=>u.is_active===true&&u.neon_auth_user_id&&!(adminAppointments.data?.appointments||[]).some((a:AnyRecord)=>a.user_id===u.id&&a.status==='active'));
+  const activeAppointedPms=(adminAppointments.data?.appointments||[]).filter((a:AnyRecord)=>a.status==='active'&&a.is_active!==false);
+  const transferPm=async(project:AnyRecord)=>{const target=transferPmId[project.id];if(!target)return;const reason=window.prompt('Alasan handover PM Project '+project.name+' (minimal 5 karakter):');if(!reason||reason.trim().length<5)return;try{await post('/admin/projects/'+project.id+'/pm-transfer',{userId:target,reason});onNotice('success','PM Project berhasil ditransfer; history appointment dipertahankan.');projects.refresh();adminAppointments.refresh();}catch(e){onNotice('error',e instanceof Error?e.message:'Transfer PM gagal.');}};
   const portfolioRows=isAdmin?projects.data?.projects||[]:pmPortfolio.data?.projects||[];
   return <>
     <PageTitle eyebrow="PROJECT PORTFOLIO" title={isAdmin?"Governance & Project Portfolio":"Portfolio Project PM"} subtitle={isAdmin?"Penunjukan PM dilakukan sebelum PM membuat Project berdasarkan kesepakatan Buyer atau kontrak.":"Semua Project yang menjadi tanggung jawab Anda; buat Project langsung dari basis komersial Buyer."} actions={canCreateProject?<ActionButton onClick={()=>setShowForm(v=>!v)}><Plus size={16}/> Buat Project</ActionButton>:undefined}/>

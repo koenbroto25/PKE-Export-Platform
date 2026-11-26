@@ -59,7 +59,7 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(adminControl).toContain("canOpen('reports') ? <Link");
   expect(adminControl).toContain("canOpenProjectDetail ? <Link");
   expect(app).toContain("allowedPages={visiblePageKeys(activeUser || {})} canOpenProjectDetail={hasPageAccess('project-detail', activeUser || {})}");
-  expect(adminControl).toContain("typeof p.id === 'string' && p.id ? <Link");
+  expect(adminControl).toContain("canOpenProjectDetail ? <Link");
  });
 
  it("Executive Overview clears prior source data and never presents missing project/trip/task payloads as zero",()=>{

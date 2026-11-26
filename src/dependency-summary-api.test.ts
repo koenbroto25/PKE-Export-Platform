@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PKE_PROCESS_DEPENDENCIES } from "./knowledge/process-dependency-map.js";
+import { CANONICAL_ROLE_TEMPLATES } from "./role-catalogue.js";
 import { DEPENDENCY_WORKSPACE_PERMISSION_CODES, registerDependencySummaryRoute } from "./dependency-summary-api.js";
 
 const PROJECT="00000000-0000-4000-8000-000000000001";
@@ -35,6 +36,12 @@ describe("demo dependency summary API route",()=>{ it("has an explicit permissio
   }
  });
 
+ it("uses only permission codes present in the canonical role catalogue",()=>{
+  const canonical=new Set(CANONICAL_ROLE_TEMPLATES.flatMap(role=>role.permissionCodes));
+  for(const codes of Object.values(DEPENDENCY_WORKSPACE_PERMISSION_CODES)){
+   for(const code of codes) expect(canonical.has(code),code).toBe(true);
+  }
+ });
  it("requires authentication and valid project UUID",async()=>{
   const h=harness();
   expect((await h.invoke({params:{projectId:PROJECT},query:{mode:"demo"}})).status).toBe(401);

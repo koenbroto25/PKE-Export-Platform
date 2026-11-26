@@ -35,6 +35,10 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
    "(can('reports.view') || can('report.view')) && hasPageAccess('reports'",
   ]) expect(dashboard).toContain(pair);
  });
+
+ it("Admin Control Tower renders missing nested metrics as unknown rather than zero",()=>{
+  for(const field of ["shipment_count","planned_quantity","loading_operations","voyage_count","pending_nominations","actual_port_calls","approved_documents","overdue_work_items","open_exceptions"]) expect(dashboard).toContain(`?.${field}??'—'`);
+ });
  it("keeps source failures and missing payloads unknown instead of zero",()=>{
   expect(dashboard).toContain("sourceFailed");
   expect(dashboard).toContain("hasOwnProperty.call(data, key)");

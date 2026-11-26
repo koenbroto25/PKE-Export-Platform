@@ -115,7 +115,8 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(pm360).toContain("const taskCount=safeSourceCount('tasks',tasks)");
   expect(pm360).toContain("const documentCount=");
   expect(pm360).toContain("const evidenceVerifiedEmpty = evidenceSummary.every(x=>x.count===0)");
-  expect(pm360).toContain("if(!s||s.loading||s.error||s.authorized===false||!Array.isArray(s.rows)) return 'unknown'");
+  expect(pm360).toContain("if(!s||s.loading||s.error||s.authorized===false) return 'unknown'");
+  expect(pm360).toContain("if(s.payloadValid===false||!Array.isArray(s.rows)) return 'unknown'");
   expect(pm360).toContain("if(s.available===false) return 'unavailable'");
   expect(pm360).toContain("sourceVerified('tasks') ? tasks.filter");
  });

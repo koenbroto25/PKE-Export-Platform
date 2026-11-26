@@ -123,3 +123,23 @@ describe("Manual Trial Mode HTTP integration — in-memory only", () => {
     expect(payment.body.code).toBe("PAYMENT_UNAVAILABLE");
   });
 });
+
+
+  it("backtests the seven demo roles against project and document capabilities", async () => {
+    const roles = ["admin","pm","finance","buyer","supplier","warehouse","viewer"];
+    for (const role of roles) {
+      resetDemoState();
+      const token = await login(role);
+      const projectRead = await request("/api/v1/projects", auth(token));
+      expect(projectRead.status, role+" project list").toBe(200);
+      const projectId = "DEMO-PROJECT-0001";
+      const documentRead = await request(`/api/v1/projects/${projectId}/documents`, auth(token));
+      const shouldViewDocs = role !== "viewer";
+      expect(documentRead.status, role+" document view").toBe(shouldViewDocs ? 200 : 403);
+      const documentCreate = await request(`/api/v1/projects/${projectId}/documents`, auth(token, { method: "POST", body: JSON.stringify({ projectRequirementId: "DEMO-REQ-0001", fileReference: "SIM-ROLE-"+role, originalFilename: role+".pdf" }) }));
+      const shouldCreateDocs = role === "admin" || role === "pm";
+      expect(documentCreate.status, role+" document create").toBe(shouldCreateDocs ? 201 : 403);
+      const projectActivate = await request(`/api/v1/projects/${projectId}/activate`, auth(token, { method: "POST", body: "{}" }));
+      expect(projectActivate.status, role+" project configuration").toBe(role === "admin" ? 200 : 403);
+    }
+  });

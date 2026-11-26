@@ -396,3 +396,12 @@ Acceptance: the source-contract suite and full CI must pass after the follow-up 
 - Current P20 source head lacked an accessible Actions run through this session's connector; only Vercel check was surfaced (Vercel intentionally skipped due quota).
 - Fixed workflow coverage: added `p20/platform-continuation-20261123` to push branches in `.github/workflows/dependency-audit.yml`. Commit `b5f562280f0cee5b19128490d1cd6e7026526700`. Unit Tests workflow already has P20 push trigger.
 - Current-head GitHub Actions success is **PENDING/UNVERIFIED**. Source-contract 16/16 remains PASS but does not close CI acceptance.
+
+
+## GitHub Actions final validation — 2026-11-26
+- Draft PR #4 was opened against P19 to execute CI.
+- First run exposed a stale source-contract expectation; corrected to assert the actual selected-Project detail permission guard.
+- Final Unit Tests: runs `45844152884` and `45844192614` **SUCCESS**; 80/80 test files and 765/765 tests; P19 assurance 20/20; migration/release gates, dry-run, backend build/API typecheck, frontend typecheck/build all PASS.
+- Dependency Audit: runs `45844153047` and `45844192636` **SUCCESS**; root/frontend production audit and evidence artifact steps PASS.
+- P20 workflow push trigger and PR target coverage corrected. GitHub Actions acceptance: **PASS**.
+- Vercel free-tier deployment quota failure is external and intentionally excluded per owner instruction. PR remains draft/unmerged. No Neon database mutation.

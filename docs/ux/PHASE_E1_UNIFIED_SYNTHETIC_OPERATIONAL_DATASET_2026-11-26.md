@@ -84,3 +84,8 @@ The latest combined CI run is pending. This harness verifies the demo route set,
 
 - Expanded the HTTP suite to exercise all 7 demo roles across project read, document view/create and project activation. Role capability assertions are explicit and each role run resets deterministic state.
 - Added document review lifecycle checks: uploaded → in_review → rejected (mandatory reason and reviewer stamp); invalid direct approval is rejected; terminal transition behavior is guarded.
+
+
+## Phase K — Frontend role/page access matrix
+
+Added tests against the actual `frontend/src/role-permissions.ts` access helper covering: project dashboard membership, loading/error fail-closed, finance role+permission, report role restrictions, transporter permission conjunction, warehouse/supplier/funder scope, external-only compliance exclusion, Field Capture/My Work role restrictions, visible menu keys, notifications and Platform Admin access. Tests are wired into root CI. Browser E2E, accessibility, real click flows and authenticated frontend↔backend are not yet verified; no browser runner is configured in the repository.

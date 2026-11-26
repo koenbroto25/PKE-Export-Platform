@@ -162,8 +162,11 @@ CREATE POLICY pke_pm_project_create_role_insert ON public.project_roles FOR INSE
 WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND role_code='pm' AND created_by=public.pke_current_user_id());
 DROP POLICY IF EXISTS pke_pm_project_create_role_permissions_insert ON public.project_role_permissions;
 CREATE POLICY pke_pm_project_create_role_permissions_insert ON public.project_role_permissions FOR INSERT TO app_runtime_secure
-WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND granted_by=public.pke_current_user_id()
- AND EXISTS(SELECT 1 FROM public.project_roles r WHERE r.id=project_role_id AND r.project_id=project_role_permissions.project_id AND r.role_code='pm'));
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND granted_by=public.pke_current_user_id() AND project_role_id IS NOT NULL);
+DROP POLICY IF EXISTS pke_pm_admin_membership_reactivation_update ON public.project_members;
+CREATE POLICY pke_pm_admin_membership_reactivation_update ON public.project_members FOR UPDATE TO app_runtime_secure
+USING (public.pke_is_platform_admin() AND project_role_id IS NULL)
+WITH CHECK (public.pke_is_platform_admin() AND project_role_id IS NULL);
 DROP POLICY IF EXISTS pke_pm_project_create_members_insert ON public.project_members;
 CREATE POLICY pke_pm_project_create_members_insert ON public.project_members FOR INSERT TO app_runtime_secure
 WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND user_id=public.pke_current_user_id() AND project_role_id IS NULL);

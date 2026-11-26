@@ -448,7 +448,7 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
   const users = useLoad<{users?:AnyRecord[]}>(() => isAdmin ? get('/users') : Promise.resolve({users:[]}), [isAdmin]);
   const adminAppointments = useLoad<{appointments?:AnyRecord[]}>(() => isAdmin ? get('/admin/pm-appointments') : Promise.resolve({appointments:[]}), [isAdmin]);
   const projects = useLoad<{projects?:AnyRecord[]}>(() => get('/projects'), [activeUser?.id,isAdmin]);
-  const canCreateProject = isAdmin || appointment.data?.canCreateProject === true;
+  const canCreateProject = appointment.data?.canCreateProject === true;
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({name:'',description:'',buyerId:'',basisType:'buyer_agreement',basisReference:'',basisDate:'',contractReference:'',evidenceUrl:'',commercialTerms:'',settlementUnit:'MT',targetQuantity:'',exportCountryCode:''});
   const [busy,setBusy]=useState(false);
@@ -464,7 +464,7 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
       }else{
         await post('/pm/projects',{...form,targetQuantity:Number(form.targetQuantity),idempotencyKey:crypto.randomUUID(),commercialTerms:form.commercialTerms?{summary:form.commercialTerms}:{}});
       }
-      onNotice('success',isAdmin?'Project shell berhasil dibuat.':'Project berhasil dibuat dan otomatis masuk portfolio PM.');
+      onNotice('success','Project berhasil dibuat dan otomatis masuk portfolio PM.');
       setShowForm(false);setForm(v=>({...v,name:'',description:'',basisReference:'',contractReference:'',evidenceUrl:'',commercialTerms:'',targetQuantity:''}));
       projects.refresh();pmPortfolio.refresh();
     }catch(e){onNotice('error',e instanceof Error?e.message:'Project tidak dapat dibuat.');}
@@ -487,20 +487,20 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
   const transferPm=async(project:AnyRecord)=>{const target=transferPmId[project.id];if(!target)return;const reason=window.prompt('Alasan handover PM Project '+project.name+' (minimal 5 karakter):');if(!reason||reason.trim().length<5)return;try{await post('/admin/projects/'+project.id+'/pm-transfer',{userId:target,reason});onNotice('success','PM Project berhasil ditransfer; history appointment dipertahankan.');projects.refresh();adminAppointments.refresh();}catch(e){onNotice('error',e instanceof Error?e.message:'Transfer PM gagal.');}};
   const portfolioRows=isAdmin?projects.data?.projects||[]:pmPortfolio.data?.projects||[];
   return <>
-    <PageTitle eyebrow="PROJECT PORTFOLIO" title={isAdmin?"Governance & Project Portfolio":"Portfolio Project PM"} subtitle={isAdmin?"Penunjukan PM dilakukan sebelum PM membuat Project berdasarkan kesepakatan Buyer atau kontrak.":"Semua Project yang menjadi tanggung jawab Anda; buat Project langsung dari basis komersial Buyer."} actions={canCreateProject?<ActionButton onClick={()=>setShowForm(v=>!v)}><Plus size={16}/> Buat Project</ActionButton>:undefined}/>
+    <PageTitle eyebrow="PROJECT PORTFOLIO" title={isAdmin?"PM Governance & Project Portfolio":"Portfolio Project PM"} subtitle={isAdmin?"Platform Admin menunjuk PM terlebih dahulu. Project dibuat oleh PM dari kesepakatan Buyer atau kontrak.":"Semua Project yang menjadi tanggung jawab Anda; buat Project langsung dari basis komersial Buyer."} actions={canCreateProject?<ActionButton onClick={()=>setShowForm(v=>!v)}><Plus size={16}/> Buat Project</ActionButton>:undefined}/>
     {!isAdmin&&appointment.loading&&<Card><Loading/></Card>}
     {!isAdmin&&!appointment.loading&&!canCreateProject&&<Card><UXEmpty title="Appointment PM belum aktif" description="Project creation hanya tersedia setelah Platform Admin menunjuk Anda sebagai PM aktif. Hubungi Admin untuk appointment global."/></Card>}
-    {showForm&&canCreateProject&&<Card className="form-panel"><PanelHeading title={isAdmin?"Create Project (Admin legacy)":"Project baru dari Buyer agreement/contract"} description={isAdmin?"Admin shell creation tetap tersedia untuk kompatibilitas; workflow utama adalah PM appointment-first.":"Project akan dibuat bersama Contract Program, PM ownership, role assignment, dan commercial-basis record dalam satu transaksi."} action={<button className="icon-button" onClick={()=>setShowForm(false)}><X size={18}/></button>}/>
+    {showForm&&canCreateProject&&<Card className="form-panel"><PanelHeading title="Project baru dari Buyer agreement/contract" description="Project akan dibuat bersama Contract Program, PM ownership, role assignment, dan commercial-basis record dalam satu transaksi." action={<button className="icon-button" onClick={()=>setShowForm(false)}><X size={18}/></button>}/>
       <form className="form-grid" onSubmit={save}>
         <FormField label="Nama Project"><input value={form.name} onChange={e=>setForm(v=>({...v,name:e.target.value}))} required minLength={2} placeholder="PKE Buyer / Shipment cycle"/></FormField>
         <FormField label="Target quantity"><input type="number" min="0.01" step="0.01" value={form.targetQuantity} onChange={e=>setForm(v=>({...v,targetQuantity:e.target.value}))} required/></FormField>
         <FormField label="Settlement unit"><select value={form.settlementUnit} onChange={e=>setForm(v=>({...v,settlementUnit:e.target.value}))}><option>MT</option><option>Ton</option><option>Shipment</option><option>Tranche</option></select></FormField>
-        {!isAdmin&&<FormField label="Buyer"><select value={form.buyerId} onChange={e=>setForm(v=>({...v,buyerId:e.target.value}))} required><option value="">Pilih Buyer…</option>{(buyers.data?.buyers||[]).map((b:AnyRecord)=><option key={b.id} value={b.id}>{b.name}{b.code?' · '+b.code:''}</option>)}</select></FormField>}
-        {!isAdmin&&<FormField label="Basis komersial"><select value={form.basisType} onChange={e=>setForm(v=>({...v,basisType:e.target.value,contractReference:''}))}><option value="buyer_agreement">Kesepakatan Buyer</option><option value="executed_contract">Kontrak telah ditandatangani</option></select></FormField>}
-        {!isAdmin&&<FormField label="Referensi kesepakatan / kontrak"><input value={form.basisReference} onChange={e=>setForm(v=>({...v,basisReference:e.target.value}))} required placeholder="Nomor, nama, atau referensi kesepakatan"/></FormField>}
-        {!isAdmin&&form.basisType==='executed_contract'&&<FormField label="Nomor kontrak"><input value={form.contractReference} onChange={e=>setForm(v=>({...v,contractReference:e.target.value}))} required/></FormField>}
-        {!isAdmin&&<FormField label="Tanggal basis komersial"><input type="date" value={form.basisDate} onChange={e=>setForm(v=>({...v,basisDate:e.target.value}))}/></FormField>}
-        {!isAdmin&&<FormField label="Evidence URL (HTTPS)"><input type="url" value={form.evidenceUrl} onChange={e=>setForm(v=>({...v,evidenceUrl:e.target.value}))} placeholder="Link dokumen kontrak / kesepakatan"/></FormField>}
+        {<FormField label="Buyer"><select value={form.buyerId} onChange={e=>setForm(v=>({...v,buyerId:e.target.value}))} required><option value="">Pilih Buyer…</option>{(buyers.data?.buyers||[]).map((b:AnyRecord)=><option key={b.id} value={b.id}>{b.name}{b.code?' · '+b.code:''}</option>)}</select></FormField>}
+        {<FormField label="Basis komersial"><select value={form.basisType} onChange={e=>setForm(v=>({...v,basisType:e.target.value,contractReference:''}))}><option value="buyer_agreement">Kesepakatan Buyer</option><option value="executed_contract">Kontrak telah ditandatangani</option></select></FormField>}
+        {<FormField label="Referensi kesepakatan / kontrak"><input value={form.basisReference} onChange={e=>setForm(v=>({...v,basisReference:e.target.value}))} required placeholder="Nomor, nama, atau referensi kesepakatan"/></FormField>}
+        {form.basisType==='executed_contract'&&<FormField label="Nomor kontrak"><input value={form.contractReference} onChange={e=>setForm(v=>({...v,contractReference:e.target.value}))} required/></FormField>}
+        {<FormField label="Tanggal basis komersial"><input type="date" value={form.basisDate} onChange={e=>setForm(v=>({...v,basisDate:e.target.value}))}/></FormField>}
+        {<FormField label="Evidence URL (HTTPS)"><input type="url" value={form.evidenceUrl} onChange={e=>setForm(v=>({...v,evidenceUrl:e.target.value}))} placeholder="Link dokumen kontrak / kesepakatan"/></FormField>}
         <FormField label="Export country (ISO code)"><input maxLength={2} value={form.exportCountryCode} onChange={e=>setForm(v=>({...v,exportCountryCode:e.target.value.toUpperCase()}))} placeholder="CN"/></FormField>
         <FormField label="Deskripsi / commercial terms" wide><textarea rows={3} value={form.commercialTerms} onChange={e=>setForm(v=>({...v,commercialTerms:e.target.value}))} placeholder="Spesifikasi, harga/terms, tujuan, jadwal, catatan negosiasi…"/></FormField>
         <div className="form-actions"><ActionButton variant="secondary" onClick={()=>setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy||(!isAdmin&&(!form.buyerId||!form.basisReference.trim()))}>{busy?'Menyimpan…':'Simpan Project'}</button></div>

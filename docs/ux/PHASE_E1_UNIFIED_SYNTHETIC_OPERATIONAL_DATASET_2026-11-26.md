@@ -263,3 +263,8 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Regression CI run `45831302780`, commit `3efdc9e241872b3c5fe51292bb273ba6ce417a18`: SUCCESS — 80 files / 760 tests; P19 assurance 20/20; release/migration gates, backend/frontend typecheck and builds PASS.
 - Verified the queue's missing/malformed payload is unknown rather than a zero count or false empty-state.
 - Scope race regression also passed in run `45831097114`.
+
+## Fourth dashboard permission alignment finding
+- Dashboard metric source loads/visibility could rely on data permission or role without checking the destination page permission. This risks showing a metric link to a workspace that route guards deny, and unnecessarily fetching data for inaccessible workspaces.
+- Source request/metric gates now require both data permission and destination page access for task, contract, warehouse, operations, shipment allocation, compliance, finance, accounting journal, and report workspaces.
+- Phase L regression assertions added; CI pending.

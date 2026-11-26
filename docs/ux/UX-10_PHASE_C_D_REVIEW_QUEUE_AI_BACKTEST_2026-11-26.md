@@ -65,3 +65,9 @@ Benchmark prompts require source provenance/scope, uncertainty, missing evidence
 - CI exposed an unsafe-link test mismatch caused by a malformed control-character regex; corrected the regex.
 - CI exposed a supersession test fixture with the relationship reversed; corrected the fixture to model a newer record superseding the older record.
 - The above failures were observed and fixed; the newest run after these corrections and the UI integration is still pending. Do not mark Phase C/D test execution PASS until it completes.
+
+
+## Additional CI correction
+
+- Frontend typecheck caught duplicate `className` on the review queue grid; corrected.
+- The newest GitHub Actions run after this fix is pending. Prior CI failures are documented and remain non-PASS until a clean run.

@@ -57,7 +57,7 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(adminControl).toContain("canOpen('projects') ? <Link");
   expect(adminControl).toContain("canOpen('my-work') ? <Link");
   expect(adminControl).toContain("canOpen('reports') ? <Link");
-  expect(adminControl).toContain("canOpenProjectDetail ? <Link");
+  expect(adminControl).toContain("canOpenProjectDetail && selectedProjectId === String(p.id) ? <Link");
   expect(app).toContain("allowedPages={visiblePageKeys(activeUser || {})} canOpenProjectDetail={hasPageAccess('project-detail', activeUser || {})}");
   expect(adminControl).toContain("canOpenProjectDetail ? <Link");
  });

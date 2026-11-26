@@ -2380,3 +2380,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Verified commit `960b89a8c744174ea17891f8ea3c7c568d674823`, CI run `45830447590`: SUCCESS — 80 test files / 757 tests passed.
 - Every one of the 12 lifecycle stages has at least one explicit action owner in the backtest matrix. Admin, Reviewer and Field User have no operational stage-action authority. PM contract-stage exception is explicitly modeled.
 - Additional regression verifies owners cannot act when the stage is blocked, gap, conflict or pending; only ready stage actions pass.
+
+
+## Latest regression checkpoint — 2026-11-26
+- Commit `9647129facbf8e92d1fc0da56b2e10e90e1ac73e`, CI run `45830574245`: SUCCESS — 80 test files / 758 tests passed. Backend/frontend build and typecheck, P19 assurance, release policy/dry-run PASS.
+- This includes the new fail-closed role-action test for blocked, gap, conflict and pending lifecycle states.
+- The next CI run is validating documentation-only Phase M refresh; no source change is pending validation at this checkpoint.

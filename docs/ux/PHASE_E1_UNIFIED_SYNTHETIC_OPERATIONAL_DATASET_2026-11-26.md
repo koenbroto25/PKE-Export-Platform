@@ -89,3 +89,25 @@ The latest combined CI run is pending. This harness verifies the demo route set,
 ## Phase K — Frontend role/page access matrix
 
 Added tests against the actual `frontend/src/role-permissions.ts` access helper covering: project dashboard membership, loading/error fail-closed, finance role+permission, report role restrictions, transporter permission conjunction, warehouse/supplier/funder scope, external-only compliance exclusion, Field Capture/My Work role restrictions, visible menu keys, notifications and Platform Admin access. Tests are wired into root CI. Browser E2E, accessibility, real click flows and authenticated frontend↔backend are not yet verified; no browser runner is configured in the repository.
+
+
+## Phase L — Dashboard source coverage audit and UX permission defect
+
+### Actual source domains loaded by the shared Role Dashboard
+Project/portfolio, work items, contracts and contract programs, warehouse receipts, inventory lots, truck trips, shipment allocations, project documents and requirements, AP/AR invoices, cash advances, journals and project reports. Platform Admin additionally receives the P17 control tower. The dashboard is not yet a complete operational lifecycle source aggregator.
+
+### Explicit unintegrated gaps
+- Production, packing, QC sample, laboratory result and QA release metrics/readiness.
+- Vessel/port-call, loading plan, tally/survey and laytime reconciliation.
+- Official customs/permit/PEB/NPE/Lartas/COO status from authority sources.
+- Quantity/document reconciliation across independently authoritative sources.
+- Field photo/barcode/signature/offline queue/sync conflict workflow integration.
+- Bank execution and reconciliation.
+
+Source failures/missing payloads are shown as unknown/— rather than silently interpreted as zero. PM Project 360 explicitly distinguishes record presence from stage approval/readiness and preserves workspace permission gating.
+
+### Permission bug found and fixed
+The frontend Compliance route gate previously allowed `project.view` alone to satisfy the permission list. The rule now requires a non-external compliance-specific permission (and excludes `project.view` and partner-only permissions). Regression coverage was added in Phase K.
+
+### Validation
+Phase L contract suite added and wired to root CI; the newest run is pending. This audit does not claim real API integrations are complete.

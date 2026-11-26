@@ -1,0 +1,15 @@
+import{describe,it,expect}from"vitest";import{createReviewItem,canReadReviewItem,transitionReviewItem,summarizeReviewQueue,type ReviewActor}from"./knowledge-review-queue.js";
+const item=createReviewItem({id:"RV-1",projectId:"P1",dependencyId:"DEP-1",findingKind:"conflict",severity:"error",sourceIds:["S1","S2"],evidenceRecordIds:["E1","E2"],provenance:["url:a","url:b"],summary:"Conflicting claims",aiSuggestion:"Compare basis and request review."},"2026-11-26T10:00:00Z");
+const actor:ReviewActor={id:"human-1",projectId:"P1",permissions:["knowledge.review.view","knowledge.review.decide"],isHuman:true};
+describe("Phase C review queue guardrails",()=>{
+it("creates queue items open and validates identity",()=>{expect(item.status).toBe("open");expect(()=>createReviewItem({...item,id:""},"bad")).toThrow();});
+it("enforces project scope and human identity",()=>{expect(canReadReviewItem(item,actor)).toBe(true);expect(canReadReviewItem(item,{...actor,projectId:"P2"})).toBe(false);expect(canReadReviewItem(item,{...actor,isHuman:false})).toBe(false);});
+it("requires decision permission separately",()=>expect(transitionReviewItem({item,actor:{...actor,permissions:["knowledge.review.view"]},decision:"verify",at:"2026-11-26T11:00:00Z",note:"checked"}).code).toBe("REVIEW_DECISION_DENIED"));
+it("requires human note for verify/reject/defer",()=>{for(const decision of ["verify","reject","defer"] as const)expect(transitionReviewItem({item,actor,decision,at:"2026-11-26T11:00:00Z"}).code).toBe("DECISION_NOTE_REQUIRED");});
+it("supports assignment only with assignee",()=>{expect(transitionReviewItem({item,actor,decision:"assign",at:"2026-11-26T11:00:00Z"}).code).toBe("ASSIGNEE_REQUIRED");expect(transitionReviewItem({item,actor,decision:"assign",assignTo:"reviewer-2",at:"2026-11-26T11:00:00Z"}).item?.status).toBe("assigned");});
+it("allows human verification with audit note",()=>{const out=transitionReviewItem({item,actor,decision:"verify",at:"2026-11-26T11:00:00Z",note:"Compared source records; owner confirmation remains needed."});expect(out.item?.status).toBe("verified");expect(out.item?.decisionNote).toBeTruthy();});
+it("terminal decision cannot be overwritten",()=>{const verified=transitionReviewItem({item,actor,decision:"verify",at:"2026-11-26T11:00:00Z",note:"review"}).item!;expect(transitionReviewItem({item:verified,actor,decision:"reject",at:"2026-11-26T12:00:00Z",note:"change"}).code).toBe("TERMINAL_REVIEW");});
+it("rejects timestamp reversal",()=>expect(transitionReviewItem({item,actor,decision:"defer",at:"2026-11-26T09:00:00Z",note:"later"}).code).toBe("INVALID_REVIEW_TIME"));
+it("queue summary only includes same-project permitted items",()=>{const other={...item,id:"RV-2",projectId:"P2"};expect(summarizeReviewQueue([item,other],"P1",actor).visible).toBe(1);});
+it("AI suggestion is informational only",()=>{expect(item.aiSuggestion).toContain("Compare");expect(transitionReviewItem({item,actor,decision:"verify",at:"2026-11-26T11:00:00Z",note:"human checked"}).ok).toBe(true);});
+});

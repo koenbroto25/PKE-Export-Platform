@@ -6,6 +6,13 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
  it("loads its dashboard source domains from explicit API endpoints",()=>{
   for(const endpoint of ["/projects","/reports/portfolio","/work-items","/contracts?projectId=","/contract-programs?projectId=","/warehouse-receipts?projectId=","/inventory-lots?projectId=","/truck-trips?projectId=","/shipment-allocations?projectId=","/documents","/document-requirements","/ap-invoices?projectId=","/ar-invoices?projectId=","/cash-advances?projectId=","/journal-entries?projectId=","/reports/project/"])expect(dashboard).toContain(endpoint);
  });
+
+ it("clears prior Project data and ignores stale responses after scope changes or overlapping refreshes",()=>{
+  expect(dashboard).toContain("const loadGeneration = useRef(0)");
+  expect(dashboard).toContain("const requestGeneration = ++loadGeneration.current");
+  expect(dashboard).toContain("setState({ data: {}, loading: true, errors: [] })");
+  expect(dashboard).toContain("if (requestGeneration !== loadGeneration.current) return;");
+ });
  it("keeps source failures and missing payloads unknown instead of zero",()=>{
   expect(dashboard).toContain("sourceFailed");
   expect(dashboard).toContain("hasOwnProperty.call(data, key)");

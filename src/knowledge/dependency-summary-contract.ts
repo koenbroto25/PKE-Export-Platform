@@ -48,22 +48,41 @@ function blocker(status: DependencyStatus, freshness: DependencyFreshness, missi
   if(status==="unknown"||freshness==="unknown") return "unknown";
   return "none";
 }
+function safeInternalLink(link?: string | null): string | null {
+  if(!link || typeof link !== "string") return null;
+  // Only relative app routes are allowed; reject protocol-relative, control chars and encoded schemes.
+  if(!link.startsWith("/") || link.startsWith("//") || /[\\u0000-\\u001f\\u007f]/.test(link) || /%0[0-9a-f]|%1[0-9a-f]/i.test(link)) return null;
+  try {
+    const parsed = new URL(link, "https://pke.invalid");
+    if(parsed.origin !== "https://pke.invalid") return null;
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return null;
+  }
+}
 export function canReadDependencySummary(access: DependencySummaryAccess, projectId: string, dependencyId: string, workspace: string): boolean {
-  return access.authenticated && access.projectId===projectId && access.memberProjectIds.includes(projectId) && access.allowedDependencyIds.includes(dependencyId) && access.canReadSourceWorkspace(workspace);
+  try {
+    return Boolean(access?.authenticated && access.projectId===projectId &&
+      Array.isArray(access.memberProjectIds) && access.memberProjectIds.includes(projectId) &&
+      Array.isArray(access.allowedDependencyIds) && access.allowedDependencyIds.includes(dependencyId) &&
+      typeof access.canReadSourceWorkspace==="function" && access.canReadSourceWorkspace(workspace));
+  } catch {
+    return false;
+  }
 }
 export function toDependencyEvidenceSummary(input: DependencySummaryInput, access: DependencySummaryAccess): DependencyEvidenceSummary | null {
-  const dep=input.dependency, assessment=input.assessment;
-  if(!canReadDependencySummary(access,input.projectId,dep.id,dep.sourceWorkspace)) return null;
+  const dep=input?.dependency, assessment=input?.assessment;
+  if(!dep || !assessment || !canReadDependencySummary(access,input.projectId,dep.id,dep.sourceWorkspace)) return null;
   const status=assessment.status;
-  const missing=assessment.missingEvidence;
+  const missing=Array.isArray(assessment.missingEvidence) ? assessment.missingEvidence : [];
   // Fail closed: unknown/stale evidence cannot be presented as operational readiness.
   const safeStatus: DependencyStatus = input.freshness==="stale" && status==="satisfied" ? "stale" : input.freshness==="unknown" && status==="satisfied" ? "unknown" : status;
   const safeBlocker=blocker(safeStatus,input.freshness,missing.length);
   return {
     projectId: input.projectId, dependencyId: dep.id, from:dep.from,to:dep.to,status:safeStatus,
     freshness:input.freshness,missingEvidenceCount:missing.length,blockerCategory:safeBlocker,
-    sourceWorkspace:dep.sourceWorkspace,sourceLink:input.sourceLink??null,
+    sourceWorkspace:dep.sourceWorkspace,sourceLink:safeInternalLink(input.sourceLink),
     lastUpdatedAt:input.lastUpdatedAt??null,safeNextAction:nextAction[safeStatus],
-    evidenceLabels:missing, reasons:assessment.reasons
+    evidenceLabels:missing,reasons:Array.isArray(assessment.reasons)?assessment.reasons:[]
   };
 }

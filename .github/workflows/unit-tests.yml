@@ -14,6 +14,7 @@ on:
     branches:
       - main
       - phase0/reconcile-source-20261117
+      - p19/operational-readiness-plan-20261123
 
 permissions:
   contents: read

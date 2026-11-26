@@ -163,3 +163,10 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Added permission-filtered `/field` entry links to PKS Site Manager, Production Manager, Packing Supervisor, QC Officer, QA Manager, Laboratory Officer, HSE Officer, Warehouse Manager/Officer, Transport Manager, Dispatcher, Transporter, Checker, Driver, Master of Loading, Loading Supervisor/Operator, Terminal Representative, Shipping Agent, and Marine Surveyor. Existing Field Manager link retained.
 - Added regression assertions for each eligible role metadata entry. Actual visibility still uses `hasPageAccess`, so users without required permission do not see the link.
 - CI pending for this batch. Field Capture remains local-draft-only; server sync/acceptance is an environment/API integration blocker, not a claim of completed workflow.
+
+
+## Dashboard source integrity audit — missing payload was being counted as zero (2026-11-26)
+- Found a contract ambiguity: successful HTTP responses with missing/non-array fields could be coerced into a numeric zero in several dashboard count expressions. A zero count should only be shown when the endpoint explicitly returns an array; missing payload shape is unknown.
+- Updated the dashboard count helper to require an actual array and return em-dash/unknown otherwise. Applied shape guards to combined Contract/Program, Warehouse/Inventory, AP/AR, Document, and Finance/Accounting counts. Single-source trip and shipment-allocation readiness counts now use the guarded helper.
+- Added Phase L regression assertions for payload-array shape guards.
+- CI pending for this source/test batch. No external integrations or data sources were changed.

@@ -1987,3 +1987,12 @@ Commit: `1df30d9542553dda4cdd7633ace197c7876282ed` (component), `782dd557353499b
 - [ ] GitHub Actions run lookup did not return workflow runs for latest branch commits. The visible commit status is Vercel rate-limit failure; per owner direction, Vercel deployment is skipped.
 
 Latest commits: `9211310655e3edc684f0e4c9c5b8897aa20d9620` (route permission denial test), `19d33654b99712fc43d233498eb0cc479b036093` (UI contract tests), `116b9dab617458d0dcbad6b0cfb911cfd2b188b` (CI test command).
+
+
+### Phase A4 follow-up — JSX correction and source recheck (26 November 2026)
+
+- [x] Corrected conditional rendering in `CrossProcessDependencyPanel.tsx` after source review found an invalid JSX branch introduced during the filter UI change.
+- [x] Replaced it with a valid fragment branch containing counters, filter, empty state, and edge list.
+- [ ] Typecheck/build remains unverified. GitHub workflow runs are empty for the follow-up commit; the only commit status is the Vercel rate-limit failure, intentionally skipped.
+
+Commit: `fdeda6bcd000f49789d26763856bcd4bdff3336d`.

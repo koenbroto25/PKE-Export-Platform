@@ -1,5 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {EXPORT_SIMULATION_SCENARIOS,evaluateScenario,SIMULATION_STAGE_ORDER} from "./export-scenario-catalog";
+import {PKE_AI_EVAL_FIXTURES} from "./pke-ai-eval-fixtures";
 import {evaluateCrosscheck} from "../export-crosscheck";
 import {P1_RECORD_TYPES,initialP1Status,validateP1Create,validateP1Transition,canApprovePurchaseOrder,canDecideQaRelease,canCloseAuditFinding} from "../p1-workflow-engine";
 import {hasPageAccess} from "../../frontend/src/role-permissions";
@@ -20,6 +21,17 @@ describe("PKE simulated export backtest catalog",()=>{
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.id)).size).toBe(EXPORT_SIMULATION_SCENARIOS.length);
   expect(new Set(EXPORT_SIMULATION_SCENARIOS.map(s=>s.category)).size).toBeGreaterThanOrEqual(10);
   for(const s of EXPORT_SIMULATION_SCENARIOS){expect(s.simulationOnly).toBe(true);expect(s.description.length).toBeGreaterThan(20);expect(s.userFacingMessage.trim()).not.toBe("");expect(s.nextAction.trim()).not.toBe("");}
+ });
+ it("derives a 30-case AI evaluation fixture set with grounding and abstention requirements",()=>{
+  expect(PKE_AI_EVAL_FIXTURES).toHaveLength(30);
+  expect(new Set(PKE_AI_EVAL_FIXTURES.map(x=>x.caseId)).size).toBe(30);
+  for(const x of PKE_AI_EVAL_FIXTURES){
+   expect(x.simulationOnly).toBe(true);
+   expect(x.sourceRefs.length).toBeGreaterThan(0);
+   expect(x.expectedBehaviors.length).toBeGreaterThan(0);
+   expect(x.mustNotClaim.length).toBeGreaterThan(0);
+   expect(x.mustAbstainOnAuthorityDecision).toBe(true);
+  }
  });
  it("contains 30 researched PKE scenarios with provenance and AI-oriented tags",()=>{
   const researched=EXPORT_SIMULATION_SCENARIOS.filter(s=>s.id>="SIM-136"&&s.id<="SIM-165");

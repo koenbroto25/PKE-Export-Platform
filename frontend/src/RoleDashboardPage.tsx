@@ -120,19 +120,19 @@ export default function RoleDashboardPage({ projectId, activeUser }: { projectId
     .filter((v: string, i: number, arr: string[]) => Boolean(v) && arr.indexOf(v) === i), [activeUser, membership]);
   const permissions = activeUser?.projectPermissions || [];
   const can = (permission: string) => activeUser?.platformAdmin === true ? false : hasProjectPermission(permission, activeUser);
-  const canViewTasks = can('project.tasks.view');
-  const canViewWork = Boolean(projectId) && roles.some((role: string) => role !== 'funder' && role !== 'platform_admin');
-  const canViewContracts = can('contract.view');
-  const canViewInventory = can('inventory.view');
-  const canViewWarehouse = can('warehouse.view');
-  const canViewLogistics = can('logistics.view');
-  const canViewShipping = can('shipping.view');
-  const canViewDocuments = can('documents.view');
+  const canViewTasks = can('project.tasks.view') && hasPageAccess('my-work', activeUser as WorkspaceAccessUser);
+  const canViewWork = Boolean(projectId) && hasPageAccess('my-work', activeUser as WorkspaceAccessUser) && roles.some((role: string) => role !== 'funder' && role !== 'platform_admin');
+  const canViewContracts = can('contract.view') && hasPageAccess('contracts', activeUser as WorkspaceAccessUser);
+  const canViewInventory = can('inventory.view') && hasPageAccess('warehouse', activeUser as WorkspaceAccessUser);
+  const canViewWarehouse = can('warehouse.view') && hasPageAccess('warehouse', activeUser as WorkspaceAccessUser);
+  const canViewLogistics = can('logistics.view') && hasPageAccess('operations', activeUser as WorkspaceAccessUser);
+  const canViewShipping = can('shipping.view') && hasPageAccess('shipment-allocations', activeUser as WorkspaceAccessUser);
+  const canViewDocuments = can('documents.view') && hasPageAccess('compliance', activeUser as WorkspaceAccessUser);
   const financeReadRoles = new Set(['pm', 'project_admin', 'finance', 'internal_auditor', 'cashier']);
   const reportReadRoles = new Set(['pm', 'project_admin', 'internal_auditor', 'finance', 'accounting', 'cashier', 'viewer']);
-  const canViewFinance = roles.some((role: string) => financeReadRoles.has(role)) && can('finance.view');
-  const canViewAccounting = can('accounting.view');
-  const canViewReports = roles.some((role: string) => reportReadRoles.has(role)) && (can('reports.view') || can('report.view'));
+  const canViewFinance = roles.some((role: string) => financeReadRoles.has(role)) && can('finance.view') && hasPageAccess('finance', activeUser as WorkspaceAccessUser);
+  const canViewAccounting = can('accounting.view') && hasPageAccess('journal-entries', activeUser as WorkspaceAccessUser);
+  const canViewReports = roles.some((role: string) => reportReadRoles.has(role)) && (can('reports.view') || can('report.view')) && hasPageAccess('reports', activeUser as WorkspaceAccessUser);
 
   const load = useCallback(async () => {
     const requestGeneration = ++loadGeneration.current;

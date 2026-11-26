@@ -45,3 +45,27 @@ DTO fields: project/dependency IDs, lifecycle edge, status, freshness, missing e
 
 ## Constraints
 No Vercel deployment, Neon changes, migrations, live ingestion, LLM runtime, production data access, merge or rebase.
+
+
+## Phase A2 — demo API route checkpoint
+
+- Added `src/dependency-summary-api.ts` with demo-only route `GET /api/v1/projects/:projectId/dependency-summaries?mode=demo`.
+- Requires authenticated session, valid project UUID, explicit demo mode, and `project.view`.
+- Each edge is filtered by a server-side source-workspace permission map; all mapped permission codes must pass. Unknown workspace maps fail closed.
+- Response provenance is explicit: `mode=demo`, `dataSource=synthetic`, `liveIntegration=false`, `authorityDecision=false`.
+- The synthetic fixture intentionally contains no evidence; edges show gap with unknown freshness. No edge can be presented as operationally ready.
+- No source records, private document contents, or external links are returned.
+- Registered from `src/index.ts`.
+- Added `src/dependency-summary-api.test.ts` and included it in the root `npm test` script.
+
+### Route tests authored
+Authentication, UUID validation, explicit demo mode, synthetic provenance, permission filtering, complete permission-policy mapping, and fail-closed permission lookup exceptions.
+
+### Verification status
+**Not yet verified by execution.** GitHub workflow-run lookup for the latest commits returned no runs. The visible commit status is a Vercel build-rate-limit failure; Vercel is intentionally skipped and this is not treated as an application test result. No local build/test execution is available in this workflow.
+
+### Remaining
+1. CI/typecheck execution and repair any failures.
+2. Frontend PM Project 360 wiring and clear demo-vs-live UX.
+3. Live data integration only after a separate authorized source adapter and permission contract review.
+4. Phase A completion requires CI and route test evidence; do not claim it yet.

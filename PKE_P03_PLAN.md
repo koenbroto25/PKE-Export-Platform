@@ -2499,3 +2499,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 
 ## PM360 payload-validity assertion correction — 2026-11-26
 - CI runs `45834725286`, `45834781988`, `45834831141` failed one test because it still asserted the prior sourceState helper; 764/765 tests passed. Updated assertion for explicit `payloadValid` in `34d68e0ccf9498c4742dabe68cb54b13f1781f21`. Full validation pending.
+
+
+## Admin Control Center route-permission audit — 2026-11-26
+- Found Admin shortcuts to Access, Projects, Work Queue, Reports and per-project detail were unconditional, even though route gates may deny the current user. This creates dead-end clicks for platform admin/limited roles.
+- Admin Control Center now receives visible page access and project-detail permission; each shortcut is rendered as a link only when authorized, otherwise a non-link explanation. Project row falls back to Projects list when direct detail permission is absent.
+- Regression tests added. CI pending.

@@ -67,3 +67,17 @@ Source-only GitHub branch. No Vercel deployments, Neon/database operations, migr
 | I | PASS | Traceability matrix; explicitly lists actual UI/API integration as GAP |
 
 The implementation passes CI, but it does **not** establish real-world production readiness. The next technical work is to build integration tests against a controlled test environment and exercise actual APIs/UI workflows, including role authorization, persisted state, cross-module side effects, and live AI response quality. These require a separately approved environment; production/Neon and deployment were intentionally untouched.
+
+
+## Phase J — Controlled HTTP Integration (Manual Trial Mode)
+
+Implemented a real in-process Express HTTP harness around the existing Manual Trial Mode route registration (ephemeral loopback port; deterministic in-memory state; no DB). Scenarios cover login/me, project create→activate→portfolio aggregation, document requirement association and metadata list, invalid requirement rejection, storage disabled, integration unavailable-state honesty, permission denial, and reset controls.
+
+Hardening performed alongside the tests:
+- Manual demo reset now requires an admin session.
+- Project configuration mutation routes require `project.configuration.manage`.
+- Project document requirement/list reads require `documents.view`.
+- Document metadata creation requires `documents.create`.
+- Document review/status mutation requires `documents.review`.
+
+The latest combined CI run is pending. This harness verifies the demo route set, not the production API/database. Production integration, RLS, persisted workflows, private storage, and browser E2E remain external blockers.

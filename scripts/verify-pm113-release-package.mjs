@@ -27,8 +27,9 @@ function lexicalSqlCheck(source){
       if(ch==="'"){state="single";continue;}
       if(ch==='"'){state="double";continue;}
       if(ch==="$"){
-        const match=source.slice(i).match(/^\\$[A-Za-z_0-9]*\\$/);
-        if(match){dollarTag=match[0];state="dollar";i+=dollarTag.length-1;continue;}
+        const end=source.indexOf("$",i+1);
+        const candidate=end>i?source.slice(i,end+1):"";
+        if(candidate&&/^[$][A-Za-z_0-9]*[$]$/.test(candidate)){dollarTag=candidate;state="dollar";i+=dollarTag.length-1;continue;}
       }
       if(ch==="(")depth++;
       if(ch===")"){depth--;if(depth<0)fail("SQL has unmatched closing parenthesis at line "+line);}

@@ -50,3 +50,13 @@ Branch: `p20/platform-continuation-20261123`
 
 ## Safety boundary
 No Neon operation, database/schema/migration changes, Vercel deployment, main merge/rebase, or production action was performed. All commits remain on the working branch.
+
+
+## UX-08.1 — Field local-data retention control (26 November 2026)
+
+- Added `deleteFieldLocalDataForPrincipal(principalId)` to the IndexedDB field queue: one transaction removes the current principal's local drafts (including retained evidence Blobs) and assignment caches from both stores; returns counts.
+- Added an explicit, irreversible-confirmation UI action **Hapus semua data lokal akun**. It clears only the current authenticated principal's local records on this browser/device and refreshes visible task/draft state. It does not delete server data.
+- Added contract assertions for principal-index scoping, two-store transaction and explicit confirmation text.
+- This is an explicit user cleanup control, **not automatic logout cleanup**. Local data remains unencrypted and offline drafts are still not server-submitted/verified. Browser IndexedDB persistence behavior is not tested in a real browser.
+- Latest GitHub Actions Unit Tests run #2205, commit `8e0a45ff4ba449b2535fdfcf991aa176fb1827a9`: **SUCCESS**. Offline tests, P19, migration release/contracts/dry-run, backend build/typecheck, frontend typecheck/build all pass.
+- CI URL: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45793914142

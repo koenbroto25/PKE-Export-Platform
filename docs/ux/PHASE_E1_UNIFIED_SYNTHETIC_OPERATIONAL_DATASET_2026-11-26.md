@@ -341,3 +341,6 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 
 ## Admin Control Center shortcut assertion correction
 - Three runs failed one stale assertion after project-detail link was gated by permission; 764/765 tests passed. Assertion corrected in `402b2938a45d7d7053d54f60372dc1db43e5eaeb`. Rerun pending.
+
+## Admin Control Center JSX correction
+- CI caught a stray brace in the nested project link expression; fixed in `e5dee54266884f850fa402185e627b05264b80cf`. Reports shortcut is gated as well. Rerun pending.

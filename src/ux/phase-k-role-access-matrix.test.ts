@@ -75,7 +75,7 @@ describe("Phase K role dashboard and workspace access matrix",()=>{
 
  it("provides a role dashboard metadata entry for every canonical role and a project dashboard for every active membership",()=>{
   const dashboardSource=readFileSync(join(process.cwd(),"frontend/src/RoleDashboardPage.tsx"),"utf8");
-  const metaKeys=[...dashboardSource.matchAll(/^\s{2}([a-z_]+): \\{ label:/gm)].map(m=>m[1]);
+  const metaKeys=CANONICAL_ROLE_TEMPLATES.map(r=>r.code).filter(code=>dashboardSource.includes(`  ${code}: { label:`));
   const missing=CANONICAL_ROLE_TEMPLATES.map(r=>r.code).filter(code=>!metaKeys.includes(code));
   expect(missing).toEqual([]);
   for(const role of CANONICAL_ROLE_TEMPLATES.filter(r=>r.scope==="project")){

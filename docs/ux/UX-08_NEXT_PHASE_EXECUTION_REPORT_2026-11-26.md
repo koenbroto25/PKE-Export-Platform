@@ -90,3 +90,21 @@ Scenario catalog assertions updated for 165 total / 30 sourced records. CI is tr
 - Fixtures cover grounding/provenance, stale/conflicting research, facility/entity classification, quality holds, destination compliance, customs event distinction, quantity/document reconciliation, multimodal custody and candidate-vs-approved logistics.
 - This is a static evaluation dataset only. No LLM is called and no production AI behavior is claimed. The fixture set is intended to become a future offline regression benchmark before any AI-support rollout.
 - Added contract tests for fixture completeness and mandatory abstention/provenance safeguards.
+
+ 
+## UX-09.1 / Knowledge Observation Foundation — 26 November 2026
+ 
+### Implemented
+- Added `src/knowledge/observation-schema.ts`: provenance-rich typed observation model; configurable freshness assessment; validity window checks; future/invalid timestamps; geography/product/destination scope matching; conflict grouping; uncomparable basis/unit guard; safety metadata warnings.
+- Added `src/knowledge/pke-observation-registry.ts`: 9 seeded offline observations from DJBC, Barantin, NZ MPI, historical Indonesian PKE certification, FOSFA and commercial nutrition reference.
+- Added `src/knowledge/observation-schema.test.ts`: deterministic tests for seed provenance, confidence bounds, source limitations, freshness/expiry, future/invalid timestamps, scope mismatch, conflicting claims and basis mismatch.
+- Added the new test file to root `npm test` script.
+ 
+### Guardrails
+- Historical and commercial seed observations are explicitly unverified; no source is promoted into approved business master data.
+- Conflict detection does not rank sources or automatically choose a “winner”.
+- Freshness limits are configurable and heuristic, not universal source expiration or legal rules.
+- No LLM invocation, live source ingestion, DB/migration, Neon, Vercel or Production action.
+ 
+### Validation
+- GitHub Actions result for this commit: **PENDING** (must update after run).

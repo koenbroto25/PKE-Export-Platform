@@ -137,3 +137,14 @@ It proves source contracts, offline synthetic simulation, Manual Trial Mode HTTP
 
 ### Guardrails
 No Vercel deployment, Neon/database access, migrations, production data, merge, or live AI calls were made.
+
+
+## Operational readiness closure roadmap and first UX defect fixed — 2026-11-26
+The master plan now establishes the remaining work as task-based UX audit, lifecycle correlation, dashboard actionability, exception/recovery backtesting, synthetic end-to-end scenarios, controlled integration gates, and final acceptance.
+
+### First source audit finding (Role Dashboard)
+- Process readiness rows were still rendering links even when the row was marked `permission`; route guards prevented unauthorized access, but the visible link was misleading and created a denial-screen dead end.
+- The Field Capture readiness row pointed to `/operations` rather than the dedicated `/field` workspace.
+- Fixed in `frontend/src/RoleDashboardPage.tsx`: permission-denied readiness rows now render as non-link labels; Field Capture navigates to `/field`.
+- Regression assertions added to `src/ux/phase-n-role-dashboard-navigation.test.ts`.
+- Validation for this source change is pending CI; do not claim PASS until the workflow completes.

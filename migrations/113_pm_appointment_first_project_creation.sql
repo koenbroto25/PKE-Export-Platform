@@ -343,7 +343,156 @@ BEGIN
  IF length(btrim(coalesce(p_name,'')))<2 OR length(btrim(coalesce(p_basis_reference,'')))<2 OR p_buyer_id IS NULL OR
     p_basis_type NOT IN ('buyer_agreement','executed_contract') OR length(btrim(coalesce(p_settlement_unit,'')))<1 OR p_target_quantity<=0 OR
     (p_basis_type='executed_contract' AND length(btrim(coalesce(p_contract_reference,'')))<2) OR
-    (p_evidence_url IS NOT NULL AND p_evidence_url !~ '^https://') OR (p_export_country_code IS NOT NULL AND p_export_country_code !~ '^[A-Z]{2}
+    (p_evidence_url IS NOT NULL AND p_evidence_url !~ '^https://') OR (p_export_country_code IS NOT NULL AND p_export_country_code !~ '^[A-Z]{2} RAISE EXCEPTION 'Commercial basis/project input invalid' USING ERRCODE='22023'; END IF;
+ SELECT * INTO v_appt FROM public.pm_appointments WHERE user_id=v_pm AND status='active' FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Active global PM appointment required' USING ERRCODE='42501'; END IF;
+ SELECT * INTO v_buyer FROM public.buyers WHERE id=p_buyer_id AND is_active=true;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Active Buyer not found' USING ERRCODE='P0002'; END IF;
+ PERFORM set_config('app.pke_pm_project_create','on',true);
+ SELECT response INTO v_result FROM public.pm_project_create_idempotency WHERE pm_user_id=v_pm AND idempotency_key=p_idempotency_key;
+ IF FOUND THEN RETURN v_result||jsonb_build_object('idempotentReplay',true); END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended(v_pm::text||':project-create',0));
+ SELECT response INTO v_result FROM public.pm_project_create_idempotency WHERE pm_user_id=v_pm AND idempotency_key=p_idempotency_key;
+ IF FOUND THEN RETURN v_result||jsonb_build_object('idempotentReplay',true); END IF;
+ INSERT INTO public.projects(name,description,status,settlement_unit,target_quantity,export_country_code,is_active,created_at,updated_at)
+ VALUES(btrim(p_name),nullif(btrim(p_description),''),'draft',btrim(p_settlement_unit),p_target_quantity,nullif(upper(btrim(p_export_country_code)),''),true,now(),now())
+ RETURNING * INTO v_project;
+ IF p_basis_type='executed_contract' THEN
+   INSERT INTO public.contracts(project_id,buyer_id,code,name,start_date,end_date,is_active,created_at,updated_at)
+   VALUES(v_project.id,p_buyer_id,substr('PM-'||v_project.id::text,1,40),btrim(p_basis_reference),coalesce(p_basis_date,current_date),NULL,true,now(),now())
+   RETURNING * INTO v_contract;
+ END IF;
+ INSERT INTO public.contract_programs(project_id,name,description,buyer_id,contract_id,settlement_unit,target_quantity,cadence,generation_mode,is_active,created_at,updated_at)
+ VALUES(v_project.id,btrim(p_name),nullif(btrim(p_description),''),p_buyer_id,v_contract.id,btrim(p_settlement_unit),p_target_quantity,'shipment_triggered','shipment_triggered',true,now(),now())
+ RETURNING * INTO v_program;
+ UPDATE public.projects SET contract_program_id=v_program.id,updated_at=now() WHERE id=v_project.id RETURNING * INTO v_project;
+ INSERT INTO public.project_operating_profiles(project_id,logistics_mode,uses_trucking,pks_owns_or_controls_port,financing_enabled,financier_reporting_required,configuration,updated_by,created_at,updated_at)
+ VALUES(v_project.id,'unspecified',false,false,false,false,v_default_configuration,v_pm,now(),now()) ON CONFLICT(project_id) DO NOTHING;
+ INSERT INTO public.project_roles(project_id,role_code,name,description,is_active,created_by,created_at,updated_at)
+ VALUES(v_project.id,'pm','Project Manager','Appointed Project Manager; scoped to this Project',true,v_pm,now(),now())
+ ON CONFLICT(project_id,role_code) DO UPDATE SET is_active=true,updated_at=now() RETURNING * INTO v_role;
+ INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id,granted_by,granted_at)
+ SELECT v_project.id,v_role.id,p.id,v_pm,now() FROM public.permissions p
+ WHERE p.code=ANY(v_pm_codes) AND p.is_active=true ON CONFLICT(project_role_id,permission_id) DO NOTHING;
+ GET DIAGNOSTICS v_permissions=ROW_COUNT;
+ SELECT count(*) INTO v_permissions FROM public.project_role_permissions rp JOIN public.permissions p ON p.id=rp.permission_id WHERE rp.project_id=v_project.id AND rp.project_role_id=v_role.id AND p.code=ANY(v_pm_codes) AND p.is_active=true;
+ IF v_permissions<>cardinality(v_pm_codes) THEN RAISE EXCEPTION 'PM role permission catalogue incomplete; expected %, found %',cardinality(v_pm_codes),v_permissions USING ERRCODE='23514'; END IF;
+ INSERT INTO public.project_members(project_id,user_id,project_role_id,is_active,joined_at,updated_at)
+ VALUES(v_project.id,v_pm,NULL,true,now(),now()) RETURNING * INTO v_member;
+ PERFORM set_config('app.pke_pm_project_create','on',true);
+ INSERT INTO public.project_role_assignments(project_id,project_member_id,user_id,project_role_id,is_active,assigned_at,assigned_by)
+ VALUES(v_project.id,v_member.id,v_pm,v_role.id,true,now(),v_pm) RETURNING * INTO v_assignment;
+ INSERT INTO public.project_pm_ownership(project_id,pm_user_id,appointment_id,assigned_by)
+ VALUES(v_project.id,v_pm,v_appt.id,v_pm);
+ INSERT INTO public.project_pm_ownership_events(project_id,to_pm_user_id,actor_user_id,reason)
+ VALUES(v_project.id,v_pm,v_pm,'Project created by appointed PM');
+ INSERT INTO public.project_commercial_basis(project_id,buyer_id,basis_type,basis_reference,basis_date,contract_reference,evidence_url,commercial_terms,notes,recorded_by)
+ VALUES(v_project.id,p_buyer_id,p_basis_type,btrim(p_basis_reference),p_basis_date,nullif(btrim(p_contract_reference),''),p_evidence_url,coalesce(p_commercial_terms,'{}'::jsonb),nullif(btrim(p_description),''),v_pm);
+ v_result:=jsonb_build_object('project',to_jsonb(v_project),'contractProgram',to_jsonb(v_program),'commercialBasis',jsonb_build_object('buyerId',p_buyer_id,'basisType',p_basis_type,'basisReference',p_basis_reference),'pmOwnership',jsonb_build_object('pmUserId',v_pm,'appointmentId',v_appt.id));
+ INSERT INTO public.pm_project_create_idempotency(pm_user_id,idempotency_key,project_id,response) VALUES(v_pm,p_idempotency_key,v_project.id,v_result);
+ INSERT INTO public.audit_events(actor_user_id,actor_type,actor_role,action,target_type,target_id,project_id,reason,after_snapshot,metadata,outcome)
+ VALUES(v_pm,'user','pm','project.created_by_appointed_pm','project',v_project.id,v_project.id,'Project created from Buyer agreement/contract',v_result,jsonb_build_object('appointmentId',v_appt.id,'basisType',p_basis_type,'buyerId',p_buyer_id),'success');
+ RETURN v_result;
+END;$fn$;
+
+CREATE OR REPLACE FUNCTION public.pke_admin_transfer_project_pm(p_project_id uuid,p_new_pm_user_id uuid,p_reason text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog','public'
+AS $fn$
+DECLARE v_actor uuid:=public.pke_current_user_id(); v_old public.project_pm_ownership%ROWTYPE; v_appt public.pm_appointments%ROWTYPE; v_role public.project_roles%ROWTYPE; v_member public.project_members%ROWTYPE; v_assignment public.project_role_assignments%ROWTYPE;
+BEGIN
+ IF NOT public.pke_is_platform_admin() THEN RAISE EXCEPTION 'Platform Admin required' USING ERRCODE='42501'; END IF;
+ IF length(btrim(coalesce(p_reason,'')))<5 THEN RAISE EXCEPTION 'Reason required' USING ERRCODE='22023'; END IF;
+ SELECT * INTO v_appt FROM public.pm_appointments WHERE user_id=p_new_pm_user_id AND status='active' FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'New PM must have an active global appointment' USING ERRCODE='23514'; END IF;
+ SELECT * INTO v_old FROM public.project_pm_ownership WHERE project_id=p_project_id FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Project PM ownership not found' USING ERRCODE='P0002'; END IF;
+ IF v_old.pm_user_id=p_new_pm_user_id THEN RETURN jsonb_build_object('idempotent',true,'projectId',p_project_id,'pmUserId',p_new_pm_user_id); END IF;
+ SELECT * INTO v_role FROM public.project_roles WHERE project_id=p_project_id AND role_code='pm' AND is_active=true;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Project PM role template unavailable' USING ERRCODE='23514'; END IF;
+ SELECT * INTO v_member FROM public.project_members WHERE project_id=p_project_id AND user_id=v_old.pm_user_id AND is_active=true FOR UPDATE;
+ IF FOUND THEN
+  UPDATE public.project_role_assignments SET is_active=false,revoked_at=now(),revoked_by=v_actor,revoke_reason=p_reason,updated_at=now()
+   WHERE project_id=p_project_id AND user_id=v_old.pm_user_id AND project_role_id=v_role.id AND is_active=true AND revoked_at IS NULL;
+ END IF;
+ SELECT * INTO v_member FROM public.project_members WHERE project_id=p_project_id AND user_id=p_new_pm_user_id ORDER BY joined_at DESC LIMIT 1 FOR UPDATE;
+ IF NOT FOUND THEN
+  INSERT INTO public.project_members(project_id,user_id,project_role_id,is_active,joined_at,updated_at)
+  VALUES(p_project_id,p_new_pm_user_id,NULL,true,now(),now()) RETURNING * INTO v_member;
+ ELSE
+  UPDATE public.project_members SET is_active=true,deactivated_at=NULL,deactivated_by=NULL,expires_at=NULL,updated_at=now()
+   WHERE id=v_member.id RETURNING * INTO v_member;
+ END IF;
+ INSERT INTO public.project_role_assignments(project_id,project_member_id,user_id,project_role_id,is_active,assigned_at,assigned_by)
+ VALUES(p_project_id,v_member.id,p_new_pm_user_id,v_role.id,true,now(),v_actor) RETURNING * INTO v_assignment;
+ UPDATE public.project_pm_ownership SET pm_user_id=p_new_pm_user_id,appointment_id=v_appt.id,assigned_by=v_actor,updated_at=now() WHERE project_id=p_project_id;
+ INSERT INTO public.project_pm_ownership_events(project_id,from_pm_user_id,to_pm_user_id,actor_user_id,reason)
+ VALUES(p_project_id,v_old.pm_user_id,p_new_pm_user_id,v_actor,p_reason);
+ INSERT INTO public.audit_events(actor_user_id,actor_type,actor_role,action,target_type,target_id,project_id,reason,before_snapshot,after_snapshot,metadata,outcome)
+ VALUES(v_actor,'user','platform_admin','project.pm.transferred','project_pm_ownership',p_project_id,p_project_id,p_reason,to_jsonb(v_old),jsonb_build_object('pmUserId',p_new_pm_user_id,'appointmentId',v_appt.id),jsonb_build_object('fromPm',v_old.pm_user_id,'toPm',p_new_pm_user_id),'success');
+ RETURN jsonb_build_object('projectId',p_project_id,'previousPmUserId',v_old.pm_user_id,'pmUserId',p_new_pm_user_id,'assignmentId',v_assignment.id);
+END;$fn$;
+
+CREATE OR REPLACE FUNCTION public.pke_project_role_assignment_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog','public'
+AS $guard$
+DECLARE v_member public.project_members%ROWTYPE; v_role public.project_roles%ROWTYPE; v_internal_create boolean;
+BEGIN
+ SELECT * INTO v_member FROM public.project_members WHERE id=NEW.project_member_id AND project_id=NEW.project_id AND user_id=NEW.user_id FOR KEY SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Project membership identity is required for role assignment' USING ERRCODE='23514'; END IF;
+ SELECT * INTO v_role FROM public.project_roles WHERE id=NEW.project_role_id AND project_id=NEW.project_id FOR KEY SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Project role template identity is required for role assignment' USING ERRCODE='23514'; END IF;
+ v_internal_create:=current_setting('app.pke_pm_project_create',true)='on' AND public.pke_current_user_id()=NEW.user_id;
+ IF TG_OP='UPDATE' THEN
+  IF OLD.project_id<>NEW.project_id OR OLD.project_member_id<>NEW.project_member_id OR OLD.user_id<>NEW.user_id OR OLD.project_role_id<>NEW.project_role_id THEN RAISE EXCEPTION 'Assignment identity is immutable' USING ERRCODE='23514'; END IF;
+  IF OLD.revoked_at IS NOT NULL THEN RAISE EXCEPTION 'Revoked assignments are immutable' USING ERRCODE='23514'; END IF;
+ END IF;
+ IF TG_OP='INSERT' OR NEW.is_active=true THEN
+  IF v_member.is_active IS DISTINCT FROM true OR v_member.deactivated_at IS NOT NULL OR (v_member.expires_at IS NOT NULL AND v_member.expires_at<=now()) THEN RAISE EXCEPTION 'Active Project membership required' USING ERRCODE='23514'; END IF;
+  IF v_role.is_active IS DISTINCT FROM true THEN RAISE EXCEPTION 'Active Project role template required' USING ERRCODE='23514'; END IF;
+ END IF;
+ IF NEW.is_active=true AND NEW.expires_at IS NOT NULL AND NEW.expires_at<=now() THEN RAISE EXCEPTION 'Active assignment must expire in the future' USING ERRCODE='23514'; END IF;
+ IF NEW.revoked_at IS NOT NULL AND (NEW.is_active=true OR NEW.revoked_by IS NULL OR length(trim(coalesce(NEW.revoke_reason,'')))<5) THEN RAISE EXCEPTION 'Revoked assignments require inactive state, actor and reason' USING ERRCODE='23514'; END IF;
+ IF v_role.role_code='pm' AND NOT public.pke_is_platform_admin() AND NOT v_internal_create THEN RAISE EXCEPTION 'PM role assignment requires Platform Admin or appointment-first creation' USING ERRCODE='42501'; END IF;
+ IF v_role.role_code='pm' AND NEW.is_active=true AND NEW.revoked_at IS NULL AND (NEW.expires_at IS NULL OR NEW.expires_at>now()) THEN
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.project_id::text||':pm-appointment',0));
+  IF EXISTS(SELECT 1 FROM public.project_role_assignments oa JOIN public.project_roles orl ON orl.id=oa.project_role_id AND orl.project_id=oa.project_id WHERE oa.project_id=NEW.project_id AND oa.id<>NEW.id AND orl.role_code='pm' AND oa.is_active=true AND oa.revoked_at IS NULL AND (oa.expires_at IS NULL OR oa.expires_at>now())) THEN RAISE EXCEPTION 'Only one active PM assignment per Project' USING ERRCODE='23505'; END IF;
+ END IF;
+ NEW.updated_at:=now(); RETURN NEW;
+END;$guard$;
+
+CREATE OR REPLACE FUNCTION public.pke_pm_buyer_catalog()
+RETURNS TABLE(id uuid,name text,code text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'pg_catalog','public'
+AS $fn$
+ SELECT b.id,b.name,b.code FROM public.buyers b
+ WHERE b.is_active=true AND EXISTS(SELECT 1 FROM public.pm_appointments a WHERE a.user_id=public.pke_current_user_id() AND a.status='active')
+ ORDER BY b.name;
+$fn$;
+
+CREATE OR REPLACE FUNCTION public.pke_pm_portfolio()
+RETURNS TABLE(project_id uuid,pm_user_id uuid,project_name text,project_status text,target_quantity numeric,settlement_unit text,buyer_id uuid,buyer_name text,basis_type text,basis_reference text,basis_date date,created_at timestamptz,updated_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'pg_catalog','public'
+AS $fn$
+ SELECT p.id,o.pm_user_id,p.name,p.status,p.target_quantity,p.settlement_unit,b.id,b.name,cb.basis_type,cb.basis_reference,cb.basis_date,p.created_at,p.updated_at
+ FROM public.project_pm_ownership o JOIN public.projects p ON p.id=o.project_id
+ LEFT JOIN public.project_commercial_basis cb ON cb.project_id=p.id
+ LEFT JOIN public.buyers b ON b.id=cb.buyer_id
+ WHERE o.pm_user_id=public.pke_current_user_id() AND p.is_active=true
+   AND EXISTS(SELECT 1 FROM public.pm_appointments a WHERE a.user_id=o.pm_user_id AND a.status='active')
+ ORDER BY p.updated_at DESC;
+$fn$;
+
+GRANT EXECUTE ON FUNCTION public.pke_admin_appoint_pm(uuid,text),public.pke_admin_set_pm_appointment_status(uuid,text,text),public.pke_pm_create_project(uuid,text,text,uuid,text,text,date,text,text,jsonb,text,numeric,text),public.pke_admin_transfer_project_pm(uuid,uuid,text),public.pke_pm_buyer_catalog(),public.pke_pm_portfolio() TO app_runtime_secure;
+
+DO $verify$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE proname='pke_pm_create_project') THEN RAISE EXCEPTION 'PM create Project function missing'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname='public' AND indexname='pm_appointments_one_active_user') THEN RAISE EXCEPTION 'Global PM appointment uniqueness missing'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname='public' AND tablename='pm_appointments' AND policyname='pm_appointments_self_select') THEN RAISE EXCEPTION 'PM self appointment visibility missing'; END IF;
+END;$verify$;
+COMMIT;
+)
  THEN RAISE EXCEPTION 'Commercial basis/project input invalid' USING ERRCODE='22023'; END IF;
  SELECT * INTO v_appt FROM public.pm_appointments WHERE user_id=v_pm AND status='active' FOR SHARE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Active global PM appointment required' USING ERRCODE='42501'; END IF;

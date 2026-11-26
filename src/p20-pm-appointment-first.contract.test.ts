@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 const read=(path:string)=>readFileSync(join(process.cwd(),path),"utf8");
 const migration=read("migrations/113_pm_appointment_first_project_creation.sql");
@@ -62,6 +63,14 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(ui).toContain("Global PM Appointment");
     expect(ui).toContain("onSelectProject");
     expect(ui).toContain("Project berhasil dibuat dan otomatis masuk portfolio PM");
+  });
+  it("pins Migration 113 to a prepared, not-applied release package",()=>{
+    const manifest=JSON.parse(read("migration_release_manifest_p20_pm_appointment_first_113.json"));
+    expect(manifest.owner_approval.status).toBe("pending");
+    expect(manifest.uat_application.status).toBe("not_applied");
+    expect(manifest.production_application).toBe("not_authorized");
+    expect(manifest.migrations[0].status).toBe("prepared");
+    expect(createHash("sha256").update(migration).digest("hex")).toBe(manifest.migrations[0].sha256);
   });
   it("migration is transaction-wrapped and contains no destructive table/schema operations",()=>{
     expect((migration.match(/^BEGIN;$/gm)||[]).length).toBe(1);

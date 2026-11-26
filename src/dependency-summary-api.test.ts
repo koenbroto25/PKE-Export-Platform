@@ -47,7 +47,7 @@ describe("demo dependency summary API route",()=>{
   expect(response.body.liveIntegration).toBe(false);
   expect(response.body.authorityDecision).toBe(false);
   expect(response.body.summaries.length).toBe(PKE_PROCESS_DEPENDENCIES.length);
-  expect(response.body.summaries.every((s:any)=>s.status==="unknown"&&s.freshness==="unknown")).toBe(true);
+  expect(response.body.summaries.every((s:any)=>s.status==="gap"&&s.freshness==="unknown"&&s.missingEvidenceCount>0)).toBe(true);
  });
  it("filters lifecycle edges by all required source-workspace permissions",async()=>{
   const h=harness(["project.view","contract.view","pks.site.view"]);

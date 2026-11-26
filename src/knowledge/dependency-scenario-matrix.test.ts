@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PKE_PROCESS_DEPENDENCIES, assessDependency } from "./process-dependency-map.js";
+import { PKE_PROCESS_DEPENDENCIES, assessDependency, type DependencyStatus } from "./process-dependency-map.js";
 import { DEPENDENCY_SCENARIO_MATRIX, summarizeDependencyScenarioCoverage } from "./dependency-scenario-matrix.js";
 
 describe("Phase B deterministic dependency scenario matrix",()=>{
@@ -20,7 +20,7 @@ describe("Phase B deterministic dependency scenario matrix",()=>{
   }
  });
  it("propagates an unresolved first-edge gap downstream and recovers after correction",()=>{
-  let upstream:"satisfied"|"gap"|"blocked"="satisfied";
+  let upstream:DependencyStatus="satisfied";
   const failedStates:string[]=[];
   for(const dep of PKE_PROCESS_DEPENDENCIES){
    const evidence=dep===PKE_PROCESS_DEPENDENCIES[0]?[]:dep.requiredEvidence;

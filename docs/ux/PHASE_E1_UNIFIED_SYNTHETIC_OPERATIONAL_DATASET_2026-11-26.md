@@ -119,3 +119,7 @@ Phase L contract suite added and wired to root CI; the newest run is pending. Th
 - Verified that App uses `visiblePageKeys` for sidebar visibility and wraps workspace routes in `RoleGuard`, which calls `hasPageAccess` and fails closed on permission-loading/error states and denied direct routes.
 - Added regression suite `src/ux/phase-n-role-dashboard-navigation.test.ts` to cover link-route resolution, major workspace coverage, and direct-route guard contracts.
 - Static route tests do not substitute for browser click/keyboard/mobile/accessibility tests; these remain blocked by missing browser E2E runner and isolated auth environment.
+
+
+## Phase O — Permission-filtered role dashboard links
+Role-dashboard role metadata previously rendered its links without checking the current active Project permissions; the App route guard still denied unauthorized direct navigation, but the visible link could lead users to a denial screen. Links are now filtered through the same `hasPageAccess` helper and an explicit path→page mapping. If no role links are accessible, a clear permission message is shown. Regression assertions were added. This improves usability but does not replace server/API authorization.

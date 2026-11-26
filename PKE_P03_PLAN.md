@@ -2509,3 +2509,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 
 ## Admin Control Center shortcut assertion correction — 2026-11-26
 - Runs `45835195391`, `45835236706`, `45835265334` failed one stale assertion after project detail link became permission-aware; 764/765 tests passed. Assertion corrected in `402b2938a45d7d7053d54f60372dc1db43e5eaeb`. Full regression pending.
+
+
+## Admin Control Center JSX correction — 2026-11-26
+- CI caught a stray brace in the nested permission-gated project link expression. Corrected in commit `e5dee54266884f850fa402185e627b05264b80cf`; also gated the Integration & Source Health Reports shortcut.
+- Runs `45835195391`, `45835236706`, `45835265334`, and `45835394709` were validation failures during this batch (syntax + stale assertion). Rerun pending.

@@ -2438,3 +2438,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Corrected stale test expectation after the implementation intentionally separated malformed/unknown source payload from explicitly unavailable source. First run `45832214250` failed one outdated contract assertion (761/762 tests); no runtime/build defect was identified. Assertion updated.
 - Latest regression run `45832266123`, commit `6cd0bb62fcf8a8fc630b70957191ec0662ce5e97`: SUCCESS — 80 files / 762 tests; release/migration policy and dry-run, backend/frontend typecheck and build PASS.
 - Explicit unavailable classification fix run `45832214250` source CI had the stale assertion failure; the corrected regression run now validates the updated classification. Final documentation CI still pending.
+
+
+## Admin Control Tower nested metric truthfulness — 2026-11-26
+- Found nested Control Tower metrics were using `?? 0`, so missing nested payload could be presented as actual zero. Changed missing/null nested values to em-dash; explicit zero remains numeric zero.
+- Regression coverage added for shipment count, planned quantity, loading, voyage, nominations, port calls, approved documents, overdue work items, and exceptions. CI pending.

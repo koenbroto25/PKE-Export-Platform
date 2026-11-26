@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PKE_PROCESS_DEPENDENCIES } from "./knowledge/process-dependency-map.js";
-import { registerDependencySummaryRoute } from "./dependency-summary-api.js";
+import { DEPENDENCY_WORKSPACE_PERMISSION_CODES, registerDependencySummaryRoute } from "./dependency-summary-api.js";
 
 const PROJECT="00000000-0000-4000-8000-000000000001";
 function harness(allowedPermissions: string[] = ["project.view", ...Object.values({
@@ -28,7 +28,13 @@ function harness(allowedPermissions: string[] = ["project.view", ...Object.value
   };
   return {route,invoke,permissionCalls};
 }
-describe("demo dependency summary API route",()=>{
+describe("demo dependency summary API route",()=>{ it("has an explicit permission policy for every dependency source workspace",()=>{
+  const sourceWorkspaces=[...new Set(PKE_PROCESS_DEPENDENCIES.map(d=>d.sourceWorkspace))];
+  for(const workspace of sourceWorkspaces){
+    expect(Object.keys(DEPENDENCY_WORKSPACE_PERMISSION_CODES)).toContain(workspace);
+  }
+ });
+
  it("requires authentication and valid project UUID",async()=>{
   const h=harness();
   expect((await h.invoke({params:{projectId:PROJECT},query:{mode:"demo"}})).status).toBe(401);

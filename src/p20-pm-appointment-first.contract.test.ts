@@ -40,7 +40,7 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(migration).toContain("pke_admin_transfer_project_pm");
     expect(migration).toContain("pke_pm_project_create_projects_insert");
     expect(migration).toContain("pke_pm_project_create_assignment_insert");
-    expect(migration).toContain("pke_pm_project_create_basis_insert");
+    expect(migration).toContain("pke_pm_project_create_basis_insert");\n    expect(migration).toContain("INSERT INTO public.pke_project_role_permission_allowlist");
     expect(migration).toContain("Only one active PM assignment per Project");
   });
   it("exposes authenticated appointment, portfolio, Buyer catalog, project creation and Admin governance routes",()=>{

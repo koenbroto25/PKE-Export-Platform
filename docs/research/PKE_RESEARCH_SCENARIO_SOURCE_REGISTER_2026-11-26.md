@@ -87,3 +87,24 @@ The new offline seed dataset is in `src/knowledge/pke-observation-registry.ts`. 
 - `src/knowledge/observation-schema.test.ts`: offline contract tests.
 - Freshness is policy-driven and configurable by evidence class; it is not a regulatory interpretation.
 - Contradictory claims remain in the dataset. Unit or measurement-basis mismatch is classified as **uncomparable**, not silently converted.
+
+ 
+## Research Update / Regulatory Scope and Knowledge Versioning — 26 November 2026
+ 
+### Newly checked official sources
+- BPK/JDIH metadata for **Permendag 16/2026**, effective 1 June 2026 and listed as in force; source summary describes palm-derived commodity scope and includes a list of products. URL: https://peraturan.bpk.go.id/Details/351555/permendag-no-16-tahun-2026
+- DJBC regulation index for the same instrument: https://peraturan.beacukai.go.id/regulasi/index.html?page=detail%2Fhal%2F9%2F1556%2Fperaturan-menteri-perdagangan%2Fmdag-16-2026%2Fperaturan-menteri-perdagangan-republik-indonesia-nomor-16-tahun-2026-tentang-kebijakan-dan-pengaturan-ekspor-komoditas-sumber-daya-alam-strategis-kelapa-sawit.html
+- Official Barantin phytosanitary export guidance (12 Nov 2026): https://karantinaindonesia.go.id/inspektorat/berita/mau-ekspor-tumbuhan-dan-produknya-ke-luar-negeri-inilah-cara-mendapatkan-phytosanitary-certificate
+- IPPC Indonesia reporting-obligation page (certificate formats/regulated scope): https://www.ippc.int/en/countries/indonesia/reportingobligation/4
+ 
+**Critical scope caution:** the Permendag 16/2026 registry summary lists products including CPO, RBDPO, RBDPL, UCO and Residue. This is not proof that PKE is included. The AI and operational system must require HS/classification, full annex and legal review before applying a restriction, exporter eligibility or permit requirement to PKE. A research observation was added with this explicit non-inference boundary and marked unverified.
+ 
+### New implementation
+- `src/knowledge/source-registry.ts`: 10 source records, provenance/scope boundaries, source fingerprint SHA-256, snapshot comparison and review queue state transitions.
+- `src/knowledge/process-dependency-map.ts`: 11 lifecycle dependency edges from contract through settlement; evidence contracts, owner role, failure patterns, AI support boundaries, human decision and deterministic dependency assessment.
+- `src/knowledge/knowledge-ai-eval-cases.ts`: 20 role-aware AI evaluation cases for regulation scope, destination eligibility, historical/commercial evidence, conflicts, units, freshness, process correlation, authority abstention, role isolation, source versioning, authenticity and auditability.
+- `frontend/src/CrossProcessDependencyPanel.tsx`: dependency map added to PM Project 360. It intentionally labels runtime evidence as unknown until API correlation is implemented.
+- Tests: `src/knowledge/source-registry.test.ts` and `src/knowledge/knowledge-ai-eval-cases.test.ts`; included in root CI.
+ 
+### Important boundary
+Source fingerprinting/review is implemented as offline logic only. It does not fetch web pages, retain source snapshots automatically, verify signatures, or ingest changes into operational data. The UX dependency map is a design-level correlation map; live API-backed dependency assessment is a next implementation gate.

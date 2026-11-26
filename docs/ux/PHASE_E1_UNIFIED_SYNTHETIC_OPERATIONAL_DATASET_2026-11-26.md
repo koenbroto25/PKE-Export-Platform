@@ -334,3 +334,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 
 ## PM360 payload-validity test correction
 - CI runs failed one stale assertion (764/765 tests passed); test now matches the explicit `payloadValid` source contract. Rerun pending.
+
+## Admin Control Center route-permission audit
+- Shortcut links are now filtered by the current visible route access; denied Access/Projects/Work Queue/Reports actions render as explanatory text. Per-project detail links require detail permission; otherwise users are directed to Projects list if available.
+- Regression coverage added. CI pending.

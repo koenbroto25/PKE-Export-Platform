@@ -453,6 +453,7 @@ function ProjectsPage({ activeUser, onNotice, onSelectProject }: { activeUser?: 
   const canCreateProject = appointment.data?.canCreateProject === true;
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({name:'',description:'',buyerId:'',basisType:'buyer_agreement',basisReference:'',basisDate:'',contractReference:'',evidenceUrl:'',commercialTerms:'',settlementUnit:'MT',targetQuantity:'',exportCountryCode:''});
+  const [creationKey,setCreationKey]=useState(()=>crypto.randomUUID());
   const [busy,setBusy]=useState(false);
   const [appointUserId,setAppointUserId]=useState('');
   const [appointReason,setAppointReason]=useState('');
@@ -461,9 +462,9 @@ function ProjectsPage({ activeUser, onNotice, onSelectProject }: { activeUser?: 
   const save=async(e:FormEvent)=>{
     e.preventDefault();if(!canCreateProject)return;setBusy(true);
     try{
-      await post('/pm/projects',{...form,targetQuantity:Number(form.targetQuantity),idempotencyKey:crypto.randomUUID(),commercialTerms:form.commercialTerms?{summary:form.commercialTerms}:{}});
+      await post('/pm/projects',{...form,targetQuantity:Number(form.targetQuantity),idempotencyKey:creationKey,commercialTerms:form.commercialTerms?{summary:form.commercialTerms}:{}});
       onNotice('success','Project berhasil dibuat dan otomatis masuk portfolio PM.');
-      setShowForm(false);setForm(v=>({...v,name:'',description:'',basisReference:'',contractReference:'',evidenceUrl:'',commercialTerms:'',targetQuantity:''}));
+      setShowForm(false);setCreationKey(crypto.randomUUID());setForm(v=>({...v,name:'',description:'',basisReference:'',contractReference:'',evidenceUrl:'',commercialTerms:'',targetQuantity:''}));
       projects.refresh();pmPortfolio.refresh();
     }catch(e){onNotice('error',e instanceof Error?e.message:'Project tidak dapat dibuat.');}
     finally{setBusy(false);}

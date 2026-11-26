@@ -13,6 +13,13 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(dashboard).toContain("setState({ data: {}, loading: true, errors: [] })");
   expect(dashboard).toContain("if (requestGeneration !== loadGeneration.current) return;");
  });
+
+ it("does not turn missing task payload into zero counts or an empty-task assertion",()=>{
+  expect(dashboard).toContain("const workItemRows: RecordData[] | null = Array.isArray");
+  expect(dashboard).toContain("sourceFailed('workItems') || !workItemRows ? '—'");
+  expect(dashboard).toContain("workItemRows?.length === 0");
+  expect(dashboard).toContain("Antrean belum tersedia karena payload sumber belum terverifikasi.");
+ });
  it("keeps source failures and missing payloads unknown instead of zero",()=>{
   expect(dashboard).toContain("sourceFailed");
   expect(dashboard).toContain("hasOwnProperty.call(data, key)");

@@ -2082,3 +2082,13 @@ No Vercel deployment, Neon mutation, migration, production-data access, merge, o
 - [x] Added malformed/non-empty identifier, receive timestamp, and supersession reference checks.
 - [x] Added tests for valid correction recovery, quantity aggregate mismatch, authority range, blocked upstream, inactive evidence, malformed references, and metadata.
 - [ ] All tests remain authored-only until executable CI/runtime verification is available.
+
+
+## UX-10 Phase C + D completion checkpoint — 2026-11-26
+
+- Phase C review queue contract added: human-only decisions, project scope, separate view/decide permissions, mandatory decision note, assigned-reviewer enforcement and explicit override, timestamp checks, terminal review lock. Pure contract only; persistence/API/UI/audit log are still pending.
+- Phase D synthetic backtest pack added: 11 dependency edges × 31 fault/recovery classes = **341** deterministic cases. Expected status labels, prompts, synthetic labels, safety behavior and prohibited claims are included. Matrix includes scope/authorization, stale/expiry, contradiction, quantity, corrections, reversal, cancellation, recovery, not-applicable and malformed inputs.
+- New tests wired into root `npm test`; authored tests have not yet been executed locally. Await GitHub Actions evidence before marking execution PASS.
+- Report: `docs/ux/UX-10_PHASE_C_D_REVIEW_QUEUE_AI_BACKTEST_2026-11-26.md`.
+- No Vercel deploy, Neon/database, migration, production data, live ingestion, or LLM invocation. GitHub branch source only.
+- Remaining: CI execution, queue API/UI/persistence, immutable audit trail/idempotency, browser/accessibility UAT, and model-in-loop evaluation. Synthetic benchmark is enrichment/evaluation data, not model training or proof of live AI accuracy.

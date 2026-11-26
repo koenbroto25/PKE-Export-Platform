@@ -6,7 +6,7 @@ import CrossProcessDependencyPanel from './CrossProcessDependencyPanel';
 import KnowledgeReviewQueuePanel from './KnowledgeReviewQueuePanel';
 
 type Row = Record<string, any>;
-type SourceBlock = { rows?: Row[]; loading?: boolean; error?: string; label: string; available?: boolean; authorized?: boolean };
+type SourceBlock = { rows?: Row[]; loading?: boolean; error?: string; label: string; available?: boolean; authorized?: boolean; payloadValid?: boolean };
 const stages = [
   { name:'Contract & Buyer', key:'contracts', page:'contracts', description:'Contract, buyer terms, quantity, pricing, and contract program.', link:'/contracts' },
   { name:'Supply & PKS', key:'supply', page:'pks-sites', description:'PKS participation, capacity, delivery commitments, and source traceability.', link:'/pks-sites' },
@@ -22,7 +22,7 @@ const stages = [
 ];
 export default function PMProject360({ project, sources, projectId, freshness, allowedPages }: { project?: Row; sources: Record<string,SourceBlock>; projectId: string; freshness?: string | null; allowedPages: string[] }) {
   const sourceRows = (key:string) => sources[key]?.rows || [];
-  const sourceVerified = (key:string) => Boolean(sources[key] && !sources[key].loading && !sources[key].error && sources[key].authorized!==false && sources[key].available!==false && Array.isArray(sources[key].rows));
+  const sourceVerified = (key:string) => Boolean(sources[key] && !sources[key].loading && !sources[key].error && sources[key].authorized!==false && sources[key].available!==false && sources[key].payloadValid!==false && Array.isArray(sources[key].rows));
   const safeSourceCount = (key:string, rows:Row[]) => sourceVerified(key) ? rows.length : '—';
   const canOpen = (page:string) => allowedPages.includes(page);
   const contracts=sourceRows('contracts'), programs=sourceRows('programs'), tasks=sourceRows('tasks'), lots=sourceRows('inventory'), trips=sourceRows('trips'), docs=sourceRows('documents'), requirements=sourceRows('requirements');
@@ -39,7 +39,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
   ];
   const evidenceVerifiedEmpty = evidenceSummary.every(x=>x.count===0);
   const sourceState=(key:string):'available'|'partial'|'unavailable'|'unknown' => {
-    const s=sources[key]; if(!s||s.loading||s.error||s.authorized===false||!Array.isArray(s.rows)) return 'unknown'; if(s.available===false) return 'unavailable'; return s.rows.length>0?'partial':'unknown';
+    const s=sources[key]; if(!s||s.loading||s.error||s.authorized===false) return 'unknown'; if(s.available===false) return 'unavailable'; if(s.payloadValid===false||!Array.isArray(s.rows)) return 'unknown'; return s.rows.length>0?'partial':'unknown';
   };
   return <div className="pm-project-360">
     <UXPanel title="PM Project 360" subtitle="Single-project lifecycle view. Record existence is evidence of data, not proof of stage approval or readiness." >
@@ -65,7 +65,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
         const source=sources[sourceKey];
         const state: 'available'|'partial'|'unavailable'|'unknown' = source ? sourceState(sourceKey) : 'unavailable';
         const stateLabel=source?.loading?'Memuat source…':source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.error?'Tidak dapat diverifikasi':source?.available===false?'Belum terintegrasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
-        return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':Array.isArray(source?.rows)?'Records: '+source.rows.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
+        return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':sourceVerified(sourceKey)?'Records: '+source.rows!.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
       })}</div>
     </UXPanel>
     <CrossProcessDependencyPanel projectId={projectId} allowedPages={allowedPages} />

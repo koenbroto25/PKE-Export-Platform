@@ -2153,3 +2153,14 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - [x] I traceability matrix added (6 rows: 4 covered, 1 partial, 1 actual UI/API integration gap).
 - [ ] Newest combined G–I test run and full pipeline validation pending. Correct any CI failure before status update.
 - [ ] Real API/UI E2E integration, runtime permission testing, and live-model evaluation remain external environment gates; no deployment/database/AI was used.
+
+
+## Marathon validation checkpoint — 2026-11-26
+- **Combined GitHub Actions Unit Tests:** run `45816699621`, commit `a4997f4e9aa2e923235a44d9bdafbf03ef0927be`, SUCCESS.
+- **Suite:** 75 test files, 718 tests passed; root offline/security/unit command passed; dedicated P19 assurance passed; migration release policy checks passed; migration runner dry-run passed without DB connection; backend build/typecheck and frontend typecheck/build passed.
+- **Phase E1/E2:** PASS in synthetic/offline contract scope (3 linked projects, 36 stage slots; 1 complete, 1 blocked, 1 conflict). Tests verify deterministic data, relationship integrity, fail-closed downstream status, upstream invalidation.
+- **Phase F:** PASS in synthetic role matrix scope (14 roles, same-project scope, role stage views/actions, action gating).
+- **Phase G:** PASS in offline fault-fixture scope (8 declared faults; integrity and fail-closed assertions).
+- **Phase H:** PASS in deterministic offline evaluator contract scope (6 cases); no live AI measured.
+- **Phase I:** PASS as traceability artifact; matrix reports 4 covered, 1 partial, 1 gap. Actual production UI/API E2E remains a GAP.
+- Overall marathon E–I: **SOURCE/CONTRACT PASS; OPERATIONAL INTEGRATION NOT COMPLETE**. No Vercel deployment, Neon access, migrations, production data or live model was used.

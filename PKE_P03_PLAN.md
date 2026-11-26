@@ -1594,3 +1594,12 @@ Confirmed source behavior: permission-filtered grouped navigation; route RoleGua
 **UX-02 status: PARTIAL.** Required runtime tests include role × route × action, direct URL, permission loading/error, no Project, revoked/expired role, Project switching, single-permission OR pages, partner IDOR, notification resource scope, and API/RLS negative tests. Matrix artifact columns are specified in the audit.
 
 No code/runtime tests were run. Existing route/access foundation should be preserved and extended; next focus remains UX-03 Admin exception queues and UX-04 PM Project 360, with Field sync a P0 blocker.
+
+
+## UX-03 Admin Control Center + UX-04 Project 360 build specification — 26 November 2026
+
+Artifact: `docs/ux/UX-03_ADMIN_CONTROL_CENTER_UX-04_PROJECT_360_BUILD_SPEC_2026-11-26.md` (commit `b6a5d9cfd605d5be1a8a63a08c539ba0a75636de`).
+
+This specification is grounded in source findings: Admin governance exists in AccessPage; the role dashboard contains Admin/PM shortcut panels and P17 Control Tower; My Work provides tasks/assignment/handoff; ProjectDetailPage is currently a minimal detail view rather than a lifecycle Project 360. The next code work should reuse these, build actionable source-backed exception queues, and upgrade Project detail—not duplicate the dashboard or invent a new data store.
+
+Acceptance and scope are defined in the spec. **Code status remains NOT IMPLEMENTED in this session** because there is no verified source checkout/test runner. No DB changes, Vercel deployment, branch merge/rebase or Production writes.

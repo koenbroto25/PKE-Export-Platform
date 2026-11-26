@@ -53,7 +53,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
         if(stage.key==='production'||stage.key==='qa'||stage.key==='port'||stage.key==='loading'||stage.key==='voyage'||stage.key==='finance') sourceKey=stage.key;
         const source=sources[sourceKey];
         const state: 'available'|'partial'|'unavailable'|'unknown' = source ? sourceState(sourceKey) : 'unavailable';
-        const stateLabel=source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.available===false?'Belum terintegrasi':source?.error?'Tidak dapat diverifikasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
+        const stateLabel=source?.loading?'Memuat source…':source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.available===false?'Belum terintegrasi':source?.error?'Tidak dapat diverifikasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
         return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':source?.rows?.length!==undefined?'Records: '+source.rows.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
       })}</div>
     </UXPanel>

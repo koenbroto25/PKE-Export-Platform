@@ -420,7 +420,7 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
         {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : projects.data && Array.isArray(projects.data.projects) ? <DataTable rows={visibleProjects.slice(0, 6)} columns={[
           { key: 'name', label: 'Nama proyek', render: r => <div className="primary-cell"><strong>{r.name}</strong><small>{shortId(r.id)}</small></div> },
           { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
-          { key: 'target_quantity', label: 'Target volume', render: r => `${number(r.target_quantity)} ${r.settlement_unit || 'MT'}` },
+          { key: 'target_quantity', label: 'Target volume', render: r => `${r.target_quantity !== null && r.target_quantity !== undefined ? number(r.target_quantity) : '—'} ${r.settlement_unit || 'MT'}` },
           { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
         ]} emptyTitle="Belum ada proyek" emptyText="Project source terverifikasi mengembalikan nol record." /> : <EmptyState title="Daftar proyek belum terverifikasi" desc="Payload Project belum tersedia atau tidak sesuai kontrak API." />}
       </Card>

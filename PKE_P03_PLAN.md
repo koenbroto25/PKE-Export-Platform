@@ -1892,3 +1892,13 @@ This is a static, offline schema/registry/assessment utility. It does not invoke
 
 ### Current checkpoint
 Plan approved; execution not yet started for Phases A–F in this section. Existing foundation is verified as: 165 deterministic simulation scenarios, 50 AI evaluation fixtures, source registry/fingerprinting/review state machine, 11 lifecycle dependency edges and design-level PM dependency panel. Latest confirmed CI code run #2248 passed; later documentation-only CI status is not yet confirmed. Browser QA, API-backed live correlation, source ingestion, reviewer persistence and LLM runtime remain NOT DONE.
+
+
+### Phase A checkpoint — dependency summary contract (26 November 2026)
+- [x] Added permission-scoped DTO and access contract in `src/knowledge/dependency-summary-contract.ts`.
+- [x] Added contract tests for anonymous denial, project isolation, dependency scope, source workspace authorization, evidence gap, stale/unknown fail-closed behavior, and business-approval boundary.
+- [x] Added checkpoint report: `docs/ux/UX-09_PHASE_A_DEPENDENCY_SUMMARY_CONTRACT_2026-11-26.md`.
+- [ ] CI verification and fixes.
+- [ ] Wire to actual backend API after auth/role middleware review.
+- [ ] Route-level HTTP tests for auth, project/edge scope, malformed input and role denial.
+**Status:** contract layer implemented; endpoint integration and CI verification remain open. No live source adapter or DB persistence is claimed.

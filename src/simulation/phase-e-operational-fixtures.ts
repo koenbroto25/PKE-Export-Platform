@@ -27,7 +27,18 @@ export function validatePhaseEOperationalDataset(d=createPhaseEOperationalDatase
  const relations=[d.buyers,d.suppliers,d.pksSites,d.contracts,d.lots,d.trucks,d.drivers,d.vessels,d.ports,d.loadingRecords,d.documents,d.finance,d.shipments];
  for(const collection of relations)for(const row of collection){add(row.id);if(!projectIds.has(row.projectId))errors.push("project-fk:"+row.id);}
  const shipmentIds=new Set(d.shipments.map(s=>s.id));
- for(const s of d.shipments){if(!s.id.startsWith("SIM-")||!s.shipmentId.startsWith("SIM-"))errors.push("synthetic-namespace:"+s.id);if(s.quantityMt<=0||!Number.isFinite(s.quantityMt))errors.push("invalid-quantity:"+s.id);for(const related of [d.contracts,d.lots,d.trucks,d.vessels,d.loadingRecords,d.documents,d.finance])if(related.some(r=>r.shipmentId===s.id&&r.projectId!==s.projectId))errors.push("cross-project-shipment:"+s.id);if(!d.contracts.some(x=>x.id===s.contractId&&x.shipmentId===s.id))errors.push("contract-link:"+s.id);if(!d.lots.some(x=>x.id===s.lotId&&x.shipmentId===s.id))errors.push("lot-link:"+s.id);if(!d.vessels.some(x=>x.id===s.vesselId&&x.shipmentId===s.id))errors.push("vessel-link:"+s.id);if(!s.stageEvidence||!s.stageState)errors.push("lifecycle-missing:"+s.id);}
+ for(const s of d.shipments){if(!s.id.startsWith("SIM-")||!s.shipmentId.startsWith("SIM-"))errors.push("synthetic-namespace:"+s.id);if(s.quantityMt<=0||!Number.isFinite(s.quantityMt))errors.push("invalid-quantity:"+s.id);for(const related of [d.contracts,d.lots,d.trucks,d.vessels,d.loadingRecords,d.documents,d.finance])if(related.some(r=>r.shipmentId===s.id&&r.projectId!==s.projectId))errors.push("cross-project-shipment:"+s.id);if(!d.contracts.some(x=>x.id===s.contractId&&x.shipmentId===s.id))errors.push("contract-link:"+s.id);if(!d.lots.some(x=>x.id===s.lotId&&x.shipmentId===s.id))errors.push("lot-link:"+s.id);if(!d.vessels.some(x=>x.id===s.vesselId&&x.shipmentId===s.id))errors.push("vessel-link:"+s.id);if(!s.stageEvidence||!s.stageState)errors.push("lifecycle-missing:"+s.id);
+ const vessel=d.vessels.find(v=>v.shipmentId===s.id),port=vessel?d.ports.find(p=>p.id===vessel.portId):undefined;
+ if(port?.suitable===false&&s.stageState.port==="ready")errors.push("port-readiness-contradiction:"+s.id);
+ const truck=d.trucks.find(t=>t.shipmentId===s.id),driver=truck?d.drivers.find(x=>x.id===truck.driverId):undefined;
+ if(driver?.licenseStatus==="expired"&&s.stageState.transport==="ready")errors.push("transport-license-contradiction:"+s.id);
+ const shipmentDocs=d.documents.filter(doc=>doc.shipmentId===s.id);
+ if(shipmentDocs.some(doc=>doc.status!=="verified")&&s.stageState.documents==="ready")errors.push("document-readiness-contradiction:"+s.id);
+ const loading=d.loadingRecords.find(row=>row.shipmentId===s.id);
+ if(loading&&loading.tallyMt!==loading.surveyMt&&s.stageState.loading==="ready")errors.push("loading-quantity-contradiction:"+s.id);
+ const finance=d.finance.find(row=>row.shipmentId===s.id);
+ if(finance?.settlement!=="settled"&&s.stageState.settlement==="ready")errors.push("settlement-readiness-contradiction:"+s.id);
+}
  for(const r of d.loadingRecords)if(!shipmentIds.has(r.shipmentId))errors.push("loading-shipment-fk:"+r.id);
  return errors;
 }

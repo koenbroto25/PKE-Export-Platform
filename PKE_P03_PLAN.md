@@ -2164,3 +2164,11 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - **Phase H:** PASS in deterministic offline evaluator contract scope (6 cases); no live AI measured.
 - **Phase I:** PASS as traceability artifact; matrix reports 4 covered, 1 partial, 1 gap. Actual production UI/API E2E remains a GAP.
 - Overall marathon E–I: **SOURCE/CONTRACT PASS; OPERATIONAL INTEGRATION NOT COMPLETE**. No Vercel deployment, Neon access, migrations, production data or live model was used.
+
+
+## Phase J — Controlled HTTP Integration Backtest (Manual Trial Mode)
+- [x] New in-process Express HTTP integration harness using real demo route registration, ephemeral loopback port, bearer auth and deterministic in-memory reset.
+- [x] Covers login/me, project create/activate and portfolio aggregation, document requirement relation/metadata create/list, invalid requirement, storage-disabled fail-closed behavior, demo permission-denied, reset admin-only and explicit unavailable compliance/payment/regulatory behavior.
+- [x] Hardening: manual-trial reset requires admin; project configuration mutations require project.configuration.manage; project document requirements/list require documents.view; document create requires documents.create; document status updates require documents.review.
+- [ ] CI validation pending for newest commit.
+- [ ] This is **Manual Trial Mode only**. Production API persistence, DB/RLS, real private storage, actual file upload, and browser/UI E2E remain not proven and require an approved isolated environment. No DB or production access.

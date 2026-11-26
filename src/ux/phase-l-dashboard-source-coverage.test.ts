@@ -18,6 +18,9 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
  });
  it("explicitly marks unintegrated critical operational stages",()=>{
   for(const label of ["Production, packing & quality","Port & loading","Official customs / permit status","Quantity / document reconciliation","Field mobile capture & offline sync"])expect(dashboard).toContain(label);
+  expect(dashboard).toContain("Draft lokal");
+  expect(dashboard).toContain("GPS, foto bukti, assignment cache dan IndexedDB offline draft tersedia");
+  expect(dashboard).toContain("server sync/upload, conflict resolution, barcode dan signature");
   expect(dashboard).toContain("not_integrated");
   expect(dashboard).toContain("belum terintegrasi");
   expect(dashboard).toContain("belum tersedia");

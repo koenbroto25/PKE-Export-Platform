@@ -22,6 +22,10 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(dashboard).toContain("GPS, foto bukti, assignment cache dan IndexedDB offline draft tersedia");
   expect(dashboard).toContain("server sync/upload, conflict resolution, barcode dan signature");
   expect(dashboard).toContain("not_integrated");
+  expect(dashboard).toContain("hasPageAccess('field', activeUser as WorkspaceAccessUser)");
+  expect(dashboard).toContain("hasPageAccess('port-network', activeUser as WorkspaceAccessUser)");
+  expect(dashboard).toContain("hasPageAccess('maritime-operations', activeUser as WorkspaceAccessUser)");
+  expect(dashboard).toContain("hasPageAccess('shipment-allocations', activeUser as WorkspaceAccessUser)");
   expect(dashboard).toContain("belum terintegrasi");
   expect(dashboard).toContain("belum tersedia");
  });

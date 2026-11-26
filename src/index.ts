@@ -7198,6 +7198,120 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate", 
   }
 });
 
+// Platform-scoped PM appointment-first workflow (Migration 113).
+app.get("/api/v1/pm/appointment/me", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id,status,appointed_at,status_changed_at,status_reason
+         FROM public.pm_appointments WHERE user_id=$1::uuid
+         ORDER BY appointed_at DESC LIMIT 1`, [req.user?.id],
+    );
+    return res.json({ appointment: rows[0] ?? null, canCreateProject: rows[0]?.status === "active" });
+  } catch { return res.status(503).json({ error: "PM appointment service unavailable.", code: "PM_APPOINTMENT_SCHEMA_NOT_READY" }); }
+});
+
+app.get("/api/v1/pm/portfolio", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { rows } = await req.db.query("SELECT * FROM public.pke_pm_portfolio()");
+    return res.json({ projects: rows, portfolioCount: rows.length });
+  } catch { return res.status(503).json({ error: "PM portfolio is unavailable.", code: "PM_PORTFOLIO_SCHEMA_NOT_READY" }); }
+});
+
+app.post("/api/v1/pm/projects", requireAuth, async (req: express.Request, res: express.Response) => {
+  const b=req.body??{};
+  const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const name=typeof b.name==="string"?b.name.trim():"";
+  const buyerId=typeof b.buyerId==="string"?b.buyerId:"";
+  const basisType=b.basisType;
+  const basisReference=typeof b.basisReference==="string"?b.basisReference.trim():"";
+  const contractReference=typeof b.contractReference==="string"?b.contractReference.trim():"";
+  const settlementUnit=typeof b.settlementUnit==="string"?b.settlementUnit.trim():"";
+  const targetQuantity=Number(b.targetQuantity);
+  const idempotencyKey=typeof b.idempotencyKey==="string"?b.idempotencyKey:"";
+  const evidenceUrl=typeof b.evidenceUrl==="string"&&b.evidenceUrl.trim()?b.evidenceUrl.trim():null;
+  const commercialTerms=b.commercialTerms&&typeof b.commercialTerms==="object"&&!Array.isArray(b.commercialTerms)?b.commercialTerms:{};
+  if(name.length<2||name.length>200||!uuidPattern.test(buyerId)||!["buyer_agreement","executed_contract"].includes(basisType)||basisReference.length<2||basisReference.length>200||!settlementUnit||settlementUnit.length>40||!Number.isFinite(targetQuantity)||targetQuantity<=0||!uuidPattern.test(idempotencyKey)||(basisType==="executed_contract"&&contractReference.length<2)||(evidenceUrl&&!/^https:\/\//i.test(evidenceUrl))) {
+    return res.status(400).json({error:"Project name, active Buyer, agreement/contract basis, valid quantity/unit, and idempotency key are required.",code:"INVALID_PM_PROJECT_INPUT"});
+  }
+  try {
+    const {rows}=await req.db.query(
+      `SELECT public.pke_pm_create_project($1::uuid,$2::text,$3::text,$4::uuid,$5::text,$6::text,$7::date,$8::text,$9::text,$10::jsonb,$11::text,$12::numeric,$13::text) AS result`,
+      [idempotencyKey,name,typeof b.description==="string"?b.description:null,buyerId,basisType,basisReference,b.basisDate||null,contractReference||null,evidenceUrl,JSON.stringify(commercialTerms),settlementUnit,targetQuantity,typeof b.exportCountryCode==="string"?b.exportCountryCode:null],
+    );
+    return res.status(201).json(rows[0]?.result??{});
+  } catch(error:any) {
+    const code=typeof error?.code==="string"?error.code:"";
+    if(code==="42501") return res.status(403).json({error:"An active Platform PM appointment is required.",code:"PM_APPOINTMENT_REQUIRED"});
+    if(code==="P0002") return res.status(404).json({error:"Buyer or referenced record was not found.",code:"BUYER_NOT_FOUND"});
+    if(code==="22023"||code==="23514") return res.status(422).json({error:"Project commercial basis failed validation.",code:"PM_PROJECT_VALIDATION_FAILED"});
+    if(code==="23505") return res.status(409).json({error:"Project creation conflicts with existing data.",code:"PM_PROJECT_CONFLICT"});
+    req.logger?.error?.("Appointed PM project creation failed",{code:code||"UNKNOWN"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/admin/pm-appointments", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  try {
+    const {rows}=await req.db.query(
+      `SELECT a.id,a.user_id,a.status,a.appointed_at,a.status_changed_at,a.status_reason,
+              u.email,u.name,u.is_active,u.neon_auth_user_id,
+              (SELECT count(*)::int FROM public.project_pm_ownership o WHERE o.pm_user_id=a.user_id) AS owned_project_count
+         FROM public.pm_appointments a JOIN public.users u ON u.id=a.user_id
+        ORDER BY a.appointed_at DESC`,
+    );
+    return res.json({appointments:rows});
+  } catch { return res.status(503).json({error:"Global PM appointment governance is unavailable.",code:"PM_APPOINTMENT_SCHEMA_NOT_READY"}); }
+});
+
+app.post("/api/v1/admin/pm-appointments", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const userId=typeof req.body?.userId==="string"?req.body.userId:"";
+  const reason=typeof req.body?.reason==="string"?req.body.reason.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)||reason.length<5)
+    return res.status(400).json({error:"User ID and appointment reason (at least five characters) are required.",code:"INVALID_PM_APPOINTMENT_INPUT"});
+  try {
+    const {rows}=await req.db.query("SELECT * FROM public.pke_admin_appoint_pm($1::uuid,$2::text)",[userId,reason]);
+    return res.status(201).json({appointment:rows[0]});
+  } catch(error:any) {
+    if(error?.code==="23514") return res.status(409).json({error:"PM must be an active, linked user.",code:"PM_USER_NOT_READY"});
+    if(error?.code==="42501") return res.status(403).json({error:"Platform Admin authorization required.",code:"ADMIN_REQUIRED"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/admin/pm-appointments/:appointmentId", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const appointmentId=req.params.appointmentId as string;
+  const status=req.body?.status;
+  const reason=typeof req.body?.reason==="string"?req.body.reason.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9]{3}-[89ab][0-9]{3}-[0-9a-f]{12}$/i.test(appointmentId)||!["active","suspended","revoked"].includes(status)||reason.length<5)
+    return res.status(400).json({error:"Appointment ID, supported status, and audit reason are required.",code:"INVALID_PM_APPOINTMENT_STATUS"});
+  try {
+    const {rows}=await req.db.query("SELECT * FROM public.pke_admin_set_pm_appointment_status($1::uuid,$2::text,$3::text)",[appointmentId,status,reason]);
+    return res.json({appointment:rows[0]});
+  } catch(error:any) {
+    if(error?.code==="P0002") return res.status(404).json({error:"Appointment not found.",code:"APPOINTMENT_NOT_FOUND"});
+    if(error?.code==="23514"||error?.code==="22023") return res.status(409).json({error:"Appointment status change rejected.",code:"APPOINTMENT_STATUS_CONFLICT"});
+    if(error?.code==="42501") return res.status(403).json({error:"Platform Admin authorization required.",code:"ADMIN_REQUIRED"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/admin/projects/:projectId/pm-transfer", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId=req.params.projectId as string;
+  const userId=typeof req.body?.userId==="string"?req.body.userId:"";
+  const reason=typeof req.body?.reason==="string"?req.body.reason.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9]{3}-[89ab][0-9]{3}-[0-9a-f]{12}$/i.test(projectId)||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9]{3}-[89ab][0-9]{3}-[0-9a-f]{12}$/i.test(userId)||reason.length<5)
+    return res.status(400).json({error:"Project, new PM, and audited transfer reason are required.",code:"INVALID_PM_TRANSFER"});
+  try {
+    const {rows}=await req.db.query("SELECT public.pke_admin_transfer_project_pm($1::uuid,$2::uuid,$3::text) AS result",[projectId,userId,reason]);
+    return res.json(rows[0]?.result??{});
+  } catch(error:any) {
+    if(error?.code==="42501") return res.status(403).json({error:"Platform Admin authorization required.",code:"ADMIN_REQUIRED"});
+    if(error?.code==="23514"||error?.code==="22023") return res.status(409).json({error:"Transfer rejected; new PM must be appointed and reason valid.",code:"PM_TRANSFER_CONFLICT"});
+    if(error?.code==="P0002") return res.status(404).json({error:"Project or appointment not found.",code:"PM_TRANSFER_NOT_FOUND"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
 app.patch("/api/v1/admin/users/:id/status", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   const userId = req.params.id as string;
   const isActive = req.body?.isActive;

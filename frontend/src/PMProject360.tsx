@@ -22,6 +22,8 @@ const stages = [
 ];
 export default function PMProject360({ project, sources, projectId, freshness, allowedPages }: { project?: Row; sources: Record<string,SourceBlock>; projectId: string; freshness?: string | null; allowedPages: string[] }) {
   const sourceRows = (key:string) => sources[key]?.rows || [];
+  const sourceVerified = (key:string) => Boolean(sources[key] && !sources[key].loading && !sources[key].error && sources[key].authorized!==false && sources[key].available!==false && Array.isArray(sources[key].rows));
+  const safeSourceCount = (key:string, rows:Row[]) => sourceVerified(key) ? rows.length : '—';
   const canOpen = (page:string) => allowedPages.includes(page);
   const contracts=sourceRows('contracts'), programs=sourceRows('programs'), tasks=sourceRows('tasks'), lots=sourceRows('inventory'), trips=sourceRows('trips'), docs=sourceRows('documents'), requirements=sourceRows('requirements');
   const allErrors=Object.values(sources).filter(s=>s.error).map(s=>s.label+': '+s.error);

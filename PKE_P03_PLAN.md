@@ -1583,3 +1583,14 @@ Artifact: `docs/ux/UX-01_DESIGN_SYSTEM_IMPLEMENTATION_SPEC_2026-11-26.md` (commi
 - Then UX-04B–04D, UX-05, UX-06/07, all-role acceptance and backtest.
 
 No source code was modified; no test/build execution, Neon operation, Vercel deployment, main reconciliation, merge or rebase occurred. Source findings are read-only and limited to successfully fetched files.
+
+
+## UX-02 role navigation/permission audit — 26 November 2026
+
+Artifact: `docs/audits/UX-02_ROLE_NAVIGATION_PERMISSION_AUDIT_2026-11-26.md` (commit `d794a28209c265a47ce6fe5c1554a26618049b7d`).
+
+Confirmed source behavior: permission-filtered grouped navigation; route RoleGuard; active Project role expiry/revocation filtering; selected Project requirement for Field and My Work; buyer portal feature gate; funder role + permission; Finance/Reports role + permission gates; Project Admin vs Platform Admin scopes; notifications route is visible to authenticated workspace users (API scope must be tested). The role/page matrix is partial and not authorization proof.
+
+**UX-02 status: PARTIAL.** Required runtime tests include role × route × action, direct URL, permission loading/error, no Project, revoked/expired role, Project switching, single-permission OR pages, partner IDOR, notification resource scope, and API/RLS negative tests. Matrix artifact columns are specified in the audit.
+
+No code/runtime tests were run. Existing route/access foundation should be preserved and extended; next focus remains UX-03 Admin exception queues and UX-04 PM Project 360, with Field sync a P0 blocker.

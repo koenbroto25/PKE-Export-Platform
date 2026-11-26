@@ -304,3 +304,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Admin Control Center remediation correction
 - CI caught a JSX closing-brace syntax issue in the Project attention list conditional link. Fixed in commit `bfb9147189b573c6e52ebefc22b3fdff5ca8163a`.
 - Runs `45833159014` and `45833201610` failed typecheck before fix. Validation remains pending on corrected source.
+
+## Admin Control Center KPI badge follow-up
+- KPI state badges now follow whether the metric value is known, not merely whether a portfolio object exists. Unknown value stays unknown.
+- Regression assertions added; CI pending.

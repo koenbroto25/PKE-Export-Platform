@@ -38,6 +38,13 @@ export function UXFreshness({ value, source }: { value?: string | null; source?:
   return <div className="ux-freshness"><Clock3 size={13}/><span>{source ? source + ' · ' : ''}Cut-off: {value ? new Date(value).toLocaleString('id-ID') : 'tidak tersedia'}</span></div>;
 }
 
+
+export function UXLoading({ label = 'Memuat data…' }: { label?: string }) { return <div className="ux-loading" role="status"><span className="ux-spinner" aria-hidden="true"/><span>{label}</span></div>; }
+
+export function UXDenied({ title = 'Akses tidak tersedia', detail = 'Permission atau scope Project tidak mengizinkan tindakan ini.' }: { title?: string; detail?: string }) { return <div className="ux-denied" role="status"><ShieldAlert size={18}/><div><strong>{title}</strong><p>{detail}</p></div></div>; }
+
+export function UXConflict({ title = 'Data berubah', detail = 'Data perlu dimuat ulang sebelum melanjutkan.' , refresh }: { title?: string; detail?: string; refresh?: () => void }) { return <div className="ux-conflict" role="alert"><AlertCircle size={18}/><div><strong>{title}</strong><p>{detail}</p></div>{refresh && <button type="button" onClick={refresh}>Muat ulang</button>}</div>; }
+
 export function UXActionLink({ to, label }: { to: string; label: string }) {
   return <Link className="ux-action-link" to={to}>{label}<ArrowRight size={15}/></Link>;
 }

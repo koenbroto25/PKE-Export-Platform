@@ -316,3 +316,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 
 ## Executive Overview assertion correction
 - Regression run `45834036358` failed one test because an assertion expected single quotes while source used double quotes; 764/765 tests passed. Assertion corrected in commit `879d54a3c837ea0c29a49d8c9a481fd0cca765c4`. Full regression rerun pending.
+
+## Executive Overview table follow-up
+- Project target quantity is now unknown (—) when missing/null instead of formatting as zero. Explicit zero remains valid.
+- Regression assertion added; CI pending.

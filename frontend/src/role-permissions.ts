@@ -99,8 +99,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   if (pageKey === 'compliance') {
     const permissions = new Set(user.projectPermissions || []);
     const externalOnly = new Set(['supplier.view', 'buyer.requirement.view', 'buyer.shipment.view', 'documents.view', 'shipment.view', 'product.view', 'logistics.view', 'record_truck_trips', 'verify_checkpoints']);
-    return [...permissions].some(permission => !externalOnly.has(permission))
-      && PAGE_PERMISSION_REQUIREMENTS.compliance.some(permission => permissions.has(permission));
+    return PAGE_PERMISSION_REQUIREMENTS.compliance.some(permission => permission !== 'project.view' && !externalOnly.has(permission) && permissions.has(permission));
   }
   if (pageKey === 'field') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => FIELD_CAPTURE_ROLES.has(roleCode));
   if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");

@@ -51,7 +51,7 @@ function blocker(status: DependencyStatus, freshness: DependencyFreshness, missi
 function safeInternalLink(link?: string | null): string | null {
   if(!link || typeof link !== "string") return null;
   // Only relative app routes are allowed; reject protocol-relative, control chars and encoded schemes.
-  if(!link.startsWith("/") || link.startsWith("//") || /[\\u0000-\\u001f\\u007f]/.test(link) || /%0[0-9a-f]|%1[0-9a-f]/i.test(link)) return null;
+  if(!link.startsWith("/") || link.startsWith("//") || /[\u0000-\u001f\u007f\\\\]/.test(link) || /%0[0-9a-f]|%1[0-9a-f]/i.test(link)) return null;
   try {
     const parsed = new URL(link, "https://pke.invalid");
     if(parsed.origin !== "https://pke.invalid") return null;

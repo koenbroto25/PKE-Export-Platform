@@ -73,3 +73,9 @@ Prepare the next real integration stage without violating the current guardrails
 | Approve live AI evaluation (optional) | Synthetic prompts, budget/rate limits and model/source policy | Groundedness/abstention evaluation only |
 
 No item above is being performed autonomously. Until owner approval, source-only work continues and actual persisted integration remains BLOCKED.
+
+
+## Latest regression checkpoint — 2026-11-26
+- Commit `9647129facbf8e92d1fc0da56b2e10e90e1ac73e`, CI run `45830574245`: SUCCESS — 80 test files / 758 tests passed. Backend/frontend build and typecheck, P19 assurance, release policy/dry-run PASS.
+- This includes the new fail-closed role-action test for blocked, gap, conflict and pending lifecycle states.
+- The next CI run is validating documentation-only Phase M refresh; no source change is pending validation at this checkpoint.

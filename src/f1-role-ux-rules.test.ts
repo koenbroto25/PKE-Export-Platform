@@ -123,7 +123,7 @@ describe("Project-scoped effective permission UX", () => {
   it("restricts Project creation and contract program mutation to their explicit owners", () => {
     expect(appSource).toContain("const canCreateProject = appointment.data?.canCreateProject === true");
     expect(appSource).toContain("const canManagePrograms = hasProjectPermission('manage_contract_programs', activeUser)");
-    expect(appSource).toContain("showForm && canCreateProject");
+    expect(appSource).toContain("showForm&&canCreateProject");
     expect(appSource).toContain("showForm && canManagePrograms");
   });
   it("scopes transport-leg reads to an authorized Project and restores real trip creation", () => {

@@ -19,6 +19,38 @@ describe("Phase B deterministic dependency scenario matrix",()=>{
    expect(result.status,fixture.id).toBe(fixture.expectedStatus);
   }
  });
+
+ it("exhaustively backtests the assessor decision precedence across evidence and upstream/downstream states",()=>{
+  const states:(DependencyStatus|undefined)[]=[undefined,"satisfied","gap","blocked","stale","unknown","not-applicable"];
+  const evidenceCases=(dep:any)=>[dep.requiredEvidence,[],dep.requiredEvidence.slice(1)];
+  const expected=(provided:string[],dep:any,up:DependencyStatus|undefined,down:DependencyStatus|undefined):DependencyStatus=>{
+   const missing=dep.requiredEvidence.filter((e:string)=>!provided.includes(e));
+   if(up==="blocked"||up==="gap")return "blocked";
+   if(up==="stale")return "stale";
+   if(up==="unknown"||down==="unknown")return "unknown";
+   if(missing.length)return "gap";
+   if(down==="blocked")return "blocked";
+   return "satisfied";
+  };
+  let cases=0;
+  for(const dep of PKE_PROCESS_DEPENDENCIES){
+   for(const provided of evidenceCases(dep)){
+    for(const up of states){
+     for(const down of states){
+      const actual=assessDependency(dep,provided,up,down).status;
+      expect(actual,dep.id+"|evidence="+provided.length+"|up="+up+"|down="+down).toBe(expected(provided,dep,up,down));
+      cases++;
+     }
+    }
+   }
+  }
+  expect(cases).toBe(PKE_PROCESS_DEPENDENCIES.length*3*states.length*states.length);
+ });
+ it("rejects duplicate scenario identifiers and invalid dependency references",()=>{
+  const ids=DEPENDENCY_SCENARIO_MATRIX.map(s=>s.id);
+  expect(new Set(ids).size).toBe(ids.length);
+  for(const scenario of DEPENDENCY_SCENARIO_MATRIX)expect(PKE_PROCESS_DEPENDENCIES.some(d=>d.id===scenario.dependencyId)).toBe(true);
+ });
  it("propagates an unresolved first-edge gap downstream and recovers after correction",()=>{
   let upstream:DependencyStatus="satisfied";
   const failedStates:string[]=[];

@@ -2393,3 +2393,10 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Fixed `frontend/src/RoleDashboardPage.tsx`: generation token invalidates stale responses from overlapping refresh/scope changes and dashboard data is cleared at load start to avoid showing previous-project records under the new scope.
 - Regression coverage added to `src/ux/phase-l-dashboard-source-coverage.test.ts`.
 - CI pending for commits `dcbbdfeb98cd4f446c9e2c834fae4ffb9942434b` and `ddb655e9334e78773ec6ede46fbae6b1a6cf0ec8`.
+
+
+## Dashboard queue truthfulness remediation — 2026-11-26
+- Audit found task dashboard status counts used `?.length || 0`, so missing/malformed work-item payload could be shown as zero and empty queue despite unknown source state.
+- Fixed `frontend/src/RoleDashboardPage.tsx`: task payload must be a verified array; counts display `—` when missing/error, empty-state only appears for a confirmed empty array, and unknown payload receives a separate message.
+- Regression coverage added to Phase L. CI run `45831283018` pending.
+- Project-scope race source/test batch validated: run `45831097114`, commit `ddb655e9334e78773ec6ede46fbae6b1a6cf0ec8`, SUCCESS. (80 test files; test total to be extracted from final log if needed.)

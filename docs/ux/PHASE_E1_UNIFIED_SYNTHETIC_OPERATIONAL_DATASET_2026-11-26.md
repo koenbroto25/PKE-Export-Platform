@@ -344,3 +344,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 
 ## Admin Control Center JSX correction
 - CI caught a stray brace in the nested project link expression; fixed in `e5dee54266884f850fa402185e627b05264b80cf`. Reports shortcut is gated as well. Rerun pending.
+
+## Admin Control Center selected-project link guard
+- Direct detail shortcut is limited to the selected Project and requires detail permission; other project rows route to Projects selection when permitted.
+- Regression assertion added. CI pending.

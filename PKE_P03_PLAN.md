@@ -2280,3 +2280,12 @@ M0 identity/preflight; M1 schema/migration version; M2 authentication/session/pe
 
 ## Execution rule
 Continue source-only work in the designated branch in batches: (1) audit, (2) fix, (3) regression tests, (4) run CI, (5) update evidence. Do not stop after documentation or a passing unit suite while source-feasible gaps remain. Do not deploy Vercel or touch Neon/production, execute migrations, merge, or call live AI unless separately approved. Ask the owner only for actions genuinely requiring environment/credential/business approval.
+
+
+## Operational closure execution log — 2026-11-26
+- Master roadmap appended and UX evidence report updated before source work.
+- First concrete dashboard UX defect: readiness rows marked `permission` nevertheless exposed clickable links; route guards denied access but users were sent to a dead-end. Fixed by rendering those rows as plain labels.
+- Field Capture readiness row linked to `/operations` instead of dedicated `/field`; corrected.
+- Regression assertions added to Phase N route/navigation test.
+- Commits: source fix `d5f9be843e8c050d3c59c5bc7c40edf518243e4b`; regression `17863945f6e3a84143c6c5ecf2b1114b47263812`; UX evidence `2064b9bc276a30f023720ee672663118dbbd8d05`.
+- CI validation is pending. Continue the audit/fix/test cycle; this is not the final acceptance checkpoint.

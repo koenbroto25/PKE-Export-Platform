@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
+import AdminControlCenter from './AdminControlCenter';
+import PMProject360 from './PMProject360';
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 const RoleDashboardPage = lazy(() => import('./RoleDashboardPage'));
 const P1WorkflowWorkbench = lazy(() => import('./P1WorkflowWorkbench'));
@@ -371,6 +373,7 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
   const refresh = () => { portfolio.refresh(); projects.refresh(); trips.refresh(); events.refresh(); workItems.refresh(); projectReport.refresh(); contractPrograms.refresh(); contracts.refresh(); inventoryLots.refresh(); documentRequirements.refresh(); projectDocuments.refresh(); };
   return <>
     <PageTitle eyebrow="EXECUTIVE OVERVIEW" title="Ringkasan operasional" subtitle="Pantau portofolio ekspor dan aktivitas terbaru dari satu tempat." actions={<ActionButton variant="secondary" onClick={refresh}><RefreshCw size={16} /> Segarkan</ActionButton>} />
+    {activeUser?.platformAdmin === true && <AdminControlCenter portfolio={portfolio.data || undefined} projects={projects.data?.projects} workItems={canViewTasks ? workItems.data?.workItems : undefined} selectedProjectId={projectId} loading={portfolio.loading || projects.loading} errors={[portfolio.error, projects.error, canViewTasks ? workItems.error : ''].filter(Boolean)} freshness={p.dataFreshness} refresh={refresh} />}
     {loading && <Loading />}
     <div className="metric-grid">
       <Metric label="Proyek aktif" value={number(activeProjectCount, 0)} foot="Proyek yang terlihat oleh akun" icon={BriefcaseBusiness} tone="navy" />
@@ -2388,16 +2391,44 @@ function ResetPasswordPage({ onNotice }: { onNotice: (kind: 'success' | 'error' 
 function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const detail = useLoad<any>(() => id ? get('/projects/' + id + '/detail') : Promise.resolve({}), [id]);
-  return <div>
-    <p>Detail proyek ID: {id}</p>
-    {detail.loading ? <Loading /> : detail.error ? <ErrorState message={detail.error} retry={detail.refresh} /> : <div>
-      <h2>{detail.data?.project?.name || '—'}</h2>
-      <p>Status: {detail.data?.project?.status || '—'}</p>
-      <p>Target: {detail.data?.project?.target_quantity || 0} {detail.data?.project?.settlement_unit || 'MT'}</p>
-      <button onClick={() => navigate('/projects')}><ArrowLeft size={16} /> Kembali</button>
-      <div className="form-actions">{hasProjectPermission("project.update", activeUser) && <ActionButton onClick={() => navigate("/projects/" + id + "/edit")}>Edit Project</ActionButton>}{hasProjectPermission("project.configuration.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/configuration")}>Konfigurasi</ActionButton>}{hasAnyProjectPermission(["project.members.view", "project.members.manage"], activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/members")}>Anggota</ActionButton>}{hasProjectPermission("project.roles.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/roles")}>Role</ActionButton>}</div>
-    </div>}
+  const detail = useLoad<any>(() => id ? get('/projects/' + encodeURIComponent(id) + '/detail') : Promise.resolve({}), [id]);
+  const canContracts = hasProjectPermission('contract.view', activeUser);
+  const canTasks = hasProjectPermission('project.tasks.view', activeUser);
+  const canInventory = hasProjectPermission('inventory.view', activeUser);
+  const canDocuments = hasProjectPermission('documents.view', activeUser);
+  const canLogistics = hasProjectPermission('logistics.view', activeUser);
+  const canPks = hasProjectPermission('pks.site.view', activeUser);
+  const contracts = useLoad<any>(() => id && canContracts ? get('/contracts?projectId='+encodeURIComponent(id)) : Promise.resolve({contracts:[]}), [id,canContracts]);
+  const programs = useLoad<any>(() => id && canContracts ? get('/contract-programs?projectId='+encodeURIComponent(id)) : Promise.resolve({contractPrograms:[]}), [id,canContracts]);
+  const tasks = useLoad<any>(() => id && canTasks ? get('/projects/'+encodeURIComponent(id)+'/work-items') : Promise.resolve({workItems:[]}), [id,canTasks]);
+  const inventory = useLoad<any>(() => id && canInventory ? get('/inventory-lots?projectId='+encodeURIComponent(id)) : Promise.resolve({inventoryLots:[]}), [id,canInventory]);
+  const trips = useLoad<any>(() => id && canLogistics ? get('/truck-trips?projectId='+encodeURIComponent(id)) : Promise.resolve({truckTrips:[]}), [id,canLogistics]);
+  const documents = useLoad<any>(() => id && canDocuments ? get('/projects/'+encodeURIComponent(id)+'/documents') : Promise.resolve({documents:[]}), [id,canDocuments]);
+  const requirements = useLoad<any>(() => id && canDocuments ? get('/projects/'+encodeURIComponent(id)+'/document-requirements') : Promise.resolve({documentRequirements:[]}), [id,canDocuments]);
+  const supply = useLoad<any>(() => id && canPks ? get('/projects/'+encodeURIComponent(id)+'/pks-sites') : Promise.resolve({participations:[]}), [id,canPks]);
+  const sources = {
+    contracts:{label:'Contracts',rows:contracts.data?.contracts||[],loading:contracts.loading,error:contracts.error,available:canContracts},
+    programs:{label:'Contract Programs',rows:programs.data?.contractPrograms||[],loading:programs.loading,error:programs.error,available:canContracts},
+    tasks:{label:'Work Items',rows:tasks.data?.workItems||[],loading:tasks.loading,error:tasks.error,available:canTasks},
+    inventory:{label:'Inventory Lots',rows:inventory.data?.inventoryLots||[],loading:inventory.loading,error:inventory.error,available:canInventory},
+    trips:{label:'Truck Trips',rows:trips.data?.truckTrips||[],loading:trips.loading,error:trips.error,available:canLogistics},
+    documents:{label:'Documents',rows:documents.data?.documents||[],loading:documents.loading,error:documents.error,available:canDocuments},
+    requirements:{label:'Document Requirements',rows:requirements.data?.documentRequirements||[],loading:requirements.loading,error:requirements.error,available:canDocuments},
+    supply:{label:'PKS Participation',rows:supply.data?.participations||[],loading:supply.loading,error:supply.error,available:canPks},
+    production:{label:'Production',rows:[],available:false},
+    qa:{label:'QA / Lab Release',rows:[],available:false},
+    port:{label:'Port / Terminal',rows:[],available:false},
+    loading:{label:'Loading / Survey',rows:[],available:false},
+    voyage:{label:'Voyage',rows:[],available:false},
+    finance:{label:'Finance / Settlement',rows:[],available:false},
+  };
+  const sourceFreshness = detail.data?.dataFreshness || detail.data?.updatedAt || detail.data?.project?.updated_at || null;
+  return <div className="project-detail-page">
+    <PageTitle eyebrow="PROJECT WORKSPACE" title={detail.data?.project?.name || 'Project 360'} subtitle="Lifecycle, dependency, evidence and next-action view for the selected export project." actions={<button className="secondary-button" onClick={()=>navigate('/projects')}><ArrowLeft size={16}/> Kembali</button>}/>
+    {detail.loading ? <Loading text="Memuat project dan source terkait…"/> : detail.error ? <ErrorState message={detail.error} retry={detail.refresh}/> : <>
+      <div className="form-actions project-detail-actions">{hasProjectPermission("project.update", activeUser) && <ActionButton onClick={() => navigate("/projects/" + id + "/edit")}>Edit Project</ActionButton>}{hasProjectPermission("project.configuration.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/configuration")}>Konfigurasi</ActionButton>}{hasAnyProjectPermission(["project.members.view", "project.members.manage"], activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/members")}>Anggota</ActionButton>}{hasProjectPermission("project.roles.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/roles")}>Role</ActionButton>}</div>
+      <PMProject360 project={detail.data?.project} sources={sources} projectId={id||''} freshness={sourceFreshness}/>
+    </>}
   </div>;
 };
 

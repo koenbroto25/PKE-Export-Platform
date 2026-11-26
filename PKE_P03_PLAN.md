@@ -2207,3 +2207,11 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - [x] Confirms permission-aware route visibility is present and access-denied states are rendered.
 - [ ] CI pending for newest commit.
 - [ ] Browser click/keyboard/accessibility E2E remains blocked by lack of browser runner and approved auth/test environment.
+
+
+## Phase O — Permission-filtered Role Dashboard Actions
+- [x] Role-dashboard cards now filter their workspace links using the same `hasPageAccess` helper and explicit path→page mapping as App navigation/route guards.
+- [x] Users no longer see links from role metadata that their active Project permissions cannot access; empty accessible-link set shows an explicit message.
+- [x] Regression contract added to Phase N navigation test suite.
+- [ ] CI pending for newest commit.
+- [ ] Browser interaction/accessibility validation remains external.

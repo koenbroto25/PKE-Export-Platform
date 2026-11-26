@@ -2386,3 +2386,10 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Commit `9647129facbf8e92d1fc0da56b2e10e90e1ac73e`, CI run `45830574245`: SUCCESS — 80 test files / 758 tests passed. Backend/frontend build and typecheck, P19 assurance, release policy/dry-run PASS.
 - This includes the new fail-closed role-action test for blocked, gap, conflict and pending lifecycle states.
 - The next CI run is validating documentation-only Phase M refresh; no source change is pending validation at this checkpoint.
+
+
+## Role dashboard project-scope race remediation — 2026-11-26
+- Audit identified a race in the Role Dashboard: requests from the previous Project could resolve after switching scope and overwrite the newly selected Project's dashboard state; existing data also remained visible while a new scope loaded.
+- Fixed `frontend/src/RoleDashboardPage.tsx`: generation token invalidates stale responses from overlapping refresh/scope changes and dashboard data is cleared at load start to avoid showing previous-project records under the new scope.
+- Regression coverage added to `src/ux/phase-l-dashboard-source-coverage.test.ts`.
+- CI pending for commits `dcbbdfeb98cd4f446c9e2c834fae4ffb9942434b` and `ddb655e9334e78773ec6ede46fbae6b1a6cf0ec8`.

@@ -2485,3 +2485,7 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Found loaders resolving synthetic empty arrays when user lacked source permission or Project scope, making a denied/unscoped source look like verified zero.
 - Fallback payloads now remain empty objects/unknown; trip count requires selected Project plus logistics access and a verified API array. Contracts, inventory, documents, events, and tasks similarly no longer manufacture zero-record arrays on unauthorized/inactive scope.
 - Regression assertions added. CI pending.
+
+
+## Executive Overview permission-gate regression correction — 2026-11-26
+- CI run `45834416195` and test run `45834442419` failed one assertion because it expected the earlier trip-source expression and omitted the new selected-Project/logistics gate; 764/765 tests passed. Updated assertion in `57bfe4c1afb57ee01620f8e5316c474360ecc355`. CI pending.

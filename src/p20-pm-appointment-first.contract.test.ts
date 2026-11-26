@@ -55,7 +55,8 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(ui).toContain("buyer_agreement");
     expect(ui).toContain("executed_contract");
     expect(ui).toContain("Portfolio overview");
-    expect(ui).toContain("Global PM Appointment");\n    expect(ui).toContain("onSelectProject");
+    expect(ui).toContain("Global PM Appointment");
+    expect(ui).toContain("onSelectProject");
     expect(ui).toContain("Project berhasil dibuat dan otomatis masuk portfolio PM");
   });
   it("migration is transaction-wrapped and contains no destructive table/schema operations",()=>{

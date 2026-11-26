@@ -2736,3 +2736,9 @@ G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration
 3. UAT execution/backtest across active/suspended/revoked PM, multiple Buyers/Projects, duplicate request, invalid commercial basis, transfer, concurrent creation, project isolation, rollback, and membership/RLS.
 4. Verify UI/API integration from Admin appointment through PM workspace and Project navigation.
 5. Only after these gates pass: update manifest to verified final SHA, prepare UAT apply instructions, and request owner approval. Production is out of scope.
+
+
+### Additional RLS hardening (source audit)
+- Migration 113 seeds the PM permission catalog codes only when absent, then seeds the PM allowlist; existing permission names/descriptions remain unchanged. Catalog rows alone grant no access.
+- PM-create write policies now bind child records to the transaction-scoped `app.pke_pm_project_id` set immediately after the newly created Project ID is known. Contract, Program, operating profile, PM role/permissions, membership, assignment, ownership, commercial basis, idempotency and audit inserts must match this exact Project ID and actor.
+- Source static lexical validator and contract tests have passed on the previous clean SQL head; latest rerun is pending after this additive seed/scope hardening. SQL runtime/RLS behavior still requires isolated UAT.

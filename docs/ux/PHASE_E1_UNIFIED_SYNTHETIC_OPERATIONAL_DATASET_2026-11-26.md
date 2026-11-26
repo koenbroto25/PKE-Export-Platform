@@ -274,3 +274,8 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - PM Project 360 now requires verified source payloads before displaying numeric counts; unknown counts render as em-dash. Verified-empty message requires all evidence source counts to be verified zero. Blocker/overdue figures are unknown unless task source is verified. Error labels take precedence over “not integrated.”
 - Added regression coverage. CI pending for PM360 source fix.
 - Prior metric destination permission alignment regression passed: run `45831671290`, 80 files / 761 tests.
+
+## PM Project 360 validation checkpoint
+- Run `45831948051`, commit `f80a94edd6a818fda0102e8a5b84d8d6c8a8a257`: SUCCESS — 80 files / 762 tests, build/typecheck and release policy PASS.
+- Implementation runs `45831851398` and `45831923871`: SUCCESS.
+- Follow-up metric-state badge alignment is in progress and will be validated separately.

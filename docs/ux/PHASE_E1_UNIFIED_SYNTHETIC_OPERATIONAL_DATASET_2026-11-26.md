@@ -382,3 +382,10 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 10. KPI shortcut lands on the authorized workspace and selected Project context.
 
 Acceptance: the source-contract suite and full CI must pass after the follow-up fix; do not call the dashboard readiness audit closed until CI for the current head is green and the remaining runtime integrations are clearly separated from source-level validation.
+
+
+## Admin Access shortcut remediation — 2026-11-26
+- The previously identified unconditional Access shortcut is now gated by `canOpen('access')`; denied roles see plain “Access not granted” text rather than a dead-end link.
+- Regression assertion now targets the exact “Review akses & role governance” card, not merely any gated Access link.
+- Source-contract checks: 16/16 PASS. Full Vitest/CI/typecheck/build for the current head is still unverified; this static check does not substitute for CI. Vercel remains skipped due quota.
+- Dashboard readiness is therefore **SOURCE AUDIT PASS / FULL CI PENDING**, not final runtime acceptance.

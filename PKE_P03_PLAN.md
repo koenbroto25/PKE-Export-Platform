@@ -2448,3 +2448,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ## Admin Control Tower nested metric validation checkpoint — 2026-11-26
 - Regression run `45832580637`, commit `6322c7aa8c66c34be8faf2d6674c1ca017cbccc4`: SUCCESS — 80 test files / 763 tests; P19 assurance, migration release policy/dry-run, backend/frontend typecheck/build PASS.
 - Missing nested metric payloads now display unknown; explicit zero values remain visible. Final docs-only CI pending.
+
+
+## Admin Control Center project-source integrity audit — 2026-11-26
+- Found Project count displayed 0 when project source was missing, active-project count/target volume could be derived from an unverified empty fallback, and Project attention empty state appeared before source verification. Missing project ID also produced an invalid detail route.
+- Fixed source truth: project count unknown until an array is returned; active count only derived when all statuses are known; target-volume total only derived when every target is present/finite; verified-empty state only for confirmed empty array; unknown source displays unknown badge. Missing IDs no longer link; keys use stable fallback. Verified project rows remain visible despite unrelated task/portfolio source errors.
+- Regression tests added. CI pending.

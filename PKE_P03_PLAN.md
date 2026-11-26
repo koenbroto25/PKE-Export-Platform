@@ -2362,3 +2362,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Split visibility stages from operational action stages. PM retains project-wide lifecycle visibility but has no direct simulated stage execution; field users can capture evidence but do not approve/advance readiness. Operational roles act only on their explicitly assigned stage set and only when the stage is ready, human actor is in the same project.
 - Added regression tests for PM read-only oversight, field evidence-only, dispatcher transport action, and explicit owner-stage matrix.
 - CI pending for this role-authority change. It is simulation/backtest hardening and does not replace actual API/RLS authorization validation.
+
+
+## Role authority backtest validation checkpoint — 2026-11-26
+- Verified commit `983bc76056dd586d9241677869e20c6526ee0365`, CI run `45830044738`: SUCCESS — 80 test files / 755 tests passed; backend/frontend build and typecheck, P19 assurance, release policy checks PASS.
+- Role visibility and action authority are now distinct in the simulation. PM can inspect all stages within its project but cannot execute operational stage actions. Field user can capture evidence but cannot approve/advance lifecycle. Stage actions are limited to explicit owner-role stage maps, same-project human actor, and ready state.
+- Regression coverage includes PM read-only oversight, field evidence-only behavior, Dispatcher transport action, and role-specific action matrix. This is synthetic assurance; actual API/RLS remains a separate gate.

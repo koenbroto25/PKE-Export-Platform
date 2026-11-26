@@ -459,11 +459,7 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
   const save=async(e:FormEvent)=>{
     e.preventDefault();if(!canCreateProject)return;setBusy(true);
     try{
-      if(isAdmin){
-        await post('/projects',{name:form.name,description:form.description,settlementUnit:form.settlementUnit,targetQuantity:Number(form.targetQuantity),status:'draft',exportCountryCode:form.exportCountryCode||null});
-      }else{
-        await post('/pm/projects',{...form,targetQuantity:Number(form.targetQuantity),idempotencyKey:crypto.randomUUID(),commercialTerms:form.commercialTerms?{summary:form.commercialTerms}:{}});
-      }
+      await post('/pm/projects',{...form,targetQuantity:Number(form.targetQuantity),idempotencyKey:crypto.randomUUID(),commercialTerms:form.commercialTerms?{summary:form.commercialTerms}:{}});
       onNotice('success','Project berhasil dibuat dan otomatis masuk portfolio PM.');
       setShowForm(false);setForm(v=>({...v,name:'',description:'',basisReference:'',contractReference:'',evidenceUrl:'',commercialTerms:'',targetQuantity:''}));
       projects.refresh();pmPortfolio.refresh();

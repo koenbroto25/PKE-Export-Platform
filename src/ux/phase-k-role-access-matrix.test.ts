@@ -9,6 +9,12 @@ const make=(role:string,permissions:string[],overrides:Partial<WorkspaceAccessUs
  ...overrides,
 });
 describe("Phase K role dashboard and workspace access matrix",()=>{
+ it("allows a globally appointed PM to reach Project portfolio before any Project membership exists",()=>{
+  const appointed:WorkspaceAccessUser={selectedProjectId:"",projectPermissions:[],projectMemberships:[],globalPmAppointed:true};
+  expect(hasPageAccess("projects",appointed)).toBe(true);
+  expect(visiblePageKeys(appointed)).toContain("projects");
+  expect(hasPageAccess("projects",{...appointed,globalPmAppointed:false})).toBe(false);
+ });
  it("shows project dashboard only to an active selected-project member",()=>{
   expect(hasPageAccess("dashboard",make("viewer",[]))).toBe(true);
   expect(hasPageAccess("dashboard",make("viewer",[],{selectedProjectId:"SIM-PROJECT-002"}))).toBe(false);

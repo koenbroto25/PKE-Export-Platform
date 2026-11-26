@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "purpose": "prepared_p20_pm_appointment_first_release_package_owner_approval_required",
+  "release": "P20 PM appointment-first workflow",
+  "created_on": "2026-11-26",
+  "source_branch": "p20/pm-appointment-first-20261126",
+  "target_environment": "isolated UAT only after explicit owner approval",
+  "production_application": "not_authorized",
+  "uat_application": {
+    "status": "not_applied",
+    "branch_id": null,
+    "ledger_id": null
+  },
+  "owner_approval": {
+    "status": "pending",
+    "approved_by": null,
+    "approved_at": null,
+    "approval_reference": null
+  },
+  "migrations": [
+    {
+      "migration_number": 113,
+      "filename": "113_pm_appointment_first_project_creation.sql",
+      "sha256": "32901e817aa4382e73e52fb561e05f314c5238c41c26122d8210dd2de2be1b4b",
+      "status": "prepared",
+      "source_sha_verified": true,
+      "application_status": "not_applied"
+    }
+  ],
+  "acceptance_scenarios": [
+    "active appointment can create first Project",
+    "unappointed/inactive PM denied",
+    "multiple Projects from Buyer agreements/contracts",
+    "Buyer and commercial basis captured",
+    "Project ownership and PM role atomically linked",
+    "idempotent request replay",
+    "PM suspension/revocation blocks new Projects and active project PM assignments",
+    "Admin audited transfer preserves history",
+    "project isolation",
+    "invalid basis and rollback",
+    "legacy project assignment requires global appointment"
+  ],
+  "safety": "No database connection or migration application is part of this package."
+}

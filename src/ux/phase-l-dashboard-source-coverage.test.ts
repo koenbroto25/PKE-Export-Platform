@@ -59,7 +59,7 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(app).toContain("setData(null)");
   expect(app).toContain("const projectRowsVerified = Array.isArray(projects.data?.projects)");
   expect(app).toContain("const projectTargetsVerified = projectRowsVerified");
-  expect(app).toContain("const tripRowsVerified = Array.isArray(trips.data?.truckTrips)");
+  expect(app).toContain("const tripRowsVerified = Boolean(projectId && canViewLogistics) && Array.isArray(trips.data?.truckTrips)");
   expect(app).toContain("Boolean(projectId && canViewLogistics) && Array.isArray(trips.data?.truckTrips)");
   expect(app).toContain("Promise.resolve({})");
   expect(app).not.toContain("Promise.resolve({ truckTrips: [] })");

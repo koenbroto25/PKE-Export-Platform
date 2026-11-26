@@ -14,6 +14,7 @@ import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mj
 import { detectManualTrialMode } from "./demo/mode.js";
 import { registerDemoApiRoutes } from "./demo/routes.js";
 import { isPositiveQuantity } from "./f1-contract-rules.js";
+import { isValidPMProjectCreateInput } from "./pm-appointment-first-rules.js";
 import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 import { registerP17MaritimeRoutes } from "./p17-maritime.js";
@@ -7182,9 +7183,8 @@ app.post("/api/v1/pm/projects", requireAuth, async (req: express.Request, res: e
   const evidenceUrl=typeof b.evidenceUrl==="string"&&b.evidenceUrl.trim()?b.evidenceUrl.trim():null;
   const basisDate=typeof b.basisDate==="string"&&b.basisDate?b.basisDate:null;
   const exportCountryCode=typeof b.exportCountryCode==="string"&&b.exportCountryCode?b.exportCountryCode.toUpperCase():null;
-  const validBasisDate=!basisDate||(/^\d{4}-\d{2}-\d{2}$/.test(basisDate)&&!Number.isNaN(Date.parse(basisDate))&&new Date(basisDate).toISOString().slice(0,10)===basisDate);
   const commercialTerms=b.commercialTerms&&typeof b.commercialTerms==="object"&&!Array.isArray(b.commercialTerms)?b.commercialTerms:{};
-  if(name.length<2||name.length>200||!uuidPattern.test(buyerId)||!["buyer_agreement","executed_contract"].includes(basisType)||basisReference.length<2||basisReference.length>200||!settlementUnit||settlementUnit.length>40||!Number.isFinite(targetQuantity)||targetQuantity<=0||!uuidPattern.test(idempotencyKey)||(basisType==="executed_contract"&&contractReference.length<2)||(evidenceUrl&&!/^https:\/\//i.test(evidenceUrl))||!validBasisDate||(exportCountryCode&&!/^[A-Z]{2}$/.test(exportCountryCode))) {
+  if(!isValidPMProjectCreateInput({idempotencyKey,name,buyerId,basisType,basisReference,basisDate,contractReference,evidenceUrl,commercialTerms,settlementUnit,targetQuantity,exportCountryCode})) {
     return res.status(400).json({error:"Project name, active Buyer, agreement/contract basis, valid quantity/unit, and idempotency key are required.",code:"INVALID_PM_PROJECT_INPUT"});
   }
   try {

@@ -47,14 +47,14 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(api).toContain("/api/v1/pm/projects");
     expect(api).toContain("/api/v1/admin/pm-appointments");
     expect(api).toContain("/api/v1/admin/projects/:projectId/pm-transfer");
-    expect(api).toContain("PM_APPOINTMENT_REQUIRED");
+    expect(api).toContain("PM_APPOINTMENT_REQUIRED");\n    expect(api).toContain("APPOINTMENT_FIRST_WORKFLOW_REQUIRED");
   });
   it("provides appointment-first UI, Buyer agreement/contract basis, and portfolio roll-up",()=>{
     expect(ui).toContain("Appointment PM belum aktif");
     expect(ui).toContain("buyer_agreement");
     expect(ui).toContain("executed_contract");
     expect(ui).toContain("Portfolio overview");
-    expect(ui).toContain("Global PM Appointment");
+    expect(ui).toContain("Global PM Appointment");\n    expect(ui).toContain("onSelectProject");
     expect(ui).toContain("Project berhasil dibuat dan otomatis masuk portfolio PM");
   });
   it("migration is transaction-wrapped and contains no destructive table/schema operations",()=>{

@@ -7210,6 +7210,11 @@ app.get("/api/v1/pm/appointment/me", requireAuth, async (req: express.Request, r
   } catch { return res.status(503).json({ error: "PM appointment service unavailable.", code: "PM_APPOINTMENT_SCHEMA_NOT_READY" }); }
 });
 
+app.get("/api/v1/pm/buyers", requireAuth, async (req: express.Request, res: express.Response) => {
+  try { const {rows}=await req.db.query("SELECT * FROM public.pke_pm_buyer_catalog()"); return res.json({buyers:rows}); }
+  catch { return res.status(503).json({error:"Buyer catalog is unavailable or PM appointment is inactive.",code:"PM_BUYER_CATALOG_UNAVAILABLE"}); }
+});
+
 app.get("/api/v1/pm/portfolio", requireAuth, async (req: express.Request, res: express.Response) => {
   try {
     const { rows } = await req.db.query("SELECT * FROM public.pke_pm_portfolio()");

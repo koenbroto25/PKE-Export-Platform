@@ -62,7 +62,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
         return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':source?.rows?.length!==undefined?'Records: '+source.rows.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
       })}</div>
     </UXPanel>
-    <CrossProcessDependencyPanel />
+    <CrossProcessDependencyPanel projectId={projectId} allowedPages={allowedPages} />
     <UXPanel title="Evidence snapshot" subtitle="Counts are source records only; no quality, quantity, release, or settlement conclusion is made from counts.">
       <div className="ux-metric-grid">{evidenceSummary.map(x=><UXMetric key={x.key} label={x.label} value={x.count} detail="Records found" state={metricState(x.key)}/>)}</div>
       {!contracts.length&&!programs.length&&!tasks.length&&!lots.length&&!trips.length&&!docs.length&&!requirements.length && <UXEmpty title="Evidence belum tersedia" description="Source belum mengembalikan record. Ini tidak berarti tahap gagal atau lulus; status harus diverifikasi dari workspace sumber."/>}

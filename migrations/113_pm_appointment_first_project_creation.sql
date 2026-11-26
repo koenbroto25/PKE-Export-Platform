@@ -282,6 +282,15 @@ BEGIN
  NEW.updated_at:=now(); RETURN NEW;
 END;$guard$;
 
+CREATE OR REPLACE FUNCTION public.pke_pm_buyer_catalog()
+RETURNS TABLE(id uuid,name text,code text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'pg_catalog','public'
+AS $fn$
+ SELECT b.id,b.name,b.code FROM public.buyers b
+ WHERE b.is_active=true AND EXISTS(SELECT 1 FROM public.pm_appointments a WHERE a.user_id=public.pke_current_user_id() AND a.status='active')
+ ORDER BY b.name;
+$fn$;
+
 CREATE OR REPLACE FUNCTION public.pke_pm_portfolio()
 RETURNS TABLE(project_id uuid,pm_user_id uuid,project_name text,project_status text,target_quantity numeric,settlement_unit text,buyer_id uuid,buyer_name text,basis_type text,basis_reference text,basis_date date,created_at timestamptz,updated_at timestamptz)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'pg_catalog','public'
@@ -294,7 +303,7 @@ AS $fn$
  ORDER BY p.updated_at DESC;
 $fn$;
 
-GRANT EXECUTE ON FUNCTION public.pke_admin_appoint_pm(uuid,text),public.pke_admin_set_pm_appointment_status(uuid,text,text),public.pke_pm_create_project(uuid,text,text,uuid,text,text,date,text,text,jsonb,text,numeric,text),public.pke_admin_transfer_project_pm(uuid,uuid,text),public.pke_pm_portfolio() TO app_runtime_secure;
+GRANT EXECUTE ON FUNCTION public.pke_admin_appoint_pm(uuid,text),public.pke_admin_set_pm_appointment_status(uuid,text,text),public.pke_pm_create_project(uuid,text,text,uuid,text,text,date,text,text,jsonb,text,numeric,text),public.pke_admin_transfer_project_pm(uuid,uuid,text),public.pke_pm_buyer_catalog(),public.pke_pm_portfolio() TO app_runtime_secure;
 
 DO $verify$
 BEGIN

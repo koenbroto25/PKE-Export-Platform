@@ -1603,3 +1603,29 @@ Artifact: `docs/ux/UX-03_ADMIN_CONTROL_CENTER_UX-04_PROJECT_360_BUILD_SPEC_2026-
 This specification is grounded in source findings: Admin governance exists in AccessPage; the role dashboard contains Admin/PM shortcut panels and P17 Control Tower; My Work provides tasks/assignment/handoff; ProjectDetailPage is currently a minimal detail view rather than a lifecycle Project 360. The next code work should reuse these, build actionable source-backed exception queues, and upgrade Project detail—not duplicate the dashboard or invent a new data store.
 
 Acceptance and scope are defined in the spec. **Code status remains NOT IMPLEMENTED in this session** because there is no verified source checkout/test runner. No DB changes, Vercel deployment, branch merge/rebase or Production writes.
+
+
+## UX continuation verification — 26 November 2026 (read-only source refresh)
+
+### Exact branch/ref and source refresh
+Branch ref: `p20/platform-continuation-20261123`. Re-fetched source files through GitHub and verified current blob SHAs:
+- `frontend/src/RoleDashboardPage.tsx`: `eea6d0a5ccb833700c60b87a09ef16a6950a095e` (46,966 chars)
+- `frontend/src/RoleDashboardPage.css`: `f2c35fbbc8e24be093e34a401c0be38d347cec89` (5,965 chars)
+- `frontend/src/FieldCapturePage.tsx`: `5a2e22ec4b292409c81c5811ea3229dbf3208a0f` (11,872 chars)
+- `frontend/src/App.tsx`: `30f9398687033242778adaf50236dc8e3a380048` (278,108 chars)
+- `frontend/src/role-permissions.ts`: `ef554632d66387599c0aaeb6638b54aa126ffe10` (10,084 chars)
+- `frontend/package.json`: `c19cd98970d7a2d96623a31f81395773238a110d`
+
+### Verification boundary
+- GitHub file retrieval is available; a local/remote executable checkout, shell, package installation and test runner are **not available through the discovered tools**.
+- The package scripts confirm frontend build/typecheck commands exist (`build: tsc -b && vite build`, `typecheck: tsc --noEmit`), but these were **not executed**.
+- Guessed paths `frontend/src/MyWorkPage.tsx` and `frontend/src/AdminAccessPage.tsx` returned 404. This is not evidence that the features/components are absent; locate their actual paths through exact repository tree/source references before making further claims.
+- The complete `App.tsx` is large (278 KB); route inventory must be extracted systematically rather than treated as complete based on prior partial review.
+
+### Next concrete work
+1. Resolve exact source paths for My Work, Access/Admin, Project detail and page-level domain modules via repository tree/source imports.
+2. Produce a verified route-to-component-to-API-to-permission matrix and identify existing design-system primitives before proposing code additions.
+3. Continue source-grounded UX audits of Admin, PM, QA/Production, Warehouse, Transport, Port/Loading, cross-check and partner portals; document each page's empty/loading/error/stale/denied/conflict states.
+4. Obtain a verified executable workspace before implementation claims. Once available, implement shared UX primitives first, then Admin actionable exceptions and PM Project 360, then Field Sync P0, with tests and synthetic scenario coverage.
+
+No code changes, Neon operations, Vercel deployments, merge/rebase or main-branch modifications occurred in this refresh.

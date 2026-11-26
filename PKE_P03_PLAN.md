@@ -1524,3 +1524,35 @@ This was schema/policy inspection only. No SQL writes, test fixture changes, rol
 ### Current execution limitation / safety disposition
 - Connector can read and write individual GitHub files, but this session does not provide a verified checkout/worktree or a dependable source-tree/build/test runner. Therefore code-level implementation cannot be safely claimed or tested from this interface. No code was changed, no migration/SQL write was performed, no Vercel deployment was run, and no branch was merged/rebased.
 - Status: UX roadmap **OPEN / NOT COMPLETE**; main reconciliation **BLOCKED pending exact graph/tree verification and executable test environment**.
+
+
+## UX-00 initial source inventory execution — 26 November 2026
+
+**Status: PARTIAL — GitHub source audit completed; implementation environment remains unavailable.**
+
+Audit artifact: `docs/audits/UX-00_SOURCE_INVENTORY_INITIAL_2026-11-26.md` (commit `f34f056e0b571fe2bda7627ab0b05cab28a11f0b`).
+
+### Confirmed findings
+- The continuation branch has a route-rich SPA shell with route guards, permission-aware navigation, menu search, mobile sidebar and Project picker.
+- Route families include Projects and governance, PKS/supplier, port network, maritime operations, contracts, operations, P1 workflows, My Work, Field Capture, finance, compliance, journals, reports, notifications/access, allocations/cash advances/payment instructions and partner portals.
+- RoleDashboardPage is present and consumes multiple domain data sets, including project/portfolio, work items, contracts, warehouse/inventory, trips, allocations, documents and finance. Full role coverage remains unverified.
+- My Work supports task lifecycle actions, assignment transfer, due dates, escalation, comments and history. Needs UX standardization and full role test matrix.
+- Field Capture loads assignments and keeps offline caches/drafts, but the inspected page does not implement server sync/receipt. This remains a release blocker; cache must never imply current assignment or sync acceptance.
+- AccessPage already contains Admin governance functions (provisioning, user status/session revocation, Project membership/role assignment, PM appointment). These should be organized into a broader Admin Control Center, not discarded.
+- Project and My Work capabilities exist, but a unified Project 360 lifecycle/milestone/quantity/evidence/owner/next-action view is not yet evidenced.
+- General dashboard code exists alongside the root RoleDashboardPage, creating a possible duplicate-dashboard maintenance gap.
+
+### UX-00 partial gap priority
+1. **P0:** verified source checkout/build/test runner and exact-head graph/tree reconciliation.
+2. **P0:** route × role × permission × action matrix and negative direct-route/API tests.
+3. **P0:** Field server sync/idempotency/receipt/conflict/evidence lifecycle.
+4. **P1:** dashboard architecture consolidation and role landing standards.
+5. **P1:** Admin Control Center and PM Project 360.
+6. **P1:** shared UX primitives for status/freshness/loading/empty/error/conflict/permission feedback.
+7. **P2:** page-level audits for QA, Warehouse, Transport, Port, Loading, Cross-check, Integration and partner portals.
+8. **P3:** responsive/accessibility/performance UAT and 100+ synthetic scenarios.
+
+This is an initial partial source inventory, not a complete route/component/API inventory. Guessed file paths that returned 404 are not interpreted as missing implementation. No code, Neon, Vercel, merge/rebase or Production changes were made.
+
+### Next execution gate
+Continue UX-00 by expanding the route/page/API/permission/source matrix using exact accessible paths, then UX-01 foundation. Admin and PM remain highest UX implementation priorities. Code implementation and tests require a verified checkout/worktree or executable environment; do not claim code completion until available.

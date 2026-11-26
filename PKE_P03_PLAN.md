@@ -1975,3 +1975,15 @@ Commits: `f81a3ef746c6ef8efc00f637430dc9b880ad1b65`, `44f20807b426157c47a18f6a5d
 - [ ] Frontend typecheck/build and browser QA pending; no pass claim.
 
 Commit: `1df30d9542553dda4cdd7633ace197c7876282ed` (component), `782dd557353499b37b39a04dc8b2975ed458351f` (styles), `2f5e361344627651ef059f300045616612236d70` (report).
+
+
+### Latest Phase A/B integration checkpoint — 26 November 2026
+
+- [x] Added static frontend integration contract tests for PM Project 360 API use, synthetic provenance, role-gated links, and loading/error/empty/status UI.
+- [x] Added project.view denial case to route tests.
+- [x] Root `npm test` includes dependency API route, scenario matrix, and PM UI contract tests.
+- [x] Latest implementation/documentation commits recorded below.
+- [ ] All test suites, root typecheck/build, frontend typecheck/build, and browser QA remain unexecuted/unverified in this workflow. No local repository checkout is available to execute commands.
+- [ ] GitHub Actions run lookup did not return workflow runs for latest branch commits. The visible commit status is Vercel rate-limit failure; per owner direction, Vercel deployment is skipped.
+
+Latest commits: `9211310655e3edc684f0e4c9c5b8897aa20d9620` (route permission denial test), `19d33654b99712fc43d233498eb0cc479b036093` (UI contract tests), `116b9dab617458d0dcbad6b0cfb911cfd2b188b` (CI test command).

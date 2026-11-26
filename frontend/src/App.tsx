@@ -2423,14 +2423,14 @@ function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; o
   const requirements = useLoad<any>(() => id && canDocuments ? get('/projects/'+encodeURIComponent(id)+'/document-requirements') : Promise.resolve({documentRequirements:[]}), [id,canDocuments]);
   const supply = useLoad<any>(() => id && canPks ? get('/projects/'+encodeURIComponent(id)+'/pks-sites') : Promise.resolve({participations:[]}), [id,canPks]);
   const sources = {
-    contracts:{label:'Contracts',rows:contracts.loading ? [] : contracts.data?.contracts||[],loading:contracts.loading,error:contracts.error,available:true,authorized:canContracts},
-    programs:{label:'Contract Programs',rows:programs.loading ? [] : programs.data?.contractPrograms||[],loading:programs.loading,error:programs.error,available:true,authorized:canContracts},
-    tasks:{label:'Work Items',rows:tasks.loading ? [] : tasks.data?.workItems||[],loading:tasks.loading,error:tasks.error,available:true,authorized:canTasks},
-    inventory:{label:'Inventory Lots',rows:inventory.loading ? [] : inventory.data?.inventoryLots||[],loading:inventory.loading,error:inventory.error,available:true,authorized:canInventory},
-    trips:{label:'Truck Trips',rows:trips.loading ? [] : trips.data?.truckTrips||[],loading:trips.loading,error:trips.error,available:true,authorized:canLogistics},
-    documents:{label:'Documents',rows:documents.loading ? [] : documents.data?.documents||[],loading:documents.loading,error:documents.error,available:true,authorized:canDocuments},
-    requirements:{label:'Document Requirements',rows:requirements.loading ? [] : requirements.data?.documentRequirements||[],loading:requirements.loading,error:requirements.error,available:true,authorized:canDocuments},
-    supply:{label:'PKS Participation',rows:supply.loading ? [] : supply.data?.participations||[],loading:supply.loading,error:supply.error,available:true,authorized:canPks},
+    contracts:{label:'Contracts',rows:contracts.loading ? [] : contracts.data?.contracts||[],loading:contracts.loading,error:contracts.error,available:true,authorized:canContracts,payloadValid:Array.isArray(contracts.data?.contracts)},
+    programs:{label:'Contract Programs',rows:programs.loading ? [] : programs.data?.contractPrograms||[],loading:programs.loading,error:programs.error,available:true,authorized:canContracts,payloadValid:Array.isArray(programs.data?.contractPrograms)},
+    tasks:{label:'Work Items',rows:tasks.loading ? [] : tasks.data?.workItems||[],loading:tasks.loading,error:tasks.error,available:true,authorized:canTasks,payloadValid:Array.isArray(tasks.data?.workItems)},
+    inventory:{label:'Inventory Lots',rows:inventory.loading ? [] : inventory.data?.inventoryLots||[],loading:inventory.loading,error:inventory.error,available:true,authorized:canInventory,payloadValid:Array.isArray(inventory.data?.inventoryLots)},
+    trips:{label:'Truck Trips',rows:trips.loading ? [] : trips.data?.truckTrips||[],loading:trips.loading,error:trips.error,available:true,authorized:canLogistics,payloadValid:Array.isArray(trips.data?.truckTrips)},
+    documents:{label:'Documents',rows:documents.loading ? [] : documents.data?.documents||[],loading:documents.loading,error:documents.error,available:true,authorized:canDocuments,payloadValid:Array.isArray(documents.data?.documents)},
+    requirements:{label:'Document Requirements',rows:requirements.loading ? [] : requirements.data?.documentRequirements||[],loading:requirements.loading,error:requirements.error,available:true,authorized:canDocuments,payloadValid:Array.isArray(requirements.data?.documentRequirements)},
+    supply:{label:'PKS Participation',rows:supply.loading ? [] : supply.data?.participations||[],loading:supply.loading,error:supply.error,available:true,authorized:canPks,payloadValid:Array.isArray(supply.data?.participations)},
     production:{label:'Production',rows:[],available:false},
     qa:{label:'QA / Lab Release',rows:[],available:false},
     port:{label:'Port / Terminal',rows:[],available:false},

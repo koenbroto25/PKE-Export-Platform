@@ -146,6 +146,13 @@ BEGIN
   END IF;
   UPDATE public.pm_appointments SET status=p_status,status_changed_by=v_actor,status_changed_at=now(),status_reason=CASE WHEN p_status='active' THEN NULL ELSE p_reason END,updated_at=now()
    WHERE id=p_appointment_id RETURNING * INTO v_new;
+  IF p_status IN ('suspended','revoked') THEN
+    UPDATE public.project_role_assignments a
+       SET is_active=false,revoked_at=now(),revoked_by=v_actor,revoke_reason=p_reason,updated_at=now()
+      FROM public.project_roles r
+     WHERE r.id=a.project_role_id AND r.project_id=a.project_id AND r.role_code='pm'
+       AND a.user_id=v_old.user_id AND a.is_active=true AND a.revoked_at IS NULL;
+  END IF;
   v_event:=CASE WHEN p_status='active' AND v_old.status<>'active' THEN 'reactivated' WHEN p_status='suspended' THEN 'suspended' ELSE 'revoked' END;
   INSERT INTO public.pm_appointment_events(appointment_id,user_id,actor_user_id,event_code,reason,before_snapshot,after_snapshot)
   VALUES(v_new.id,v_new.user_id,v_actor,v_event,p_reason,to_jsonb(v_old),to_jsonb(v_new));
@@ -179,6 +186,8 @@ BEGIN
  SELECT response INTO v_result FROM public.pm_project_create_idempotency WHERE pm_user_id=v_pm AND idempotency_key=p_idempotency_key;
  IF FOUND THEN RETURN v_result||jsonb_build_object('idempotentReplay',true); END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended(v_pm::text||':project-create',0));
+ SELECT response INTO v_result FROM public.pm_project_create_idempotency WHERE pm_user_id=v_pm AND idempotency_key=p_idempotency_key;
+ IF FOUND THEN RETURN v_result||jsonb_build_object('idempotentReplay',true); END IF;
  INSERT INTO public.projects(name,description,status,settlement_unit,target_quantity,export_country_code,is_active,created_at,updated_at)
  VALUES(btrim(p_name),nullif(btrim(p_description),''),'draft',btrim(p_settlement_unit),p_target_quantity,nullif(upper(btrim(p_export_country_code)),''),true,now(),now())
  RETURNING * INTO v_project;

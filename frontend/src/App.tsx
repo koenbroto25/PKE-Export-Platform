@@ -411,9 +411,9 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
       <Card><PanelHeading title="Aktivitas terakhir" description="Checkpoint perjalanan truk." />
         {events.loading ? <Loading /> : events.error ? <ErrorState message={events.error} retry={events.refresh} /> : <div className="activity-list">{(events.data?.trackingEvents || []).slice(0, 6).map((event, i) => <div className="activity-item" key={event.id || i}><div className="activity-icon"><MapPin size={16} /></div><div className="activity-copy"><strong>{event.event_type || 'Checkpoint'}</strong><span>{event.description || 'Pembaruan perjalanan'}</span><small>{dateTime(event.server_timestamp)}</small></div></div>)}{!events.data?.trackingEvents?.length && <EmptyState title="Belum ada checkpoint" desc="Checkpoint lapangan akan tampil di sini." />}</div>}
       </Card>
-      <Card><PanelHeading title="Kesiapan sistem" description="Sumber data dan layanan inti." />
-        <div className="service-list"><div><span><span className="service-dot online" /> Database production</span><StatusPill value="connected" /></div><div><span><span className="service-dot online" /> Neon Auth</span><StatusPill value="enabled" /></div><div><span><span className="service-dot online" /> PKE API</span><StatusPill value="available" /></div><div><span><span className="service-dot warning" /> Email / SMS</span><StatusPill value="not_configured" /></div></div>
-        <p className="source-note">Status layanan email dan SMS mengikuti konfigurasi backend saat ini.</p>
+      <Card><PanelHeading title="Kesiapan sistem" description="Status service tidak dinyatakan connected/healthy tanpa health-check runtime yang terverifikasi." />
+        <div className="service-list"><div><span>Database production</span><StatusPill value="unverified" /></div><div><span>Neon Auth</span><StatusPill value="unverified" /></div><div><span>PKE API</span><StatusPill value="unverified" /></div><div><span>Email / SMS</span><StatusPill value="not_configured" /></div></div>
+        <p className="source-note">Database, Auth dan API perlu health check yang live. Status konfigurasi Email/SMS belum dikonfirmasi oleh runtime pada dashboard ini.</p>
       </Card>
       <Card className="span-2"><PanelHeading title="Ringkasan biaya & risiko" description="Angka yang belum tersedia pada API ditampilkan sebagai belum dihitung." />
         <div className="insight-grid"><div><span>Biaya committed</span><strong>{p.committedCost != null ? idr(p.committedCost) : 'Belum dihitung'}</strong></div><div><span>Biaya aktual</span><strong>{p.actualCost != null ? idr(p.actualCost) : 'Belum dihitung'}</strong></div><div><span>Piutang terbuka</span><strong>{p.outstandingReceivables != null ? idr(p.outstandingReceivables) : 'Belum dihitung'}</strong></div><div><span>Blocker compliance</span><strong>{p.criticalComplianceBlockers ?? 'Belum dihitung'}</strong></div></div>
@@ -2407,14 +2407,14 @@ function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; o
   const requirements = useLoad<any>(() => id && canDocuments ? get('/projects/'+encodeURIComponent(id)+'/document-requirements') : Promise.resolve({documentRequirements:[]}), [id,canDocuments]);
   const supply = useLoad<any>(() => id && canPks ? get('/projects/'+encodeURIComponent(id)+'/pks-sites') : Promise.resolve({participations:[]}), [id,canPks]);
   const sources = {
-    contracts:{label:'Contracts',rows:contracts.data?.contracts||[],loading:contracts.loading,error:contracts.error,available:canContracts},
-    programs:{label:'Contract Programs',rows:programs.data?.contractPrograms||[],loading:programs.loading,error:programs.error,available:canContracts},
-    tasks:{label:'Work Items',rows:tasks.data?.workItems||[],loading:tasks.loading,error:tasks.error,available:canTasks},
-    inventory:{label:'Inventory Lots',rows:inventory.data?.inventoryLots||[],loading:inventory.loading,error:inventory.error,available:canInventory},
-    trips:{label:'Truck Trips',rows:trips.data?.truckTrips||[],loading:trips.loading,error:trips.error,available:canLogistics},
-    documents:{label:'Documents',rows:documents.data?.documents||[],loading:documents.loading,error:documents.error,available:canDocuments},
-    requirements:{label:'Document Requirements',rows:requirements.data?.documentRequirements||[],loading:requirements.loading,error:requirements.error,available:canDocuments},
-    supply:{label:'PKS Participation',rows:supply.data?.participations||[],loading:supply.loading,error:supply.error,available:canPks},
+    contracts:{label:'Contracts',rows:contracts.data?.contracts||[],loading:contracts.loading,error:contracts.error,available:true,authorized:canContracts},
+    programs:{label:'Contract Programs',rows:programs.data?.contractPrograms||[],loading:programs.loading,error:programs.error,available:true,authorized:canContracts},
+    tasks:{label:'Work Items',rows:tasks.data?.workItems||[],loading:tasks.loading,error:tasks.error,available:true,authorized:canTasks},
+    inventory:{label:'Inventory Lots',rows:inventory.data?.inventoryLots||[],loading:inventory.loading,error:inventory.error,available:true,authorized:canInventory},
+    trips:{label:'Truck Trips',rows:trips.data?.truckTrips||[],loading:trips.loading,error:trips.error,available:true,authorized:canLogistics},
+    documents:{label:'Documents',rows:documents.data?.documents||[],loading:documents.loading,error:documents.error,available:true,authorized:canDocuments},
+    requirements:{label:'Document Requirements',rows:requirements.data?.documentRequirements||[],loading:requirements.loading,error:requirements.error,available:true,authorized:canDocuments},
+    supply:{label:'PKS Participation',rows:supply.data?.participations||[],loading:supply.loading,error:supply.error,available:true,authorized:canPks},
     production:{label:'Production',rows:[],available:false},
     qa:{label:'QA / Lab Release',rows:[],available:false},
     port:{label:'Port / Terminal',rows:[],available:false},

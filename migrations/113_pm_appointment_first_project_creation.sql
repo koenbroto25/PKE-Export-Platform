@@ -141,6 +141,64 @@ CREATE POLICY project_commercial_basis_admin_select ON public.project_commercial
 CREATE POLICY project_commercial_basis_project_select ON public.project_commercial_basis FOR SELECT TO app_runtime_secure USING(public.pke_has_project_permission(project_id,'contract.view'));
 CREATE POLICY pm_project_create_idempotency_self_select ON public.pm_project_create_idempotency FOR SELECT TO app_runtime_secure USING(pm_user_id=public.pke_current_user_id());
 
+-- Narrow function-scoped write policies. The internal flag is set only inside the
+-- SECURITY DEFINER Project-create RPC after the global appointment check.
+DROP POLICY IF EXISTS pke_pm_project_create_projects_insert ON public.projects;
+CREATE POLICY pke_pm_project_create_projects_insert ON public.projects FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND public.pke_current_user_id() IS NOT NULL
+ AND EXISTS(SELECT 1 FROM public.pm_appointments a WHERE a.user_id=public.pke_current_user_id() AND a.status='active'));
+
+DROP POLICY IF EXISTS pke_pm_project_create_contracts_insert ON public.contracts;
+CREATE POLICY pke_pm_project_create_contracts_insert ON public.contracts FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND project_id IS NOT NULL);
+DROP POLICY IF EXISTS pke_pm_project_create_programs_insert ON public.contract_programs;
+CREATE POLICY pke_pm_project_create_programs_insert ON public.contract_programs FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND project_id IS NOT NULL);
+DROP POLICY IF EXISTS pke_pm_project_create_profile_insert ON public.project_operating_profiles;
+CREATE POLICY pke_pm_project_create_profile_insert ON public.project_operating_profiles FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND updated_by=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_project_create_role_insert ON public.project_roles;
+CREATE POLICY pke_pm_project_create_role_insert ON public.project_roles FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND role_code='pm' AND created_by=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_project_create_role_permissions_insert ON public.project_role_permissions;
+CREATE POLICY pke_pm_project_create_role_permissions_insert ON public.project_role_permissions FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND granted_by=public.pke_current_user_id()
+ AND EXISTS(SELECT 1 FROM public.project_roles r WHERE r.id=project_role_id AND r.project_id=project_role_permissions.project_id AND r.role_code='pm'));
+DROP POLICY IF EXISTS pke_pm_project_create_members_insert ON public.project_members;
+CREATE POLICY pke_pm_project_create_members_insert ON public.project_members FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND user_id=public.pke_current_user_id() AND project_role_id IS NULL);
+DROP POLICY IF EXISTS pke_pm_project_create_assignment_insert ON public.project_role_assignments;
+CREATE POLICY pke_pm_project_create_assignment_insert ON public.project_role_assignments FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND user_id=public.pke_current_user_id() AND assigned_by=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_project_create_appointment_insert ON public.pm_appointments;
+CREATE POLICY pke_pm_project_create_appointment_admin_insert ON public.pm_appointments FOR INSERT TO app_runtime_secure
+WITH CHECK (public.pke_is_platform_admin());
+DROP POLICY IF EXISTS pke_pm_project_create_appointment_admin_update ON public.pm_appointments;
+CREATE POLICY pke_pm_project_create_appointment_admin_update ON public.pm_appointments FOR UPDATE TO app_runtime_secure
+USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+DROP POLICY IF EXISTS pke_pm_appointment_event_admin_insert ON public.pm_appointment_events;
+CREATE POLICY pke_pm_appointment_event_admin_insert ON public.pm_appointment_events FOR INSERT TO app_runtime_secure
+WITH CHECK (public.pke_is_platform_admin() AND actor_user_id=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_project_create_ownership_insert ON public.project_pm_ownership;
+CREATE POLICY pke_pm_project_create_ownership_insert ON public.project_pm_ownership FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND pm_user_id=public.pke_current_user_id() AND assigned_by=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_ownership_admin_update ON public.project_pm_ownership;
+CREATE POLICY pke_pm_ownership_admin_update ON public.project_pm_ownership FOR UPDATE TO app_runtime_secure
+USING (public.pke_is_platform_admin()) WITH CHECK (public.pke_is_platform_admin());
+DROP POLICY IF EXISTS pke_pm_ownership_event_insert ON public.project_pm_ownership_events;
+CREATE POLICY pke_pm_ownership_event_insert ON public.project_pm_ownership_events FOR INSERT TO app_runtime_secure
+WITH CHECK ((current_setting('app.pke_pm_project_create',true)='on' AND actor_user_id=public.pke_current_user_id())
+ OR (public.pke_is_platform_admin() AND actor_user_id=public.pke_current_user_id()));
+DROP POLICY IF EXISTS pke_pm_project_create_basis_insert ON public.project_commercial_basis;
+CREATE POLICY pke_pm_project_create_basis_insert ON public.project_commercial_basis FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND recorded_by=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_project_create_idempotency_insert ON public.pm_project_create_idempotency;
+CREATE POLICY pke_pm_project_create_idempotency_insert ON public.pm_project_create_idempotency FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND pm_user_id=public.pke_current_user_id());
+DROP POLICY IF EXISTS pke_pm_project_create_audit_insert ON public.audit_events;
+CREATE POLICY pke_pm_project_create_audit_insert ON public.audit_events FOR INSERT TO app_runtime_secure
+WITH CHECK (current_setting('app.pke_pm_project_create',true)='on' AND actor_user_id=public.pke_current_user_id() AND project_id IS NOT NULL);
+
 GRANT SELECT ON public.pm_appointments,public.pm_appointment_events,public.project_pm_ownership,public.project_pm_ownership_events,public.project_commercial_basis,public.pm_project_create_idempotency TO app_runtime_secure;
 
 CREATE OR REPLACE FUNCTION public.pke_admin_appoint_pm(p_user_id uuid,p_reason text)
@@ -218,6 +276,7 @@ BEGIN
  IF NOT FOUND THEN RAISE EXCEPTION 'Active global PM appointment required' USING ERRCODE='42501'; END IF;
  SELECT * INTO v_buyer FROM public.buyers WHERE id=p_buyer_id AND is_active=true;
  IF NOT FOUND THEN RAISE EXCEPTION 'Active Buyer not found' USING ERRCODE='P0002'; END IF;
+ PERFORM set_config('app.pke_pm_project_create','on',true);
  SELECT response INTO v_result FROM public.pm_project_create_idempotency WHERE pm_user_id=v_pm AND idempotency_key=p_idempotency_key;
  IF FOUND THEN RETURN v_result||jsonb_build_object('idempotentReplay',true); END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended(v_pm::text||':project-create',0));

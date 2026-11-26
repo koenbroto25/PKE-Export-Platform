@@ -1804,3 +1804,91 @@ This is a static, offline schema/registry/assessment utility. It does not invoke
 3. Add 100+ dependency/evidence combinations and scenario-based lifecycle tests.
 4. Expand AI benchmark toward 300–500 curated cases, with source-citation/abstention/role-scope rubric.
 5. Build offline retrieval prototype only after source/version/review and permission checks are demonstrably enforced.
+
+
+## Approved continuation plan — UX correlation + AI system maturity (26 November 2026)
+
+**Owner approval:** The next work packages below are approved. Update this master plan before implementation, then execute sequentially with evidence and tests. Keep the working branch `p20/platform-continuation-20261123`. Do not deploy to Vercel (daily quota), modify Neon/Production, apply migrations, or merge/rebase unless separately authorized.
+
+### Phase A — API-backed cross-process correlation contracts (P0)
+- [ ] Define a permission-safe DTO for process-edge evidence summaries: project scope, edge ID, evidence status, freshness, missing evidence count, blocker category, source workspace/link, last-updated timestamp and safe next action. Do not expose raw private records, document contents, personal data or cross-project identifiers.
+- [ ] Define role-scoped server/API contract and explicit authorization rules; verify project membership and edge-specific source permissions server-side, not only in frontend gates.
+- [ ] Cover statuses `satisfied`, `gap`, `blocked`, `stale`, `unknown`, `not-applicable`; unknown/stale/missing must never imply operational readiness.
+- [ ] Add contract tests for anonymous access, role denial, project isolation, record-level scope, stale/missing evidence, malformed/partial source payloads and fail-closed behavior.
+- [ ] Use synthetic fixtures only initially. No DB migration or Production/API live-data integration in this phase.
+- [ ] Wire PM Project 360 to an explicit demo/mock adapter only where data provenance is visible; retain the “not live / simulation” label until an authorized source endpoint is verified.
+
+**Acceptance:** DTO schema and tests pass; no raw sensitive payload; role/project isolation contracts pass; frontend accurately distinguishes mock, unavailable, stale and live states.
+
+### Phase B — Dependency/evidence scenario matrix (P0)
+- [ ] Expand deterministic process dependency tests to at least 100 combinations, including multi-edge propagation, missing evidence, stale evidence, contradictory evidence, quantity/unit mismatch, blocked upstream, partial completion, unknown state, not-applicable and recovery after correction.
+- [ ] Add lifecycle-level synthetic scenarios for contract→supply→production→quality→inventory→transport→port→loading→documents→customs→voyage→settlement, with expected status propagation and persona ownership.
+- [ ] Test that a downstream “satisfied” state cannot override an upstream blocker and that evidence completeness is not equivalent to business approval.
+- [ ] Produce a coverage summary by lifecycle edge, fault type, persona and recovery path.
+
+**Acceptance:** ≥100 deterministic cases; reproducible fixtures; CI coverage assertions; no false-ready case in the matrix.
+
+### Phase C — Knowledge review queue UX (P0/P1, read-only/demo first)
+- [ ] Build reviewer queue views for new/changed/expired/invalid/conflicting sources and observations.
+- [ ] Show provenance, scope, fingerprint/version, comparison result, confidence rationale, limitations, permitted AI-use and prohibited inference.
+- [ ] Provide explicit review states and decision-note affordances in demo/read-only mode; do not persist reviewer decisions until an approved backend exists.
+- [ ] Gate review actions by role in UI and document server-side enforcement as required before live use.
+- [ ] Add empty/loading/error/denied/stale/conflict states and responsive/accessibility contract tests.
+
+**Acceptance:** reviewers can inspect why an item is queued; no source is auto-promoted to verified; UI does not imply persistence or live ingestion.
+
+### Phase D — AI evaluation benchmark expansion (P0 foundation)
+- [ ] Grow benchmark from current 50 cases (30 researched PKE fixtures + 20 knowledge cases) toward 300–500 curated cases in increments.
+- [ ] Add coverage for grounded citations, source authority/scope, freshness, conflicting sources, source changes, entity resolution, HS/product classification uncertainty, destination requirements, document/quantity reconciliation, unit/basis mismatch, process dependency propagation, role/privacy isolation, prompt injection from retrieved sources, unsafe overclaiming, and mandatory abstention at approval/certification/release/payment boundaries.
+- [ ] Store expected answer traits, forbidden claims, citation requirements, confidence/uncertainty expectations, role scope, and abstention criteria. Avoid brittle exact-text scoring where semantic rubric is more appropriate.
+- [ ] Add evaluator report by risk class and regression deltas; maintain separate “fixture pass” vs “model evaluated” status.
+- [ ] No live LLM/model invocation or production AI rollout until benchmark harness, privacy controls, retrieval provenance and human decision boundaries are independently reviewed.
+
+**Acceptance:** benchmark count and taxonomy are test-enforced; benchmark fixtures are deterministic; no claim of model quality before an actual model evaluation.
+
+### Phase E — Offline retrieval prototype (gated)
+- [ ] Only after source registry/version/review, permission and benchmark gates pass: implement a local/offline retrieval prototype using reviewed sources and synthetic records.
+- [ ] Retrieval results must carry source IDs/version/fingerprint, scope, freshness and limitation metadata; reject or flag unreviewed/expired/out-of-scope content.
+- [ ] Test role-filtering before retrieval and after ranking; verify no cross-project/private source leakage.
+- [ ] Treat retrieved text as untrusted input; add prompt-injection fixtures and ignore source instructions that attempt to override system/application policy.
+- [ ] AI output format standard: **Finding → Evidence → Source/version → Confidence/uncertainty → Missing information → Risk → Suggested action → Decision owner**.
+- [ ] The system must not make authority decisions: supplier approval, QC release, loading authorization, customs clearance/certification, payment approval or legal determination.
+
+**Acceptance gate:** source review and permission checks are enforced; citation traceability and abstention pass regression tests; prototype remains offline/demo-only.
+
+### Phase F — Role-focused AI assist pilots (design/test only until gated)
+- [ ] PM: project-wide dependency and blocker summaries.
+- [ ] Procurement: supplier/spec/evidence comparison; no supplier approval.
+- [ ] QA/QC: lot-vs-contract evidence and discrepancy summary; no lot release.
+- [ ] Warehouse/logistics: inventory, route/port candidate and custody discrepancy summaries; candidates must not be represented as approved.
+- [ ] Export documentation: checklist and cross-document discrepancy detection; no customs/certification authority.
+- [ ] Finance: reconciliation and evidence completeness; no payment authorization.
+- [ ] Admin: governance exception summaries from authoritative sources only; unknown integrations remain unknown.
+- [ ] Each pilot uses the standard output schema, source citations, role scope, confidence and human owner.
+
+### UX/architecture validation across all phases
+- [ ] Review navigation and deep links for each lifecycle stage and role; ensure source workspace links resolve to existing routes.
+- [ ] Map route→component→API→permission for new endpoints and panels.
+- [ ] Add responsive, keyboard and accessibility checks; browser QA must be reported only when actually executed.
+- [ ] Avoid broad `App.tsx` rewrites; extract modules incrementally with tests and explicit state/permission boundaries.
+- [ ] Include realistic synthetic backtests: normal, partial, delayed, stale, conflicting, missing, duplicate, cancelled, correction, recovery and role handoff.
+
+### Execution order and checkpoint policy
+1. **Master plan update (this section) — DONE before implementation.**
+2. Phase A DTO/API authorization contracts and tests.
+3. Phase B 100+ dependency scenario matrix and coverage report.
+4. Phase C Knowledge Review Queue read-only/demo UX.
+5. Phase D benchmark expansion in measured batches (first target ≥100, then ≥200, then 300–500).
+6. Phase E offline retrieval only after gates; Phase F role pilots as evaluation fixtures first.
+7. Update this plan and the UX execution report at each checkpoint; record commit, exact CI run, pass/fail, known gaps and external-owner dependencies.
+
+### Non-negotiable safeguards
+- Vercel deployment remains skipped due quota.
+- No Neon/Production database changes, migrations, live ingestion or model API calls without separate approval.
+- No fabricated live status; simulation/demo/mock and live evidence must be visually and semantically distinct.
+- Regulatory sources require jurisdiction/product/destination/HS scope review. Permendag 16/2026 inclusion of PKE is not assumed.
+- Never expose secrets, raw private records, cross-project data or personal information in AI context/evaluation logs.
+- Human authority and maker-checker controls remain outside AI decision scope.
+
+### Current checkpoint
+Plan approved; execution not yet started for Phases A–F in this section. Existing foundation is verified as: 165 deterministic simulation scenarios, 50 AI evaluation fixtures, source registry/fingerprinting/review state machine, 11 lifecycle dependency edges and design-level PM dependency panel. Latest confirmed CI code run #2248 passed; later documentation-only CI status is not yet confirmed. Browser QA, API-backed live correlation, source ingestion, reviewer persistence and LLM runtime remain NOT DONE.

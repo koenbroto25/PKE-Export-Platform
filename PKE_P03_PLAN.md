@@ -2183,3 +2183,12 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - [x] Wired to root CI test command.
 - [ ] Latest CI pending.
 - [ ] Browser-based interaction/accessibility test remains open because the repository does not currently include a browser E2E test runner; frontend build/typecheck is still the current automated UI baseline.
+
+
+## Phase L — Role Dashboard Source Coverage Audit
+- [x] Audit the shared dashboard's actual data loader: Project, portfolio, work-items, contracts/programs, warehouse receipts, inventory lots, truck trips, shipment allocations, documents/requirements, AP/AR, cash advances, journals, project reports; P17 control tower only for platform admin.
+- [x] Added tests for explicit API source coverage, unknown-on-error/missing data (never silently zero), critical stage labels marked not-integrated, and PM Project 360 evidence-not-readiness language.
+- [x] Gap list is explicit: production/packing/QC/Lab/QA metrics; vessel/port-call/loading/survey/laytime readiness; official customs/permit status; cross-source quantity/document reconciliation; offline field photo/barcode/signature/sync conflict; bank execution/reconciliation.
+- [x] Phase K permission audit found a frontend compliance page-gate defect: `project.view` alone could satisfy the compliance route requirement. Fixed it so page access requires a non-external compliance-specific permission; added regression assertion.
+- [ ] Latest CI for Phase L pending.
+- [ ] Actual data APIs and role-specific workflow integrations remain separate implementation gates.

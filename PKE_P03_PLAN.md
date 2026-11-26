@@ -2443,3 +2443,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ## Admin Control Tower nested metric truthfulness — 2026-11-26
 - Found nested Control Tower metrics were using `?? 0`, so missing nested payload could be presented as actual zero. Changed missing/null nested values to em-dash; explicit zero remains numeric zero.
 - Regression coverage added for shipment count, planned quantity, loading, voyage, nominations, port calls, approved documents, overdue work items, and exceptions. CI pending.
+
+
+## Admin Control Tower nested metric validation checkpoint — 2026-11-26
+- Regression run `45832580637`, commit `6322c7aa8c66c34be8faf2d6674c1ca017cbccc4`: SUCCESS — 80 test files / 763 tests; P19 assurance, migration release policy/dry-run, backend/frontend typecheck/build PASS.
+- Missing nested metric payloads now display unknown; explicit zero values remain visible. Final docs-only CI pending.

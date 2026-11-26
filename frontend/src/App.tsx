@@ -392,10 +392,10 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
     {activeUser?.platformAdmin === true && <AdminControlCenter portfolio={portfolio.data || undefined} projects={projects.data?.projects} workItems={canViewTasks && !workItems.loading && !workItems.error ? workItems.data?.workItems : undefined} selectedProjectId={projectId} loading={portfolio.loading || projects.loading} errors={[portfolio.error, projects.error, canViewTasks && !workItems.loading ? workItems.error : ''].filter((value): value is string => Boolean(value))} freshness={p.dataFreshness} refresh={refresh} />}
     {loading && <Loading />}
     <div className="metric-grid">
-      <Metric label="Proyek aktif" value={number(activeProjectCount, 0)} foot="Proyek yang terlihat oleh akun" icon={BriefcaseBusiness} tone="navy" />
-      <Metric label="Target volume" value={`${number(visibleContractVolume)} MT`} foot="Akumulasi target proyek yang terlihat" icon={Boxes} tone="blue" />
-      <Metric label="Anggaran RAB" value={activeUser?.platformAdmin === true ? idr(p.approvedBudget) : "—"} foot={activeUser?.platformAdmin === true ? "Nilai anggaran aktif" : "Ringkasan RAB tersedia di Finance Workspace"} icon={CircleDollarSign} tone="amber" />
-      <Metric label="Perjalanan truk" value={number(visibleTripCount, 0)} foot="Trip dalam cakupan yang dipilih" icon={Truck} tone="green" />
+      <Metric label="Proyek aktif" value={activeProjectCount === null ? "—" : number(activeProjectCount, 0)} foot="Proyek yang terlihat oleh akun" icon={BriefcaseBusiness} tone="navy" />
+      <Metric label="Target volume" value={visibleContractVolume === null ? "—" : `${number(visibleContractVolume)} MT`} foot="Akumulasi target proyek yang terlihat" icon={Boxes} tone="blue" />
+      <Metric label="Anggaran RAB" value={activeUser?.platformAdmin === true && p.approvedBudget !== null && p.approvedBudget !== undefined && !portfolio.error ? idr(p.approvedBudget) : "—"} foot={activeUser?.platformAdmin === true ? "Nilai anggaran aktif" : "Ringkasan RAB tersedia di Finance Workspace"} icon={CircleDollarSign} tone="amber" />
+      <Metric label="Perjalanan truk" value={visibleTripCount === null ? "—" : number(visibleTripCount, 0)} foot="Trip dalam cakupan yang dipilih" icon={Truck} tone="green" />
     </div>
     {!projectId && activeUser?.platformAdmin !== true && <div className="inline-warning"><CircleAlert size={17} /> Pilih Project pada bagian atas untuk membuka ringkasan operasional Project.</div>}
     {canViewTasks && <Card><PanelHeading title="PM Control Tower · Tindak lanjut" description="Tugas, instruksi dan exception yang tercatat pada Project aktif." action={<Link className="inline-link" to="/my-work">Buka work queue <ArrowRight size={14} /></Link>} />

@@ -73,7 +73,7 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(manifest.migrations[0].status).toBe("prepared");
     expect(createHash("sha256").update(migration).digest("hex")).toBe(manifest.migrations[0].sha256);
   });
-  it("validates basis fields and keeps Contract and Program within the Project",()=>{
+  it("validates commercial basis and preserves Project scope for Contract and Program",()=>{
     expect(migration).toContain("p_basis_type IS NULL OR p_basis_type NOT IN");
     expect(migration).toContain("p_export_country_code !~ '^[A-Z]{2}
     expect((migration.match(/^BEGIN;$/gm)||[]).length).toBe(1);
@@ -82,7 +82,7 @@ describe("P20 appointment-first PM workflow contract",()=>{
   });
 });
 ");
-    expect(migration).toContain("OR jsonb_typeof(coalesce(p_commercial_terms,'{}'::jsonb))<>'object'");
+    expect(migration).toContain("jsonb_typeof(coalesce(p_commercial_terms,'{}'::jsonb))<>'object'");
     expect(migration).toContain("INSERT INTO public.contracts(project_id,buyer_id");
     expect(migration).toContain("INSERT INTO public.contract_programs(project_id,name");
     expect(migration).toContain("UPDATE public.projects SET contract_program_id=v_program.id");

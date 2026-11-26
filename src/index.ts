@@ -2420,99 +2420,10 @@ app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Requ
 // ============================================
 // Project create (transaction: project + contract program + roles + module config)
 // ============================================
-app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const {
-    contractProgramId, name, description, status, settlementUnit, targetQuantity,
-    exportCountryCode, createContractProgram
-  } = req.body ?? {};
-  if (typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() || !isPositiveQuantity(targetQuantity)) {
-    return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity" });
-  }
-  const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ error: "Authenticated user required" });
-
-  // Use request-scoped RLS transaction client (req.db). Savepoint keeps atomicity within middleware-managed tx.
-  const dbClient = req.db;
-  try {
-    await dbClient.query("SAVEPOINT project_create");
-    try {
-      if (contractProgramId || createContractProgram) {
-        throw Object.assign(new Error("Contract Programs are created by the Project Manager after Project setup."), { status: 400 });
-      }
-      const { rows: projectRows } = await dbClient.query(
-        `INSERT INTO projects
-          (name, description, status, settlement_unit, target_quantity,
-           export_country_code, is_active, created_at, updated_at)
-         VALUES ($1::text, $2::text, $3::text, $4::text, $5::numeric, $6::text, true, now(), now())
-         RETURNING *`,
-        [name, description || null, status || "draft", settlementUnit, targetQuantity, exportCountryCode || null]
-      );
-      const project = projectRows[0];
-      const projectId = project.id;
-      const defaultConfiguration = {
-        schema_version: 1,
-        modules: {
-          pks: { enabled: false }, supplier: { enabled: false }, product_specs: { enabled: true },
-          procurement: { enabled: false }, inventory: { enabled: false }, trucking: { enabled: false },
-          warehouse: { enabled: false }, port_operations: { enabled: false }, loading: { enabled: false },
-          vessel: { enabled: false }, voyage: { enabled: false }, shipment: { enabled: false },
-          tracking: { enabled: false }, documents: { enabled: true }, compliance: { enabled: true },
-          finance: { enabled: false }, accounting: { enabled: false }, fx: { enabled: false },
-          financing: { enabled: false }, reporting: { enabled: false }, visual_reporting: { enabled: false },
-          workflow: { enabled: true }, approvals: { enabled: true }, notifications: { enabled: true }
-        }
-      };
-      await dbClient.query(
-        `INSERT INTO project_operating_profiles
-          (project_id, logistics_mode, uses_trucking, pks_owns_or_controls_port, financing_enabled,
-           financier_reporting_required, configuration, updated_by, created_at, updated_at)
-         VALUES ($1::uuid, 'unspecified', false, false, false, false, $2::jsonb, $3::uuid, now(), now())
-         ON CONFLICT (project_id) DO NOTHING`,
-        [projectId, JSON.stringify(defaultConfiguration), userId]
-      );
-      // New Projects start with only the PM appointment slot. Platform Admin
-      // appoints the PM explicitly; operational templates are activated later
-      // by that PM and activation never creates user membership.
-      const pmTemplate = getCanonicalRoleTemplate("pm");
-      if (!pmTemplate) throw Object.assign(new Error("Canonical PM template is missing."), { status: 500 });
-      const { rows: pmRoleRows } = await dbClient.query(
-        `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
-         VALUES ($1::uuid, 'pm', $2::text, $3::text, true, $4::uuid, now(), now())
-         RETURNING id`,
-        [projectId, pmTemplate.label, pmTemplate.restrictions.join(" "), userId],
-      );
-      const pmRoleId = pmRoleRows[0].id;
-      const { rows: permissionRows } = await dbClient.query(
-        "SELECT id, code FROM permissions WHERE code = ANY($1::text[]) AND is_active = true",
-        [pmTemplate.permissionCodes],
-      );
-      const foundCodes = new Set(permissionRows.map((row: any) => row.code));
-      const missingCodes = pmTemplate.permissionCodes.filter((code) => !foundCodes.has(code));
-      if (missingCodes.length > 0) {
-        throw Object.assign(new Error(`Canonical PM permissions are missing: ${missingCodes.join(", ")}`), { status: 409 });
-      }
-      for (const permission of permissionRows) {
-        await dbClient.query(
-          `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
-           ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
-          [projectId, pmRoleId, permission.id, userId],
-        );
-      }
-      const createdRoles = [{ projectRoleId: pmRoleId, roleCode: "pm", name: pmTemplate.label, awaitingAppointment: true }];
-      await dbClient.query("RELEASE SAVEPOINT project_create");
-      res.status(201).json({ project, roles: createdRoles });
-      return;
-    } catch (error) {
-      await dbClient.query("ROLLBACK TO SAVEPOINT project_create").catch(() => {});
-      await dbClient.query("RELEASE SAVEPOINT project_create").catch(() => {});
-      throw error;
-    }
-  } catch (error) {
-    const rawStatus = (error as any)?.status;
-    const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus < 500 ? rawStatus : 500;
-    res.status(status).json(status === 500 ? internalServerErrorPayload() : requestRejectedPayload());
-  }
+// New Projects follow the appointment-first business workflow. Admin appoints PM;
+// the appointed PM creates Projects from Buyer agreements/contracts.
+app.post("/api/v1/projects", requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
+  return res.status(410).json({error:"Admin Project-shell creation is retired. Appoint a PM globally; the appointed PM creates the Project from the Buyer agreement/contract.",code:"APPOINTMENT_FIRST_WORKFLOW_REQUIRED"});
 });
 
 // Phase 5: Export Compliance Endpoints
@@ -7217,7 +7128,7 @@ app.get("/api/v1/pm/appointment/me", requireAuth, async (req: express.Request, r
     const { rows } = await req.db.query(
       `SELECT id,status,appointed_at,status_changed_at,status_reason
          FROM public.pm_appointments WHERE user_id=$1::uuid
-         ORDER BY appointed_at DESC LIMIT 1`, [req.user?.id],
+         ORDER BY updated_at DESC LIMIT 1`, [req.user?.id],
     );
     return res.json({ appointment: rows[0] ?? null, canCreateProject: rows[0]?.status === "active" });
   } catch { return res.status(503).json({ error: "PM appointment service unavailable.", code: "PM_APPOINTMENT_SCHEMA_NOT_READY" }); }

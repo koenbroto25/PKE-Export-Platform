@@ -287,3 +287,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## PM360 classification regression checkpoint
 - First run `45832214250` failed one outdated assertion after source-state classification was corrected; 761/762 tests passed. The assertion was updated to the new intentional behavior.
 - Corrected regression run `45832266123`: SUCCESS — 80 files / 762 tests; backend/frontend build/typecheck and release checks PASS.
+
+## Admin Control Tower nested metric audit
+- Missing nested data previously defaulted to zero across shipment/loading/voyage/nominations/port calls/documents/work-items KPIs. Now missing values render em-dash; explicit zero is preserved.
+- Regression assertions added. CI pending.

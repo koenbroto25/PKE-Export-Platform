@@ -50,6 +50,9 @@ export default function PMProject360({ project, sources, projectId, freshness, a
         let sourceKey=stage.key;
         if(stage.key==='contracts') sourceKey='contracts';
         if(stage.key==='supply') sourceKey='supply';
+        if(stage.key==='warehouse') sourceKey='inventory';
+        if(stage.key==='transport') sourceKey='trips';
+        if(stage.key==='documents') sourceKey='documents';
         if(stage.key==='production'||stage.key==='qa'||stage.key==='port'||stage.key==='loading'||stage.key==='voyage'||stage.key==='finance') sourceKey=stage.key;
         const source=sources[sourceKey];
         const state: 'available'|'partial'|'unavailable'|'unknown' = source ? sourceState(sourceKey) : 'unavailable';

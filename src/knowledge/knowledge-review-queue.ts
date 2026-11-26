@@ -13,6 +13,7 @@ export function transitionReviewItem(input:ReviewTransitionInput):ReviewTransiti
  if(!actor.permissions.includes("knowledge.review.decide"))return{ok:false,code:"REVIEW_DECISION_DENIED",message:"Human review permission is required."};
  if(!validTime(at)||Date.parse(at)<Date.parse(item.createdAt))return{ok:false,code:"INVALID_REVIEW_TIME",message:"Review timestamp must be valid and not precede item creation."};
  if(["verified","rejected"].includes(item.status))return{ok:false,code:"TERMINAL_REVIEW",message:"Terminal review cannot be changed; create a new review item with linked provenance."};
+ if(item.assignedReviewerId&&item.assignedReviewerId!==actor.id&&!actor.permissions.includes("knowledge.review.override"))return{ok:false,code:"ASSIGNED_REVIEWER_ONLY",message:"Only the assigned reviewer or explicit override permission may act on this item."};
  if(decision==="assign"){if(!assignTo?.trim())return{ok:false,code:"ASSIGNEE_REQUIRED",message:"Assignment target is required."};return{ok:true,item:{...item,status:"assigned",assignedReviewerId:assignTo,updatedAt:at}};}
  if(!note?.trim())return{ok:false,code:"DECISION_NOTE_REQUIRED",message:"A human decision note is required."};
  if(decision==="verify")return{ok:true,item:{...item,status:"verified",decisionNote:note,updatedAt:at,decisionAt:at}};

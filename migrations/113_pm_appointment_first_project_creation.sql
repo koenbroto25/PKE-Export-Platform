@@ -71,6 +71,41 @@ CREATE TABLE IF NOT EXISTS public.project_commercial_basis (
 );
 CREATE INDEX IF NOT EXISTS project_commercial_basis_buyer_idx ON public.project_commercial_basis(buyer_id,created_at DESC);
 
+-- Backfill active Project PM appointments into the new global appointment model.
+-- Existing assignment history remains untouched; this only creates a platform appointment
+-- and current-ownership index for users/projects with one verified active PM assignment.
+INSERT INTO public.pm_appointments(user_id,status,appointed_by,appointed_at)
+SELECT DISTINCT a.user_id,'active',coalesce(a.assigned_by,a.user_id),min(a.assigned_at)
+  FROM public.project_role_assignments a
+  JOIN public.project_roles r ON r.id=a.project_role_id AND r.project_id=a.project_id AND r.role_code='pm'
+  JOIN public.project_members m ON m.id=a.project_member_id AND m.project_id=a.project_id AND m.user_id=a.user_id
+  JOIN public.users u ON u.id=a.user_id AND u.is_active=true AND u.neon_auth_user_id IS NOT NULL
+ WHERE a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+   AND m.is_active=true AND m.deactivated_at IS NULL AND (m.expires_at IS NULL OR m.expires_at>now())
+ GROUP BY a.user_id
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.pm_appointment_events(appointment_id,user_id,actor_user_id,event_code,reason,after_snapshot)
+SELECT ap.id,ap.user_id,ap.appointed_by,'appointed','Legacy active Project PM assignment backfill',to_jsonb(ap)
+ FROM public.pm_appointments ap
+ WHERE ap.appointed_at IS NOT NULL
+   AND NOT EXISTS(SELECT 1 FROM public.pm_appointment_events ev WHERE ev.appointment_id=ap.id)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.project_pm_ownership(project_id,pm_user_id,appointment_id,assigned_by,assigned_at)
+SELECT a.project_id,a.user_id,ap.id,coalesce(a.assigned_by,a.user_id),a.assigned_at
+ FROM public.project_role_assignments a
+ JOIN public.project_roles r ON r.id=a.project_role_id AND r.project_id=a.project_id AND r.role_code='pm'
+ JOIN public.pm_appointments ap ON ap.user_id=a.user_id AND ap.status='active'
+ WHERE a.is_active=true AND a.revoked_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())
+ON CONFLICT(project_id) DO NOTHING;
+
+INSERT INTO public.project_pm_ownership_events(project_id,to_pm_user_id,actor_user_id,reason)
+SELECT o.project_id,o.pm_user_id,o.assigned_by,'Legacy PM assignment backfill'
+ FROM public.project_pm_ownership o
+ WHERE NOT EXISTS(SELECT 1 FROM public.project_pm_ownership_events ev WHERE ev.project_id=o.project_id)
+ON CONFLICT DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS public.pm_project_create_idempotency (
   pm_user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
   idempotency_key uuid NOT NULL,

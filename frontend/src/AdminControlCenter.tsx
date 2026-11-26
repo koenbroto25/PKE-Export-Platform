@@ -8,7 +8,8 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
   portfolio?: Row; projects?: Row[]; workItems?: Row[]; selectedProjectId?: string;
   loading?: boolean; errors?: string[]; freshness?: string | null; refresh?: () => void;
 }) {
-  const projectRows = projects || [];
+  const projectSourceAvailable = Array.isArray(projects);
+  const projectRows = projectSourceAvailable ? projects : [];
   const taskSourceAvailable = Array.isArray(workItems);
   const tasks = workItems || [];
   const overdue = tasks.filter(t => t.is_overdue === true);
@@ -18,17 +19,18 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
   const uniqueExceptions = Array.from(new Map(exceptionRows.map(t => [String(t.id || t.title || JSON.stringify(t)), t])).values())
     .sort((a,b) => Number(b.is_overdue===true)-Number(a.is_overdue===true) || Number(b.status==='blocked')-Number(a.status==='blocked'));
   const exceptionCount = uniqueExceptions.length;
-  const activeCount = portfolio?.activeProjects ?? projectRows.filter(p => p.status === 'active').length;
-  const volume = portfolio?.contractVolume ?? projectRows.reduce((n,p)=>n+Number(p.target_quantity||0),0);
+  const activeCount = portfolio?.activeProjects ?? (projectSourceAvailable && projectRows.every(p => typeof p.status === 'string') ? projectRows.filter(p => p.status === 'active').length : '—');
+  const projectVolumeKnown = projectSourceAvailable && projectRows.every(p => p.target_quantity !== null && p.target_quantity !== undefined && Number.isFinite(Number(p.target_quantity)));
+  const volume = portfolio?.contractVolume ?? (projectVolumeKnown ? projectRows.reduce((n,p)=>n+Number(p.target_quantity),0) : '—');
   const hasPortfolio = portfolio && Object.keys(portfolio).length > 0;
   return <div className="admin-control-center">
     <UXPanel title="Admin Control Center" subtitle="Portfolio oversight, governance entry points, and verified operational attention. Unknown indicators are not treated as healthy." action={<button className="secondary-button" onClick={refresh} disabled={loading}>Refresh</button>}>
       {errors?.length ? <UXError title="Sebagian sumber tidak dapat diverifikasi" detail={errors.join(' · ')} retry={refresh}/> : null}
       {loading && <div className="muted">Memuat sumber portofolio…</div>}
       <div className="ux-metric-grid">
-        <UXMetric label="Project terlihat" value={projectRows.length} detail="API /projects" state={projects ? 'available' : 'unknown'}/>
-        <UXMetric label="Project aktif" value={activeCount ?? '—'} detail="Status portfolio / project" state={hasPortfolio ? 'available' : 'partial'}/>
-        <UXMetric label="Target volume" value={Number.isFinite(Number(volume)) ? Number(volume).toLocaleString('id-ID')+' MT' : '—'} detail="Target agregat, bukan volume aktual" state={projects ? 'available' : 'unknown'}/>
+        <UXMetric label="Project terlihat" value={projectSourceAvailable ? projectRows.length : '—'} detail="API /projects" state={projectSourceAvailable ? 'available' : 'unknown'}/>
+        <UXMetric label="Project aktif" value={activeCount ?? '—'} detail="Status portfolio / project" state={hasPortfolio ? 'available' : projectSourceAvailable ? 'partial' : 'unknown'}/>
+        <UXMetric label="Target volume" value={Number.isFinite(Number(volume)) ? Number(volume).toLocaleString('id-ID')+' MT' : '—'} detail="Target agregat, bukan volume aktual" state={hasPortfolio || projectVolumeKnown ? 'available' : 'unknown'}/>
         <UXMetric label="Task exception" value={taskSourceAvailable ? exceptionCount : '—'} detail={taskSourceAvailable ? overdue.length+' overdue · '+blocked.length+' blocked · '+unassigned.length+' unassigned' : 'Task source belum dapat diverifikasi'} state={taskSourceAvailable ? (overdue.length+blocked.length+unassigned.length ? 'partial':'available') : 'unknown'}/>
       </div>
       <UXFreshness source="Portfolio API" value={freshness}/>
@@ -54,7 +56,7 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
         {uniqueExceptions.length>8 ? <p className="muted">Menampilkan 8 dari {uniqueExceptions.length} task exception unik. Buka Work Queue untuk daftar lengkap.</p> : null}
       </UXPanel>
     <UXPanel title="Project attention list" subtitle="Project yang dapat diakses API. Belum ada auto-judgement kesiapan operasional.">
-      {errors?.length ? <UXError detail="Daftar project atau portfolio gagal diverifikasi."/> : projectRows.length ? <div className="ux-exception-list">{projectRows.slice(0,8).map(p=><div className="ux-exception" key={p.id}><div className="ux-exception-copy"><strong>{p.name || 'Project tanpa nama'}</strong><span>Status: {p.status || 'unknown'} · Target: {p.target_quantity ?? '—'} {p.settlement_unit || 'MT'}</span><small>{p.id}</small></div><Link className="ux-action-link" to={'/projects/'+encodeURIComponent(p.id)}>Review →</Link></div>)}</div> : <UXEmpty title="Belum ada project dalam source" description="Project list API belum mengembalikan record atau belum dimuat."/>}
+      {errors?.length ? <UXError detail="Daftar project atau portfolio gagal diverifikasi."/> : projectSourceAvailable && projectRows.length ? <div className="ux-exception-list">{projectRows.slice(0,8).map(p=><div className="ux-exception" key={p.id}><div className="ux-exception-copy"><strong>{p.name || 'Project tanpa nama'}</strong><span>Status: {p.status || 'unknown'} · Target: {p.target_quantity ?? '—'} {p.settlement_unit || 'MT'}</span><small>{p.id || 'ID tidak tersedia'}</small></div>{typeof p.id === 'string' && p.id ? <Link className="ux-action-link" to={'/projects/'+encodeURIComponent(p.id)}>Review →</Link> : <span className="ux-stage-meta">ID Project tidak tersedia</span></div>)}</div> : projectSourceAvailable && projectRows.length===0 ? <UXEmpty title="Belum ada project dalam source" description="Project list API terverifikasi mengembalikan nol record."/> : <UXStateBadge state="unknown" label="Project source belum terverifikasi"/>}
     </UXPanel>
     <div className="ux-exception-list">
       <UXPanel title="Security & governance"><p className="muted">Review wajib tetap melalui Access page dan API audit. Panel tidak menyimpulkan akun/membership sehat tanpa hasil audit.</p><UXStateBadge state="unknown" label="Audit status belum dihitung"/><Link className="ux-action-link" to="/access">Review governance →</Link></UXPanel>

@@ -6923,6 +6923,13 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     if (userRows[0].is_active !== true || !userRows[0].neon_auth_user_id) {
       return res.status(409).json({ error: "PM must have an active PKE account and linked Neon Auth identity.", code: "PM_USER_NOT_READY" });
     }
+    const { rows: globalAppointmentRows } = await req.db.query(
+      "SELECT id FROM public.pm_appointments WHERE user_id = $1::uuid AND status = 'active' LIMIT 1",
+      [userId],
+    );
+    if (globalAppointmentRows.length !== 1) {
+      return res.status(409).json({ error: "PM must be globally appointed before being assigned to an existing Project.", code: "GLOBAL_PM_APPOINTMENT_REQUIRED" });
+    }
 
     let { rows: pmRoleRows } = await req.db.query(
       "SELECT id FROM public.project_roles WHERE project_id = $1::uuid AND role_code = 'pm' AND is_active = true LIMIT 1 FOR UPDATE",
@@ -7050,6 +7057,21 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
       [projectId, appointed.id, userId, pmRoleId, req.user?.id],
     );
     const pmAssignment = assignmentResult[0];
+    const { rows: previousOwnershipRows } = await req.db.query(
+      "SELECT pm_user_id FROM public.project_pm_ownership WHERE project_id = $1::uuid FOR UPDATE",
+      [projectId],
+    );
+    await req.db.query(
+      `INSERT INTO public.project_pm_ownership(project_id,pm_user_id,appointment_id,assigned_by,assigned_at,updated_at)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,now(),now())
+       ON CONFLICT(project_id) DO UPDATE SET pm_user_id=EXCLUDED.pm_user_id,appointment_id=EXCLUDED.appointment_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`,
+      [projectId,userId,globalAppointmentRows[0].id,req.user?.id],
+    );
+    await req.db.query(
+      `INSERT INTO public.project_pm_ownership_events(project_id,from_pm_user_id,to_pm_user_id,actor_user_id,reason)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text)`,
+      [projectId,previousOwnershipRows[0]?.pm_user_id??null,userId,req.user?.id,reason],
+    );
     await req.db.query(
       `INSERT INTO public.audit_events
          (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,

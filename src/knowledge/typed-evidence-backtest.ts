@@ -102,7 +102,7 @@ export function assessTypedEvidence(records: TypedEvidenceObservation[], policy:
     if (record.verification === "unverified") push(findings, "unverified-source", "warning", [record.recordId], "Evidence is not verified.");
     if (!Number.isFinite(record.sourceAuthority) || record.sourceAuthority < 0 || record.sourceAuthority > 100) push(findings, "invalid-authority", "error", [record.recordId], "Source authority score must be between 0 and 100.");
     if (policy.requiredPermissionScope && record.permissionScope !== policy.requiredPermissionScope) push(findings, "missing-permission-scope", "error", [record.recordId], "Evidence is outside the required permission scope.");
-    if (record.correctionOfRecordId && !records.some(item => item.recordId === record.correctionOfRecordId)) push(findings, "invalid-correction", "error", [record.recordId], "Correction reference does not resolve.");
+    if (record.correctionOfRecordId && !records.some(item => item.recordId === record.correctionOfRecordId)) push(findings, "invalid-correction", "error", [record.recordId], "Correction reference does not resolve.");\n    if (record.supersedesRecordId && (record.supersedesRecordId === record.recordId || !records.some(item => item.recordId === record.supersedesRecordId))) push(findings, "invalid-correction", "error", [record.recordId], "Supersession reference is self-referential or missing.");\n    if (!record.recordId.trim() || !record.evidenceKey.trim() || !record.sourceId.trim()) push(findings, "unknown-evidence", "warning", [record.recordId], "Record, evidence key, and source identifiers must be non-empty.");\n    if (record.receivedAt && parseTime(record.receivedAt) === null) push(findings, "unknown-evidence", "warning", [record.recordId], "Receive timestamp is invalid.");
     if (record.reversedRecordId && !records.some(item => item.recordId === record.reversedRecordId)) push(findings, "invalid-correction", "error", [record.recordId], "Reversal reference does not resolve.");
     if (record.quantity !== undefined && (!Number.isFinite(record.quantity) || record.quantity < 0 || !record.unit || !supportedUnits.has(record.unit))) push(findings, "unit-invalid", "error", [record.recordId], "Quantity must be non-negative, finite, and use a supported unit.");
     const eventTime = parseTime(record.eventAt);
@@ -155,7 +155,7 @@ export function assessTypedEvidence(records: TypedEvidenceObservation[], policy:
   const status: TypedEvidenceAssessment["status"] =
     policy.upstreamState === "gap" || policy.upstreamState === "blocked" ? "blocked" :
     hasError ? "conflict" : hasStale ? "stale" : missingQuantityGroups.length || hasPartialShipment ? "gap" :
-    hasWarning ? "unknown" : records.length ? "satisfied" : "gap";
+    hasWarning ? "unknown" : active.length ? "satisfied" : "gap";
 
   return {
     status,

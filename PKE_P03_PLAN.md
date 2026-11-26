@@ -1660,3 +1660,27 @@ Artifact: `docs/audits/UX-06_ACCESS_GATE_SOURCE_REVIEW_2026-11-26.md` (commit `a
 **P0 test concern:** notifications has a permissive page gate for authenticated users, so API/RLS resource scoping and cross-Project deep-link tests are mandatory. This is a test risk, not a proven vulnerability. P1 workflows use OR-based route access; individual actions must be validated separately. No permission code changed.
 
 Latest documentation commits have a GitHub combined status showing Vercel pending. This is not a test/build pass; no Vercel deployment was requested or initiated. Continue source/API mapping and seek executable validation; avoid modifying access semantics without regression tests.
+
+
+## UX implementation: UX-01 foundation, Admin Control Center, PM Project 360 — 26 November 2026
+
+Implemented source changes on this working branch:
+- `frontend/src/UXFoundation.tsx` and `UXFoundation.css`: shared panel/metric/status/freshness/empty/error/loading/denied/conflict primitives; responsive and reduced-motion styles.
+- `frontend/src/AdminControlCenter.tsx`: Platform Admin dashboard panel using existing portfolio/project/task sources; actionable links; source-backed metrics; distinct task exception count; governance/integration health is explicitly unknown unless authoritative source exists.
+- `frontend/src/PMProject360.tsx`: lifecycle workspace with 11 stages, source record snapshots, permissions-gated workspace links, loading/error/unknown/unavailable semantics, and next-action links.
+- `frontend/src/App.tsx`: integrates Admin panel on Platform Admin dashboard; replaces minimal Project Detail with Project 360 and existing permission-gated source loaders; hides stale prior-project source rows/title during Project switch; removes static connected/healthy service claims.
+
+Implementation report: `docs/ux/UX-07_IMPLEMENTATION_REPORT_2026-11-26.md` (commit `417dda7df7b174a07b06868422cb3141046aa59b`).
+
+Validated source blobs at implementation head:
+- App.tsx: `7d6b6345c47ff16b7f37f53036898d1ba2405b4c`
+- UXFoundation.tsx: `50849e57ab7aa4c440b4f5c250815fb6abed0d0b`
+- UXFoundation.css: `17c7b64b300d876a4aa592e30eeed10a8a31948c`
+- AdminControlCenter.tsx: `9ed77649c6bec096133bb9fac15470411c46dbae`
+- PMProject360.tsx: `3b31c6fce32c3bd4da0e4448249881333158cdb5`
+
+GitHub Actions run #2191, commit `592ca58b8e81ce44342fa671c93f5bb0dd87ad29`, completed PASS for offline tests, P19 contracts, migration release checks/052/054/055 contracts, non-DB migration dry-run, backend build/typecheck, frontend typecheck and frontend build. Run: `https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45791233943`.
+
+Remaining gates: browser visual/accessibility/responsive tests, dedicated component tests, API/RLS negative scope tests, authoritative Admin exception aggregation, verified integrations for Production/QA/Port/Loading/Voyage/Finance stages, and 100+ synthetic end-to-end scenarios. Do not mark these as complete.
+
+No Neon DB operation, Vercel deploy, main merge/rebase or production change.

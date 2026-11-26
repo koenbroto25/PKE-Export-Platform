@@ -2479,3 +2479,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ## Executive Overview project table numeric integrity — 2026-11-26
 - Missing target quantity in project list was formatted as numeric zero. Corrected to em-dash while explicit zero remains numeric.
 - Regression assertion added; CI pending.
+
+
+## Executive Overview permission/scope fallback audit — 2026-11-26
+- Found loaders resolving synthetic empty arrays when user lacked source permission or Project scope, making a denied/unscoped source look like verified zero.
+- Fallback payloads now remain empty objects/unknown; trip count requires selected Project plus logistics access and a verified API array. Contracts, inventory, documents, events, and tasks similarly no longer manufacture zero-record arrays on unauthorized/inactive scope.
+- Regression assertions added. CI pending.

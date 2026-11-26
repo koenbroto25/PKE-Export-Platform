@@ -2519,3 +2519,35 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ## Admin Control Center selected-project direct-link guard — 2026-11-26
 - Direct Project detail shortcut is now shown only for the currently selected Project with detail permission. Other portfolio rows route back to Projects selection (if allowed) rather than reusing current-project permission for another Project.
 - Regression assertion added. CI pending.
+
+
+## Dashboard Readiness Audit Continuation — 2026-11-26 (current execution)
+
+### Confirmed baseline
+- Latest fully green dashboard-source regression checkpoint available in the repository history: commit `6322c7aa8c66c34be8faf2d6674c1ca017cbccc4`, CI run `45832580637`: 80 test files / 763 tests PASS; P19 assurance 20/20; release/migration policy + dry-run; backend/frontend typecheck and build PASS.
+- The subsequent dashboard-source integrity batch includes Project-source truth, Executive Overview, payload-validity propagation into PM Project 360, and Admin Control Center permission-aware shortcuts. Those later fixes are present on the continuation branch, but the latest source/regression batch has not yet been evidenced by a green CI run. Do not inherit the 763-test PASS as proof for the newer head.
+- Latest branch commit inspected: `2dac73d54a8a25ee5567ce0441a21c5c40474a58`, documentation-only selected-Project link guard. The reported Vercel check is failure due the platform build-rate-limit/quota; Vercel remains intentionally skipped and this is not a code-build result.
+
+### Audit results — verified in source
+- Dashboard refresh/scope generation guard clears old Project data and ignores stale responses.
+- Work-item payload must be an array before counts/empty queue are asserted; missing/malformed/error is unknown, not zero.
+- Dashboard KPI source requests and clickable KPI visibility are aligned to both data permission and destination page permission.
+- PM Project 360 validates parent payload shape and keeps unknown/unavailable/error/verified-empty distinct. Record counts do not infer approvals/readiness.
+- Admin Control Tower missing nested metrics render unknown; explicit numeric zero remains zero.
+- Executive Overview no longer uses global portfolio counts as selected-Project truck metrics, and unknown Project targets/source arrays remain unknown.
+- Admin Control Center Project count, active count and target-volume totals are source-verified; project IDs are checked before linking; direct Project Detail links require the selected Project and detail permission; cross-Project rows route to Projects selection only if that page is allowed.
+
+### Newly found follow-up
+- Admin Control Center still has an unconditional `/access` shortcut in the “Prioritas tindakan Admin” panel, even though a second Governance panel already permission-gates Access. This is a dead-end navigation for users without Access page permission and violates the shortcut/page-access parity contract. Fix it and strengthen the regression test to specifically assert the first shortcut is permission-gated (not merely that another Access link is gated).
+- Re-audit all dashboard shortcuts against visible-page access and selected Project scope. Keep source-fetch gates and link gates separate and both fail-closed.
+
+### Execution order / acceptance
+1. Fix the Admin Control Center unconditional Access link and add a source-contract assertion.
+2. Run the full GitHub Actions regression suite on the resulting code commit; resolve every failure until green. Do not use Vercel deployment as a validation substitute.
+3. Re-audit the dashboard source/permission matrix (Admin Control Center, Executive Overview, Role Dashboard, PM Project 360) for stale scope, unauthorized source fetches, dead-end links, zero-vs-unknown, error-vs-unavailable, and incomplete loading/refresh states.
+4. Backtest the matrix with synthetic fixtures: selected Project changes while requests are pending; permission denied; page denied; source timeout/error; malformed payload; verified empty; explicit zero; missing metric; stale response arrives late; partial source availability; missing Project ID; inactive membership; multiple roles; Platform Admin; PM and restricted roles.
+5. Update this master plan and UX audit document with evidence (commit, CI run, exact tests and result). Keep any non-executable or external integration gap labelled NOT INTEGRATED / BLOCKED, not PASS.
+
+### Safety boundary
+- No Vercel deploy, no Production Neon migration/data change, no role assignment or governance decision is included in this UX-only continuation.
+- No branch merge is implied by the documentation/source commits. Use the continuation branch for isolated implementation and validation.

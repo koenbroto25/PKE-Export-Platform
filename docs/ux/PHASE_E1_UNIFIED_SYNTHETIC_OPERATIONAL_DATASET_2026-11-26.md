@@ -224,5 +224,5 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 
 ## Role authority backtest validation checkpoint — 2026-11-26
 - Verified commit `983bc76056dd586d9241677869e20c6526ee0365`, CI run `45830044738`: SUCCESS — 80 test files / 755 tests passed; backend/frontend build and typecheck, P19 assurance, release policy checks PASS.
-- Role visibility and action authority are now distinct in the simulation. PM can inspect all stages within its project but cannot execute operational stage actions. Field user can capture evidence but cannot approve/advance lifecycle. Stage actions are limited to explicit owner-role stage maps, same-project human actor, and ready state.
+- Role visibility and action authority are now distinct in the simulation. PM can inspect all stages within its project and manage the contract stage, but cannot execute operational stage actions. Field user can capture evidence but cannot approve/advance lifecycle. Stage actions are limited to explicit owner-role stage maps, same-project human actor, and ready state.
 - Regression coverage includes PM read-only oversight, field evidence-only behavior, Dispatcher transport action, and role-specific action matrix. This is synthetic assurance; actual API/RLS remains a separate gate.

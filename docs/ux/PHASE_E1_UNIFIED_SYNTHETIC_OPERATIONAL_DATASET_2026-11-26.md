@@ -320,3 +320,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Executive Overview table follow-up
 - Project target quantity is now unknown (—) when missing/null instead of formatting as zero. Explicit zero remains valid.
 - Regression assertion added; CI pending.
+
+## Executive Overview permission/scope fallback follow-up
+- Loader fallbacks no longer synthesize empty arrays when a workspace is inaccessible or no selected Project scope exists. These conditions stay unknown rather than looking like zero records.
+- Truck trip KPI requires selected Project, logistics access, and verified trip payload. Regression coverage added; CI pending.

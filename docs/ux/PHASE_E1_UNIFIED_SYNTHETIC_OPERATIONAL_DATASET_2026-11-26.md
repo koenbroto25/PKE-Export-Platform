@@ -283,3 +283,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## PM360 source-state nuance
 - Explicitly unavailable source is now classified as unavailable (not unknown), while missing/malformed/loading/error/unauthorized payload stays unknown. Evidence counts remain em-dash unless verified.
 - Regression assertion added; CI pending.
+
+## PM360 classification regression checkpoint
+- First run `45832214250` failed one outdated assertion after source-state classification was corrected; 761/762 tests passed. The assertion was updated to the new intentional behavior.
+- Corrected regression run `45832266123`: SUCCESS — 80 files / 762 tests; backend/frontend build/typecheck and release checks PASS.

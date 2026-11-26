@@ -2100,3 +2100,9 @@ No Vercel deployment, Neon mutation, migration, production-data access, merge, o
 - CI identified and corrected: escaped newline syntax corruption in typed-evidence engine, safe internal-link regex mismatch, and reversed supersession fixture. These are genuine source/test issues; they were not hidden.
 - UI contract test added to root suite. Newest CI after corrections is pending. Previous runs failed and are not counted as acceptance.
 - UX-10 report updated. No Vercel deploy, Neon, migrations, live AI, or production action.
+
+
+## Phase C UI typecheck correction — 2026-11-26
+
+- Frontend TypeScript caught duplicate `className` on the synthetic Review Queue grid. Fixed in `frontend/src/KnowledgeReviewQueuePanel.tsx`.
+- A clean CI run after the correction is pending; do not claim Phase C/D validation pass until confirmed.

@@ -2421,3 +2421,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Added source-verification guards. Unknown counts display `—`; verified-empty messaging only appears when every evidence source is verified and returns zero; task blocker/overdue counts are unknown unless task source is verified. Stage labels prioritize source error over “not integrated.”
 - Regression tests added to Phase L.
 - Permission metric alignment regression run `45831671290`: SUCCESS — 80 test files / 761 tests. Full CI for PM360 source fix is pending.
+
+
+## PM Project 360 validation checkpoint — 2026-11-26
+- PM360 source-truth fix + regression run `45831948051`, commit `f80a94edd6a818fda0102e8a5b84d8d6c8a8a257`: SUCCESS — 80 test files / 762 tests; P19 assurance 20/20; migration release policy and dry-run; backend/frontend typecheck and builds PASS.
+- Implementation source commits `355f429be44227225991871ee58c8a0cb8df8985` and `422575657a1270ad8f63107798868c930b370ece`: SUCCESS.
+- Follow-up aligns KPI state badges with source-verification status; latest CI pending.

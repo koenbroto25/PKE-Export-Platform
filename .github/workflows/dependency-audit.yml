@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - phase0/reconcile-source-20261117
+      - p20/platform-continuation-20261123
   pull_request:
     branches:
       - main

@@ -103,7 +103,7 @@ describe("P20 UX master-data and Project Manager contracts", () => {
     expect(dashboard).toContain("ROLE_META");
     expect(dashboard).toContain("hasProjectPermission");
     expect(dashboard).toContain("sourceFailed");
-    expect(dashboard).toContain("Tidak termasuk permission aktif pada Project ini");
+    expect(dashboard).toContain("Workspace tidak termasuk permission aktif pada Project ini");
     expect(dashboard).toContain("Belum tersedia");
     expect(dashboard).toContain("UX-02 · ADMIN CONTROL CENTER");
     expect(dashboard).toContain("UX-03 · PROJECT MANAGER COCKPIT");

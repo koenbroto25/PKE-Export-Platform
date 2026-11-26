@@ -2298,3 +2298,10 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Final verification run `45825759245`, commit `1c6f387c54bd7a9d0751e7aaa393edb77e9f7f4c`: SUCCESS — 80 test files / 749 tests; P19 assurance 20/20; migration policy/dry-run; backend and frontend build/typecheck PASS.
 - Earlier failures `45825616851`, `45825671006`, and `45825749605` were regression assertion mismatches caused by stale expected text/logic, not runtime/build defects; corrected and the complete pipeline is green.
 - This is the first UX audit fix only. Continue role/task UX and lifecycle correlation audit; final acceptance remains open.
+
+
+## Role UX audit — Field Capture access discovery (2026-11-26)
+- The Field Capture page was permission-available to multiple operational personas, but many role-dashboard cards did not offer a direct link. The sidebar route existed; task-oriented dashboard access was inconsistent.
+- Added permission-filtered `/field` entry links to PKS Site Manager, Production Manager, Packing Supervisor, QC Officer, QA Manager, Laboratory Officer, HSE Officer, Warehouse Manager/Officer, Transport Manager, Dispatcher, Transporter, Checker, Driver, Master of Loading, Loading Supervisor/Operator, Terminal Representative, Shipping Agent, and Marine Surveyor. Existing Field Manager link retained.
+- Added regression assertions for each eligible role metadata entry. Actual visibility still uses `hasPageAccess`, so users without required permission do not see the link.
+- CI pending for this batch. Field Capture remains local-draft-only; server sync/acceptance is an environment/API integration blocker, not a claim of completed workflow.

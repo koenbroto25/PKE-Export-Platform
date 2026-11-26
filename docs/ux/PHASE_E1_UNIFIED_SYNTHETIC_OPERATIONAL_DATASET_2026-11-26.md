@@ -295,3 +295,8 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Admin Control Tower metric validation
 - Regression run `45832580637`: SUCCESS — 80 files / 763 tests, typecheck/build and release gates PASS.
 - Missing nested data is unknown (—); explicit zero remains zero.
+
+## Admin Control Center project-source integrity audit
+- Fixed project count, active count, target-volume, and empty-state semantics: missing source is unknown, verified empty list is zero, active count requires known statuses, volume requires known targets, and missing project IDs do not produce invalid links.
+- Project list remains visible if an unrelated task/portfolio source has an error; the global partial-source warning still communicates failures.
+- Regression coverage added; CI pending.

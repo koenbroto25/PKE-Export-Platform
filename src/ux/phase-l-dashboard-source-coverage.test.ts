@@ -61,6 +61,16 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(dashboard).toContain("belum terintegrasi");
   expect(dashboard).toContain("belum tersedia");
  });
+
+ it("PM Project 360 never displays unverified source payloads as zero evidence or confirmed empty",()=>{
+  expect(pm360).toContain("const sourceVerified = (key:string)");
+  expect(pm360).toContain("const safeSourceCount = (key:string, rows:Row[]) => sourceVerified(key) ? rows.length : '—'");
+  expect(pm360).toContain("const taskCount=safeSourceCount('tasks',tasks)");
+  expect(pm360).toContain("const documentCount=");
+  expect(pm360).toContain("const evidenceVerifiedEmpty = evidenceSummary.every(x=>x.count===0)");
+  expect(pm360).toContain("if(s.error||s.authorized===false||!sourceVerified(key)) return 'unknown'");
+  expect(pm360).toContain("sourceVerified('tasks') ? tasks.filter");
+ });
  it("PM Project 360 never treats record counts as approval/readiness and links role workspaces",()=>{
   expect(pm360).toContain("Record existence is evidence of data, not proof of stage approval or readiness");
   expect(pm360).toContain("Status disimpulkan hanya dari source yang diketahui");

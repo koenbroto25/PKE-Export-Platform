@@ -26,6 +26,9 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(dashboard).toContain("hasPageAccess('port-network', activeUser as WorkspaceAccessUser)");
   expect(dashboard).toContain("hasPageAccess('maritime-operations', activeUser as WorkspaceAccessUser)");
   expect(dashboard).toContain("hasPageAccess('shipment-allocations', activeUser as WorkspaceAccessUser)");
+  expect(dashboard).toContain("hasPageAccess('p1-workflows', activeUser as WorkspaceAccessUser) ? '/p1-workflows' : '/operations'");
+  expect(dashboard).toContain("hasPageAccess('maritime-operations', activeUser as WorkspaceAccessUser) ? '/maritime-operations' : '/port-network'");
+  expect(dashboard).toContain("hasPageAccess('finance', activeUser as WorkspaceAccessUser) ? '/finance' : '/journal-entries'");
   expect(dashboard).toContain("belum terintegrasi");
   expect(dashboard).toContain("belum tersedia");
  });

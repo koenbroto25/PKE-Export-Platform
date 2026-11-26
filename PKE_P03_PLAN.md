@@ -2683,3 +2683,29 @@ G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration
 - The current PM appointment endpoint does not meet pre-Project appointment needs.
 - Current green CI only validates existing behavior/contracts, not this new business flow.
 - No Neon migration or data change is performed as part of this audit.
+
+
+## PM appointment-first implementation progress (2026-11-26)
+
+### Implemented on the feature branch — validation pending
+- Prepared Migration 113: global PM appointment lifecycle, self/Admin read policies, audit events, Project ownership, Buyer commercial-basis records, idempotency registry, PM portfolio and Buyer-catalog functions.
+- Backfill logic is included to derive global PM appointments and current Project ownership from valid active legacy PM role assignments without deleting/re-writing legacy assignment history.
+- Added database RPCs for appoint/status lifecycle, appointed PM Project creation, PM portfolio/catalog, and audited Project PM transfer.
+- PM Project creation RPC creates Project, Buyer-linked Contract Program, optional executed-contract record, operating profile, PM role permissions, membership/assignment, ownership and commercial basis in one database transaction. Idempotency re-check is serialized per PM.
+- Suspension/revocation blocks new Project creation and revokes current PM project-role assignments; ownership history remains. Transfer requires a globally active new PM and reason.
+- Added API routes for PM appointment status, Buyer catalog, portfolio, Project creation, Admin appointment governance, and Project PM transfer. Legacy Admin Project-shell API now returns HTTP 410 to enforce appointment-first workflow.
+- Frontend Projects page has Admin global appointment governance, PM appointment-gated creation form, Buyer/basis fields, portfolio KPIs, Project navigation, and Admin transfer controls.
+- Added PM workflow contract test and included it in the package test command.
+
+### Safety / release state
+- Migration 113 is **prepared but not applied**. Neon Production/UAT were not modified.
+- No Vercel deployment attempted.
+- GitHub Actions build/typecheck/test/security validation is pending on this branch. Do not call the implementation complete until checks pass and SQL schema assumptions are reviewed against an isolated UAT branch.
+- The migration requires SHA-256 release pinning, owner review, UAT schema execution/backtest, RLS and permission integration verification, then explicit approval before any application.
+
+### Remaining acceptance work
+1. Verify Migration 113 against the actual project schema, triggers, FK and RLS behavior; resolve schema compatibility issues.
+2. Run backend/frontend build and all tests; fix failures.
+3. Add/execute synthetic integration matrix for appointment lifecycle, first Project creation, multiple Projects/Buyers, idempotent retries, invalid basis, transfer, suspended/revoked PM, project isolation, rollback and concurrency.
+4. Verify PM Portfolio runtime refresh and workspace switching; Admin governance actions and audit records.
+5. Prepare migration SHA-256 release package and UAT-only application plan; Production is excluded unless separately approved.

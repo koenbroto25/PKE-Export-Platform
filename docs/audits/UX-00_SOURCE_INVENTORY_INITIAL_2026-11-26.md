@@ -97,3 +97,18 @@ Existing Project/PM governance and My Work support membership, Project context, 
 
 ## 11. Safety / operational boundary
 No source code was changed during this audit. No database write, migration, Production seed, Vercel deploy, branch merge/rebase or force push was performed. Findings are limited to files successfully fetched from GitHub and must be revalidated against exact current head before implementation.
+
+
+## Addendum — RoleDashboardPage deeper inspection (26 November 2026)
+
+The initial summary understated the current implementation. Further inspection confirms the dashboard already includes:
+- Platform Admin Control Center entry panel (portfolio/project, user/access, PM ownership, Control Tower/reports).
+- Project Admin entry panel (configuration, members/assignment, Project roles, access review).
+- PM cockpit entry panel (My Work, contracts/supply, operations/transport, port/terminal, vessel/shipping, documents/compliance, Finance and reports).
+- P17 portfolio Control Tower showing project-level shipment/loading/voyage/nomination/port-call/document/overdue/exception summary.
+- Role identity, focus/outputs, links, permission-derived metrics, task status counts, export-process coverage and server/API/RLS boundary message.
+- RoleMeta itself contains explicit material gaps: production/packing/QC dashboards; QA release and hold governance; lab sample lineage; HSE checklist/stop-work; warehouse PO matching and quality linkage; transport dispatch board, route constraints, ETA/SLA; driver offline sync; loading shift/actual quantity/ticket capture/sign-off; terminal berth confirmation; AIS entitlement/freshness; independent survey quantity reconciliation; document checklist/version/expiry/field cross-check; Field server sync.
+
+**Revised status:** Admin/PM landing cockpit is PARTIAL IMPLEMENTED. The next work should build source-backed exception queues and Project 360 drilldowns on top of these panels, not replace the existing dashboard. The dashboard currently labels several domains NOT_INTEGRATED or permission-scoped and shows caveats; these labels need standardized status/freshness/provenance primitives and tests.
+
+RoleDashboardPage.css has responsive grid behavior and breakpoints at 700px and 640px, but mobile/tablet acceptance was not run. The CSS file was inspected read-only.

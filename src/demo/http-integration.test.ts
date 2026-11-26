@@ -135,8 +135,6 @@ describe("Manual Trial Mode HTTP integration — in-memory only", () => {
     expect(payment.status).toBe(503);
     expect(payment.body.code).toBe("PAYMENT_UNAVAILABLE");
   });
-});
-
 
   it("backtests the seven demo roles against project and document capabilities", async () => {
     const roles = ["admin","pm","finance","buyer","supplier","warehouse","viewer"];
@@ -156,3 +154,5 @@ describe("Manual Trial Mode HTTP integration — in-memory only", () => {
       expect(projectActivate.status, role+" project configuration").toBe(role === "admin" ? 200 : 403);
     }
   });
+
+});

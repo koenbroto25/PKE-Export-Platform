@@ -1950,3 +1950,17 @@ Commits: `19fe7e56c70687d9c842931ab58a0aec09e54947`, `051a1d73603b125e6c9f4e7c7f
 Commits: `631c51600148c393ea847fc9935b49d6ff9254f2`, `21dcfb5e674b2daddbcb0b3b7795f64fcd1474f2`, `479e57f72923aea4ba81d2d669c5bba2b1fba289`.
 
 **Phase A implementation status: contract + permission-filtered demo endpoint + PM UI wiring implemented in source. Acceptance remains pending CI/typecheck and browser QA.**
+
+
+### Phase B checkpoint — 132 deterministic dependency scenarios authored (26 November 2026)
+
+- [x] Added `src/knowledge/dependency-scenario-matrix.ts` with 12 scenario classes across all 11 lifecycle dependency edges (132 fixtures): complete, missing-all, missing-one, upstream blocked/gap/stale/unknown, downstream unknown/blocked, local gap vs downstream blocked precedence, stale recovery and evidence recovery.
+- [x] Added coverage summarizer by edge and fault type.
+- [x] Added tests asserting 132 cases, balanced coverage, deterministic expected status, upstream blocker propagation, recovery, and no false satisfied state for missing evidence.
+- [x] Included the matrix test in root `npm test`.
+- [ ] Runtime test/CI verification pending; no PASS claim.
+- [ ] Matrix limitations are explicit: contradiction/conflict, not-applicable, partial quantities, freshness timestamps and multi-source reconciliation require richer assessment inputs and are not simulated as authoritative here.
+
+Commits: `f81a3ef746c6ef8efc00f637430dc9b880ad1b65`, `44f20807b426157c47a18f6a5d4d4e52f1583062`, `8dcf2e8af91694532bfebfb93f050da25aa9a783`, `4e298fffb62e5195d93071c9ff9874ce3966b870`.
+
+**Phase B status: deterministic matrix and assertions implemented; verification pending.**

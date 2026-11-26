@@ -2234,3 +2234,49 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - **Traceability:** 11 rows; 9 covered, 1 partial (offline AI only), 1 gap (production persisted UI/API integration).
 - **Phase M disposition:** persisted production/isolated DB integration, browser E2E and live AI remain blocked pending explicit owner approval and approved test environment.
 - Guardrails preserved: no Vercel deployment, Neon/database access, migrations, production data, merge, or live AI.
+
+
+# PKE completion roadmap — operational readiness closure (2026-11-26)
+
+## Objective
+Shift from feature accumulation to verified usability: complete role UX, end-to-end business workflow correlation, exception/recovery behavior, comprehensive synthetic backtesting, and controlled real-integration validation. Passing source tests is not equivalent to production readiness.
+
+## Baseline (verified 2026-11-26)
+- Branch: `p20/platform-continuation-20261123`
+- HEAD: `0fe46b91bdcc6a45f00f89ac4d6cd4212203573c`
+- Latest CI for UX evidence documentation: run `45821168957`, SUCCESS. Previous source validation: run `45820962004`, SUCCESS (80 test files / 749 tests; P19 assurance 20/20; backend build/typecheck and frontend typecheck/build PASS).
+- No Vercel deployment, Neon/DB access, migration execution, production data, merge, or live AI calls.
+- Source/contract scope is green. Persisted integration, browser E2E, live AI evaluation, and external provider verification remain unproven.
+
+## Workstream 1 — Role UX audit and fixes (NEXT)
+Audit every role against actual tasks, not just pages: Admin, PM, Master of Loading, Warehouse, Transport, QC, Accounting, Finance, Buyer, Supplier, Viewer, Compliance, and other canonical roles. For each, assess dashboard KPIs, data provenance, task queues, overdue items, blockers, exceptions, action placement, permission filtering, route correctness, context retention, empty/loading/error states, responsive/mobile behavior, accessibility, and completion paths. Fix source-feasible findings immediately and add regression coverage.
+
+## Workstream 2 — Export lifecycle correlation audit
+Walk the complete business lifecycle: project/contract → buyer/supplier/PKS/spec → production/packing/stock → QC/QA → transport/trips/checkpoints → warehouse/lot/receipt → allocation → port/vessel → loading/survey/laytime → export/compliance documents → shipment → invoice/AP/AR → payment/cash/FX → reconciliation/closure. For each stage document owner, required inputs, authoritative source, status transitions, approval/checker, evidence, correction/reversal rules, downstream effects, blockers, and next action. Fix disconnected or inconsistent source flows where possible.
+
+## Workstream 3 — Actionable dashboards and navigation
+Ensure dashboard cards/KPIs deep-link to the exact work item and expose actionable blockers; remove misleading, dead, inaccessible, or placeholder links; maintain role and project permission filtering; clearly differentiate missing, failed, unavailable, zero, and verified-ready states. Preserve route guards and API authorization as authoritative.
+
+## Workstream 4 — Exception, idempotency, and recovery
+Backtest missing/duplicate/contradictory/stale/expired data, quantity mismatch, QC hold/release, delayed or absent truck, driver changes, rejected approvals, document expiry, allocation changes, vessel changes, cancellation, partial failure, retry/replay, concurrency, offline capture/sync conflict, network loss, upload failure, permission denial, and recovery. Do not allow false-ready transitions; record expected/actual/evidence.
+
+## Workstream 5 — Synthetic full-workflow backtest
+Build deterministic scenarios spanning multiple projects, contracts, suppliers, PKS, lots, trucks, shipments, ports, documents, currencies, payment stages, and role handoffs. Include happy paths and adversarial/exception paths. Test cross-module side effects, state transitions, ownership, scope isolation, permissions, and recovery. Use only clearly synthetic fixtures; never seed production.
+
+## Workstream 6 — Integration gates (environment-dependent)
+M0 identity/preflight; M1 schema/migration version; M2 authentication/session/permissions; M3 persisted lifecycle; M4 cascades/idempotency; M5 maker-checker/audit/reversal; M6 private storage/upload/download; M7 browser E2E/mobile/accessibility/offline; M8 live AI benchmark (only with approved credentials/configuration); M9 go/no-go. These remain BLOCKED until an explicitly approved isolated QA environment, required credentials, test identities, data-reset mechanism, and browser runner are available. Do not use production DB for experiments.
+
+## Workstream 7 — Final acceptance criteria
+- Every canonical role has a documented task-based dashboard/workspace and permission coverage.
+- All navigation/action links resolve and are permission-filtered; no unexplained dead ends.
+- Every lifecycle stage has a complete owner/input/evidence/status/approval/exception/next-action contract.
+- Cross-module consistency and downstream invalidation are tested.
+- Synthetic normal, negative, fault, recovery, role-handoff, scope-isolation, replay and concurrency suites pass.
+- UI states distinguish loading, empty, missing, unavailable, error, zero and verified readiness.
+- Security/role regressions, root tests, backend/frontend typecheck/build and policy checks pass.
+- Main plan and UX evidence report match source and CI.
+- External integration gaps are explicit and never mislabeled as complete.
+- Final report lists PASS / PARTIAL / BLOCKED, evidence, commit SHA, and owner actions.
+
+## Execution rule
+Continue source-only work in the designated branch in batches: (1) audit, (2) fix, (3) regression tests, (4) run CI, (5) update evidence. Do not stop after documentation or a passing unit suite while source-feasible gaps remain. Do not deploy Vercel or touch Neon/production, execute migrations, merge, or call live AI unless separately approved. Ask the owner only for actions genuinely requiring environment/credential/business approval.

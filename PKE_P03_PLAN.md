@@ -2172,3 +2172,6 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - [x] Hardening: manual-trial reset requires admin; project configuration mutations require project.configuration.manage; project document requirements/list require documents.view; document create requires documents.create; document status updates require documents.review.
 - [ ] CI validation pending for newest commit.
 - [ ] This is **Manual Trial Mode only**. Production API persistence, DB/RLS, real private storage, actual file upload, and browser/UI E2E remain not proven and require an approved isolated environment. No DB or production access.
+
+- [x] Role-by-role HTTP backtest added for all 7 Manual Trial roles (admin, PM, finance, buyer, supplier, warehouse, viewer): project read, document read/create, and project activation permission matrix.
+- [ ] Latest CI for expanded role matrix pending.

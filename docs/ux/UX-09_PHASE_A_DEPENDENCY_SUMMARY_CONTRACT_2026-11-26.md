@@ -69,3 +69,17 @@ Authentication, UUID validation, explicit demo mode, synthetic provenance, permi
 2. Frontend PM Project 360 wiring and clear demo-vs-live UX.
 3. Live data integration only after a separate authorized source adapter and permission contract review.
 4. Phase A completion requires CI and route test evidence; do not claim it yet.
+
+
+## Phase A3 — PM Project 360 panel wiring
+
+- Static-only panel has been replaced by an API-backed demo view.
+- PMProject360 passes `projectId` and `allowedPages` into the panel.
+- Panel requests only the explicit demo endpoint, shows a synthetic provenance banner, and labels live integration as off.
+- Loading, error, empty/permission-filtered, refresh and data display states are implemented.
+- Links to lifecycle workspaces are clickable only when the role-visible page key allows them.
+- Panel displays dependency status/freshness, missing evidence, safe next action, AI assistance boundary and human decision owner.
+- Added banner styling in `UXFoundation.css`.
+
+### Status
+Source wiring is implemented, but frontend build/typecheck and browser QA are **not verified**. API is demo-only and returns synthetic empty evidence. Live data, persistence, and operational readiness remain out of scope.

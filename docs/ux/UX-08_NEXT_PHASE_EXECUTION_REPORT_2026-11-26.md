@@ -108,3 +108,31 @@ Scenario catalog assertions updated for 165 total / 30 sourced records. CI is tr
  
 ### Validation
 - GitHub Actions Unit Tests run **#2231**, commit `fc3efaa9849f48850e4018945aab77f341624ada`: **SUCCESS**. Offline security/unit tests, P19 assurance, migration release/contracts/dry-run, backend build/typecheck, frontend typecheck and build all passed. Run: https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/45799603285
+
+ 
+## UX-09.2 / Source Versioning, Process Correlation and AI Evaluation — 26 November 2026
+ 
+### Implemented
+- Source register: 10 sources with scope metadata, review cadence, allowed claims and prohibited inference.
+- Snapshot logic: SHA-256 fingerprinting, changed/new/unchanged baseline detection; changed source requires review.
+- Review queue state transitions: open → assigned → verified/rejected/deferred; verified/rejected requires decision note; terminal decisions cannot reopen without allowed path.
+- Lifecycle dependency registry: 11 process hand-offs, required evidence, failure modes, owner, AI support and human decision.
+- Deterministic assessment statuses: satisfied, gap, blocked, stale, unknown, not-applicable; no readiness inference from unknown.
+- 20 benchmark cases covering knowledge safety, source scope and lifecycle correlation.
+- PM Project 360 Cross-process Dependency Map panel is wired to the dependency registry; currently design-level only, all runtime states explicitly unknown.
+- PKE regulatory-scope observation for Permendag 16/2026 added with explicit PKE non-inference boundary.
+ 
+### Research caution
+Permendag 16/2026 official metadata lists specified palm-derived commodities; no conclusion that PKE is covered. Full annex/HS classification and legal review required. Research source register updated.
+ 
+### Validation
+- New tests are included in root `npm test`.
+- CI run for this revision: **PENDING**.
+- No Vercel deploy, Neon, migrations, Production data, live ingestion or AI model invocation.
+- No browser QA performed.
+ 
+### Next gates
+- API-backed dependency evidence correlation with permission-safe summary DTOs.
+- Review Queue UX.
+- More realistic 100+ dependency scenario matrix.
+- 300–500 AI evaluation cases and offline retrieval safety benchmark.

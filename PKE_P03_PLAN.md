@@ -2464,3 +2464,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ## Admin Control Center KPI state badge correction — 2026-11-26
 - Follow-up: active-count/target-volume badges could still be marked available because a portfolio object existed even when the metric value itself was unknown. Badge state now follows the computed metric value; unknown value remains unknown.
 - Added regression assertions. CI pending with JSX correction batch.
+
+
+## Executive Overview source integrity audit — 2026-11-26
+- Audited the all-role Ringkasan dashboard. Found it retained old `useLoad` data during refresh/scope change, used global portfolio shipmentCount as “Perjalanan truk,” and coerced missing project/trip/task/contract/inventory/document data into zero/empty states.
+- Fixes: `useLoad` clears previous data at request start; all-role KPIs require verified arrays/values; selected Project uses project-scoped verified rows instead of global portfolio totals; truck trip KPI now uses truck-trip source only; missing data displays `—`; readiness rows distinguish source errors, unknown payload, and verified zero; project/tracking empty states require verified arrays.
+- Regression assertions added in Phase L. CI pending.

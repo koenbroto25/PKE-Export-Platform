@@ -26,15 +26,18 @@ export default function PMProject360({ project, sources, projectId, freshness, a
   const safeSourceCount = (key:string, rows:Row[]) => sourceVerified(key) ? rows.length : '—';
   const canOpen = (page:string) => allowedPages.includes(page);
   const contracts=sourceRows('contracts'), programs=sourceRows('programs'), tasks=sourceRows('tasks'), lots=sourceRows('inventory'), trips=sourceRows('trips'), docs=sourceRows('documents'), requirements=sourceRows('requirements');
+  const taskCount=safeSourceCount('tasks',tasks);
+  const documentCount=sources.documents && sources.requirements && sourceVerified('documents') && sourceVerified('requirements') ? docs.length+' / '+requirements.length : '—';
   const allErrors=Object.values(sources).filter(s=>s.error).map(s=>s.label+': '+s.error);
   const metricState=(key:string):'partial'|'unknown'|'unavailable' => { const s=sources[key]; if(!s||s.loading||s.error||s.authorized===false) return 'unknown'; return s.available===false?'unavailable':'partial'; };
   const evidenceSummary = [
-    {label:'Contract',count:contracts.length+programs.length,key:'contracts'},
-    {label:'Task / blocker',count:tasks.length,key:'tasks'},
-    {label:'Inventory lot',count:lots.length,key:'inventory'},
-    {label:'Transport trip',count:trips.length,key:'trips'},
-    {label:'Document',count:docs.length+requirements.length,key:'documents'},
+    {label:'Contract',count:sources.contracts && sources.programs && sourceVerified('contracts') && sourceVerified('programs') ? contracts.length+programs.length : '—',key:'contracts'},
+    {label:'Task / blocker',count:taskCount,key:'tasks'},
+    {label:'Inventory lot',count:safeSourceCount('inventory',lots),key:'inventory'},
+    {label:'Transport trip',count:safeSourceCount('trips',trips),key:'trips'},
+    {label:'Document',count:documentCount,key:'documents'},
   ];
+  const evidenceVerifiedEmpty = evidenceSummary.every(x=>x.count===0);
   const sourceState=(key:string):'available'|'partial'|'unavailable'|'unknown' => {
     const s=sources[key]; if(!s) return 'unknown'; if(s.error) return 'unknown'; if(s.authorized===false) return 'unknown'; if(s.available===false) return 'unavailable'; return (s.rows?.length||0)>0?'partial':'unknown';
   };
@@ -43,8 +46,8 @@ export default function PMProject360({ project, sources, projectId, freshness, a
       <div className="ux-metric-grid">
         <UXMetric label="Project status" value={project?.status || 'Unknown'} detail="Project metadata" state={project?.status?'available':'unknown'}/>
         <UXMetric label="Contract target" value={project?.target_quantity != null ? Number(project.target_quantity).toLocaleString('id-ID')+' '+(project?.settlement_unit||'MT') : '—'} detail="Target baseline" state={project?.target_quantity!=null?'available':'unknown'}/>
-        <UXMetric label="Task queue" value={tasks.length} detail="Work items returned by source" state={sources.tasks?.error?'unknown':sources.tasks?'available':'unknown'}/>
-        <UXMetric label="Document evidence" value={docs.length+' / '+requirements.length} detail="Documents / requirements" state={sources.documents?.error||sources.requirements?.error?'unknown':'partial'}/>
+        <UXMetric label="Task queue" value={taskCount} detail="Work items returned by source" state={sources.tasks?.error?'unknown':sources.tasks?'available':'unknown'}/>
+        <UXMetric label="Document evidence" value={documentCount} detail="Documents / requirements" state={sources.documents?.error||sources.requirements?.error?'unknown':'partial'}/>
       </div>
       <UXFreshness source="Project / related APIs" value={freshness}/>
       {allErrors.length>0 && <div className="inline-warning" role="status">Sebagian source gagal: {allErrors.join(' · ')}. Data dari source tersebut tidak digunakan untuk menyimpulkan kesiapan.</div>}
@@ -61,7 +64,7 @@ export default function PMProject360({ project, sources, projectId, freshness, a
         if(stage.key==='production'||stage.key==='qa'||stage.key==='port'||stage.key==='loading'||stage.key==='voyage'||stage.key==='finance') sourceKey=stage.key;
         const source=sources[sourceKey];
         const state: 'available'|'partial'|'unavailable'|'unknown' = source ? sourceState(sourceKey) : 'unavailable';
-        const stateLabel=source?.loading?'Memuat source…':source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.available===false?'Belum terintegrasi':source?.error?'Tidak dapat diverifikasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
+        const stateLabel=source?.loading?'Memuat source…':source?.authorized===false?'Akses source tidak tersedia untuk role ini':source?.error?'Tidak dapat diverifikasi':source?.available===false?'Belum terintegrasi':(source?.rows?.length||0)>0?'Record tersedia · review diperlukan':'Belum ada record / belum diverifikasi';
         return <article className="ux-stage" key={stage.key}><h3>{stage.name}</h3><UXStateBadge state={state} label={stateLabel}/><p>{stage.description}</p><div className="ux-stage-meta">{source?.loading?'Loading source…':source?.error?'Source error':source?.rows?.length!==undefined?'Records: '+source.rows.length:'No verified source'}</div>{canOpen(stage.page) ? <Link className="ux-action-link" to={stage.link}>Open workspace →</Link> : <span className="ux-stage-meta">Workspace access not granted</span>}</article>;
       })}</div>
     </UXPanel>
@@ -69,12 +72,12 @@ export default function PMProject360({ project, sources, projectId, freshness, a
     <KnowledgeReviewQueuePanel />
     <UXPanel title="Evidence snapshot" subtitle="Counts are source records only; no quality, quantity, release, or settlement conclusion is made from counts.">
       <div className="ux-metric-grid">{evidenceSummary.map(x=><UXMetric key={x.key} label={x.label} value={x.count} detail="Records found" state={metricState(x.key)}/>)}</div>
-      {!contracts.length&&!programs.length&&!tasks.length&&!lots.length&&!trips.length&&!docs.length&&!requirements.length && <UXEmpty title="Evidence belum tersedia" description="Source belum mengembalikan record. Ini tidak berarti tahap gagal atau lulus; status harus diverifikasi dari workspace sumber."/>}
+      {evidenceVerifiedEmpty && <UXEmpty title="Evidence belum tersedia" description="Source belum mengembalikan record. Ini tidak berarti tahap gagal atau lulus; status harus diverifikasi dari workspace sumber."/>}
     </UXPanel>
     <UXPanel title="PM next-action checklist" subtitle="Action links membuka source of truth. Keputusan approval dan sign-off tetap pada role/authority yang berwenang.">
       <div className="ux-exception-list">
         <div className="ux-exception"><div className="ux-exception-copy"><strong>Review contract & supply baseline</strong><span>Konfirmasi buyer, contract program, target, PKS, kapasitas, dan delivery commitment.</span></div>{canOpen('contracts') ? <Link className="ux-action-link" to="/contracts">Review →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
-        <div className="ux-exception"><div className="ux-exception-copy"><strong>Resolve task blockers and handoffs</strong><span>{tasks.filter(t=>t.status==='blocked').length} blocked task(s); {tasks.filter(t=>t.is_overdue===true).length} overdue task(s) in returned scope.</span></div>{canOpen('my-work') ? <Link className="ux-action-link" to="/my-work">Work queue →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
+        <div className="ux-exception"><div className="ux-exception-copy"><strong>Resolve task blockers and handoffs</strong><span>{sourceVerified('tasks') ? tasks.filter(t=>t.status==='blocked').length : '—'} blocked task(s); {sourceVerified('tasks') ? tasks.filter(t=>t.is_overdue===true).length : '—'} overdue task(s) in returned scope.</span></div>{canOpen('my-work') ? <Link className="ux-action-link" to="/my-work">Work queue →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
         <div className="ux-exception"><div className="ux-exception-copy"><strong>Verify inventory, allocation, transport</strong><span>Check lot status, allocation, checkpoints, ETA and discrepancy evidence.</span></div>{canOpen('operations') ? <Link className="ux-action-link" to="/operations">Operations →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
         <div className="ux-exception"><div className="ux-exception-copy"><strong>Document completeness & cross-check</strong><span>Checklist, required documents, versions, source consistency and deadlines.</span></div>{canOpen('compliance') ? <Link className="ux-action-link" to="/compliance">Compliance →</Link> : <span className="ux-stage-meta">Access not granted</span>}</div>
       </div>

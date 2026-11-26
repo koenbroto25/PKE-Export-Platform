@@ -2495,3 +2495,7 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Found parent Project Detail adapter converted missing API arrays to `[]` while marking source available/authorized, so PM Project 360 could treat malformed/missing payload as verified zero.
 - Parent now passes explicit `payloadValid` shape flags for contracts, programs, tasks, inventory, trips, documents, requirements and PKS participation. PM360 sourceVerified/state/labels honor the flag; missing payload is unknown, explicitly unavailable integration is unavailable, verified empty is zero.
 - Regression coverage added for parent-to-child payload validity propagation. CI pending.
+
+
+## PM360 payload-validity assertion correction — 2026-11-26
+- CI runs `45834725286`, `45834781988`, `45834831141` failed one test because it still asserted the prior sourceState helper; 764/765 tests passed. Updated assertion for explicit `payloadValid` in `34d68e0ccf9498c4742dabe68cb54b13f1781f21`. Full validation pending.

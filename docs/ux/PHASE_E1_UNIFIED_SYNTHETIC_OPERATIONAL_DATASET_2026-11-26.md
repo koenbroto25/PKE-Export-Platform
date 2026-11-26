@@ -279,3 +279,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Run `45831948051`, commit `f80a94edd6a818fda0102e8a5b84d8d6c8a8a257`: SUCCESS — 80 files / 762 tests, build/typecheck and release policy PASS.
 - Implementation runs `45831851398` and `45831923871`: SUCCESS.
 - Follow-up metric-state badge alignment is in progress and will be validated separately.
+
+## PM360 source-state nuance
+- Explicitly unavailable source is now classified as unavailable (not unknown), while missing/malformed/loading/error/unauthorized payload stays unknown. Evidence counts remain em-dash unless verified.
+- Regression assertion added; CI pending.

@@ -4,3 +4,8 @@
 .ux-dependency-provenance{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:10px 12px;margin:0 0 12px;border:1px solid var(--border,#e5e9f0);border-radius:10px;background:var(--subtle,#f8fafc);font-size:.8rem}.ux-dependency-provenance strong{font-size:.72rem;letter-spacing:.04em;color:#92400e;background:#fff4e5;border:1px solid #f2d5a4;border-radius:6px;padding:3px 6px}.ux-dependency-provenance span{color:var(--muted,#64748b);flex:1;min-width:180px}
 
 .ux-dependency-summary-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0}.ux-dependency-summary-stats>div{border:1px solid var(--border,#e5e9f0);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:3px}.ux-dependency-summary-stats strong{font-size:1.2rem}.ux-dependency-summary-stats span{font-size:.72rem;color:var(--muted,#64748b)}.ux-dependency-filter{display:flex;align-items:center;gap:8px;margin:10px 0 14px;flex-wrap:wrap}.ux-dependency-filter label{font-size:.8rem;font-weight:650}.ux-dependency-filter select{border:1px solid var(--border,#e5e9f0);border-radius:8px;padding:7px 9px;background:var(--panel,#fff);color:inherit}.ux-dependency-filter span{font-size:.76rem;color:var(--muted,#64748b)}@media(max-width:900px){.ux-dependency-summary-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:520px){.ux-dependency-summary-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Phase C review queue responsive layout */
+.ux-review-queue-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2fr);gap:1rem;}
+@media(max-width:720px){.ux-review-queue-grid{grid-template-columns:1fr;}}

@@ -28,7 +28,7 @@ export default function CrossProcessDependencyPanel({projectId,allowedPages=[]}:
   return()=>{alive=false;};
  },[projectId,revision]);
  const summaries=new Map((result?.summaries||[]).map(s=>[s.dependencyId,s]));
- const visibleDependencies=useMemo(()=>PKE_PROCESS_DEPENDENCIES.filter(d=>summaries.has(d.id)&&(filter==='all'||summaries.get(d.id)?.status===filter)),[result,filter]);
+ const visibleDependencies=useMemo(()=>PKE_PROCESS_DEPENDENCIES.filter(d=>{const s=summaries.get(d.id);if(!s)return false;if(filter==='all')return true;if(filter==='unknown')return s.status==='unknown'||s.freshness==='unknown';return s.status===filter;}),[result,filter]);
  const counts=useMemo(()=>{const values=result?.summaries||[];return {total:values.length,gap:values.filter(s=>s.status==='gap').length,blocked:values.filter(s=>s.status==='blocked').length,stale:values.filter(s=>s.status==='stale').length,unknown:values.filter(s=>s.status==='unknown'||s.freshness==='unknown').length,satisfied:values.filter(s=>s.status==='satisfied').length};},[result]);
  const canOpen=(stage:string)=>allowedPages.includes(PAGE[stage]||'');
  const statusState=(status:string):'available'|'partial'|'stale'|'unavailable'|'blocked'|'unknown'=>status==='satisfied'?'available':status==='gap'?'partial':status==='stale'?'stale':status==='blocked'?'blocked':status==='not-applicable'?'unavailable':'unknown';
@@ -44,7 +44,7 @@ export default function CrossProcessDependencyPanel({projectId,allowedPages=[]}:
     return <article className="ux-dependency" key={d.id}>
      <div className="ux-dependency-flow">{canOpen(d.from)?<Link to={ROUTES[d.from]||'/'}>{LABELS[d.from]||d.from}</Link>:<span>{LABELS[d.from]||d.from}</span>}<span aria-hidden="true">→</span>{canOpen(d.to)?<Link to={ROUTES[d.to]||'/'}>{LABELS[d.to]||d.to}</Link>:<span>{LABELS[d.to]||d.to}</span>}</div>
      <div className="ux-dependency-meta"><UXStateBadge state={statusState(summary.status)} label={summary.status}/><span className="ux-dependency-strength">{d.strength}</span><span>Freshness: {summary.freshness}</span></div>
-     <div className="ux-dependency-evidence"><strong>Evidence gap ({summary.missingEvidenceCount})</strong>{summary.evidenceLabels?.length?<ul>{summary.evidenceLabels.map((e:string)=><li key={e}>{e}</li>)}</ul>:<p>Evidence belum diverifikasi.</p>}</div>
+     <div className="ux-dependency-evidence"><strong>{summary.missingEvidenceCount>0?`Missing evidence (${summary.missingEvidenceCount})`:'Evidence checklist'}</strong>{summary.evidenceLabels?.length?<ul>{summary.evidenceLabels.map((e:string)=><li key={e}>{e}</li>)}</ul>:<p>Evidence belum diverifikasi.</p>}</div>
      <div className="ux-dependency-risk"><strong>Next action</strong><p>{summary.safeNextAction}</p>{summary.reasons?.length>0&&<small>{summary.reasons.join(' · ')}</small>}</div>
      <div className="ux-dependency-ai"><strong>AI assistance (non-approval)</strong><span>{d.aiAssist.join(' · ')}</span><small>Decision owner: {d.ownerRole}. Human decision: {d.humanDecision}</small></div>
     </article>;

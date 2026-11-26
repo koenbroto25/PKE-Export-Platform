@@ -83,3 +83,42 @@ describe("Phase K role dashboard and workspace access matrix",()=>{
    expect(hasPageAccess("dashboard",make(role.code,[])),role.code).toBe(true);
   }
  });
+
+ it("backtests key canonical role templates against actual page access gates",()=>{
+  const canonical=(code:string,extra:Partial<WorkspaceAccessUser>={})=>{
+   const template=CANONICAL_ROLE_TEMPLATES.find(r=>r.code===code);expect(template,code).toBeTruthy();
+   return make(code,[...(template?.permissionCodes||[])],extra);
+  };
+  const pm=canonical("pm");
+  expect(hasPageAccess("finance",pm)).toBe(true);
+  expect(hasPageAccess("reports",pm)).toBe(true);
+  expect(hasPageAccess("port-network",pm)).toBe(true);
+  const finance=canonical("finance");
+  expect(hasPageAccess("finance",finance)).toBe(true);
+  expect(hasPageAccess("reports",finance)).toBe(true);
+  expect(hasPageAccess("journal-entries",finance)).toBe(false);
+  const accounting=canonical("accounting");
+  expect(hasPageAccess("journal-entries",accounting)).toBe(true);
+  expect(hasPageAccess("reports",accounting)).toBe(true);
+  expect(hasPageAccess("finance",accounting)).toBe(false);
+  const viewer=canonical("viewer");
+  expect(hasPageAccess("reports",viewer)).toBe(true);
+  expect(hasPageAccess("compliance",viewer)).toBe(false);
+  const buyer=canonical("buyer",{buyerPortalEnabled:true});
+  expect(hasPageAccess("buyer",buyer)).toBe(true);
+  expect(hasPageAccess("compliance",canonical("buyer"))).toBe(false);
+  expect(hasPageAccess("supplier",canonical("supplier"))).toBe(true);
+  const funder=canonical("funder");
+  expect(hasPageAccess("funder",funder)).toBe(true);
+  expect(hasPageAccess("finance",funder)).toBe(false);
+  expect(hasPageAccess("reports",funder)).toBe(false);
+  expect(hasPageAccess("field",canonical("qc_officer"))).toBe(true);
+  expect(hasPageAccess("p1-workflows",canonical("qc_officer"))).toBe(true);
+  expect(hasPageAccess("warehouse",canonical("warehouse_manager"))).toBe(true);
+  expect(hasPageAccess("field",canonical("warehouse_manager"))).toBe(true);
+  expect(hasPageAccess("transporter",canonical("transporter"))).toBe(true);
+  expect(hasPageAccess("field",canonical("transporter"))).toBe(true);
+  const admin=canonical("project_admin");
+  expect(hasPageAccess("access",admin)).toBe(true);
+  expect(hasPageAccess("finance",admin)).toBe(true);
+ });

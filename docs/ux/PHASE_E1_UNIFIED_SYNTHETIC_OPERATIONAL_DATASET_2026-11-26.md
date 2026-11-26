@@ -257,3 +257,9 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 
 ## Project scope race regression checkpoint
 - Project switch/overlapping refresh stale response guard validated by CI run `45831097114` on commit `ddb655e9334e78773ec6ede46fbae6b1a6cf0ec8`: SUCCESS. Dashboard source/test changes are complete; CI passed.
+
+## Task queue source-truth validation — 2026-11-26
+- Source implementation CI run `45831283018`: SUCCESS.
+- Regression CI run `45831302780`, commit `3efdc9e241872b3c5fe51292bb273ba6ce417a18`: SUCCESS — 80 files / 760 tests; P19 assurance 20/20; release/migration gates, backend/frontend typecheck and builds PASS.
+- Verified the queue's missing/malformed payload is unknown rather than a zero count or false empty-state.
+- Scope race regression also passed in run `45831097114`.

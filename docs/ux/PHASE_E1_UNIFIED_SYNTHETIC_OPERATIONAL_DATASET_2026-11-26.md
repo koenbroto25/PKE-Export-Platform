@@ -244,3 +244,8 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Commit `9647129facbf8e92d1fc0da56b2e10e90e1ac73e`, CI run `45830574245`: SUCCESS — 80 test files / 758 tests passed. Backend/frontend build and typecheck, P19 assurance, release policy/dry-run PASS.
 - This includes the new fail-closed role-action test for blocked, gap, conflict and pending lifecycle states.
 - The next CI run is validating documentation-only Phase M refresh; no source change is pending validation at this checkpoint.
+
+## Second UX audit finding — Project scope response race
+- Role Dashboard requests could overlap during Project switches/refreshes. A slower response from the former Project could overwrite current scope state, and old data was retained during the new load.
+- Added request-generation invalidation and clear-on-load behavior; stale requests now cannot publish results.
+- Added regression contract assertions in Phase L. CI validation pending.

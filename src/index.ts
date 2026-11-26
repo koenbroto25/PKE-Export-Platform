@@ -17,6 +17,7 @@ import { isPositiveQuantity } from "./f1-contract-rules.js";
 import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 import { registerP17MaritimeRoutes } from "./p17-maritime.js";
+import { registerDependencySummaryRoute } from "./dependency-summary-api.js";
 import { validateAllocationCapacity, validateAllocationTransition } from "./f1-pri0-inventory-rules.js";
 import { evaluateRegulatoryRule, summarizeRegulatoryAssessment, type RegulatoryRuleInput } from "./regulatory-engine.js";
 import { evaluatePmAppointment, isEffectiveProjectRoleAssignment, validateRoleAssignmentExpiry } from "./f1-role-assignment-rules.js";
@@ -5381,6 +5382,10 @@ app.get("/api/v1/vessels",requireAuth,async(req:express.Request,res:express.Resp
  catch{return res.status(500).json(internalServerErrorPayload());}
 });
 registerP17MaritimeRoutes(app, { requireAuth, requireAdmin, requireProjectPermission, uuidPattern: p16UuidPattern, privateStorage });
+registerDependencySummaryRoute(app, { requireAuth, requireProjectPermission, hasProjectPermission: async (req, projectId, permission) => {
+  const { rows } = await req.db.query("SELECT public.pke_has_project_permission($1::uuid, $2::text) AS has_perm", [projectId, permission]);
+  return rows[0]?.has_perm === true;
+}, uuidPattern: p16UuidPattern });
 
 app.get("/api/v1/port-routes",requireAuth,async(req:express.Request,res:express.Response)=>{
  const projectId=typeof req.query.projectId==="string"?req.query.projectId:"";if(!(await requireP16ReadAccess(req,res,projectId,"route.estimate")))return;

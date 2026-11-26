@@ -2454,3 +2454,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Found Project count displayed 0 when project source was missing, active-project count/target volume could be derived from an unverified empty fallback, and Project attention empty state appeared before source verification. Missing project ID also produced an invalid detail route.
 - Fixed source truth: project count unknown until an array is returned; active count only derived when all statuses are known; target-volume total only derived when every target is present/finite; verified-empty state only for confirmed empty array; unknown source displays unknown badge. Missing IDs no longer link; keys use stable fallback. Verified project rows remain visible despite unrelated task/portfolio source errors.
 - Regression tests added. CI pending.
+
+
+## Admin Control Center remediation correction — 2026-11-26
+- CI caught a JSX closing-brace syntax defect in the new conditional Project-detail link. Corrected in commit `bfb9147189b573c6e52ebefc22b3fdff5ca8163a`.
+- Two earlier runs `45833159014` and `45833201610` failed frontend typecheck due this syntax error. Regression assertion commit `c0092b2b4bb69cd03af7eef815f826613f108bb0` is now pending rerun after the correction. Do not mark this batch PASS until CI green.

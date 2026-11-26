@@ -2560,3 +2560,25 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Read-only source-contract verification after these commits: **16/16 checks PASS** across Admin Control Center shortcut gating, Dashboard stale-response/scope guards, unknown task payload handling, page/data permission parity, PM360 source classification/payload validity, and Executive Overview Project-scoped trip counts.
 - This is source-contract verification only. A full GitHub Actions Vitest/typecheck/build run for current head is **NOT VERIFIED** in this execution; the available GitHub workflow-run connector returned no PR-triggered runs for this commit. Vercel status is quota/build-rate-limit failure and was intentionally not retried. No Vercel deployment, Neon Production change, or migration occurred.
 - Acceptance remains OPEN pending a full CI run on current head and the synthetic multi-scenario runtime/browser backtest. The 763-test green checkpoint belongs to the earlier commit and must not be attributed to this latest code.
+
+
+## Latest CI blocker review — 2026-11-26
+
+### Latest accessible completed GitHub Actions evidence
+- F1 PR #2 head `b75d669b6db82ffd146ada0b12eff4b1e9788092`: Unit Tests run `44975465261` **SUCCESS**; Dependency Audit run `44975465270` **SUCCESS**. Unit job completed all steps: npm ci, npm test, Production migration/release gates, Migration 052/054/055 verifiers, dry-run, backend API typecheck, frontend install/typecheck/build.
+- P18 PR #3 evidence run `45092073615`: **SUCCESS**; unit job completed tests, migration/release verifiers, dry-run, backend build/typecheck, frontend typecheck/build. PR #3 remains open/unmerged and Vercel is not required for scoped acceptance.
+- P20 current source branch latest prior commit had no accessible Actions run/check from the GitHub connector. The only visible check was Vercel, which is quota/rate-limit related and is excluded per owner instruction.
+
+### Workflow trigger remediation
+- `.github/workflows/unit-tests.yml` already includes push trigger for `p20/platform-continuation-20261123` and runs the full local acceptance pipeline (test suite, P19 assurance, release/migration verifiers, dry-run, backend build/typecheck, frontend typecheck/build).
+- `.github/workflows/dependency-audit.yml` did **not** include P20 branch in its push trigger. Added P20 branch so production dependency audit plus full dependency evidence are also scheduled on P20 pushes. Commit: `b5f562280f0cee5b19128490d1cd6e7026526700`.
+- Post-commit GitHub status currently exposes only Vercel pending; Vercel was not inspected/retried. Actions execution is **NOT YET CONFIRMED** by the available connector. Do not claim new CI green until an Actions run is retrieved.
+
+### Blocker classification
+- **Resolved in source/workflow:** dependency audit workflow coverage missing for P20 branch.
+- **Externally unverified:** GitHub Actions run for current P20 head. No Action-dispatch or push-run query tool is available in this session; commit workflow-run endpoint exposed PR runs only.
+- **Not a blocker by owner scope:** Vercel deployment/quota. No deploy attempted.
+- **No database action:** Production/UAT Neon unchanged.
+
+### Next acceptance gate
+Current P20 head must show successful Unit Tests and Dependency Audit workflows. If failures occur, fetch logs and fix them before final readiness. Source-contract checks remain 16/16 PASS; they do not substitute for CI.

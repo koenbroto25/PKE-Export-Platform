@@ -111,3 +111,11 @@ The frontend Compliance route gate previously allowed `project.view` alone to sa
 
 ### Validation
 Phase L contract suite added and wired to root CI; the newest run is pending. This audit does not claim real API integrations are complete.
+
+
+## Phase N — Role dashboard link and direct-route guard audit
+
+- Audited all role-dashboard link destinations against the actual App navigation and route declarations; every current link resolves.
+- Verified that App uses `visiblePageKeys` for sidebar visibility and wraps workspace routes in `RoleGuard`, which calls `hasPageAccess` and fails closed on permission-loading/error states and denied direct routes.
+- Added regression suite `src/ux/phase-n-role-dashboard-navigation.test.ts` to cover link-route resolution, major workspace coverage, and direct-route guard contracts.
+- Static route tests do not substitute for browser click/keyboard/mobile/accessibility tests; these remain blocked by missing browser E2E runner and isolated auth environment.

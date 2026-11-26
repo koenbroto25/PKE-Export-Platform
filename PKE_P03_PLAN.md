@@ -1556,3 +1556,30 @@ This is an initial partial source inventory, not a complete route/component/API 
 
 ### Next execution gate
 Continue UX-00 by expanding the route/page/API/permission/source matrix using exact accessible paths, then UX-01 foundation. Admin and PM remain highest UX implementation priorities. Code implementation and tests require a verified checkout/worktree or executable environment; do not claim code completion until available.
+
+
+## UX-00 deeper dashboard-role audit + UX-01 specification — 26 November 2026
+
+### Further source evidence
+Read the complete `RoleDashboardPage.tsx` (214 lines) and its stylesheet. The current branch already has **implemented UX-02/UX-03 entry panels**, not merely a planned placeholder:
+- Platform Admin panel: portfolio/project, user/access, PM ownership and reports/control tower shortcuts.
+- Project Admin panel: Project configuration, members/assignment, role management and access review.
+- PM panel: Project 360 navigation cockpit to task inbox, contracts/supply, operations/transport, port/terminal, shipping/vessel, documents/compliance, Finance and reporting.
+- P17 Admin Control Tower includes per-Project shipment/loading/voyage/nominations/port-call/document/overdue/exception summaries.
+- Dashboard has role identity, role-focus cards, permission-driven metrics, task queue/status counts, export-process source coverage and explicit server/RLS authority boundary.
+- Role metadata explicitly identifies gaps for Production/QA, packing genealogy, lab lineage, HSE stop-work, Warehouse PO matching/quality linkage, Transport dispatch board/ETA/SLA, Driver offline sync, Master of Loading actual sign-off, loading shift/ticket capture, terminal berth confirmation, AIS rights/freshness, survey quantity reconciliation, document checklist/field cross-check and Field server sync.
+
+### Admin/PM readiness correction
+Admin and PM dashboard entry-point work is **PARTIAL IMPLEMENTED**. It must not be reimplemented from scratch. The next work is to convert shortcut panels into actionable, source-backed work queues and full Project lifecycle views. Existing Admin AccessPage governance and PM My Work/project governance must be reused and tested.
+
+### UX-01 specification created
+Artifact: `docs/ux/UX-01_DESIGN_SYSTEM_IMPLEMENTATION_SPEC_2026-11-26.md` (commit `fa67b00d820bf83aa647000670d95f29f1ad5ce0`). It defines reusable primitives, semantic states, freshness/provenance, interaction safety, responsive targets, accessibility, performance, Admin/PM priorities and acceptance checklist. It is a design specification, not implemented code.
+
+### Refined next sequence
+- **UX-00:** continue complete route/page/API/permission/component inventory; current audit remains partial.
+- **UX-01:** verify existing components and styles, then implement shared primitives in verified workspace.
+- **UX-02/03:** leverage existing Admin/PM panels; build Admin exception queue and PM Project 360 drilldowns, not duplicate dashboards.
+- **UX-04A:** field sync remains P0 blocker.
+- Then UX-04B–04D, UX-05, UX-06/07, all-role acceptance and backtest.
+
+No source code was modified; no test/build execution, Neon operation, Vercel deployment, main reconciliation, merge or rebase occurred. Source findings are read-only and limited to successfully fetched files.

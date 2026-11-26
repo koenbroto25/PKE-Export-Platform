@@ -2514,3 +2514,8 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ## Admin Control Center JSX correction — 2026-11-26
 - CI caught a stray brace in the nested permission-gated project link expression. Corrected in commit `e5dee54266884f850fa402185e627b05264b80cf`; also gated the Integration & Source Health Reports shortcut.
 - Runs `45835195391`, `45835236706`, `45835265334`, and `45835394709` were validation failures during this batch (syntax + stale assertion). Rerun pending.
+
+
+## Admin Control Center selected-project direct-link guard — 2026-11-26
+- Direct Project detail shortcut is now shown only for the currently selected Project with detail permission. Other portfolio rows route back to Projects selection (if allowed) rather than reusing current-project permission for another Project.
+- Regression assertion added. CI pending.

@@ -453,7 +453,7 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
   const [busy,setBusy]=useState(false);
   const [appointUserId,setAppointUserId]=useState('');
   const [appointReason,setAppointReason]=useState('');
-  const [appointmentBusy,setAppointmentBusy]=useState(false);
+  const [appointmentBusy,setAppointmentBusy]=useState(false);\n  const [transferPmId,setTransferPmId]=useState<Record<string,string>>({});
   const save=async(e:FormEvent)=>{
     e.preventDefault();if(!canCreateProject)return;setBusy(true);
     try{
@@ -480,7 +480,7 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
     try{await patch('/admin/pm-appointments/'+row.id,{status,reason});onNotice('success','Appointment PM '+status+'.');adminAppointments.refresh();}
     catch(e){onNotice('error',e instanceof Error?e.message:'Status appointment tidak dapat diubah.');}
   };
-  const availableUsers=(users.data?.users||[]).filter((u:AnyRecord)=>u.is_active===true&&u.neon_auth_user_id&&!(adminAppointments.data?.appointments||[]).some((a:AnyRecord)=>a.user_id===u.id&&a.status==='active'));
+  const availableUsers=(users.data?.users||[]).filter((u:AnyRecord)=>u.is_active===true&&u.neon_auth_user_id&&!(adminAppointments.data?.appointments||[]).some((a:AnyRecord)=>a.user_id===u.id&&a.status==='active'));\n  const activeAppointedPms=(adminAppointments.data?.appointments||[]).filter((a:AnyRecord)=>a.status==='active'&&a.is_active!==false);\n  const transferPm=async(project:AnyRecord)=>{const target=transferPmId[project.id];if(!target)return;const reason=window.prompt('Alasan handover PM Project '+project.name+' (minimal 5 karakter):');if(!reason||reason.trim().length<5)return;try{await post('/admin/projects/'+project.id+'/pm-transfer',{userId:target,reason});onNotice('success','PM Project berhasil ditransfer; history appointment dipertahankan.');projects.refresh();adminAppointments.refresh();}catch(e){onNotice('error',e instanceof Error?e.message:'Transfer PM gagal.');}};
   const portfolioRows=isAdmin?projects.data?.projects||[]:pmPortfolio.data?.projects||[];
   return <>
     <PageTitle eyebrow="PROJECT PORTFOLIO" title={isAdmin?"Governance & Project Portfolio":"Portfolio Project PM"} subtitle={isAdmin?"Penunjukan PM dilakukan sebelum PM membuat Project berdasarkan kesepakatan Buyer atau kontrak.":"Semua Project yang menjadi tanggung jawab Anda; buat Project langsung dari basis komersial Buyer."} actions={canCreateProject?<ActionButton onClick={()=>setShowForm(v=>!v)}><Plus size={16}/> Buat Project</ActionButton>:undefined}/>
@@ -525,10 +525,12 @@ function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNoti
       {projects.loading?<Loading/>:projects.error?<ErrorState message={projects.error} retry={projects.refresh}/>:<DataTable rows={portfolioRows} columns={[
         {key:'name',label:'Project',render:r=><div className="primary-cell"><strong>{r.project_name||r.name}</strong><small>{shortId(r.project_id||r.id)}</small></div>},
         {key:'buyer_name',label:'Buyer',render:r=>r.buyer_name||'—'},
+        {key:'pm_name',label:'Responsible PM',render:r=>r.pm_name||r.pm_email||'Belum ditetapkan'},
         {key:'status',label:'Status',render:r=><StatusPill value={r.project_status||r.status}/>},
         {key:'target_quantity',label:'Target',render:r=>number(r.target_quantity)+' '+(r.settlement_unit||'MT')},
         {key:'basis_reference',label:'Basis',render:r=>r.basis_reference||'—'},
-        {key:'created_at',label:'Dibuat',render:r=>dateTime(r.created_at)}
+        {key:'created_at',label:'Dibuat',render:r=>dateTime(r.created_at)},
+        ...(isAdmin?[{key:'pm-transfer',label:'Handover PM',render:(r:AnyRecord)=><div className="inline-actions"><select value={transferPmId[r.id]||''} onChange={e=>setTransferPmId(v=>({...v,[r.id]:e.target.value}))}><option value="">PM baru…</option>{activeAppointedPms.filter((a:AnyRecord)=>a.user_id!==r.pm_user_id).map((a:AnyRecord)=><option key={a.user_id} value={a.user_id}>{a.name||a.email}</option>)}</select><button className="secondary-button" disabled={!transferPmId[r.id]} onClick={()=>transferPm(r)}>Transfer</button></div>}]:[])
       ]}/>}
     </Card>
   </>;

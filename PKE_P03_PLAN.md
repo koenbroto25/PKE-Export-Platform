@@ -2400,3 +2400,11 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Fixed `frontend/src/RoleDashboardPage.tsx`: task payload must be a verified array; counts display `—` when missing/error, empty-state only appears for a confirmed empty array, and unknown payload receives a separate message.
 - Regression coverage added to Phase L. CI run `45831283018` pending.
 - Project-scope race source/test batch validated: run `45831097114`, commit `ddb655e9334e78773ec6ede46fbae6b1a6cf0ec8`, SUCCESS. (80 test files; test total to be extracted from final log if needed.)
+
+
+## Task queue truthfulness CI checkpoint — 2026-11-26
+- Implementation commit `8075b693ad4e0eef0d437a0f970a666e8acc7bf0`: SUCCESS, run `45831283018`.
+- Regression commit `3efdc9e241872b3c5fe51292bb273ba6ce417a18`: SUCCESS, run `45831302780` — 80 test files / 760 tests; P19 assurance 20/20; release/migration policy checks and dry-run; backend/frontend typecheck and build PASS.
+- Missing task payload can no longer be represented as zero or as a confirmed empty queue. Regression PASS.
+- Project scope stale-response fix: run `45831097114` SUCCESS.
+- Documentation-only commits currently have CI in progress; source commits and regression are already green.

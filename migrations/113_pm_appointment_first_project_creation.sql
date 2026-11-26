@@ -71,6 +71,70 @@ CREATE TABLE IF NOT EXISTS public.project_commercial_basis (
 );
 CREATE INDEX IF NOT EXISTS project_commercial_basis_buyer_idx ON public.project_commercial_basis(buyer_id,created_at DESC);
 
+-- Expand the PM allowlist to the exact canonical Project Manager permission template
+-- so the first Project's PM role can be provisioned without bypassing the role guard.
+INSERT INTO public.pke_project_role_permission_allowlist(role_code,permission_code)
+VALUES
+('pm','project.view'),
+('pm','project.update'),
+('pm','project.members.view'),
+('pm','project.members.invite'),
+('pm','project.members.manage'),
+('pm','project.roles.manage'),
+('pm','project.configuration.manage'),
+('pm','audit.finding.view'),
+('pm','contract.view'),
+('pm','manage_contract_programs'),
+('pm','port.view'),
+('pm','port.depth.view'),
+('pm','port.depth.submit'),
+('pm','route.estimate'),
+('pm','vessel.view'),
+('pm','vessel.port.assess'),
+('pm','voyage.view'),
+('pm','voyage.create'),
+('pm','voyage.update'),
+('pm','vessel.nomination.review'),
+('pm','vessel.port_call.manage'),
+('pm','pks.site.view'),
+('pm','pks.participation.manage'),
+('pm','pks.master_data.change_request.view'),
+('pm','pks.master_data.change_request.manage'),
+('pm','pke.logistics.master.view'),
+('pm','pke.logistics.master.change_request.manage'),
+('pm','facility.view'),
+('pm','facility.product.view'),
+('pm','facility.capacity.view'),
+('pm','product.view'),
+('pm','supplier.view'),
+('pm','product.requirement.view'),
+('pm','product.requirement.manage'),
+('pm','shipping.view'),
+('pm','shipment.view'),
+('pm','shipping.survey.view'),
+('pm','shipping.laytime.view'),
+('pm','finance.view'),
+('pm','inventory.view'),
+('pm','operations.view'),
+('pm','logistics.view'),
+('pm','warehouse.view'),
+('pm','documents.view'),
+('pm','workflow.view'),
+('pm','approvals.view'),
+('pm','reports.view'),
+('pm','audit.view'),
+('pm','shipping.survey.review'),
+('pm','shipping.laytime.verify'),
+('pm','loading.quantity.reconcile'),
+('pm','project.tasks.view'),
+('pm','project.tasks.create'),
+('pm','project.tasks.assign'),
+('pm','project.tasks.update'),
+('pm','project.tasks.resolve'),
+('pm','project.tasks.escalate'),
+('pm','buyer.visibility.manage')
+ON CONFLICT(role_code,permission_code) DO NOTHING;
+
 -- Backfill active Project PM appointments into the new global appointment model.
 -- Existing assignment history remains untouched; this only creates a platform appointment
 -- and current-ownership index for users/projects with one verified active PM assignment.

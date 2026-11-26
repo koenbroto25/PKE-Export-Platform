@@ -27,6 +27,10 @@ describe("Phase N role-dashboard navigation route coverage",()=>{
   expect(roleDashboard).toContain("hasPageAccess(pageKey, activeUser as WorkspaceAccessUser)");
   expect(roleDashboard).toContain("ROLE_LINK_PAGE_KEYS");
   expect(roleDashboard).toContain("hasPageAccess('project-configuration', activeUser as WorkspaceAccessUser)");
+  expect(roleDashboard).toContain("hasPageAccess('my-work', activeUser as WorkspaceAccessUser)");
+  expect(roleDashboard).toContain("hasPageAccess('maritime-operations', activeUser as WorkspaceAccessUser)");
+  expect(roleDashboard).toContain("hasPageAccess('finance', activeUser as WorkspaceAccessUser)");
+  expect(roleDashboard).toContain("UX-03 · PROJECT MANAGER COCKPIT");
   expect(roleDashboard).toContain("hasPageAccess('project-members', activeUser as WorkspaceAccessUser)");
   expect(roleDashboard).toContain("hasPageAccess('project-roles', activeUser as WorkspaceAccessUser)");
   expect(roleDashboard).toContain("Permission tidak tersedia");

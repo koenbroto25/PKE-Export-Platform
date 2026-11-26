@@ -2215,3 +2215,10 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - [x] Regression contract added to Phase N navigation test suite.
 - [ ] CI pending for newest commit.
 - [ ] Browser interaction/accessibility validation remains external.
+
+
+## Phase O — Permission-filtered Role Dashboard Links
+- [x] Role metadata link lists are filtered by `hasPageAccess` using a path-to-page map before rendering.
+- [x] A role with no accessible link receives an explicit message rather than misleading denied links.
+- [x] Phase N regression suite covers the link filter, map, message and App route guard.
+- [ ] Latest CI pending.

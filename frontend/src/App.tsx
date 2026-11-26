@@ -90,7 +90,7 @@ function App() {
   const navigate = useNavigate();
   const user = session.data?.user as AnyRecord | undefined;
   const pkeIdentity = useLoad<{ user?: AnyRecord } | null>(() => user ? get('/me') : Promise.resolve(null), [user?.id]);
-  const activeUser = pkeIdentity.data?.user || user;
+  const activeUser = pkeIdentity.data?.user || user;\n  const globalPmAppointment = useLoad<{appointment?:AnyRecord|null;canCreateProject?:boolean} | null>(() => activeUser && !pkeIdentity.loading ? get('/pm/appointment/me') : Promise.resolve(null), [activeUser?.id,pkeIdentity.loading]);
   const projectAccess = useLoad<{ projectId?: string; permissions?: string[] }>(
     () => activeUser && !pkeIdentity.loading && projectId
       ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`)
@@ -107,7 +107,7 @@ function App() {
     projectPermissions: projectAccess.data?.projectId === projectId ? projectAccess.data.permissions || [] : [],
     projectPermissionsLoading: Boolean(projectId && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
     projectPermissionsError: projectAccess.error,
-    buyerPortalEnabled: buyerAccess.data?.identityMapped === true,
+    buyerPortalEnabled: buyerAccess.data?.identityMapped === true,\n    globalPmAppointed: globalPmAppointment.data?.canCreateProject === true,
   } : activeUser;
   const selectedMembership = workspaceUser?.projectMemberships?.find((membership: AnyRecord) => membership.projectId === projectId && membership.isActive === true);
   const selectedProjectRoles = (selectedMembership?.roleAssignments || [])

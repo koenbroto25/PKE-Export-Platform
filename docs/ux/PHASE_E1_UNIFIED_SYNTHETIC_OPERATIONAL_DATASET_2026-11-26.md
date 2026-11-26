@@ -249,3 +249,11 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Role Dashboard requests could overlap during Project switches/refreshes. A slower response from the former Project could overwrite current scope state, and old data was retained during the new load.
 - Added request-generation invalidation and clear-on-load behavior; stale requests now cannot publish results.
 - Added regression contract assertions in Phase L. CI validation pending.
+
+## Third dashboard source-truth finding — task queue payload
+- Task queue counts used optional chaining and fallback `0`, causing a missing or malformed API payload to look like a genuinely empty queue. This could mislead PM/role users.
+- Changed rendering to distinguish verified array, verified empty array, and unknown/missing payload. Unknown counts display em-dash; the empty state is shown only for a verified zero-length array.
+- Added regression assertions in Phase L. CI pending.
+
+## Project scope race regression checkpoint
+- Project switch/overlapping refresh stale response guard validated by CI run `45831097114` on commit `ddb655e9334e78773ec6ede46fbae6b1a6cf0ec8`: SUCCESS. Dashboard source/test changes are complete; CI passed.

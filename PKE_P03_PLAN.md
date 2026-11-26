@@ -2489,3 +2489,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 
 ## Executive Overview permission-gate regression correction — 2026-11-26
 - CI run `45834416195` and test run `45834442419` failed one assertion because it expected the earlier trip-source expression and omitted the new selected-Project/logistics gate; 764/765 tests passed. Updated assertion in `57bfe4c1afb57ee01620f8e5316c474360ecc355`. CI pending.
+
+
+## Project Detail → PM Project 360 payload-validity correlation — 2026-11-26
+- Found parent Project Detail adapter converted missing API arrays to `[]` while marking source available/authorized, so PM Project 360 could treat malformed/missing payload as verified zero.
+- Parent now passes explicit `payloadValid` shape flags for contracts, programs, tasks, inventory, trips, documents, requirements and PKS participation. PM360 sourceVerified/state/labels honor the flag; missing payload is unknown, explicitly unavailable integration is unavailable, verified empty is zero.
+- Regression coverage added for parent-to-child payload validity propagation. CI pending.

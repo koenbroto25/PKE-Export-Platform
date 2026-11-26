@@ -101,6 +101,16 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
 
  it("PM Project 360 never displays unverified source payloads as zero evidence or confirmed empty",()=>{
   expect(pm360).toContain("const sourceVerified = (key:string)");
+  expect(pm360).toContain("sources[key].payloadValid!==false");
+  expect(pm360).toContain("s.payloadValid===false||!Array.isArray(s.rows)");
+  expect(app).toContain("payloadValid:Array.isArray(contracts.data?.contracts)");
+  expect(app).toContain("payloadValid:Array.isArray(programs.data?.contractPrograms)");
+  expect(app).toContain("payloadValid:Array.isArray(tasks.data?.workItems)");
+  expect(app).toContain("payloadValid:Array.isArray(inventory.data?.inventoryLots)");
+  expect(app).toContain("payloadValid:Array.isArray(trips.data?.truckTrips)");
+  expect(app).toContain("payloadValid:Array.isArray(documents.data?.documents)");
+  expect(app).toContain("payloadValid:Array.isArray(requirements.data?.documentRequirements)");
+  expect(app).toContain("payloadValid:Array.isArray(supply.data?.participations)");
   expect(pm360).toContain("const safeSourceCount = (key:string, rows:Row[]) => sourceVerified(key) ? rows.length : '—'");
   expect(pm360).toContain("const taskCount=safeSourceCount('tasks',tasks)");
   expect(pm360).toContain("const documentCount=");

@@ -20,7 +20,7 @@ function lexicalSqlCheck(source){
   let state="normal",dollarTag="",depth=0,line=1;
   for(let i=0;i<source.length;i++){
     const ch=source[i],next=source[i+1];
-    if(ch==="\\n") line++;
+    if(ch==="\n") line++;
     if(state==="normal"){
       if(ch==="-"&&next==="-"){state="line";i++;continue;}
       if(ch==="/"&&next==="*"){state="block";i++;continue;}
@@ -38,7 +38,7 @@ function lexicalSqlCheck(source){
     }else if(state==="double"){
       if(ch==='"'&&next==='"'){i++;continue;}
       if(ch==='"')state="normal";
-    }else if(state==="line"){if(ch==="\\n")state="normal";}
+    }else if(state==="line"){if(ch==="\n")state="normal";}
     else if(state==="block"){if(ch==="*"&&next==="/"){i++;state="normal";}}
     else if(state==="dollar"){if(source.startsWith(dollarTag,i)){i+=dollarTag.length-1;state="normal";}}
   }

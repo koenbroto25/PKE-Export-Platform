@@ -2092,3 +2092,11 @@ No Vercel deployment, Neon mutation, migration, production-data access, merge, o
 - Report: `docs/ux/UX-10_PHASE_C_D_REVIEW_QUEUE_AI_BACKTEST_2026-11-26.md`.
 - No Vercel deploy, Neon/database, migration, production data, live ingestion, or LLM invocation. GitHub branch source only.
 - Remaining: CI execution, queue API/UI/persistence, immutable audit trail/idempotency, browser/accessibility UAT, and model-in-loop evaluation. Synthetic benchmark is enrichment/evaluation data, not model training or proof of live AI accuracy.
+
+
+## Phase C/D revision checkpoint — review queue UX and CI backtest corrections
+
+- Phase C now includes PM Project 360 demo queue UI with three synthetic examples, source provenance, evidence refs, AI suggestion, human note, assignment/verify/reject/defer and browser-only state. Responsive mobile layout added. Backend persistence/API/audit trail remains open.
+- CI identified and corrected: escaped newline syntax corruption in typed-evidence engine, safe internal-link regex mismatch, and reversed supersession fixture. These are genuine source/test issues; they were not hidden.
+- UI contract test added to root suite. Newest CI after corrections is pending. Previous runs failed and are not counted as acceptance.
+- UX-10 report updated. No Vercel deploy, Neon, migrations, live AI, or production action.

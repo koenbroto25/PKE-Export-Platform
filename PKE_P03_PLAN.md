@@ -2199,3 +2199,11 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - [x] Explicitly mark persisted integration, browser E2E and live AI evaluation as **BLOCKED by environment/approval**.
 - [ ] Owner approval and isolated QA environment; no attempt made in this marathon.
 - [ ] Actual API/database/storage/browser/live-model integration stages remain unexecuted.
+
+
+## Phase N — Role Dashboard Navigation Coverage
+- [x] Audited all role-dashboard link destinations against App navigation/routes.
+- [x] Added static test requiring every unique dashboard link to resolve to an App route or navigation item and checking major export workspaces are linked.
+- [x] Confirms permission-aware route visibility is present and access-denied states are rendered.
+- [ ] CI pending for newest commit.
+- [ ] Browser click/keyboard/accessibility E2E remains blocked by lack of browser runner and approved auth/test environment.

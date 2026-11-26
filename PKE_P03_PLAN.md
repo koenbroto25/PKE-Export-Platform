@@ -1458,3 +1458,30 @@ Role-level dashboard coverage, open-source cross-check strategy and field-readin
 6. Run exact-head CI and full role/route/API/RLS regression; update this living plan with commit/run evidence and only mark acceptance after operational evidence.
 
 **Boundary:** Vercel deployment/browser UAT remains skipped; Production DB and migrations remain untouched; external providers/RAG/chatbot remain inactive unless separately approved.
+
+
+## UX-04A read-only contract audit — 26 November 2026
+
+**Audit status: EXISTING CONTRACTS IDENTIFIED / FIELD SYNC NOT IMPLEMENTED.**
+
+### Source findings
+- `frontend/src/App.tsx` contains a lazy import and `/field` route guarded by the `field` page key; `frontend/src/role-permissions.ts` gates that page on selected Project context, loaded permissions and approved operational role codes. This corrects the earlier concern that the route might be absent: route and guard are present in the source snapshot.
+- `frontend/src/FieldCapturePage.tsx` reads `/projects/:projectId/work-items`, caches the scoped task list locally and creates local drafts with evidence Blob/checksum. It does not submit drafts to the server or mark them accepted.
+- Existing backend work-item API includes GET list, GET event history, POST creation, and PATCH action transitions. PATCH transitions enforce active role/assignee and task permissions; the field page currently has no client sync adapter that invokes these transitions.
+- `project_work_item_events` already has `source_event_key` and a partial unique index on `(project_id, source_event_key)`, which can support deduplicated source events if a sync contract is designed to use it correctly. `idempotency_keys` also has a unique `(actor_user_id, scope, idempotency_key)` index. These existing structures should be evaluated before adding new schema.
+- Existing private document storage presigned upload and document registration are bound to a Project document requirement, require `documents.create` and `documents.view`, and perform server-side object verification. They are not a generic field-photo upload API and must not be bypassed or weakened for field evidence.
+- `p1_domain_evidence` stores evidence linked to a domain record with object key, bucket, checksum, actor, upload time and verification state, but it is not itself a generic work-item attachment contract. Its applicability and authorization must be validated before reuse.
+
+### Architecture decision pending
+Before implementation, map field draft kinds to allowed work-item event types, state transitions and evidence object linkage. A sync endpoint must validate authenticated actor, Project membership, current assignment/role, task state and payload; hash the canonical request; enforce idempotency; upload/verify evidence through the approved storage lifecycle; write event/evidence atomically where possible; return a server receipt; and expose conflict/rejection states. Do not reuse the existing document requirement endpoint for arbitrary field photos or create optimistic `synced` states.
+
+### Tests required before acceptance
+- Assignment revocation/expiry and Project switch are rejected at sync time.
+- Cross-Project, cross-user and role-mismatch attempts fail closed.
+- Same idempotency key + same payload returns the original receipt; same key + different payload conflicts.
+- Partial upload, checksum mismatch, oversized/unsupported file and orphan cleanup paths are verified.
+- Event/state transitions and duplicate source-event keys are safe.
+- Evidence status is never `verified` merely because the upload completed.
+- RLS/runtime role tests, API tests, CI and mobile/offline UAT remain required.
+
+No migration, SQL write, Production data change, deployment, or external provider activation was performed during this audit.

@@ -14,6 +14,8 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
   const overdue = tasks.filter(t => t.is_overdue === true);
   const blocked = tasks.filter(t => t.status === 'blocked');
   const unassigned = tasks.filter(t => !t.assignee_user_id && ['open','in_progress','blocked','submitted'].includes(t.status));
+  const exceptionRows = tasks.filter(t => t.is_overdue === true || t.status === 'blocked' || (!t.assignee_user_id && ['open','in_progress','blocked','submitted'].includes(t.status)));
+  const exceptionCount = new Set(exceptionRows.map(t => t.id || t.title || JSON.stringify(t))).size;
   const activeCount = portfolio?.activeProjects ?? projectRows.filter(p => p.status === 'active').length;
   const volume = portfolio?.contractVolume ?? projectRows.reduce((n,p)=>n+Number(p.target_quantity||0),0);
   const hasPortfolio = portfolio && Object.keys(portfolio).length > 0;
@@ -25,7 +27,7 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
         <UXMetric label="Project terlihat" value={projectRows.length} detail="API /projects" state={projects ? 'available' : 'unknown'}/>
         <UXMetric label="Project aktif" value={activeCount ?? '—'} detail="Status portfolio / project" state={hasPortfolio ? 'available' : 'partial'}/>
         <UXMetric label="Target volume" value={Number.isFinite(Number(volume)) ? Number(volume).toLocaleString('id-ID')+' MT' : '—'} detail="Target agregat, bukan volume aktual" state={projects ? 'available' : 'unknown'}/>
-        <UXMetric label="Task exception" value={taskSourceAvailable ? overdue.length+blocked.length+unassigned.length : '—'} detail={taskSourceAvailable ? overdue.length+' overdue · '+blocked.length+' blocked · '+unassigned.length+' unassigned' : 'Task source belum dapat diverifikasi'} state={taskSourceAvailable ? (overdue.length+blocked.length+unassigned.length ? 'partial':'available') : 'unknown'}/>
+        <UXMetric label="Task exception" value={taskSourceAvailable ? exceptionCount : '—'} detail={taskSourceAvailable ? overdue.length+' overdue · '+blocked.length+' blocked · '+unassigned.length+' unassigned' : 'Task source belum dapat diverifikasi'} state={taskSourceAvailable ? (overdue.length+blocked.length+unassigned.length ? 'partial':'available') : 'unknown'}/>
       </div>
       <UXFreshness source="Portfolio API" value={freshness}/>
     </UXPanel>

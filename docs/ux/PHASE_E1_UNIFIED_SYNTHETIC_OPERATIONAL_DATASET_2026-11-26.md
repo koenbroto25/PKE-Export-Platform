@@ -291,3 +291,7 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Admin Control Tower nested metric audit
 - Missing nested data previously defaulted to zero across shipment/loading/voyage/nominations/port calls/documents/work-items KPIs. Now missing values render em-dash; explicit zero is preserved.
 - Regression assertions added. CI pending.
+
+## Admin Control Tower metric validation
+- Regression run `45832580637`: SUCCESS — 80 files / 763 tests, typecheck/build and release gates PASS.
+- Missing nested data is unknown (—); explicit zero remains zero.

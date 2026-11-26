@@ -338,3 +338,6 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Admin Control Center route-permission audit
 - Shortcut links are now filtered by the current visible route access; denied Access/Projects/Work Queue/Reports actions render as explanatory text. Per-project detail links require detail permission; otherwise users are directed to Projects list if available.
 - Regression coverage added. CI pending.
+
+## Admin Control Center shortcut assertion correction
+- Three runs failed one stale assertion after project-detail link was gated by permission; 764/765 tests passed. Assertion corrected in `402b2938a45d7d7053d54f60372dc1db43e5eaeb`. Rerun pending.

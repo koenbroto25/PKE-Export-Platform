@@ -41,6 +41,12 @@ export function validatePhaseEOperationalDataset(d=createPhaseEOperationalDatase
  if(loading&&loading.tallyMt!==loading.surveyMt&&s.stageState.loading==="ready")errors.push("loading-quantity-contradiction:"+s.id);
  const finance=d.finance.find(row=>row.shipmentId===s.id);
  if(finance?.settlement!=="settled"&&s.stageState.settlement==="ready")errors.push("settlement-readiness-contradiction:"+s.id);
+ const contract=d.contracts.find(row=>row.shipmentId===s.id);
+ if(contract&&contract.quantityMt!==s.quantityMt&&s.stageState.contract==="ready")errors.push("contract-quantity-contradiction:"+s.id);
+ const lotQuantity=d.lots.filter(row=>row.shipmentId===s.id).reduce((sum,row)=>sum+row.quantityMt,0);
+ if(lotQuantity<s.quantityMt&&s.stageState.inventory==="ready")errors.push("inventory-quantity-contradiction:"+s.id);
+ const site=d.pksSites.find(row=>row.id===s.pksId);
+ if(site&&site.capacityMt<s.quantityMt&&s.stageState.supply==="ready")errors.push("supply-capacity-contradiction:"+s.id);
 }
  for(const r of d.loadingRecords)if(!shipmentIds.has(r.shipmentId))errors.push("loading-shipment-fk:"+r.id);
  return errors;

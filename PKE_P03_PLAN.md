@@ -2414,3 +2414,10 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Audit found dashboard data requests/metrics were gated by data permission or role alone, while destination pages also enforce page access. This could create clickable metric dead-ends or fetch source data for a workspace the user could not open.
 - Updated dashboard source request flags and metric visibility to require both source permission and destination page access (Tasks, Contracts, Warehouse, Operations, Shipment Allocation, Compliance, Finance, Journal Entries, Reports).
 - Added Phase L regression assertions for these dual gates. CI pending.
+
+
+## PM Project 360 source-truth audit — 2026-11-26
+- Found PM Project 360 was showing numeric task/document/evidence counts and empty-evidence messaging even when source payload was missing, unauthorized, malformed, unavailable, or errored; next-action blocked/overdue counts could falsely show 0.
+- Added source-verification guards. Unknown counts display `—`; verified-empty messaging only appears when every evidence source is verified and returns zero; task blocker/overdue counts are unknown unless task source is verified. Stage labels prioritize source error over “not integrated.”
+- Regression tests added to Phase L.
+- Permission metric alignment regression run `45831671290`: SUCCESS — 80 test files / 761 tests. Full CI for PM360 source fix is pending.

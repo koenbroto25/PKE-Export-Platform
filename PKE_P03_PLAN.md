@@ -1902,3 +1902,17 @@ Plan approved; execution not yet started for Phases A–F in this section. Exist
 - [ ] Wire to actual backend API after auth/role middleware review.
 - [ ] Route-level HTTP tests for auth, project/edge scope, malformed input and role denial.
 **Status:** contract layer implemented; endpoint integration and CI verification remain open. No live source adapter or DB persistence is claimed.
+
+
+### Phase A continuation checkpoint — contract hardening (26 November 2026)
+
+- [x] Hardened source-workspace authorization: malformed access context and exceptions from the authorization callback fail closed.
+- [x] Restricted source links to same-origin relative application routes; external, protocol-relative, script, control-character and encoded-control paths are omitted.
+- [x] Expanded contract tests for malformed access context, throwing permission callbacks, stale/unknown blocker category, unsafe links, and not-applicable handling.
+- [x] Added Phase A contract test to the root `npm test` command.
+- [ ] CI verification for this checkpoint; results are pending.
+- [ ] Backend route integration and HTTP route-level authorization tests remain pending after middleware review.
+
+Commits on `p20/platform-continuation-20261123`: `1a6257850d3efc1479c8294da0a137c6bca2c261`, `ccaa342cf986573b0434f215416da49faa8f4ef1`, `8c7cfb248d9a5623792ee8d03898a62bb9c3f141`.
+
+Scope unchanged: no Vercel deployment, Neon/Production mutation, migration, live adapter, model API call, merge, or rebase.

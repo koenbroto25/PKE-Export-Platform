@@ -144,7 +144,7 @@ BEGIN
     UPDATE public.pm_appointments SET status='revoked',status_changed_by=v_actor,status_changed_at=now(),status_reason='Superseded by reactivation',updated_at=now()
      WHERE user_id=v_old.user_id AND status='active' AND id<>v_old.id;
   END IF;
-  UPDATE public.pm_appointments SET status=p_status,status_changed_by=v_actor,status_changed_at=now(),status_reason=p_reason,updated_at=now()
+  UPDATE public.pm_appointments SET status=p_status,status_changed_by=v_actor,status_changed_at=now(),status_reason=CASE WHEN p_status='active' THEN NULL ELSE p_reason END,updated_at=now()
    WHERE id=p_appointment_id RETURNING * INTO v_new;
   v_event:=CASE WHEN p_status='active' AND v_old.status<>'active' THEN 'reactivated' WHEN p_status='suspended' THEN 'suspended' ELSE 'revoked' END;
   INSERT INTO public.pm_appointment_events(appointment_id,user_id,actor_user_id,event_code,reason,before_snapshot,after_snapshot)
@@ -198,10 +198,9 @@ BEGIN
  ON CONFLICT(project_id,role_code) DO UPDATE SET is_active=true,updated_at=now() RETURNING * INTO v_role;
  INSERT INTO public.project_role_permissions(project_id,project_role_id,permission_id,granted_by,granted_at)
  SELECT v_project.id,v_role.id,p.id,v_pm,now() FROM public.permissions p
- JOIN public.pke_project_role_permission_allowlist a ON a.permission_code=p.code AND a.role_code='pm'
- WHERE p.is_active=true ON CONFLICT(project_role_id,permission_id) DO NOTHING;
+ WHERE p.code=ANY(ARRAY['project.view','project.update','project.members.view','project.members.invite','project.members.manage','project.roles.manage','project.configuration.manage','audit.finding.view','contract.view','manage_contract_programs','port.view','port.depth.view','port.depth.submit','route.estimate','vessel.view','vessel.port.assess','voyage.view','voyage.create','voyage.update','vessel.nomination.review','vessel.port_call.manage','pks.site.view','pks.participation.manage','pks.master_data.change_request.view','pks.master_data.change_request.manage','pke.logistics.master.view','pke.logistics.master.change_request.manage','facility.view','facility.product.view','facility.capacity.view','product.view','supplier.view','product.requirement.view','product.requirement.manage','shipping.view','shipment.view','shipping.survey.view','shipping.laytime.view','finance.view','inventory.view','operations.view','logistics.view','warehouse.view','documents.view','workflow.view','approvals.view','reports.view','audit.view','shipping.survey.review','shipping.laytime.verify','loading.quantity.reconcile','project.tasks.view','project.tasks.create','project.tasks.assign','project.tasks.update','project.tasks.resolve','project.tasks.escalate','buyer.visibility.manage']::text[]) AND p.is_active=true ON CONFLICT(project_role_id,permission_id) DO NOTHING;
  GET DIAGNOSTICS v_permissions=ROW_COUNT;
- IF v_permissions=0 THEN RAISE EXCEPTION 'PM role permission catalogue unavailable' USING ERRCODE='23514'; END IF;
+ IF v_permissions<40 THEN RAISE EXCEPTION 'PM role permission catalogue incomplete' USING ERRCODE='23514'; END IF;
  INSERT INTO public.project_members(project_id,user_id,project_role_id,is_active,joined_at,updated_at)
  VALUES(v_project.id,v_pm,NULL,true,now(),now()) RETURNING * INTO v_member;
  PERFORM set_config('app.pke_pm_project_create','on',true);

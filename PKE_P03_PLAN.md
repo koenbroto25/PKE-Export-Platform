@@ -2192,3 +2192,10 @@ Map requirement → process/data contract → API/backend → UI/role → test/b
 - [x] Phase K permission audit found a frontend compliance page-gate defect: `project.view` alone could satisfy the compliance route requirement. Fixed it so page access requires a non-external compliance-specific permission; added regression assertion.
 - [ ] Latest CI for Phase L pending.
 - [ ] Actual data APIs and role-specific workflow integrations remain separate implementation gates.
+
+
+## Phase M — Real Integration Readiness Gates
+- [x] Document the source-only baseline, strict environment boundary, prerequisites, M0–M9 test sequence and go/no-go criteria.
+- [x] Explicitly mark persisted integration, browser E2E and live AI evaluation as **BLOCKED by environment/approval**.
+- [ ] Owner approval and isolated QA environment; no attempt made in this marathon.
+- [ ] Actual API/database/storage/browser/live-model integration stages remain unexecuted.

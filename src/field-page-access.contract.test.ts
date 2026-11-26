@@ -11,9 +11,10 @@ import {readFileSync} from "node:fs";
 import {join} from "node:path";
 describe("Field Capture account-scoped local retention control",()=>{
  const queue=readFileSync(join(process.cwd(),"src","components","field","field-offline-queue.ts"),"utf8");
+ const page=readFileSync(join(process.cwd(),"frontend","src","FieldCapturePage.tsx"),"utf8");
  it("provides principal-scoped purge across both local stores",()=>{
   expect(queue).toContain("deleteFieldLocalDataForPrincipal");
-  expect(queue).toContain("tx.transaction([STORE,ASSIGNMENT_STORE]");
+  expect(queue).toContain("db.transaction([STORE,ASSIGNMENT_STORE]");
   expect(queue).toContain('index("principalId").getAll(principalId)');
   expect(queue).toContain("assignmentCaches");
  });

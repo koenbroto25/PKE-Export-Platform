@@ -64,6 +64,7 @@ describe("Phase L role-dashboard source coverage and truthful readiness",()=>{
   expect(app).toContain("const countText = (rows: AnyRecord[] | null) => rows === null ? '—'");
   expect(app).toContain('taskRows === null ? "—"');
   expect(app).toContain("Project source terverifikasi mengembalikan nol record");
+  expect(app).toContain("r.target_quantity !== null && r.target_quantity !== undefined ? number(r.target_quantity) : '—'");
   expect(app).toContain("Tracking source terverifikasi mengembalikan nol event");
   expect(app).toContain("Payload task belum terverifikasi; angka 0 tidak ditampilkan.");
  });

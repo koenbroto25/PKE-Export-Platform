@@ -348,3 +348,37 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 ## Admin Control Center selected-project link guard
 - Direct detail shortcut is limited to the selected Project and requires detail permission; other project rows route to Projects selection when permitted.
 - Regression assertion added. CI pending.
+
+
+## Dashboard source-truth audit continuation — 2026-11-26
+
+### Verified implementation coverage
+- Project/scope request-generation guard clears stale dashboard data and ignores out-of-scope responses.
+- Missing task payload is unknown; only a verified empty array produces an empty queue.
+- Dashboard metric fetching and destination links require source permission plus page access.
+- PM Project 360 receives payload-validity flags from Project Detail adapters; unknown, unavailable, errored, and verified-empty source states are distinct. Record existence is not approval/readiness.
+- Admin Control Tower nested missing metrics are em-dash/unknown; explicit zero remains numeric.
+- Executive Overview source fallbacks no longer fabricate verified-empty arrays when Project scope/permission is absent. Selected Project truck KPI uses only verified Project-scoped trip source.
+- Admin Control Center project totals and shortcuts are permission/scope-aware; direct detail links are limited to the selected Project and require detail access.
+
+### Latest evidence and validation boundary
+- Last confirmed full green dashboard regression: `45832580637`, commit `6322c7aa8c66c34be8faf2d6674c1ca017cbccc4`, 80 files / 763 tests, P19 assurance 20/20, migration policy/dry-run, backend/frontend typecheck and build PASS.
+- Follow-on Executive Overview / PM360 / Admin Control Center integrity changes include test assertion corrections and JSX fixes. They are not considered validated by the earlier 763-test run; current branch-head full CI evidence is still required.
+- Vercel checks are skipped due owner instruction and deployment quota. No deploy was attempted.
+
+### Additional gap discovered during review
+- “Prioritas tindakan Admin” in Admin Control Center still renders the Access shortcut unconditionally. Gate it using the same `canOpen('access')` permission predicate and render a non-clickable “Access not granted” state otherwise. Strengthen the regression assertion to target that exact shortcut so another gated Access link cannot mask the defect.
+
+### Required dashboard synthetic backtest matrix
+1. Project switch with delayed prior response; no stale rows/KPI.
+2. Missing/malformed/error/unauthorized/loading source vs verified empty array.
+3. Explicit zero vs absent/null metric.
+4. Partial portfolio sources: verified rows remain visible; unavailable source is independently unknown.
+5. Role with data permission but no destination page access; no request/link.
+6. Role with page access but no data permission; no sensitive fetch/metric.
+7. Missing Project ID; no malformed detail route.
+8. Multiple roles, inactive membership, Platform Admin, PM, restricted role.
+9. Unknown, unavailable, partial and available states do not collapse.
+10. KPI shortcut lands on the authorized workspace and selected Project context.
+
+Acceptance: the source-contract suite and full CI must pass after the follow-up fix; do not call the dashboard readiness audit closed until CI for the current head is green and the remaining runtime integrations are clearly separated from source-level validation.

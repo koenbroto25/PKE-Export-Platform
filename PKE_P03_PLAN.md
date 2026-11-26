@@ -2312,3 +2312,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Updated the dashboard count helper to require an actual array and return em-dash/unknown otherwise. Applied shape guards to combined Contract/Program, Warehouse/Inventory, AP/AR, Document, and Finance/Accounting counts. Single-source trip and shipment-allocation readiness counts now use the guarded helper.
 - Added Phase L regression assertions for payload-array shape guards.
 - CI pending for this source/test batch. No external integrations or data sources were changed.
+
+
+## Role dashboard source-data integrity and Field Capture accuracy — follow-up
+- Dashboard source count rendering now returns unknown/— when an endpoint payload is missing the expected array; it no longer coerces malformed or missing fields into zero. Guards cover contract/program, warehouse/inventory, AP/AR, document, finance/accounting, trip and shipment allocation counts.
+- Field Capture readiness now accurately reports implemented local capabilities (GPS, photo evidence, assignment cache and IndexedDB draft) and separately marks server sync/upload, conflict resolution, barcode and signature as not integrated/validated. This replaces the inaccurate blanket “not available” description.
+- Regression tests were added/updated for source payload shape and Field Capture truthfulness. A TypeScript syntax error in the initial Finance count edit was caught by CI and corrected. One remaining CI run is pending for the latest test expectation update.

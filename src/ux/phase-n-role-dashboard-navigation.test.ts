@@ -27,7 +27,7 @@ describe("Phase N role-dashboard navigation route coverage",()=>{
   expect(roleDashboard).toContain("hasPageAccess(pageKey, activeUser as WorkspaceAccessUser)");
   expect(roleDashboard).toContain("ROLE_LINK_PAGE_KEYS");
   expect(roleDashboard).toContain("Workspace links disembunyikan karena permission belum tersedia.");
-  expect(roleDashboard).toContain("item.status === 'permission' ? item.label : <Link to={item.href}>{item.label}</Link>");
+  expect(roleDashboard).toContain("item.status === 'permission' || !hasPageAccess(ROLE_LINK_PAGE_KEYS[item.href], activeUser as WorkspaceAccessUser)");
   expect(roleDashboard).toContain("Field mobile capture & offline sync");
   expect(roleDashboard).toContain("href: '/field'");
  });

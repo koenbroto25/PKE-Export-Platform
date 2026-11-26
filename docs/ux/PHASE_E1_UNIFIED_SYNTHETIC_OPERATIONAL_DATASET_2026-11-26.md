@@ -213,3 +213,10 @@ The master plan now establishes the remaining work as task-based UX audit, lifec
 - Verified commit `6e3873138c3a6a3aaa93dee61959f1a5a59e313a`, CI run `45829670413`: SUCCESS — 80 test files / 754 tests passed; release/migration policy checks, backend/frontend typecheck/build PASS.
 - The ten-scenario dataset (120 stage slots) validates clean completion, QC hold, loading conflict, document gap, port suitability failure, expired driver, settlement pending, inventory shortage, PKS capacity shortage, and contract quantity mismatch. False-ready contradiction checks cover these evidence domains.
 - The 16-fault chaos catalog is included in the passing run. The separate keyboard-accessibility CSS regression batch is pending its own CI.
+
+
+## Role authority backtest hardening — 2026-11-26
+- Found a simulation-model defect: PM lifecycle-wide visibility was also granting simulated stage execution, and field capture was being treated as stage action authority.
+- Split visibility stages from operational action stages. PM retains project-wide lifecycle visibility but has no direct simulated stage execution; field users can capture evidence but do not approve/advance readiness. Operational roles act only on their explicitly assigned stage set and only when the stage is ready, human actor is in the same project.
+- Added regression tests for PM read-only oversight, field evidence-only, dispatcher transport action, and explicit owner-stage matrix.
+- CI pending for this role-authority change. It is simulation/backtest hardening and does not replace actual API/RLS authorization validation.

@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {PKE_KNOWLEDGE_OBSERVATIONS} from "./pke-observation-registry";
-import {assessObservation,detectObservationConflicts,summarizeObservationSafety,type KnowledgeObservation} from "./observation-schema";
+import {assessObservation,detectObservationConflicts,summarizeObservationSafety,validateObservation,type KnowledgeObservation} from "./observation-schema";
 const policy={now:"2026-11-26T12:00:00Z",maxAgeMsByEvidenceType:{official:30*86400000,industry:365*86400000,commercial:180*86400000,historical:Infinity,company:30*86400000,field:7*86400000,transaction:7*86400000}};
 const sample=(patch:Partial<KnowledgeObservation>={}):KnowledgeObservation=>({...PKE_KNOWLEDGE_OBSERVATIONS[0],observationId:"TEST-1",entityType:"test",entityId:"entity-1",claimType:"claim",claimValue:"A",conflictGroupId:"group-1",...patch});
 describe("knowledge observation provenance registry",()=>{
@@ -62,5 +62,13 @@ describe("AI safety metadata",()=>{
   expect(issues).toContain("Low confidence; do not present as established fact");
   expect(issues).toContain("AI use is prohibited for consequential decisions");
   expect(issues).toContain("No scope limitation documented");
+ });
+});
+
+describe("observation input validation",()=>{
+ it("accepts all seed records and rejects malformed confidence, URLs, dates and missing limitations",()=>{
+  for(const o of PKE_KNOWLEDGE_OBSERVATIONS)expect(validateObservation(o),o.observationId).toEqual([]);
+  expect(validateObservation(sample({confidence:2,sourceUrl:"not-a-url",scopeLimitations:[],validFrom:"2027-01-01",validTo:"2026-01-01"}))).toContain("confidence must be between 0 and 1");
+  expect(validateObservation(sample({confidence:2,sourceUrl:"not-a-url",scopeLimitations:[],validFrom:"2027-01-01",validTo:"2026-01-01"}))).toContain("sourceUrl must be HTTP(S)");
  });
 });

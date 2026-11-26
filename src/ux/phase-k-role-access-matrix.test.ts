@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPageAccess, visiblePageKeys, type WorkspaceAccessUser } from "../../frontend/src/role-permissions";
+import { hasPageAccess, visiblePageKeys, type WorkspaceAccessUser } from "../../frontend/src/role-permissions";\nimport { CANONICAL_ROLE_TEMPLATES } from "../role-catalogue";\nimport { readFileSync } from "node:fs";\nimport { join } from "node:path";
 const make=(role:string,permissions:string[],overrides:Partial<WorkspaceAccessUser>={}) : WorkspaceAccessUser=>({
  selectedProjectId:"SIM-PROJECT-001",projectPermissions:permissions,projectPermissionsLoading:false,
  projectMemberships:[{isActive:true,projectId:"SIM-PROJECT-001",roleAssignments:[{roleCode:role,isActive:true,roleIsActive:true}]}],
@@ -69,3 +69,13 @@ describe("Phase K role dashboard and workspace access matrix",()=>{
   expect(hasPageAccess("port-network",make("viewer",[],{platformAdmin:true}))).toBe(true);
  });
 });
+
+ it("provides a role dashboard metadata entry for every canonical role and a project dashboard for every active membership",()=>{
+  const dashboardSource=readFileSync(join(process.cwd(),"frontend/src/RoleDashboardPage.tsx"),"utf8");
+  const metaKeys=[...dashboardSource.matchAll(/^\\s{2}([a-z_]+): \\{ label:/gm)].map(m=>m[1]);
+  const missing=CANONICAL_ROLE_TEMPLATES.map(r=>r.code).filter(code=>!metaKeys.includes(code));
+  expect(missing).toEqual([]);
+  for(const role of CANONICAL_ROLE_TEMPLATES.filter(r=>r.scope==="project")){
+   expect(hasPageAccess("dashboard",make(role.code,[])),role.code).toBe(true);
+  }
+ });

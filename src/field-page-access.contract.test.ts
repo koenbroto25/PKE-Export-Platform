@@ -9,6 +9,20 @@ describe("Field Capture route access",()=>{
 
 import {readFileSync} from "node:fs";
 import {join} from "node:path";
+describe("Field Capture account-scoped local retention control",()=>{
+ const queue=readFileSync(join(process.cwd(),"src","components","field","field-offline-queue.ts"),"utf8");
+ it("provides principal-scoped purge across both local stores",()=>{
+  expect(queue).toContain("deleteFieldLocalDataForPrincipal");
+  expect(queue).toContain("tx.transaction([STORE,ASSIGNMENT_STORE]");
+  expect(queue).toContain('index("principalId").getAll(principalId)');
+  expect(queue).toContain("assignmentCaches");
+ });
+ it("requires explicit irreversible confirmation before account purge",()=>{
+  expect(page).toContain("HAPUS PERMANEN semua draft, foto bukti dan cache assignment");
+  expect(page).toContain("deleteFieldLocalDataForPrincipal(String(activeUser.id))");
+  expect(page).toContain("Data yang belum tersinkron tidak dapat dipulihkan");
+ });
+});
 describe("Field Capture local-data lifecycle UI contract",()=>{
  const page=readFileSync(join(process.cwd(),"frontend","src","FieldCapturePage.tsx"),"utf8");
  it("lets users clear cached assignments even when no draft exists",()=>{

@@ -1764,7 +1764,7 @@ Scenario catalog assertions updated for 165 total / 30 sourced records. CI is tr
 ### Research source additions
 - DJBC FAQ: PEB timing, correction windows by field/event, cancellation reporting, BL/outward-manifest reconciliation and multimodal context: https://www.beacukai.go.id/faq-tatalaksana-ekspor
 - DJBC export/manifest FAQ: outward manifest redress and evidence context: https://www.beacukai.go.id/faq-ekspor-pengangkutan-dan-manifest
-- Barantin phytosanitary guidance, 12 Nov 2026: https://karantinaindonesia.go.id/inspektorat/berita/mau-ekspor-tumbuhan-dan-produk-turunannya-ke-luar-negeri-inilah-cara-mendapatkan-phytosanitary-certificate (verify exact URL/title before operational use)
+- Barantin phytosanitary guidance, 12 Nov 2026: https://karantinaindonesia.go.id/inspektorat/berita/mau-ekspor-tumbuhan-dan-produknya-ke-luar-negeri-inilah-cara-mendapatkan-phytosanitary-certificate
 - NZ MPI PAFP.IHS: destination-specific PKE approved-source/facility controls; never infer Indonesian facility eligibility from this source: https://www.mpi.govt.nz/dmsdocument/4514/direct/
 - FOSFA Code of Practice loading checklist: previous cargo, holds/hatches and equipment cleanliness/residues: https://www.fosfa.org/wp-content/uploads/2025/04/Revised-Code-of-Practice-Nov-2022-Complete.pdf
 - AgriFeeds nutrition guide: typical PKE values only, not a contract/lot specification: https://storage.googleapis.com/agrifeeds-prod-web-assets/public/Uploads/Nutrition-Guide-FEB2025.pdf

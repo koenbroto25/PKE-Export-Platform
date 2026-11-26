@@ -430,3 +430,29 @@ Acceptance: the source-contract suite and full CI must pass after the follow-up 
 Inactive/unappointed PM denied; active PM creates first Project; multi-Project portfolio; separate Buyer/contracts; PM isolation; Admin appointment lifecycle; PM revoke blocks creation; existing Project continuity; transfer with preserved audit; incomplete/invalid commercial basis; duplicate/idempotent submission; transaction rollback; portfolio refresh after creation; newly created Project appears without manual reassignment.
 
 **Implementation status: NOT YET VERIFIED.** This section records corrected business intent and acceptance requirements; it is not evidence of completed schema, UI, API, or runtime integration. No database mutation is included.
+
+
+## Source audit evidence — appointment-first Project creation (2026-11-26)
+
+| Surface | Observed source | Result |
+|---|---|---|
+| Project creation API | POST /api/v1/projects guarded by requireAuth, requireAdmin | PM create-Project denied by design |
+| Project creation UI | Admin-only form; copy says Admin creates Project shell first and PM adds Contract Program later | Wrong sequence for field workflow |
+| PM appointment API | POST /api/v1/admin/projects/:projectId/pm-appointment | Requires existing Project; cannot appoint before first Project |
+| PM assignment schema | project_role_assignments has project_id, project_member_id, and project-specific role FK | No global pre-Project appointment entity |
+| Admin staffing UI | Requires selected Project; appointment form targets selected Project | PM appointment is per Project |
+| Project creation fields | Name, target, unit, status, description | Buyer agreement/contract basis not captured as creation basis |
+| PM workspace | src/components/pm/workspace.tsx placeholder | Portfolio/create-Project workflow not implemented there |
+
+**Conclusion:** the current source does not implement the field workflow confirmed by the owner. This is a critical workflow mismatch, not a small UX refinement. CI green on current code does not cover the corrected business flow.
+
+### Work order
+1. Define global appointment/audit model (multiple active appointed PM users permitted; appointment is platform-scoped and independent of Projects).
+2. Add server-side create-Project permission based on appointment; Admin-only fallback must not be the normal business path.
+3. Capture Buyer and commercial basis at Project creation (agreement/contract and supporting evidence); validate/atomically persist.
+4. Auto-link the appointed creator as responsible PM and project-scoped PM member/assignment.
+5. Build PM portfolio and Project creation UX; expose all owned Projects without manual Admin assignment.
+6. Handle suspension/revocation and transfer: block new Projects, preserve existing project responsibility until explicit audited transfer/continuity resolution.
+7. Add synthetic HTTP integration and schema contract tests for first Project, multiple Projects, scope isolation, revocation, transfer, duplicate submission, invalid basis, and rollback.
+
+Implementation remains **OPEN / NOT IMPLEMENTED**. No database mutation was made.

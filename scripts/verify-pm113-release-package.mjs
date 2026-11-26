@@ -14,7 +14,7 @@ if(manifest.uat_application?.status!=="not_applied"||manifest.owner_approval?.st
 if(manifest.migrations?.length!==1||migration?.migration_number!==113||migration?.status!=="prepared"||migration?.application_status!=="not_applied"||migration?.source_sha_verified!==true) fail("Migration release entry is not in prepared state.");
 if(!fs.existsSync(filePath)) fail("Migration SQL file is missing.");
 const actual=crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
-if(actual!==migration.sha256) fail("Migration 113 SHA-256 does not match release pin.");
+if(actual!==migration.sha256) fail(`Migration 113 SHA-256 mismatch. Expected ${migration.sha256}; actual ${actual}.`);
 const sql=fs.readFileSync(filePath,"utf8");
 if((sql.match(/^BEGIN;\s*$/gim)||[]).length!==1||(sql.match(/^COMMIT;\s*$/gim)||[]).length!==1) fail("Migration must have one BEGIN/COMMIT boundary.");
 if(/^\s*(DROP\s+TABLE|DROP\s+SCHEMA|TRUNCATE)\b/im.test(sql)) fail("Unexpected destructive DDL detected.");

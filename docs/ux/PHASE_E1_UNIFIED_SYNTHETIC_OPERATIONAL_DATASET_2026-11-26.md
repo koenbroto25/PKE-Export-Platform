@@ -389,3 +389,10 @@ Acceptance: the source-contract suite and full CI must pass after the follow-up 
 - Regression assertion now targets the exact “Review akses & role governance” card, not merely any gated Access link.
 - Source-contract checks: 16/16 PASS. Full Vitest/CI/typecheck/build for the current head is still unverified; this static check does not substitute for CI. Vercel remains skipped due quota.
 - Dashboard readiness is therefore **SOURCE AUDIT PASS / FULL CI PENDING**, not final runtime acceptance.
+
+
+## Latest CI review and workflow coverage fix — 2026-11-26
+- Verified available completed CI: F1 PR #2 Unit Tests run `44975465261` and Dependency Audit `44975465270`, both SUCCESS; P18 PR #3 Unit run `45092073615`, SUCCESS. Their job steps include full tests, migration/release gates, dry-run, backend build/typecheck, and frontend typecheck/build.
+- Current P20 source head lacked an accessible Actions run through this session's connector; only Vercel check was surfaced (Vercel intentionally skipped due quota).
+- Fixed workflow coverage: added `p20/platform-continuation-20261123` to push branches in `.github/workflows/dependency-audit.yml`. Commit `b5f562280f0cee5b19128490d1cd6e7026526700`. Unit Tests workflow already has P20 push trigger.
+- Current-head GitHub Actions success is **PENDING/UNVERIFIED**. Source-contract 16/16 remains PASS but does not close CI acceptance.

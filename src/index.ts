@@ -2075,7 +2075,20 @@ app.get("/api/v1/projects", requireAuth, async (req: express.Request, res: expre
     if (!userId) return res.status(401).json({ error: "Authenticated principal required" });
     let rows: any[];
     if (req.user?.isAdmin) {
-      ({ rows } = await req.db.query("SELECT * FROM projects WHERE is_active = true ORDER BY created_at DESC"));
+      const { rows: ownershipSchema } = await req.db.query("SELECT to_regclass('public.project_pm_ownership') AS ownership_table");
+      if (ownershipSchema[0]?.ownership_table) {
+        ({ rows } = await req.db.query(
+          `SELECT p.*,o.pm_user_id,pmu.name AS pm_name,pmu.email AS pm_email,
+                  cb.basis_reference,cb.basis_type,b.name AS buyer_name
+             FROM projects p LEFT JOIN public.project_pm_ownership o ON o.project_id=p.id
+             LEFT JOIN public.users pmu ON pmu.id=o.pm_user_id
+             LEFT JOIN public.project_commercial_basis cb ON cb.project_id=p.id
+             LEFT JOIN public.buyers b ON b.id=cb.buyer_id
+            WHERE p.is_active=true ORDER BY p.created_at DESC`
+        ));
+      } else {
+        ({ rows } = await req.db.query("SELECT * FROM projects WHERE is_active = true ORDER BY created_at DESC"));
+      }
     } else {
       ({ rows } = await req.db.query(
         `SELECT DISTINCT p.*

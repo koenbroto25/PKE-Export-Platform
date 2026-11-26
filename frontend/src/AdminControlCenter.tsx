@@ -9,7 +9,7 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
   loading?: boolean; errors?: string[]; freshness?: string | null; refresh?: () => void;
 }) {
   const projectRows = projects || [];
-  const tasks = workItems || [];
+  const taskSourceAvailable = Array.isArray(workItems);\n  const tasks = workItems || [];
   const overdue = tasks.filter(t => t.is_overdue === true);
   const blocked = tasks.filter(t => t.status === 'blocked');
   const unassigned = tasks.filter(t => !t.assignee_user_id && ['open','in_progress','blocked','submitted'].includes(t.status));
@@ -24,7 +24,7 @@ export default function AdminControlCenter({ portfolio, projects, workItems, sel
         <UXMetric label="Project terlihat" value={projectRows.length} detail="API /projects" state={projects ? 'available' : 'unknown'}/>
         <UXMetric label="Project aktif" value={activeCount ?? '—'} detail="Status portfolio / project" state={hasPortfolio ? 'available' : 'partial'}/>
         <UXMetric label="Target volume" value={Number.isFinite(Number(volume)) ? Number(volume).toLocaleString('id-ID')+' MT' : '—'} detail="Target agregat, bukan volume aktual" state={projects ? 'available' : 'unknown'}/>
-        <UXMetric label="Task exception" value={overdue.length+blocked.length+unassigned.length} detail={overdue.length+' overdue · '+blocked.length+' blocked · '+unassigned.length+' unassigned'} state={workItems ? (overdue.length+blocked.length+unassigned.length ? 'partial':'available') : 'unknown'}/>
+        <UXMetric label="Task exception" value={taskSourceAvailable ? overdue.length+blocked.length+unassigned.length : '—'} detail={taskSourceAvailable ? overdue.length+' overdue · '+blocked.length+' blocked · '+unassigned.length+' unassigned' : 'Task source belum dapat diverifikasi'} state={taskSourceAvailable ? (overdue.length+blocked.length+unassigned.length ? 'partial':'available') : 'unknown'}/>
       </div>
       <UXFreshness source="Portfolio API" value={freshness}/>
     </UXPanel>

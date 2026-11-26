@@ -2011,12 +2011,12 @@ Commit: `fdeda6bcd000f49789d26763856bcd4bdff3336d`.
 - This model backtests status decision logic only. It does not simulate numeric quantities, contradictory documents, duplicate identifiers/allocations, event-time freshness transitions, source authority/reconciliation, cancelled/partially corrected records, or real role handoffs. Do not infer operational readiness from its synthetic API.
 - No Vercel deploy, Neon mutation, migration, production data, live source integration, model API, merge, or rebase was performed.
 
-### Phase C — next required work (before live integration)
+### Phase B2 — next required work (typed evidence/conflict simulation, before live integration)
 1. Expand the dependency assessment input from evidence-label presence to typed evidence observations: source/record IDs, quantity/unit, lot/batch/shipment identity, timestamps, source authority, verification state, supersession/correction links, and scoped permissions.
 2. Implement deterministic conflict rules and backtest contradictory records, duplicate allocation, over-allocation, unit mismatch, partial shipment, stale/reordered events, cancellation/reversal, and correction/recovery.
 3. Add multi-edge propagation tests where the same blocker is corrected and downstream edges recover without stale cached state.
 4. Validate every workspace route and role page key; replace heuristic route aliases with a verified route registry and add keyboard/accessibility/browser QA.
-5. Only after Phase C contracts and tests pass: design a live adapter per source workspace, read-only scope, source freshness, permission enforcement, provenance, error/abstention and integration tests. No live adapter is approved in this checkpoint.
+5. After Phase B2 contracts and tests pass, proceed to the existing Phase C Knowledge Review Queue (read-only/demo UX). Live adapters remain a later, separately gated step: design a live adapter per source workspace, read-only scope, source freshness, permission enforcement, provenance, error/abstention and integration tests. No live adapter is approved in this checkpoint.
 
 ### Acceptance gates
 - [ ] Execute root test suite and release-policy scripts.

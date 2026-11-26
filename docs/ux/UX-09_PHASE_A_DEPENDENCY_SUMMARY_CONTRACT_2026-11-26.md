@@ -179,3 +179,11 @@ Source wiring is implemented, but frontend build/typecheck and browser QA are **
 - [ ] Review aggregation semantics and correction/audit-log policy before any live adapter.
 
 No Vercel deployment, Neon mutation, migration, production-data access, merge, or rebase was performed.
+
+
+### Phase B2 hardening follow-up
+- [x] Reconciles expected quantity against normalized **group totals**, not individual observations, and separately detects over-allocation.
+- [x] Fail-closed correction: an all-inactive/superseded evidence set is a gap, never satisfied.
+- [x] Added malformed/non-empty identifier, receive timestamp, and supersession reference checks.
+- [x] Added tests for valid correction recovery, quantity aggregate mismatch, authority range, blocked upstream, inactive evidence, malformed references, and metadata.
+- [ ] All tests remain authored-only until executable CI/runtime verification is available.

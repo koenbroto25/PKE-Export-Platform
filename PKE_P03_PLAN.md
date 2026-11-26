@@ -2408,3 +2408,9 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Missing task payload can no longer be represented as zero or as a confirmed empty queue. Regression PASS.
 - Project scope stale-response fix: run `45831097114` SUCCESS.
 - Documentation-only commits currently have CI in progress; source commits and regression are already green.
+
+
+## Dashboard metric permission alignment remediation — 2026-11-26
+- Audit found dashboard data requests/metrics were gated by data permission or role alone, while destination pages also enforce page access. This could create clickable metric dead-ends or fetch source data for a workspace the user could not open.
+- Updated dashboard source request flags and metric visibility to require both source permission and destination page access (Tasks, Contracts, Warehouse, Operations, Shipment Allocation, Compliance, Finance, Journal Entries, Reports).
+- Added Phase L regression assertions for these dual gates. CI pending.

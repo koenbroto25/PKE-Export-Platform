@@ -83,3 +83,10 @@ Recommended source-observation schema captures publisher, URL, retrieval/publica
 
 ### Validation pending
 Scenario catalog assertions updated for 165 total / 30 sourced records. CI is triggered on the branch; results will be reported after completion. No DB, migration, Vercel deployment, production operation, or main merge/rebase performed.
+
+
+### AI evaluation fixtures — implementation
+- Added `src/simulation/pke-ai-eval-fixtures.ts`: 30 deterministic AI-evaluation fixtures derived from SIM-136–165, each carrying a scenario reference, persona, source IDs, expected behavior checklist, prohibited claims, authority-decision abstention requirement and risk flags.
+- Fixtures cover grounding/provenance, stale/conflicting research, facility/entity classification, quality holds, destination compliance, customs event distinction, quantity/document reconciliation, multimodal custody and candidate-vs-approved logistics.
+- This is a static evaluation dataset only. No LLM is called and no production AI behavior is claimed. The fixture set is intended to become a future offline regression benchmark before any AI-support rollout.
+- Added contract tests for fixture completeness and mandatory abstention/provenance safeguards.

@@ -41,5 +41,8 @@ it("runs a deterministic fault matrix across every lifecycle edge",()=>{
  expect(executed).toBe(PKE_PROCESS_DEPENDENCIES.length*faults.length);
 });
 
+it("fails closed when every record is inactive or superseded",()=>{expect(assessTypedEvidence([rec({recordState:"superseded"})]).status).toBe("gap");expect(assessTypedEvidence([rec({recordId:"old"}),rec({recordId:"new",supersedesRecordId:"old"})]).status).toBe("satisfied");});
+it("flags self-referential or missing supersession targets",()=>{const a=assessTypedEvidence([rec({supersedesRecordId:"r1"})]);expect(a.findings.some(f=>f.code==="invalid-correction")).toBe(true);});
+it("flags empty identifiers and invalid receive timestamps",()=>{const a=assessTypedEvidence([rec({recordId:"",sourceId:"",evidenceKey:"",receivedAt:"not-a-date"})]);expect(a.findings.some(f=>f.code==="unknown-evidence")).toBe(true);expect(a.status).toBe("unknown");});
 it("never false-passes unresolved contradiction/rejection/overage",()=>{for(const a of [assessTypedEvidence([rec({value:"x"}),rec({recordId:"r2",value:"y"})]),assessTypedEvidence([rec({verification:"rejected"})]),assessTypedEvidence([rec({quantity:12})],{expectedQuantities:{shipment:{quantity:10,unit:"tonne"}}})])expect(a.status).not.toBe("satisfied");});
 });

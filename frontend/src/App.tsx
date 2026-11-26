@@ -2407,14 +2407,14 @@ function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; o
   const requirements = useLoad<any>(() => id && canDocuments ? get('/projects/'+encodeURIComponent(id)+'/document-requirements') : Promise.resolve({documentRequirements:[]}), [id,canDocuments]);
   const supply = useLoad<any>(() => id && canPks ? get('/projects/'+encodeURIComponent(id)+'/pks-sites') : Promise.resolve({participations:[]}), [id,canPks]);
   const sources = {
-    contracts:{label:'Contracts',rows:contracts.data?.contracts||[],loading:contracts.loading,error:contracts.error,available:true,authorized:canContracts},
-    programs:{label:'Contract Programs',rows:programs.data?.contractPrograms||[],loading:programs.loading,error:programs.error,available:true,authorized:canContracts},
-    tasks:{label:'Work Items',rows:tasks.data?.workItems||[],loading:tasks.loading,error:tasks.error,available:true,authorized:canTasks},
-    inventory:{label:'Inventory Lots',rows:inventory.data?.inventoryLots||[],loading:inventory.loading,error:inventory.error,available:true,authorized:canInventory},
-    trips:{label:'Truck Trips',rows:trips.data?.truckTrips||[],loading:trips.loading,error:trips.error,available:true,authorized:canLogistics},
-    documents:{label:'Documents',rows:documents.data?.documents||[],loading:documents.loading,error:documents.error,available:true,authorized:canDocuments},
-    requirements:{label:'Document Requirements',rows:requirements.data?.documentRequirements||[],loading:requirements.loading,error:requirements.error,available:true,authorized:canDocuments},
-    supply:{label:'PKS Participation',rows:supply.data?.participations||[],loading:supply.loading,error:supply.error,available:true,authorized:canPks},
+    contracts:{label:'Contracts',rows:contracts.loading ? [] : contracts.data?.contracts||[],loading:contracts.loading,error:contracts.error,available:true,authorized:canContracts},
+    programs:{label:'Contract Programs',rows:programs.loading ? [] : programs.data?.contractPrograms||[],loading:programs.loading,error:programs.error,available:true,authorized:canContracts},
+    tasks:{label:'Work Items',rows:tasks.loading ? [] : tasks.data?.workItems||[],loading:tasks.loading,error:tasks.error,available:true,authorized:canTasks},
+    inventory:{label:'Inventory Lots',rows:inventory.loading ? [] : inventory.data?.inventoryLots||[],loading:inventory.loading,error:inventory.error,available:true,authorized:canInventory},
+    trips:{label:'Truck Trips',rows:trips.loading ? [] : trips.data?.truckTrips||[],loading:trips.loading,error:trips.error,available:true,authorized:canLogistics},
+    documents:{label:'Documents',rows:documents.loading ? [] : documents.data?.documents||[],loading:documents.loading,error:documents.error,available:true,authorized:canDocuments},
+    requirements:{label:'Document Requirements',rows:requirements.loading ? [] : requirements.data?.documentRequirements||[],loading:requirements.loading,error:requirements.error,available:true,authorized:canDocuments},
+    supply:{label:'PKS Participation',rows:supply.loading ? [] : supply.data?.participations||[],loading:supply.loading,error:supply.error,available:true,authorized:canPks},
     production:{label:'Production',rows:[],available:false},
     qa:{label:'QA / Lab Release',rows:[],available:false},
     port:{label:'Port / Terminal',rows:[],available:false},
@@ -2422,10 +2422,11 @@ function ProjectDetailPage({ activeUser, onNotice }: { activeUser?: AnyRecord; o
     voyage:{label:'Voyage',rows:[],available:false},
     finance:{label:'Finance / Settlement',rows:[],available:false},
   };
-  const sourceFreshness = detail.data?.dataFreshness || detail.data?.updatedAt || detail.data?.project?.updated_at || null;
+  const detailIsCurrent = String(detail.data?.project?.id || '') === String(id || '');
+  const sourceFreshness = detailIsCurrent ? (detail.data?.dataFreshness || detail.data?.updatedAt || detail.data?.project?.updated_at || null) : null;
   return <div className="project-detail-page">
     <PageTitle eyebrow="PROJECT WORKSPACE" title={detail.data?.project?.name || 'Project 360'} subtitle="Lifecycle, dependency, evidence and next-action view for the selected export project." actions={<button className="secondary-button" onClick={()=>navigate('/projects')}><ArrowLeft size={16}/> Kembali</button>}/>
-    {detail.loading ? <Loading text="Memuat project dan source terkait…"/> : detail.error ? <ErrorState message={detail.error} retry={detail.refresh}/> : <>
+    {detail.loading || !detailIsCurrent ? <Loading text="Memuat project dan source terkait…"/> : detail.error ? <ErrorState message={detail.error} retry={detail.refresh}/> : <>
       <div className="form-actions project-detail-actions">{hasProjectPermission("project.update", activeUser) && <ActionButton onClick={() => navigate("/projects/" + id + "/edit")}>Edit Project</ActionButton>}{hasProjectPermission("project.configuration.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/configuration")}>Konfigurasi</ActionButton>}{hasAnyProjectPermission(["project.members.view", "project.members.manage"], activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/members")}>Anggota</ActionButton>}{hasProjectPermission("project.roles.manage", activeUser) && <ActionButton variant="secondary" onClick={() => navigate("/projects/" + id + "/roles")}>Role</ActionButton>}</div>
       <PMProject360 project={detail.data?.project} sources={sources} projectId={id||''} freshness={sourceFreshness} allowedPages={visiblePageKeys(activeUser || {})}/>
     </>}

@@ -2551,3 +2551,12 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 ### Safety boundary
 - No Vercel deploy, no Production Neon migration/data change, no role assignment or governance decision is included in this UX-only continuation.
 - No branch merge is implied by the documentation/source commits. Use the continuation branch for isolated implementation and validation.
+
+
+## Admin Control Center Access shortcut fix — 2026-11-26
+- Fixed the unconditional “Review akses & role governance” shortcut: it now renders a link only when `canOpen('access')`; otherwise it shows a non-clickable “Access not granted” state.
+- Strengthened the dashboard regression test to match that exact card/conditional, preventing the second, already-gated governance link from masking the original defect.
+- Source commit: `be4dc75f91c3978c8e1a2eb58ad61a0dd6c7d934`; test assertion commit: `de16957a0332694f6d7f4caed926a27edc909b49`.
+- Read-only source-contract verification after these commits: **16/16 checks PASS** across Admin Control Center shortcut gating, Dashboard stale-response/scope guards, unknown task payload handling, page/data permission parity, PM360 source classification/payload validity, and Executive Overview Project-scoped trip counts.
+- This is source-contract verification only. A full GitHub Actions Vitest/typecheck/build run for current head is **NOT VERIFIED** in this execution; the available GitHub workflow-run connector returned no PR-triggered runs for this commit. Vercel status is quota/build-rate-limit failure and was intentionally not retried. No Vercel deployment, Neon Production change, or migration occurred.
+- Acceptance remains OPEN pending a full CI run on current head and the synthetic multi-scenario runtime/browser backtest. The 763-test green checkpoint belongs to the earlier commit and must not be attributed to this latest code.

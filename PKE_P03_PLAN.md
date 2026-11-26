@@ -2334,3 +2334,11 @@ Continue source-only work in the designated branch in batches: (1) audit, (2) fi
 - Latest CI run `45827726923`, commit `f509a9c6b5a5b0a7ea060f2e85de47f5fd0161dd`: SUCCESS — 80 test files / 749 tests; P19 assurance 20/20; release/migration policy checks and dry-run; backend/frontend typecheck and builds PASS.
 - Earlier CI failures in this audit were caught and fixed: stale test expectations and a JSX/TypeScript syntax error. No failed source state remains at the verified commit.
 - The audit has corrected several dashboard navigation/data-truth issues, but this is not final acceptance: continue role task workflow and lifecycle correlation audit, then backtest normal/exception/recovery paths. Persisted integration, browser E2E, storage sync and live AI remain environment gates.
+
+
+## Expanded synthetic lifecycle backtest — seven export cases (2026-11-26)
+- Extended the deterministic dataset from 3 to 7 linked synthetic projects/shipments, retaining the clean complete, QC hold, and loading quantity-conflict cases and adding document gap, unsuitable port, expired transport driver, and settlement pending.
+- Coverage now spans 84 lifecycle stage slots (7 × 12). No production data or DB was used.
+- Integrity validation now rejects false-ready states contradicted by port suitability, driver license, document evidence, tally/survey quantity, or settlement evidence.
+- Chaos/recovery suite expanded from 8 to 13 declared faults, including five explicit false-ready contradiction injections.
+- Fixture/lifecycle/chaos test expectations updated. CI is pending for this batch; do not mark this expansion PASS until CI completes.

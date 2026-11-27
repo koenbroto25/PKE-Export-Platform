@@ -2,7 +2,7 @@ import{describe,it,expect}from"vitest";
 import{P25_SECURITY_READINESS,p25SecuritySummary}from"./phase-q-security-readiness-matrix";
 describe("P25 final security and production readiness matrix",()=>{
  it("reports explicit evidence and does not overstate overall security readiness",()=>{
-  expect(p25SecuritySummary()).toMatchObject({total:10,pass:1,partial:4,gap:2,blocked:3,allHaveEvidence:true});
+  expect(p25SecuritySummary()).toMatchObject({total:10,pass:1,partial:5,gap:2,blocked:2,allHaveEvidence:true});
   expect(P25_SECURITY_READINESS.some(x=>x.status==="gap"||x.status==="blocked")).toBe(true);
  });
  it("keeps PM RLS isolation backed by UAT evidence",()=>{

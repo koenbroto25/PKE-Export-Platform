@@ -1,0 +1,8 @@
+import{describe,it,expect}from"vitest";import{readFileSync}from"node:fs";import{join}from"node:path";
+const sql=readFileSync(join(process.cwd(),"migrations/117_field_capture_review_privilege_hardening.sql"),"utf8"),manifest=JSON.parse(readFileSync(join(process.cwd(),"migration_release_manifest_p26_field_capture_review_hardening_117.json"),"utf8")),verifier=readFileSync(join(process.cwd(),"scripts/verify-pm117-release-package.mjs"),"utf8");
+describe("Migration 117 explicit Field Capture review privilege hardening",()=>{
+ it("records isolated UAT applied and Production unauthorized",()=>{expect(manifest.production_application).toBe("not_authorized");expect(manifest.uat_application).toMatchObject({status:"applied",branch_id:"br-winter-butterfly-b3tnsao9",ledger_id:117});expect(manifest.migrations[0].sha256).toMatch(/^[a-f0-9]{64}$/);});
+ it("explicitly removes PUBLIC function access and direct review-event writes",()=>{expect(sql).toContain("REVOKE ALL ON FUNCTION public.pke_review_field_capture_submission");expect(sql).toContain("REVOKE INSERT,UPDATE,DELETE ON public.project_field_capture_review_events");expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.pke_review_field_capture_submission");});
+ it("keeps immutable submission and review-history privileges scoped",()=>{expect(sql).toContain("REVOKE UPDATE,DELETE ON public.project_field_capture_submissions");expect(sql).toContain("GRANT SELECT,INSERT ON public.project_field_capture_submissions");});
+ it("verifier checks SHA and Production boundary",()=>{expect(verifier).toContain("Migration 117 SHA mismatch");expect(verifier).toContain("Production must remain unauthorized");});
+});

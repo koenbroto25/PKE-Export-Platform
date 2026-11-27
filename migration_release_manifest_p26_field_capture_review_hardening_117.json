@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "purpose": "p26_field_capture_review_privilege_hardening_uat_release",
+  "release": "P26 Field Capture review privilege hardening",
+  "created_on": "2026-11-27",
+  "source_branch": "p20/pm-appointment-first-20261126",
+  "target_environment": "isolated UAT",
+  "production_application": "not_authorized",
+  "uat_application": {
+    "status": "applied",
+    "branch_id": "br-winter-butterfly-b3tnsao9",
+    "ledger_id": 117,
+    "applied_at": "2026-11-27T13:50:21.090Z"
+  },
+  "owner_approval": {
+    "status": "approved",
+    "approved_by": "User instruction in ChatGPT",
+    "approved_at": "2026-11-27T13:24:00Z",
+    "approval_reference": "Explicit request to complete PKE phases; this additive hardening is isolated UAT only."
+  },
+  "migrations": [
+    {
+      "migration_number": 117,
+      "filename": "117_field_capture_review_privilege_hardening.sql",
+      "sha256": "0dbd066d24decb55bb3619aa6fa47047bd413027ea5bc6eb1c1b1049c281921b",
+      "status": "applied",
+      "source_sha_verified": true,
+      "application_status": "applied"
+    }
+  ],
+  "safety": "Migration 117 applied only to isolated UAT branch br-winter-butterfly-b3tnsao9. Production unauthorized."
+}

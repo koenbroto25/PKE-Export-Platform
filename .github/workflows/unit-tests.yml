@@ -12,6 +12,7 @@ on:
       - p20/pm-appointment-first-20261126
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
       - phase0/reconcile-source-20261117

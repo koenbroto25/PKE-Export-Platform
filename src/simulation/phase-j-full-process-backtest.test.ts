@@ -28,8 +28,8 @@ describe("P22 connected export lifecycle backtest", () => {
     d.appointments[0].status = "revoked";
     expect(createProjectFromBasis(d, input)).toMatchObject({ ok: false, code: "PM_NOT_ACTIVE" });
     d.appointments[0].status = "active";
-    expect(createProjectFromBasis(d, { ...input, basisId: "unknown" })).toMatchObject({ ok: false, code: "BASIS_INVALID" });
-    expect(createProjectFromBasis(d, { ...input, buyerId: "unknown" })).toMatchObject({ ok: false, code: "BUYER_NOT_FOUND" });
+    expect(createProjectFromBasis(d, { ...input, projectId: "SIM-PROJECT-BASIS-INVALID", basisId: "unknown", idempotencyKey: "SIM-IDEMP-BASIS-INVALID" })).toMatchObject({ ok: false, code: "BASIS_INVALID" });
+    expect(createProjectFromBasis(d, { ...input, projectId: "SIM-PROJECT-BUYER-INVALID", buyerId: "unknown", idempotencyKey: "SIM-IDEMP-BUYER-INVALID" })).toMatchObject({ ok: false, code: "BUYER_NOT_FOUND" });
   });
 
   it("idempotency replays the original Project and rejects key reuse for a different commercial identity", () => {

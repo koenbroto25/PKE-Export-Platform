@@ -2931,3 +2931,10 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - CI run 2997 failed on 5 stale/contract assertions against earlier source head: two local-purge wording assertions and three Migration 115 contract assertions. Changes were made afterward; rerun against current head is required.
 - Neon temporary migration preparation for Migration 115 was attempted and blocked by the project branch limit (HTTP 422 `branches limit exceeded`). Migration 115 remains unapplied; no database mutation occurred. Runtime syntax/RLS validation is therefore still a blocker until branch capacity is available or an approved existing UAT branch can be used.
 - Browser direct private-storage upload also requires bucket CORS to permit the frontend origin; CORS configuration is not exposed through the available Neon storage tools and remains external validation.
+
+
+### P23 Field Capture source validation checkpoint — 2026-11-27
+- Current-head Unit Tests run 3024 has passed the full offline security/unit suite, dedicated P22 backtest, P23 operational gap matrix, P19 assurance contracts, migration 113/114 verifiers, Migration 115 prepared-package verifier, Field Capture API/rules/RLS contract tests, backend build and API typecheck. Docker build and frontend typecheck/build are still in progress.
+- Dependency Audit run 1330: PASS.
+- Migration 115 remains PREPARED and SHA-pinned. Its source contract test checks RLS/permission/assignment, null-safe GPS/evidence constraints, checksums, object namespace, immutable grants and transaction/non-destructive behavior. The package verifier fails closed if approval or UAT state changes without manifest reconciliation.
+- Current code includes client retry with stable evidence key and server receipt list. Runtime UAT, storage CORS, evidence orphan cleanup, capture review, and browser E2E remain open; therefore P23 is PARTIAL.

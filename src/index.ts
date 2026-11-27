@@ -3653,7 +3653,7 @@ app.post("/api/v1/projects/:projectId/field-captures/:submissionId/review",requi
   if(decision!=="accepted"&&reason.trim().length<5)return res.status(400).json({error:"Reason is required for rejection or re-review.",code:"FIELD_CAPTURE_REVIEW_REASON_REQUIRED"});
   if(!(await requireProjectPermission(req,res,projectId,"project.tasks.resolve")))return;
   try{
-    const result=await req.db.query("SELECT public.pke_review_field_capture_submission($1::uuid,$2::text,$3::text) AS submission",[submissionId,decision,reason]);
+    const result=await req.db.query("SELECT to_jsonb(public.pke_review_field_capture_submission($1::uuid,$2::text,$3::text)) AS submission",[submissionId,decision,reason]);
     return res.json({submission:result.rows[0]?.submission,decision,reviewed:true});
   }catch(e:any){
     const message=String(e?.message||"Review failed.");

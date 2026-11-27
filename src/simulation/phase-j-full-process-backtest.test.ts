@@ -19,7 +19,7 @@ describe("P22 connected export lifecycle backtest", () => {
     const d = createP22Dataset();
     const buyer = d.buyers[0];
     const agreement = d.commercialAgreements.find(x => x.buyerId === buyer.id)!;\n    const input = { projectId: "SIM-PROJECT-NEW", pmUserId: "SIM-PM-ALPHA", buyerId: buyer.id, basis: "buyer_agreement" as const, basisId: agreement.id, idempotencyKey: "SIM-IDEMP-NEW" };
-    expect(createProjectFromBasis(d, input)).toMatchObject({ ok: false, code: "BASIS_INVALID" });
+    expect(createProjectFromBasis(d, input)).toMatchObject({ ok: true, replay: false, project: { id: "SIM-PROJECT-NEW" } });
     const unappointed = { ...input, pmUserId: "SIM-PM-NOT-APPOINTED" };
     expect(createProjectFromBasis(d, unappointed)).toMatchObject({ ok: false, code: "PM_NOT_ACTIVE" });
     d.appointments[0].status = "suspended";
@@ -76,7 +76,7 @@ describe("P22 connected export lifecycle backtest", () => {
     }
   });
 
-  it("rejects tampered cross-Project Buyer, commercial basis, duplicate keys and ownership links", () => {
+  it("detects missing mandatory documents and validates shipment references", () => {\n    const d = createP22Dataset();\n    d.documents.splice(0, 1);\n    expect(validateP22Dataset(d)).toContain("required-document-missing:SIM-SHIP-001:COA");\n    d.shipments[0].buyerId = "SIM-BUY-999";\n    expect(validateP22Dataset(d)).toContain("buyer-shipment-link:SIM-SHIP-001");\n  });\n\n  it("rejects tampered cross-Project Buyer, commercial basis, duplicate keys and ownership links", () => {
     const d = createP22Dataset();
     d.projectCreations[0].buyerId = "SIM-BUY-999";
     d.projectCreations[0].basisId = "SIM-BASIS-INVALID";

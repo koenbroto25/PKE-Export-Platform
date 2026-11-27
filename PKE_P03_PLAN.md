@@ -2907,3 +2907,11 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - **P23 matrix contracts: PASS within 809/809.** Gap transparency test passed. The actual integration gaps remain OPEN; passing tests only prove truthful status/acceptance criteria, not implementation.
 - Current Draft validation PR #10 is opened against P19 to validate explicit P22/P23 workflow steps on the current head. Do not merge it. PR #5 remains the delivery PR and is still not merged.
 - Production/UAT unchanged; Vercel ignored.
+
+
+### Final P21/P22/P23 CI acceptance checkpoint — 2026-11-27
+- **P21: PASS.** Latest workflow commit 4efea2a6c0f7d90a5bfcc114f8b31451b7516731 Unit Tests run 2909 completed SUCCESS; all 24 steps passed, including release/migration checks, backend build/API typecheck, Docker, frontend typecheck/build. Dependency Audit run 1216 completed SUCCESS.
+- **P22: PASS (synthetic/offline integration scope).** Dedicated connected lifecycle test step passed. It covers 10 synthetic Projects/shipments, two appointed PMs, Buyer/commercial basis, idempotency, PM portfolio/transfer, 12 lifecycle stages, recovery and Phase G fault scenarios. Phase E mandatory-document and project-reference validation passed. This does NOT yet prove live API/database transaction E2E.
+- **P23: PASS for gap-matrix contract/transparency only.** Dedicated UX matrix step passed; dashboard routes/permission checks and known incomplete integrations are explicitly labeled. Actual operational UX gaps remain OPEN and must be implemented/accepted before operational readiness.
+- **Dependency Audit: PASS** run 1216. Latest plan-only commit 058b1e75d08eb9b9abc3d6fd695de7d96ae74202 was compared to tested workflow commit; only PKE_P03_PLAN.md changed, so code/test evidence remains applicable.
+- Current PR #10 remains Draft validation-only, unmerged. PR #5 delivery PR remains OPEN, unmerged. No Production/UAT database changes and no Vercel deployment.

@@ -61,6 +61,8 @@ jobs:
         run: npm run verify:pm115-release
       - name: Run Field Capture server sync contracts
         run: npx vitest run src/field-capture-rules.test.ts src/field-capture-api.contract.test.ts src/migration-115-field-capture-server-sync.contract.test.ts src/migration-115-field-capture-release-package.contract.test.ts
+      - name: Run P24 AI readiness benchmark
+        run: npx vitest run src/knowledge/phase-p-ai-readiness-matrix.test.ts
       - name: Build backend application
         run: npm run build
       - name: Typecheck backend API

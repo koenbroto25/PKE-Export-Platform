@@ -3632,6 +3632,16 @@ async function requireAssignedFieldCaptureWorkItem(req: express.Request, res: ex
   return true;
 }
 
+app.get("/api/v1/projects/:projectId/field-captures",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.view")))return;
+  try{
+    const rows=await req.db.query("SELECT id,project_id,work_item_id,actor_user_id,local_capture_id,capture_kind,note,captured_at,latitude,longitude,gps_accuracy_m,gps_captured_at,evidence_object_key,evidence_sha256,evidence_size_bytes,evidence_mime_type,evidence_original_filename,status,server_received_at FROM public.project_field_capture_submissions WHERE project_id=$1::uuid ORDER BY server_received_at DESC LIMIT 100",[projectId]);
+    return res.json({submissions:rows.rows});
+  }catch{return res.status(500).json(internalServerErrorPayload());}
+});
+
 app.post("/api/v1/projects/:projectId/field-captures/presigned-upload",requireAuth,async(req:express.Request,res:express.Response)=>{
   const projectId=String(req.params.projectId||""),actorId=req.user?.id;
   const b=req.body??{},captureId=String(b.captureId||""),workItemId=String(b.workItemId||""),filename=String(b.filename||""),mimeType=String(b.mimeType||""),contentLength=Number(b.contentLength),requestedObjectKey=String(b.objectKey||"");

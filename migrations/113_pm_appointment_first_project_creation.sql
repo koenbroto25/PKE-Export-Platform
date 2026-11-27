@@ -421,6 +421,7 @@ SELECT * INTO v_appt FROM public.pm_appointments WHERE user_id=v_pm AND status='
  PERFORM pg_advisory_xact_lock(hashtextextended(v_pm::text||':project-create',0));
  SELECT response INTO v_result FROM public.pm_project_create_idempotency WHERE pm_user_id=v_pm AND idempotency_key=p_idempotency_key;
  IF FOUND THEN RETURN v_result||jsonb_build_object('idempotentReplay',true); END IF;
+ PERFORM set_config('app.pke_pm_project_create','on',true);
  INSERT INTO public.projects(name,description,status,settlement_unit,target_quantity,export_country_code,is_active,created_at,updated_at)
  VALUES(btrim(p_name),nullif(btrim(p_description),''),'draft',btrim(p_settlement_unit),p_target_quantity,nullif(upper(btrim(p_export_country_code)),''),true,now(),now())
  RETURNING * INTO v_project;

@@ -254,6 +254,44 @@ describe("PrivateStorageAdapter validation (offline)", () => {
     await expect(adapter.verifyObject("projects/test/documents/invoice.pdf",payload.length,"0".repeat(64))).rejects.toThrow(/SHA-256/);
   });
 
+  it("server-proxies a private upload and verifies size/checksum without browser CORS", async () => {
+    const payload=Buffer.from("offline field capture image bytes"),digest=crypto.createHash("sha256").update(payload).digest("hex");
+    const fetchImpl=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=>{
+      if(init?.method==="PUT")return new Response(null,{status:200});
+      if(init?.method==="HEAD")return new Response(null,{status:200,headers:{"content-length":String(payload.length),etag:'"proxy-upload"'}});
+      return new Response(payload,{status:200});
+    });
+    const adapter=new PrivateStorageAdapter({bucket:"pke-private-documents",region:"ap-southeast-1",endpoint:"https://storage.ap-southeast-1.neonpublic.com",accessKeyId:"test-access-key",secretAccessKey:"test-secret-key",fetchImpl});
+    const result=await adapter.uploadObject("projects/test/field-captures/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000002.jpg","image/jpeg",payload,digest);
+    expect(result).toMatchObject({size:payload.length,sha256:digest});
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    const [putUrl,putOptions]=fetchImpl.mock.calls[0];
+    expect(String(putUrl)).toContain("X-Amz-Signature=");
+    expect(putOptions?.method).toBe("PUT");
+    expect(putOptions?.headers).toMatchObject({"Content-Type":"image/jpeg"});
+  });
+
+  it("rejects a local checksum mismatch before sending bytes to storage", async () => {
+    const fetchImpl=vi.fn(async()=>new Response(null,{status:200}));
+    const adapter=new PrivateStorageAdapter({bucket:"pke-private-documents",region:"ap-southeast-1",endpoint:"https://storage.ap-southeast-1.neonpublic.com",accessKeyId:"test-access-key",secretAccessKey:"test-secret-key",fetchImpl});
+    await expect(adapter.uploadObject("projects/test/field-captures/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000002.jpg","image/jpeg",Buffer.from("actual"),"0".repeat(64))).rejects.toThrow(/checksum/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("best-effort deletes a provider object when remote checksum verification fails", async () => {
+    const uploaded=Buffer.from("correct bytes"),tampered=Buffer.from("different bytes"),digest=crypto.createHash("sha256").update(uploaded).digest("hex");
+    const fetchImpl=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=>{
+      if(init?.method==="PUT")return new Response(null,{status:200});
+      if(init?.method==="HEAD")return new Response(null,{status:200,headers:{"content-length":String(uploaded.length)}});
+      if(init?.method==="GET")return new Response(tampered,{status:200});
+      if(init?.method==="DELETE")return new Response(null,{status:204});
+      return new Response(null,{status:500});
+    });
+    const adapter=new PrivateStorageAdapter({bucket:"pke-private-documents",region:"ap-southeast-1",endpoint:"https://storage.ap-southeast-1.neonpublic.com",accessKeyId:"test-access-key",secretAccessKey:"test-secret-key",fetchImpl});
+    await expect(adapter.uploadObject("projects/test/field-captures/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000002.jpg","image/jpeg",uploaded,digest)).rejects.toThrow(/SHA-256/);
+    expect(fetchImpl.mock.calls.map(x=>x[1]?.method)).toEqual(["PUT","HEAD","GET","DELETE"]);
+  });
+
   it("deletes one private object through a signed S3 DELETE request", async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
       new Response(null, { status: 204 }),

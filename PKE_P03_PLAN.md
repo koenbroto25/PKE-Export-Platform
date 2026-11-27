@@ -2938,3 +2938,10 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Dependency Audit run 1330: PASS.
 - Migration 115 remains PREPARED and SHA-pinned. Its source contract test checks RLS/permission/assignment, null-safe GPS/evidence constraints, checksums, object namespace, immutable grants and transaction/non-destructive behavior. The package verifier fails closed if approval or UAT state changes without manifest reconciliation.
 - Current code includes client retry with stable evidence key and server receipt list. Runtime UAT, storage CORS, evidence orphan cleanup, capture review, and browser E2E remain open; therefore P23 is PARTIAL.
+
+
+### P24 offline AI readiness benchmark implementation — 2026-11-27
+- Added structured P24 readiness matrix and response evaluator for 20 Knowledge AI cases, with exact expected-source ID validation, role-scope validation, required behaviors, forbidden claims and abstention.
+- Matrix separates evidence: six offline synthetic safety cases and twenty knowledge fixture cases are covered; exact source citation checks are partial/implemented for the knowledge evaluator; live model quality, prompt-injection robustness, calibration/uncertainty, human review feedback and live UI/API integration remain GAP.
+- Latest CI run 3035 failed one P24 test assertion (the evaluator correctly rejected a source for a case with no approved source IDs; test expected a different error label). Assertion corrected. CI rerun is pending on latest head PR #17.
+- P24 is PARTIAL: benchmark contracts implemented; no live model calls or production data/action evaluation performed.

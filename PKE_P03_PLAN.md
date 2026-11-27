@@ -2967,3 +2967,9 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - **P27 — Operational vertical slices + browser E2E:** production/packing/QC → inventory hold/release; port/vessel/loading/tally reconciliation; official customs/permit evidence; cross-document quantity reconciliation; bank execution remains owner-scope decision. Add real multi-role browser test runner and task correction/handoff.
 - **P28 — AI live evaluation:** approved model/source providers only; grounded citations, prompt-injection, hallucination, calibration, human-reviewed benchmark, false-positive/negative metrics. No production writes/actions.
 - **P29 — Final release readiness:** backup/restore rehearsal, security findings closure, UAT signoff, production migration plan with SHA/order/rollback/preflight and separate explicit authorization. Vercel remains skipped until owner lifts quota instruction.
+
+
+### Repository governance checkpoint — 2026-11-27
+- PR #5 is OPEN, Ready for Review, mergeable, and not merged. Owner review/merge remains pending.
+- Validation PR #18 is closed without merge after all checks passed; stale P20 validation PR #4 is also closed without merge.
+- Historical PRs #1–#3 remain open/unmerged and require separate scope/base triage before any merge or closure. They were not modified in this maraton.

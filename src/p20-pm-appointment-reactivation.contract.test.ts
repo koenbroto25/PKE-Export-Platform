@@ -12,6 +12,7 @@ describe("P20 PM appointment reactivation assignment restoration",()=>{
     expect(migration).toContain("PM appointment '||e.event_code||': '||e.reason");
     expect(migration).toContain("e.event_code IN ('suspended','revoked')");
     expect(migration).toContain("a.revoke_reason=e.reason");
+    expect(migration).toContain("Existing revoked assignments are immutable");
   });
   it("returns on same-state appointment status requests",()=>{
     expect(migration).toContain("IF v_old.status=p_status THEN RETURN v_old; END IF;");
@@ -19,7 +20,7 @@ describe("P20 PM appointment reactivation assignment restoration",()=>{
   it("restores assignments only for current PM ownership and active members",()=>{
     expect(migration).toContain("o.pm_user_id=v_old.user_id");
     expect(migration).toContain("m.is_active=true AND m.deactivated_at IS NULL");
-    expect(migration).toContain("a.revoke_reason='PM appointment '||e.event_code||': '||e.reason");
+    expect(migration).toContain("a.revoke_reason='PM appointment '||e.event_code||': '||e.reason OR a.revoke_reason=e.reason");
     expect(migration).toContain("NOT EXISTS(");
     expect(migration).toContain("SELECT 1 FROM public.project_role_assignments other");
   });

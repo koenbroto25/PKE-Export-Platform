@@ -2945,3 +2945,8 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Matrix separates evidence: six offline synthetic safety cases and twenty knowledge fixture cases are covered; exact source citation checks are partial/implemented for the knowledge evaluator; live model quality, prompt-injection robustness, calibration/uncertainty, human review feedback and live UI/API integration remain GAP.
 - Latest CI run 3035 failed one P24 test assertion (the evaluator correctly rejected a source for a case with no approved source IDs; test expected a different error label). Assertion corrected. CI rerun is pending on latest head PR #17.
 - P24 is PARTIAL: benchmark contracts implemented; no live model calls or production data/action evaluation performed.
+
+
+### P25 security readiness matrix implementation — 2026-11-27
+- Added evidence-status matrix and dedicated contract test. It records 1 PASS (PM RLS isolation UAT 113/114), 5 PARTIAL (API permission parity, auth/session lifecycle, maker-checker, private object storage, Field Capture RLS), 2 GAP (backup/restore rehearsal, browser role isolation E2E), and 2 BLOCKED (external-provider rights and Production release authorization).
+- This matrix is transparent status reporting, not a replacement for the P25 security audit or runtime tests. Latest PR #18 CI is pending; no P25 PASS is claimed until its dedicated test and full checks complete.

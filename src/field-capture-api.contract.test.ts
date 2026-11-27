@@ -17,7 +17,10 @@ describe("P23 Field Capture API boundary",()=>{
  it("verifies private evidence checksum before creating authoritative submission",()=>{
   expect(api).toContain("privateStorage.verifyObject(input.evidenceObjectKey");
   expect(api).toContain("FIELD_CAPTURE_EVIDENCE_VERIFICATION_FAILED");
-  expect(api).toContain("FIELD_CAPTURE_PAYLOAD_CONFLICT");\n  expect(api).toContain('/api/v1/projects/:projectId/field-captures",requireAuth');\n  expect(api).toContain("field.capture.submitted");\n  expect(api).toContain("recordRegulatoryAudit(req");
+  expect(api).toContain("FIELD_CAPTURE_PAYLOAD_CONFLICT");
+  expect(api).toContain('/api/v1/projects/:projectId/field-captures",requireAuth');
+  expect(api).toContain("field.capture.submitted");
+  expect(api).toContain("recordRegulatoryAudit(req");
  });
  it("uses idempotent server submission and never auto-updates task status",()=>{
   expect(api).toContain("ON CONFLICT(project_id,actor_user_id,local_capture_id) DO NOTHING RETURNING *");

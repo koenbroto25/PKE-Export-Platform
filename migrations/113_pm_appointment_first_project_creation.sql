@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS project_commercial_basis_buyer_idx ON public.project_
 -- Existing assignment history remains untouched; this only creates a platform appointment
 -- and current-ownership index for users/projects with one verified active PM assignment.
 INSERT INTO public.pm_appointments(user_id,status,appointed_by,appointed_at)
-SELECT DISTINCT a.user_id,'active',coalesce(a.assigned_by,a.user_id),min(a.assigned_at)
+SELECT a.user_id,'active',(array_agg(coalesce(a.assigned_by,a.user_id) ORDER BY a.assigned_at))[1],min(a.assigned_at)
   FROM public.project_role_assignments a
   JOIN public.project_roles r ON r.id=a.project_role_id AND r.project_id=a.project_id AND r.role_code='pm'
   JOIN public.project_members m ON m.id=a.project_member_id AND m.project_id=a.project_id AND m.user_id=a.user_id

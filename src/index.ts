@@ -3685,7 +3685,7 @@ app.post("/api/v1/projects/:projectId/field-captures/sync",requireAuth,async(req
        ON CONFLICT(project_id,actor_user_id,local_capture_id) DO NOTHING RETURNING *`,
       [projectId,input.workItemId,actorId,input.captureId,input.captureKind,input.note.trim(),input.capturedAt,input.latitude??null,input.longitude??null,input.gpsAccuracyM??null,input.gpsCapturedAt??null,input.evidenceObjectKey??null,input.evidenceSha256??null,input.evidenceSizeBytes??null,input.evidenceMimeType??null,input.evidenceOriginalFilename??null,payloadHash],
     );
-    if(inserted.rows.length)return res.status(201).json({submission:inserted.rows[0],replay:false});
+    if(inserted.rows.length){const row=inserted.rows[0];await recordRegulatoryAudit(req,"field.capture.submitted","field_capture_submission",String(row.id),projectId,"Offline Field Capture accepted by server",null,{captureId:input.captureId,workItemId:input.workItemId,captureKind:input.captureKind,evidenceVerified:Boolean(input.evidenceObjectKey),payloadSha256:payloadHash});return res.status(201).json({submission:row,replay:false});}
     const existing=await req.db.query("SELECT * FROM public.project_field_capture_submissions WHERE project_id=$1::uuid AND actor_user_id=$2::uuid AND local_capture_id=$3::uuid",[projectId,actorId,input.captureId]);
     if(!existing.rows.length)return res.status(409).json({error:"Capture idempotency key conflict.",code:"FIELD_CAPTURE_IDEMPOTENCY_CONFLICT"});
     if(existing.rows[0].payload_sha256!==payloadHash)return res.status(409).json({error:"Capture ID was already submitted with a different payload.",code:"FIELD_CAPTURE_PAYLOAD_CONFLICT"});

@@ -2923,3 +2923,11 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Backend source adds authenticated presigned private upload, assignment revalidation, server sync, checksum verification, idempotent replay/payload-conflict handling, audit event, and permission-scoped receipt listing.
 - Frontend Field Capture adds sync/retry, stable evidence object-key reuse, fresh server assignment check, server receipt display, and conflict/failed states. Local draft deletion explicitly does not delete server submissions.
 - Remaining Field Capture blockers: migration 115 UAT application and runtime/RLS backtest require approval; review/accept/reject workflow, orphan-object cleanup, true offline retry/browser E2E and cross-module integration remain open. Matrix status remains PARTIAL.
+
+
+### P23 Field Capture implementation follow-up — 2026-11-27
+- Backend receipt-list endpoint added (Project permission `project.tasks.view`); server receipt is visible in UI when online. New submissions remain immutable and task status is not auto-changed.
+- Retry path now reuses a stable evidence object key, preserving it across failed attempts. SHA-256 normalized lowercase, evidence key namespace/format tightened, and null-safe SQL GPS/evidence checks corrected.
+- CI run 2997 failed on 5 stale/contract assertions against earlier source head: two local-purge wording assertions and three Migration 115 contract assertions. Changes were made afterward; rerun against current head is required.
+- Neon temporary migration preparation for Migration 115 was attempted and blocked by the project branch limit (HTTP 422 `branches limit exceeded`). Migration 115 remains unapplied; no database mutation occurred. Runtime syntax/RLS validation is therefore still a blocker until branch capacity is available or an approved existing UAT branch can be used.
+- Browser direct private-storage upload also requires bucket CORS to permit the frontend origin; CORS configuration is not exposed through the available Neon storage tools and remains external validation.

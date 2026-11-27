@@ -6,7 +6,7 @@ export const P24_AI_READINESS_MATRIX=[
  {id:"knowledge-case-coverage",status:"pass" as const,evidence:"20 structured knowledge cases cover source scope/freshness/authenticity, role isolation, authority, process correlation and auditability."},
  {id:"source-citation-exactness",status:"partial" as const,evidence:"Knowledge response evaluator can require exact expected source IDs; offline evaluator currently requires provenance presence only."},
  {id:"live-model-quality",status:"gap" as const,evidence:"No live model outputs, quality scoring or regression baseline is executed in CI."},
- {id:"prompt-injection-robustness",status:"gap" as const,evidence:"No dedicated adversarial prompt-injection benchmark is proven."},
+ {id:"prompt-injection-robustness",status:"partial" as const,evidence:"Ten offline adversarial prompt-injection cases are added to the knowledge fixture benchmark; live model robustness remains untested."},
  {id:"calibration-and-uncertainty",status:"gap" as const,evidence:"No calibration, confidence reliability, prediction interval or uncertainty benchmark."},
  {id:"human-review-feedback",status:"gap" as const,evidence:"No reviewer outcome/feedback loop or adjudicated evaluation dataset."},
  {id:"production-action-safety",status:"pass" as const,evidence:"AI recommendations remain advisory; no direct production mutation or approval is authorized by this benchmark."},
@@ -27,5 +27,5 @@ export function evaluateKnowledgeAIResponse(expected:typeof KNOWLEDGE_AI_EVAL_CA
  return{caseId:expected.id,pass:failures.length===0,failures,score:failures.length===0?1:0};
 }
 export function p24BenchmarkCoverage(){
- return{knowledgeCases:KNOWLEDGE_AI_EVAL_CASES.length,offlineCases:OFFLINE_AI_EVAL_CASES.length,knowledgeFixtureValid:validateKnowledgeAIEvalCases().length===0,offlineCasesSynthetic:OFFLINE_AI_EVAL_CASES.every(x=>x.synthetic),gapCount:P24_AI_READINESS_MATRIX.filter(x=>x.status==="gap").length,partialCount:P24_AI_READINESS_MATRIX.filter(x=>x.status==="partial").length,liveModelEvaluated:false};
+ return{knowledgeCases:KNOWLEDGE_AI_EVAL_CASES.length,promptInjectionCases:KNOWLEDGE_AI_EVAL_CASES.filter(x=>x.category==='prompt-injection').length,offlineCases:OFFLINE_AI_EVAL_CASES.length,knowledgeFixtureValid:validateKnowledgeAIEvalCases().length===0,offlineCasesSynthetic:OFFLINE_AI_EVAL_CASES.every(x=>x.synthetic),gapCount:P24_AI_READINESS_MATRIX.filter(x=>x.status==="gap").length,partialCount:P24_AI_READINESS_MATRIX.filter(x=>x.status==="partial").length,liveModelEvaluated:false};
 }

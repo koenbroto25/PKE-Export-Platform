@@ -46,14 +46,17 @@ BEGIN
  ELSIF p_status='active' AND v_old.status IN ('suspended','revoked') THEN
    -- Restore only assignments whose current ownership still points to this PM,
    -- whose member remains active, and whose revocation is recorded as appointment-driven.
-   UPDATE public.project_role_assignments a
-   SET is_active=true,revoked_at=NULL,revoked_by=NULL,revoke_reason=NULL,expires_at=NULL,updated_at=now()
-   FROM public.project_roles r,public.project_pm_ownership o,public.project_members m
-   WHERE r.id=a.project_role_id AND r.project_id=a.project_id AND r.role_code='pm' AND r.is_active=true
-     AND o.project_id=a.project_id AND o.pm_user_id=a.user_id AND o.pm_user_id=v_old.user_id
-     AND m.id=a.project_member_id AND m.project_id=a.project_id AND m.user_id=a.user_id
-       AND m.is_active=true AND m.deactivated_at IS NULL AND (m.expires_at IS NULL OR m.expires_at>now())
-     AND a.user_id=v_old.user_id AND a.is_active=false AND a.revoked_at IS NOT NULL
+   -- Revoked assignment rows are immutable; create a fresh active assignment and retain the old row as history.
+   INSERT INTO public.project_role_assignments(project_id,project_member_id,user_id,project_role_id,is_active,assigned_at,assigned_by,expires_at)
+   SELECT a.project_id,a.project_member_id,a.user_id,r.id,true,now(),v_actor,a.expires_at
+   FROM public.project_role_assignments a
+   JOIN public.project_roles r ON r.id=a.project_role_id AND r.project_id=a.project_id AND r.role_code='pm' AND r.is_active=true
+   JOIN public.project_pm_ownership o ON o.project_id=a.project_id AND o.pm_user_id=a.user_id AND o.pm_user_id=v_old.user_id
+   JOIN public.project_members m ON m.id=a.project_member_id AND m.project_id=a.project_id AND m.user_id=a.user_id
+     AND m.is_active=true AND m.deactivated_at IS NULL AND (m.expires_at IS NULL OR m.expires_at>now())
+   JOIN public.projects p ON p.id=a.project_id AND p.is_active=true
+   WHERE a.user_id=v_old.user_id AND a.is_active=false AND a.revoked_at IS NOT NULL
+     AND (a.expires_at IS NULL OR a.expires_at>now())
      AND EXISTS(
        SELECT 1 FROM public.pm_appointment_events e
        WHERE e.appointment_id=v_old.id AND e.event_code IN ('suspended','revoked')

@@ -2950,3 +2950,20 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 ### P25 security readiness matrix implementation — 2026-11-27
 - Added evidence-status matrix and dedicated contract test. It records 1 PASS (PM RLS isolation UAT 113/114), 5 PARTIAL (API permission parity, auth/session lifecycle, maker-checker, private object storage, Field Capture RLS), 2 GAP (backup/restore rehearsal, browser role isolation E2E), and 2 BLOCKED (external-provider rights and Production release authorization).
 - This matrix is transparent status reporting, not a replacement for the P25 security audit or runtime tests. Latest PR #18 CI is pending; no P25 PASS is claimed until its dedicated test and full checks complete.
+
+
+### P21–P25 final latest-head CI checkpoint — 2026-11-27
+- **Latest CI PASS:** Unit Tests run 3054, 91/91 test files and 835/835 tests; dedicated P22/P23/Field Capture/P24/P25 steps all PASS; backend build/API typecheck, Docker image build, frontend typecheck/build, all release verifiers PASS. Dependency Audit run 1361 PASS.
+- Latest tested code/workflow commit 82eff50a75fd9fc51cead826a3037f466ffbc844 was compared with current plan commit 71693ff1d1ccc6e39455e04ab7799b98670c5f67; only PKE_P03_PLAN.md changed after tests.
+- P21 source/CI PASS; delivery PR #5 remains open, Ready for Review and mergeable, but is not merged.
+- P22 synthetic offline lifecycle PASS; live API/database end-to-end remains future acceptance.
+- P23 source contracts PASS but overall PARTIAL due UAT Migration 115/runtime, storage CORS, review/cleanup and browser E2E gaps.
+- P24 offline/citation benchmark PASS but overall PARTIAL; live model evaluation, prompt-injection, calibration and human-review gaps remain.
+- P25 security matrix contract PASS but overall PARTIAL; restore rehearsal, full browser permission/isolation E2E and provider-rights blockers remain.
+- Validation PR #18 is CLOSED without merge. No Vercel deploy and no Production/UAT migration 115 application.
+
+## Next dependency-gated phases after P25
+- **P26 — Field Capture UAT/runtime acceptance:** Apply Migration 115 only to isolated UAT after branch capacity and owner approval; runtime RLS, assigned-task denial, idempotency, evidence checksum, private upload CORS and receipt/audit tests.
+- **P27 — Operational vertical slices + browser E2E:** production/packing/QC → inventory hold/release; port/vessel/loading/tally reconciliation; official customs/permit evidence; cross-document quantity reconciliation; bank execution remains owner-scope decision. Add real multi-role browser test runner and task correction/handoff.
+- **P28 — AI live evaluation:** approved model/source providers only; grounded citations, prompt-injection, hallucination, calibration, human-reviewed benchmark, false-positive/negative metrics. No production writes/actions.
+- **P29 — Final release readiness:** backup/restore rehearsal, security findings closure, UAT signoff, production migration plan with SHA/order/rollback/preflight and separate explicit authorization. Vercel remains skipped until owner lifts quota instruction.

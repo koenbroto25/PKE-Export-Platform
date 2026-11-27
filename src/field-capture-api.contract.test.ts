@@ -4,6 +4,8 @@ import{join}from"node:path";
 const api=readFileSync(join(process.cwd(),"src/index.ts"),"utf8");
 describe("P23 Field Capture API boundary",()=>{
  it("requires authenticated task update permission for upload and sync",()=>{
+  expect(api).toContain('/api/v1/projects/:projectId/field-captures",requireAuth');
+  expect(api).toContain("requireProjectPermission(req,res,projectId,\"project.tasks.view\")");
   expect(api).toContain('/api/v1/projects/:projectId/field-captures/presigned-upload",requireAuth');
   expect(api).toContain('/api/v1/projects/:projectId/field-captures/sync",requireAuth');
   expect(api).toContain('requireProjectPermission(req,res,projectId,"project.tasks.update")');

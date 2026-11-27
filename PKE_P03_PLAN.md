@@ -2750,5 +2750,5 @@ G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration
 - Source audit found Migration 113 set the PM-create RLS transaction context only after inserting Project/Contract/Program/profile/role rows, while those inserts' policies require that context. This would block the intended PM Project creation RPC.
 - Corrected Migration 113 to enable `app.pke_pm_project_create` before the first Project insert; the existing scoped Project ID is set immediately after Project creation. Added a regression contract asserting ordering.
 - Migration 113 remains prepared, SHA-pinned, and NOT applied to UAT or Production; owner approval remains pending.
-- Corrected migration SHA-256: `6e3ff37298ee2847cc9fa04722468001b85366fc72c2ddd70ef0df58e8053f7b`.
-- Validation after correction: source integrity and regression contract updated; new GitHub Actions results are pending/need confirmation. No Neon migration or Vercel deployment performed.
+- Corrected migration SHA-256: `627d8eea44456b3b2f8dc6444c1669c0396e5730d96b85fac9ff1426cbd39ec9`.
+- Validation after correction: initial latest-head CI found a release-manifest SHA mismatch (due to incorrect locally calculated pin); the manifest and plan were corrected to the SHA verified by the test runner. Fresh CI is required. No Neon migration or Vercel deployment performed.

@@ -13,7 +13,7 @@ describe("Migration 115 Field Capture server sync/RLS release contract",()=>{
  it("requires current actor, task assignment and Project permission on insert",()=>{
   expect(sql).toContain("actor_user_id=public.pke_current_user_id()");
   expect(sql).toContain("pke_has_project_permission(project_id,'project.tasks.update')");
-  expect(sql).toContain("wi.assignee_user_id=actor_user_id");
+  expect(sql).toContain("wi.assignee_user_id=project_field_capture_submissions.actor_user_id");
   expect(sql).toContain("wi.status NOT IN ('resolved','closed','cancelled')");
   expect(sql).not.toMatch(/GRANT[^;]+UPDATE[^;]+project_field_capture_submissions/i);
   expect(sql).not.toMatch(/GRANT[^;]+DELETE[^;]+project_field_capture_submissions/i);

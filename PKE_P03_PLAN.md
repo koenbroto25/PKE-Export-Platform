@@ -3016,3 +3016,10 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 ### Vercel pause controls — 2026-11-27
 - No deployment/build/retry/promotion was run. Project preview deployments were disabled in Vercel settings to pause Git preview builds/notifications during quota issues. Production deployment remains off; no deployment created.
 - Continue GitHub/Neon source/UAT work only. If a Vercel check still appears, it is existing platform status rather than a manual deployment.
+
+
+### P26 privilege hardening Migration 117 — 2026-11-27
+- Migration 117 SHA-256 `0dbd066d24decb55bb3619aa6fa47047bd413027ea5bc6eb1c1b1049c281921b` applied on isolated UAT branch `br-winter-butterfly-b3tnsao9`, ledger 117 at 2026-11-27T13:50:21.090Z.
+- Explicitly revoked PUBLIC execution on the review function, re-granted only to `app_runtime_secure`, removed direct write privileges from review history, and kept capture table runtime grants SELECT/INSERT only.
+- Runtime catalog verification: PUBLIC execute false; capture privileges SELECT=true, INSERT=true, UPDATE=false, DELETE=false; review history SELECT=true, INSERT/UPDATE/DELETE=false. SHA/ledger/policy/function ACL verified.
+- CI test/verifier package added for Migration 117. **Unit Tests workflow has not been triggered for latest head through the available GitHub connector; source-level tests are present but not claimed PASS.** Dependency Audit 1488 PASS.

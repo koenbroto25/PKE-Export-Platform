@@ -19,6 +19,15 @@ describe("P23 Field Capture API boundary",()=>{
   expect(api).toContain("x-field-capture-id");
   expect(api).toContain("x-work-item-id");
  });
+ it("exposes server review history and role-gated maker-checker review endpoint",()=>{
+  expect(api).toContain("project_field_capture_review_events");
+  expect(api).toContain("can_review");
+  expect(api).toContain('/api/v1/projects/:projectId/field-captures/:submissionId/review",requireAuth');
+  expect(api).toContain("project.tasks.resolve");
+  expect(api).toContain("pke_review_field_capture_submission");
+  expect(api).toContain("FIELD_CAPTURE_MAKER_CHECKER");
+  expect(api).toContain("FIELD_CAPTURE_FINAL_DECISION");
+ });
  it("revalidates active task assignment server-side and fails closed",()=>{
   expect(api).toContain("requireAssignedFieldCaptureWorkItem");
   expect(api).toContain("wi.assignee_user_id=$3::uuid");

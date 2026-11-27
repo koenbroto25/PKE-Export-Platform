@@ -39,6 +39,9 @@ describe("P20 PM appointment reactivation assignment restoration",()=>{
     expect(manifest.production_application).toBe("not_authorized");
     expect(manifest.owner_approval.status).toBe("approved");
     expect(manifest.migrations[0].status).toBe("prepared");
+    expect(manifest.uat_application.status).toBe("applied");
+    expect(manifest.uat_application.branch_id).toBe("br-winter-butterfly-b3tnsao9");
+    expect(manifest.uat_application.ledger_id).toBe(114);
     expect(createHash("sha256").update(migration).digest("hex")).toBe(manifest.migrations[0].sha256);
   });
   it("is transaction-wrapped and has no destructive table/schema operation",()=>{

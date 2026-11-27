@@ -37,6 +37,10 @@ jobs:
         run: npm ci --include=dev --no-audit
       - name: Run offline security and unit tests
         run: npm test
+      - name: Run connected P22 export lifecycle backtest
+        run: npx vitest run src/simulation/phase-j-full-process-backtest.test.ts
+      - name: Run P23 operational UX gap matrix
+        run: npx vitest run src/ux/phase-o-operational-readiness-matrix.test.ts
       - name: Run dedicated P19 operational assurance contracts
         run: npm run verify:p19-assurance
       - name: Verify Production migration ledger and release gates

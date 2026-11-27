@@ -55,6 +55,8 @@ jobs:
         run: npm run build
       - name: Typecheck backend API
         run: npx tsc -p api/tsconfig.json --noEmit
+      - name: Build production Docker image
+        run: docker build -t pke-api-ci .
       - name: Install frontend dependencies
         run: npm ci --prefix frontend --include=dev --no-audit
       - name: Typecheck frontend

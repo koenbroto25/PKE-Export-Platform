@@ -57,6 +57,8 @@ jobs:
         run: npm run verify:pm113-release
       - name: Verify PM appointment reactivation Migration 114 release pin
         run: npm run verify:pm114-release
+      - name: Verify prepared Field Capture Migration 115 release package
+        run: npm run verify:pm115-release
       - name: Build backend application
         run: npm run build
       - name: Typecheck backend API

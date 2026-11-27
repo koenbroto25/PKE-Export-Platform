@@ -68,7 +68,7 @@ describe("P22 connected export lifecycle backtest", () => {
   });
 
   it("cross-checks Phase G chaos faults and integrity validation without allowing false readiness", () => {
-    for (const fault of ["duplicate-id", "cross-project-reference", "negative-quantity", "quality-hold", "quantity-conflict", "expired-driver-ready", "unsuitable-port-ready", "missing-document-ready", "settlement-pending-ready"]) {
+    for (const fault of ["duplicate-id", "cross-project-reference", "negative-quantity", "missing-document", "unauthorized-project", "expired-driver-ready", "unsuitable-port-ready", "missing-document-ready", "quantity-conflict-ready", "settlement-pending-ready", "contract-quantity-ready", "inventory-shortage-ready", "supply-capacity-ready"]) {
       const injected = injectSyntheticFault(fault as any);
       expect(injected.integrity.length, fault).toBeGreaterThan(0);
       expect(["complete", "blocked", "conflict", "incomplete"]).toContain(injected.simulation.terminalStatus);
@@ -76,7 +76,7 @@ describe("P22 connected export lifecycle backtest", () => {
     }
   });
 
-  it("detects missing mandatory documents and validates shipment references", () => {\n    const d = createP22Dataset();\n    d.documents.splice(0, 1);\n    expect(validateP22Dataset(d)).toContain("required-document-missing:SIM-SHIP-001:COA");\n    d.shipments[0].buyerId = "SIM-BUY-999";\n    expect(validateP22Dataset(d)).toContain("buyer-shipment-link:SIM-SHIP-001");\n  });\n\n  it("rejects tampered cross-Project Buyer, commercial basis, duplicate keys and ownership links", () => {
+  it("suppresses lifecycle readiness when integrity validation finds a dataset defect", () => {\n    const d = createP22Dataset();\n    d.documents.splice(0, 1);\n    expect(validateP22Dataset(d).length).toBeGreaterThan(0);\n    expect(p22Summary(d).complete).toBe(0);\n  });\n\n  it("detects missing mandatory documents and validates shipment references", () => {\n    const d = createP22Dataset();\n    d.documents.splice(0, 1);\n    expect(validateP22Dataset(d)).toContain("required-document-missing:SIM-SHIP-001:COA");\n    d.shipments[0].buyerId = "SIM-BUY-999";\n    expect(validateP22Dataset(d)).toContain("buyer-shipment-link:SIM-SHIP-001");\n  });\n\n  it("rejects tampered cross-Project Buyer, commercial basis, duplicate keys and ownership links", () => {
     const d = createP22Dataset();
     d.projectCreations[0].buyerId = "SIM-BUY-999";
     d.projectCreations[0].basisId = "SIM-BASIS-INVALID";

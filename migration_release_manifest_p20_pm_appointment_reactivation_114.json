@@ -21,7 +21,7 @@
     {
       "migration_number": 114,
       "filename": "114_pm_appointment_reactivation_restores_owned_project_assignments.sql",
-      "sha256": "b1b67b8edf3cd938fd2cad94b13e3c1f485f42f37ae0f305b9fe41a8efa9f7fa",
+      "sha256": "7e1ae39e9564a985e426281eae58ea946c45aed1759b954386d28c70b690caee",
       "status": "prepared",
       "source_sha_verified": true,
       "application_status": "pending_uat"

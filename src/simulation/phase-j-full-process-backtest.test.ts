@@ -17,8 +17,8 @@ describe("P22 connected export lifecycle backtest", () => {
 
   it("enforces PM appointment status and commercial-basis validation before Project creation", () => {
     const d = createP22Dataset();
-    const buyer = d.buyers[0];
-    const agreement = d.commercialAgreements.find(x => x.buyerId === buyer.id)!;
+    const agreement = d.commercialAgreements[0];
+    const buyer = d.buyers.find(x => x.id === agreement.buyerId)!;
     const input = { projectId: "SIM-PROJECT-NEW", pmUserId: "SIM-PM-ALPHA", buyerId: buyer.id, basis: "buyer_agreement" as const, basisId: agreement.id, idempotencyKey: "SIM-IDEMP-NEW" };
     expect(createProjectFromBasis(d, input)).toMatchObject({ ok: true, replay: false, project: { id: "SIM-PROJECT-NEW" } });
     const unappointed = { ...input, pmUserId: "SIM-PM-NOT-APPOINTED" };

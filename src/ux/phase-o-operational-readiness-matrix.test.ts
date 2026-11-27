@@ -18,6 +18,9 @@ describe("P23 role-based operational UX readiness gap matrix",()=>{
   expect(field).toContain("const syncDraft = async");
   expect(field).toContain("Sync semua draft");
   expect(field).toContain("Conflict · buat capture baru");
+  expect(field).toContain("serverSubmissionId");
+  expect(field).toContain("evidenceObjectKey:draft.evidenceObjectKey");
+  expect(field).toContain("refreshServerSubmissions");
   expect(P23_OPERATIONAL_GAPS.find(x=>x.id==="field-capture-server-sync")?.status).toBe("partial");
  });
  it("keeps production/QC, port/loading, customs and reconciliation readiness explicitly unverified",()=>{

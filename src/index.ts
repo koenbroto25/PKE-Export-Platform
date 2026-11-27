@@ -3642,6 +3642,40 @@ app.get("/api/v1/projects/:projectId/field-captures",requireAuth,async(req:expre
   }catch{return res.status(500).json(internalServerErrorPayload());}
 });
 
+app.post("/api/v1/projects/:projectId/field-captures/upload",requireAuth,express.raw({type:["image/jpeg","image/png","image/webp"],limit:"15mb"}),async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id;
+  const captureId=String(req.headers["x-field-capture-id"]||""),workItemId=String(req.headers["x-work-item-id"]||"");
+  const mimeType=String(req.headers["content-type"]||"").split(";")[0].trim().toLowerCase();
+  let filename=String(req.headers["x-original-filename"]||"");
+  try{filename=decodeURIComponent(filename);}catch{return res.status(400).json({error:"Filename header is invalid.",code:"INVALID_FIELD_CAPTURE_FILENAME"});}
+  const requestedObjectKey=String(req.headers["x-object-key"]||"");
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!uuid.test(projectId)||!uuid.test(captureId)||!uuid.test(workItemId))return res.status(400).json({error:"Project, capture and work-item IDs must be UUIDs.",code:"INVALID_FIELD_CAPTURE_ID"});
+  const body=Buffer.isBuffer(req.body)?req.body:Buffer.alloc(0);
+  if(!body.length||body.length>15*1024*1024)return res.status(400).json({error:"Evidence must be a non-empty image up to 15 MB.",code:"INVALID_FIELD_CAPTURE_EVIDENCE"});
+  const meta=privateStorage.validateFileMetadata({mimeType,contentLength:body.length,filename});
+  if(!meta.ok||!["image/jpeg","image/png","image/webp"].includes(mimeType))return res.status(400).json({error:meta.reason||"Field evidence must be JPEG/PNG/WebP and <=15 MB.",code:"INVALID_FIELD_CAPTURE_EVIDENCE"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.update")))return;
+  try{
+    if(!(await requireAssignedFieldCaptureWorkItem(req,res,projectId,workItemId,String(actorId))))return;
+    const status=privateStorage.status();
+    if(!status.available||status.bucket!=="pke-private-documents")return res.status(503).json({error:"Private object storage unavailable.",code:"STORAGE_UNAVAILABLE"});
+    const ext=mimeType==="image/jpeg"?".jpg":mimeType==="image/png"?".png":".webp";
+    const objectKey=requestedObjectKey||`projects/${projectId}/field-captures/${captureId}/${randomUUID()}${ext}`;
+    const expectedPrefix=`projects/${projectId}/field-captures/${captureId}/`;
+    const suffix=objectKey.slice(expectedPrefix.length);
+    if(requestedObjectKey&&(!objectKey.startsWith(expectedPrefix)||!/^[0-9a-f-]{36}\\.(jpg|png|webp)$/i.test(suffix)))return res.status(400).json({error:"Object key is outside the Field Capture namespace.",code:"INVALID_FIELD_CAPTURE_OBJECT_KEY"});
+    const keyCheck=privateStorage.validateObjectKey(objectKey);
+    if(!keyCheck.ok)return res.status(400).json({error:keyCheck.reason,code:"INVALID_OBJECT_KEY"});
+    const sha256=createHash("sha256").update(body).digest("hex");
+    const verified=await privateStorage.uploadObject(objectKey,mimeType,body,sha256);
+    return res.status(201).json({objectKey:verified.objectKey,sha256:verified.sha256,size:verified.size,captureId,workItemId,verified:true});
+  }catch{
+    return res.status(503).json({error:"Private evidence upload or verification failed.",code:"FIELD_CAPTURE_UPLOAD_FAILED"});
+  }
+});
+
 app.post("/api/v1/projects/:projectId/field-captures/presigned-upload",requireAuth,async(req:express.Request,res:express.Response)=>{
   const projectId=String(req.params.projectId||""),actorId=req.user?.id;
   const b=req.body??{},captureId=String(b.captureId||""),workItemId=String(b.workItemId||""),filename=String(b.filename||""),mimeType=String(b.mimeType||""),contentLength=Number(b.contentLength),requestedObjectKey=String(b.objectKey||"");

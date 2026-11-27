@@ -279,7 +279,7 @@ describe("PrivateStorageAdapter validation (offline)", () => {
   });
 
   it("best-effort deletes a provider object when remote checksum verification fails", async () => {
-    const uploaded=Buffer.from("correct bytes"),tampered=Buffer.from("different bytes"),digest=crypto.createHash("sha256").update(uploaded).digest("hex");
+    const uploaded=Buffer.from("correct bytes"),tampered=Buffer.from("corrupt bytes"),digest=crypto.createHash("sha256").update(uploaded).digest("hex");
     const fetchImpl=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=>{
       if(init?.method==="PUT")return new Response(null,{status:200});
       if(init?.method==="HEAD")return new Response(null,{status:200,headers:{"content-length":String(uploaded.length)}});

@@ -7,6 +7,7 @@ const read=(path:string)=>readFileSync(join(process.cwd(),path),"utf8");
 const migration=read("migrations/113_pm_appointment_first_project_creation.sql");
 const api=read("src/index.ts");
 const ui=read("frontend/src/App.tsx");
+const docker=read("Dockerfile");
 
 describe("P20 appointment-first PM workflow contract",()=>{
   it("creates global appointments independently from Projects and preserves an append-only audit trail",()=>{
@@ -86,6 +87,11 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(migration).toContain("INSERT INTO public.contracts(project_id,buyer_id");
     expect(migration).toContain("INSERT INTO public.contract_programs(project_id,name");
     expect(migration).toContain("UPDATE public.projects SET contract_program_id=v_program.id");
+  });
+  it("Docker runtime includes required preflight module and uses the compiled entrypoint",()=>{
+    expect(docker).toContain("COPY scripts/test-db ./scripts/test-db");
+    expect(docker).toContain("COPY --from=build /app/scripts/test-db ./scripts/test-db");
+    expect(docker).toContain("CMD [\"node\", \"dist/index.js\"]");
   });
   it("migration is transaction-wrapped and contains no destructive table/schema operations",()=>{
     expect((migration.match(/^BEGIN;$/gm)||[]).length).toBe(1);

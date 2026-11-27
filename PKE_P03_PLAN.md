@@ -2881,3 +2881,13 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Confirmed UI disclosures still identify major operational integration gaps: production/packing/QC end-to-end; port/loading and official customs/permit source; quantity/document reconciliation; mobile Field Capture server sync/upload/conflict resolution/barcode/signature; bank execution and reconciliation. Field Capture stores drafts/evidence locally and explicitly does not submit authoritative server transactions.
 - These are real scope gaps, not cosmetic UX defects; P23 must either implement approved vertical slices or keep the workflow honestly marked unavailable with an actionable owner/task. No unsupported “complete” badge may be introduced.
 - P23 is IN PROGRESS / GAP AUDIT, not accepted.
+
+
+### P22/P23/P24 maraton continuation — 2026-11-27
+- P22 CI found and remediated: duplicate PKS site declaration; malformed literal newline in test; Buyer fixture selected without an agreement; downstream recovery did not reset upstream-caused blocked states; chaos assertions incorrectly assumed every fault mutated the first shipment. Fixes are committed and latest CI remains pending.
+- Phase E validator now checks mandatory document codes, duplicate document codes, Project scope for document rows, and Buyer/Supplier/PKS/Truck/Driver/Vessel/Port linkage. This closes a real false-integrity gap discovered by backtest.
+- P22 recovery engine now resets downstream blocked/gap/conflict states to pending when the upstream stage is explicitly recovered to ready. This models recovery and prevents downstream stale blockers from being mistaken for independent approvals; independent downstream evidence must be revalidated.
+- P23 structured gap matrix added in source/test: Field Capture server sync/evidence upload, production/packing/QC integration, port/loading readiness, official customs/permit source, quantity/document reconciliation, bank execution/settlement, real browser multi-role E2E, and external provider rights/freshness.
+- P23 matrix statuses are intentionally open: seven integration/browser gaps, one external dependency blocker. Test enforces that current UI truthfully marks them as gaps rather than declaring completion.
+- P24 initial audit: offline AI evaluator exists (6 safety cases), PKE AI fixtures 30, Knowledge AI evaluation cases 20. No live-model quality/calibration benchmark is proven. Traceability remains AI safety/grounding PARTIAL; actual Production UI/API integration GAP.
+- No Neon or Vercel changes. P22/P23 code and tests are under CI validation; phases are not yet accepted.

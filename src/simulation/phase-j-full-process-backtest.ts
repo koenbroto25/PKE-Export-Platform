@@ -148,15 +148,18 @@ export function validateP22Dataset(d: P22Dataset): string[] {
 
 export function p22Summary(d=createP22Dataset()) {
   const lifecycles = simulateAllLifecycles(d);
+  const validationErrors = validateP22Dataset(d);
+  const simulatedComplete = lifecycles.filter(x => x.terminalStatus === "complete").length;
   return {
     projectCount: d.projectCreations.length,
     shipmentCount: d.shipments.length,
     pmCount: d.appointments.length,
-    complete: lifecycles.filter(x => x.terminalStatus === "complete").length,
+    simulatedComplete,
+    complete: validationErrors.length === 0 ? simulatedComplete : 0,
     blocked: lifecycles.filter(x => x.terminalStatus === "blocked").length,
     conflict: lifecycles.filter(x => x.terminalStatus === "conflict").length,
     incomplete: lifecycles.filter(x => x.terminalStatus === "incomplete").length,
     stageResults: lifecycles.reduce((sum, x) => sum + x.stages.length, 0),
-    validationErrors: validateP22Dataset(d),
+    validationErrors,
   };
 }

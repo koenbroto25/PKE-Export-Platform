@@ -15,8 +15,9 @@ describe("P23 Field Capture API boundary",()=>{
   expect(api).toContain('express.raw({type:["image/jpeg","image/png","image/webp"],limit:"15mb"})');
   expect(api).toContain("privateStorage.uploadObject(objectKey,mimeType,body,sha256)");
   expect(api).toContain("FIELD_CAPTURE_UPLOAD_FAILED");
-  expect(api).toContain("X-Field-Capture-Id");
-  expect(api).toContain("X-Work-Item-Id");
+  expect(api).toContain("X-Original-Filename, X-Object-Key");
+  expect(api).toContain("x-field-capture-id");
+  expect(api).toContain("x-work-item-id");
  });
  it("revalidates active task assignment server-side and fails closed",()=>{
   expect(api).toContain("requireAssignedFieldCaptureWorkItem");

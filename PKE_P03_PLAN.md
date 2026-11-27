@@ -2973,3 +2973,29 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - PR #5 is OPEN, Ready for Review, mergeable, and not merged. Owner review/merge remains pending.
 - Validation PR #18 is closed without merge after all checks passed; stale P20 validation PR #4 is also closed without merge.
 - Historical PRs #1–#3 remain open/unmerged and require separate scope/base triage before any merge or closure. They were not modified in this maraton.
+
+
+## P26–P29 maraton checkpoint — 2026-11-27
+
+### P26 Field Capture UAT/runtime — PARTIAL, substantive UAT PASS
+- Migration 115 SHA-256 verified against exact SQL: `e44fee778d82de372cc2b9ccb8cbb9f013bb625b175ee38d4f58177f6275fb07`; applied atomically to isolated branch `br-winter-butterfly-b3tnsao9`, migration_history ledger 115, timestamp 2026-11-27T13:24:59.654Z. Production untouched.
+- RLS/runtime using `app_runtime_secure`: assigned active task insert succeeded; cancelled task denied; actor mismatch denied; PM Alpha sees 0; PM Beta sees 1; table privileges SELECT/INSERT only (no UPDATE/DELETE).
+- Five SQL constraints tested and rejected: GPS range, payload checksum format, project/capture object namespace, evidence size >15 MB, invalid MIME. Table FORCE RLS and both SELECT/INSERT policies verified.
+- Private bucket `pke-private-documents` exists and is private. Storage live upload/HEAD/GET verification cannot be tested through the available runtime connection in this session; remains PARTIAL.
+- CORS dependency eliminated for Field Capture client by source implementation: authenticated same-origin binary upload proxy, server-side presigned PUT, provider size/SHA verification and best-effort DELETE on failed verification. Frontend uses proxy and does not PUT to the storage URL directly. Dev CORS headers include required proxy metadata.
+- Unit CI run 3087 exposed two failures: equal-size checksum test fixture corrected; stale UX contract updated to new `X-Object-Key` proxy header. Latest CI on the branch must be rerun before marking source PASS.
+- Review/accept/reject workflow and safe orphan cleanup for uploads whose task later becomes invalid remain outstanding.
+
+### P27 operational vertical slices — PARTIAL
+- Added 13-row evidence matrix and test. PM contract→Project→portfolio PASS from isolated UAT; Field Capture server acceptance PARTIAL; production/packing/QC/inventory, warehouse, port/vessel/loading/tally, customs evidence, quantity reconciliation, finance planning, task handoff PARTIAL; browser multi-role E2E and live authenticated API-to-Neon-to-frontend GAP; AIS license and bank execution BLOCKED external.
+
+### P28 AI live readiness — PARTIAL
+- Knowledge benchmark expanded from 20 to 30 cases, including 10 adversarial prompt-injection cases. Offline fixture evaluator continues checking role scope, exact citations, required behaviors, forbidden claims and abstention. Live model runs, calibrated quality and human-adjudicated benchmark remain unavailable/untested.
+
+### P29 backup/restore and release readiness — BLOCKED by account limits
+- Production snapshot schedule is empty. Attempt to create a one-time readiness snapshot failed with Neon `snapshots limit exceeded` (HTTP 422). Existing snapshot list currently exposes only `P17-pre-096-109-20261122`.
+- Project branch count is 10/10. Restore rehearsal branch `br-dawn-meadow-b388iuhx` is READY but contains only Neon Auth tables; public PKE schema and `migration_history` are absent. Schema compare API returned HTTP 413 (branch schema too large). Thus no valid PKE restore rehearsal is claimed.
+- Need owner action to free snapshot quota and branch capacity, then create snapshot and restore into a disposable branch; configure a schedule only after cost/retention decision. Production migrations/deployment remain unauthorized.
+
+### Vercel handling
+- No Vercel deploy, retry, promotion, or manual build was invoked. Git integration still emits automatic Vercel check status `failure` with build-rate-limit target on commit `a7a73d01932b95f2d7a4f5a46a05d74b89503fc3`; this is platform-side auto-check, not a manual deployment. Stop further Vercel-triggering branch commits until its Git auto-deploy/notification setting is disabled by owner or an approved skip mechanism is confirmed.

@@ -7,9 +7,10 @@
   "target_environment": "isolated UAT",
   "production_application": "not_authorized",
   "uat_application": {
-    "status": "pending",
+    "status": "applied",
     "branch_id": "br-winter-butterfly-b3tnsao9",
-    "ledger_id": null
+    "ledger_id": 114,
+    "applied_at": "2026-11-27"
   },
   "owner_approval": {
     "status": "approved",
@@ -24,7 +25,7 @@
       "sha256": "1b33913f2d092c8a70411c4fbe978f46bdfe2d5d966ab65d3b1e3c626decae12",
       "status": "prepared",
       "source_sha_verified": true,
-      "application_status": "pending_uat"
+      "application_status": "applied_uat"
     }
   ],
   "acceptance_scenarios": [
@@ -36,5 +37,5 @@
     "same-status requests are idempotent and do not append misleading events",
     "restoration is audited"
   ],
-  "safety": "UAT only; production migration is not authorized."
+  "safety": "Migration 114 applied only to isolated UAT validation branch. Production remains unauthorized."
 }

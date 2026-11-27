@@ -1,0 +1,13 @@
+import fs from "node:fs";import path from "node:path";import crypto from "node:crypto";
+const root=process.cwd(),manifest=JSON.parse(fs.readFileSync(path.join(root,"migration_release_manifest_p26_field_capture_review_hardening_117.json"),"utf8")),m=manifest.migrations?.[0],file=path.join(root,"migrations",m?.filename||"");
+const fail=(x)=>{console.error("BLOCKED: "+x);process.exit(1)};
+if(manifest.production_application!=="not_authorized")fail("Production must remain unauthorized.");
+if(manifest.owner_approval?.status!=="approved")fail("UAT approval missing.");
+if(manifest.uat_application?.status!=="applied"||manifest.uat_application?.ledger_id!==117||manifest.uat_application?.branch_id!=="br-winter-butterfly-b3tnsao9")fail("UAT application record mismatch.");
+if(manifest.migrations?.length!==1||m?.migration_number!==117||m?.application_status!=="applied"||m?.status!=="applied"||m?.source_sha_verified!==true)fail("Migration release state invalid.");
+if(!fs.existsSync(file))fail("Migration SQL missing.");
+if(crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex")!==m.sha256)fail("Migration 117 SHA mismatch.");
+const sql=fs.readFileSync(file,"utf8");if((sql.match(/^BEGIN;$/gim)||[]).length!==1||(sql.match(/^COMMIT;$/gim)||[]).length!==1)fail("Transaction boundary missing.");
+if(/^\s*(DROP\s+TABLE|DROP\s+SCHEMA|TRUNCATE)\b/im.test(sql))fail("Destructive DDL detected.");
+if(!sql.includes("REVOKE ALL ON FUNCTION")||!sql.includes("REVOKE INSERT,UPDATE,DELETE ON public.project_field_capture_review_events"))fail("Privilege hardening missing.");
+console.log("PASS: Migration 117 SHA and isolated UAT hardening state verified; Production unauthorized.");

@@ -3637,9 +3637,32 @@ app.get("/api/v1/projects/:projectId/field-captures",requireAuth,async(req:expre
   if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
   if(!(await requireProjectPermission(req,res,projectId,"project.tasks.view")))return;
   try{
-    const rows=await req.db.query("SELECT id,project_id,work_item_id,actor_user_id,local_capture_id,capture_kind,note,captured_at,latitude,longitude,gps_accuracy_m,gps_captured_at,evidence_object_key,evidence_sha256,evidence_size_bytes,evidence_mime_type,evidence_original_filename,status,server_received_at FROM public.project_field_capture_submissions WHERE project_id=$1::uuid ORDER BY server_received_at DESC LIMIT 100",[projectId]);
-    return res.json({submissions:rows.rows});
+    const permission=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'project.tasks.resolve') AS can_review",[projectId]);
+    const rows=await req.db.query("SELECT s.id,s.project_id,s.work_item_id,s.actor_user_id,s.local_capture_id,s.capture_kind,s.note,s.captured_at,s.latitude,s.longitude,s.gps_accuracy_m,s.gps_captured_at,s.evidence_object_key,s.evidence_sha256,s.evidence_size_bytes,s.evidence_mime_type,s.evidence_original_filename,s.status,s.server_received_at,r.decision AS last_review_decision,r.reason AS last_review_reason,r.reviewer_user_id,r.created_at AS last_review_at FROM public.project_field_capture_submissions s LEFT JOIN LATERAL (SELECT decision,reason,reviewer_user_id,created_at FROM public.project_field_capture_review_events e WHERE e.submission_id=s.id ORDER BY e.created_at DESC LIMIT 1) r ON true WHERE s.project_id=$1::uuid ORDER BY s.server_received_at DESC LIMIT 100",[projectId]);
+    return res.json({submissions:rows.rows,canReview:Boolean(permission.rows[0]?.can_review)});
   }catch{return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.post("/api/v1/projects/:projectId/field-captures/:submissionId/review",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),submissionId=String(req.params.submissionId||""),actorId=req.user?.id,b=req.body??{};
+  const decision=String(b.decision||""),reason=String(b.reason||"");
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!uuid.test(projectId)||!uuid.test(submissionId))return res.status(400).json({error:"Project and submission IDs must be UUIDs.",code:"INVALID_FIELD_CAPTURE_ID"});
+  if(!["accepted","rejected","needs_review"].includes(decision))return res.status(400).json({error:"Invalid review decision.",code:"INVALID_FIELD_CAPTURE_REVIEW"});
+  if(decision!=="accepted"&&reason.trim().length<5)return res.status(400).json({error:"Reason is required for rejection or re-review.",code:"FIELD_CAPTURE_REVIEW_REASON_REQUIRED"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.resolve")))return;
+  try{
+    const result=await req.db.query("SELECT public.pke_review_field_capture_submission($1::uuid,$2::text,$3::text) AS submission",[submissionId,decision,reason]);
+    return res.json({submission:result.rows[0]?.submission,decision,reviewed:true});
+  }catch(e:any){
+    const message=String(e?.message||"Review failed.");
+    if(message.includes("Maker-checker"))return res.status(403).json({error:message,code:"FIELD_CAPTURE_MAKER_CHECKER"});
+    if(message.includes("Final Field Capture"))return res.status(409).json({error:message,code:"FIELD_CAPTURE_FINAL_DECISION"});
+    if(message.includes("not found"))return res.status(404).json({error:message,code:"FIELD_CAPTURE_NOT_FOUND"});
+    if(message.includes("Missing Project task review permission"))return res.status(403).json({error:message,code:"FIELD_CAPTURE_REVIEW_PERMISSION"});
+    return res.status(400).json({error:message,code:"FIELD_CAPTURE_REVIEW_REJECTED"});
+  }
 });
 
 app.post("/api/v1/projects/:projectId/field-captures/upload",requireAuth,express.raw({type:["image/jpeg","image/png","image/webp"],limit:"15mb"}),async(req:express.Request,res:express.Response)=>{

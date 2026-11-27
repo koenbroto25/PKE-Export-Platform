@@ -2915,3 +2915,11 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - **P23: PASS for gap-matrix contract/transparency only.** Dedicated UX matrix step passed; dashboard routes/permission checks and known incomplete integrations are explicitly labeled. Actual operational UX gaps remain OPEN and must be implemented/accepted before operational readiness.
 - **Dependency Audit: PASS** run 1216. Latest plan-only commit 058b1e75d08eb9b9abc3d6fd695de7d96ae74202 was compared to tested workflow commit; only PKE_P03_PLAN.md changed, so code/test evidence remains applicable.
 - Current PR #10 remains Draft validation-only, unmerged. PR #5 delivery PR remains OPEN, unmerged. No Production/UAT database changes and no Vercel deployment.
+
+
+### P23 Field Capture vertical slice — 2026-11-27 (source implemented; UAT pending)
+- Prepared Migration 115: project-scoped immutable Field Capture submissions, local capture idempotency, GPS/evidence all-or-none constraints, checksum/size/MIME limits, private object namespace, forced RLS, actor-only/project-permission SELECT, and INSERT requiring current actor + `project.tasks.update` + active task explicitly assigned to actor.
+- Migration 115 SHA-256: 104283c2fb3f61d6f00f3cc446e6c9e0bf93b4045a7d8d2e280483d2d94bedcb. Release manifest marks owner approval pending, UAT not applied, Production not authorized. No DB application was performed.
+- Backend source adds authenticated presigned private upload, assignment revalidation, server sync, checksum verification, idempotent replay/payload-conflict handling, audit event, and permission-scoped receipt listing.
+- Frontend Field Capture adds sync/retry, stable evidence object-key reuse, fresh server assignment check, server receipt display, and conflict/failed states. Local draft deletion explicitly does not delete server submissions.
+- Remaining Field Capture blockers: migration 115 UAT application and runtime/RLS backtest require approval; review/accept/reject workflow, orphan-object cleanup, true offline retry/browser E2E and cross-module integration remain open. Matrix status remains PARTIAL.

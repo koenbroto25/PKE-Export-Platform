@@ -18,7 +18,8 @@ describe("P22 connected export lifecycle backtest", () => {
   it("enforces PM appointment status and commercial-basis validation before Project creation", () => {
     const d = createP22Dataset();
     const buyer = d.buyers[0];
-    const agreement = d.commercialAgreements.find(x => x.buyerId === buyer.id)!;\n    const input = { projectId: "SIM-PROJECT-NEW", pmUserId: "SIM-PM-ALPHA", buyerId: buyer.id, basis: "buyer_agreement" as const, basisId: agreement.id, idempotencyKey: "SIM-IDEMP-NEW" };
+    const agreement = d.commercialAgreements.find(x => x.buyerId === buyer.id)!;
+    const input = { projectId: "SIM-PROJECT-NEW", pmUserId: "SIM-PM-ALPHA", buyerId: buyer.id, basis: "buyer_agreement" as const, basisId: agreement.id, idempotencyKey: "SIM-IDEMP-NEW" };
     expect(createProjectFromBasis(d, input)).toMatchObject({ ok: true, replay: false, project: { id: "SIM-PROJECT-NEW" } });
     const unappointed = { ...input, pmUserId: "SIM-PM-NOT-APPOINTED" };
     expect(createProjectFromBasis(d, unappointed)).toMatchObject({ ok: false, code: "PM_NOT_ACTIVE" });
@@ -26,6 +27,7 @@ describe("P22 connected export lifecycle backtest", () => {
     expect(createProjectFromBasis(d, input)).toMatchObject({ ok: false, code: "PM_NOT_ACTIVE" });
     d.appointments[0].status = "revoked";
     expect(createProjectFromBasis(d, input)).toMatchObject({ ok: false, code: "PM_NOT_ACTIVE" });
+    d.appointments[0].status = "active";
     expect(createProjectFromBasis(d, { ...input, basisId: "unknown" })).toMatchObject({ ok: false, code: "BASIS_INVALID" });
     expect(createProjectFromBasis(d, { ...input, buyerId: "unknown" })).toMatchObject({ ok: false, code: "BUYER_NOT_FOUND" });
   });
@@ -76,7 +78,22 @@ describe("P22 connected export lifecycle backtest", () => {
     }
   });
 
-  it("suppresses lifecycle readiness when integrity validation finds a dataset defect", () => {\n    const d = createP22Dataset();\n    d.documents.splice(0, 1);\n    expect(validateP22Dataset(d).length).toBeGreaterThan(0);\n    expect(p22Summary(d).complete).toBe(0);\n  });\n\n  it("detects missing mandatory documents and validates shipment references", () => {\n    const d = createP22Dataset();\n    d.documents.splice(0, 1);\n    expect(validateP22Dataset(d)).toContain("required-document-missing:SIM-SHIP-001:COA");\n    d.shipments[0].buyerId = "SIM-BUY-999";\n    expect(validateP22Dataset(d)).toContain("buyer-shipment-link:SIM-SHIP-001");\n  });\n\n  it("rejects tampered cross-Project Buyer, commercial basis, duplicate keys and ownership links", () => {
+  it("suppresses lifecycle readiness when integrity validation finds a dataset defect", () => {
+    const d = createP22Dataset();
+    d.documents.splice(0, 1);
+    expect(validateP22Dataset(d).length).toBeGreaterThan(0);
+    expect(p22Summary(d).complete).toBe(0);
+  });
+
+  it("detects missing mandatory documents and validates shipment references", () => {
+    const d = createP22Dataset();
+    d.documents.splice(0, 1);
+    expect(validateP22Dataset(d)).toContain("required-document-missing:SIM-SHIP-001:COA");
+    d.shipments[0].buyerId = "SIM-BUY-999";
+    expect(validateP22Dataset(d)).toContain("buyer-shipment-link:SIM-SHIP-001");
+  });
+
+  it("rejects tampered cross-Project Buyer, commercial basis, duplicate keys and ownership links", () => {
     const d = createP22Dataset();
     d.projectCreations[0].buyerId = "SIM-BUY-999";
     d.projectCreations[0].basisId = "SIM-BASIS-INVALID";

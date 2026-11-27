@@ -2,14 +2,8 @@
 -- and the assignment was revoked by a recorded global appointment suspension/revocation.
 BEGIN;
 
--- Normalize existing appointment-driven revocations into a machine-identifiable reason.
-UPDATE public.project_role_assignments a
-SET revoke_reason='PM appointment '||e.event_code||': '||e.reason, updated_at=now()
-FROM public.project_roles r, public.project_pm_ownership o, public.pm_appointment_events e
-WHERE r.id=a.project_role_id AND r.project_id=a.project_id AND r.role_code='pm'
-  AND o.project_id=a.project_id AND o.pm_user_id=a.user_id
-  AND e.user_id=a.user_id AND e.event_code IN ('suspended','revoked')
-  AND a.revoke_reason=e.reason AND a.is_active=false AND a.revoked_at IS NOT NULL;
+-- Existing revoked assignments are immutable; the restore function supports both legacy
+-- reason strings and the new appointment-prefixed reason format.
 
 CREATE OR REPLACE FUNCTION public.pke_admin_set_pm_appointment_status(p_appointment_id uuid, p_status text, p_reason text)
 RETURNS public.pm_appointments
@@ -63,7 +57,7 @@ BEGIN
      AND EXISTS(
        SELECT 1 FROM public.pm_appointment_events e
        WHERE e.appointment_id=v_old.id AND e.event_code IN ('suspended','revoked')
-         AND a.revoke_reason='PM appointment '||e.event_code||': '||e.reason
+         AND (a.revoke_reason='PM appointment '||e.event_code||': '||e.reason OR a.revoke_reason=e.reason)
      )
      AND NOT EXISTS(
        SELECT 1 FROM public.project_role_assignments other

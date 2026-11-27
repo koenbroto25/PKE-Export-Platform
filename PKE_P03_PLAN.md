@@ -2891,3 +2891,10 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - P23 matrix statuses are intentionally open: seven integration/browser gaps, one external dependency blocker. Test enforces that current UI truthfully marks them as gaps rather than declaring completion.
 - P24 initial audit: offline AI evaluator exists (6 safety cases), PKE AI fixtures 30, Knowledge AI evaluation cases 20. No live-model quality/calibration benchmark is proven. Traceability remains AI safety/grounding PARTIAL; actual Production UI/API integration GAP.
 - No Neon or Vercel changes. P22/P23 code and tests are under CI validation; phases are not yet accepted.
+
+
+### Latest P22 correction and P24/P25 audit plan — 2026-11-27
+- P22 synthetic create-project model now checks PM appointment status before idempotent replay, matching Migration 113's fail-closed order. Tests distinguish replay, key conflict, inactive PM, invalid commercial basis and unknown Buyer using fresh keys where appropriate.
+- Latest validation PR #9 is Draft and unmerged. GitHub Unit Tests are in progress; Dependency Audit has completed SUCCESS on the latest head. Do not mark P22 green until Unit Tests and all subsequent steps finish.
+- P24 benchmark gap: offline rule-based evaluators and 20/30-case fixture sets are present, but there is no live model evaluation, calibration/quality scoring, regression baseline, prompt-injection robustness, source citation precision/recall, hallucination rate or human-review outcome measurement. These are future acceptance items; no AI is authorized to make decisions or execute transactions.
+- P25 final security review will revalidate against current source: Auth/session lifecycle; UI/API/DB permission parity; RLS project/PM isolation; SECURITY DEFINER grants/search_path; maker-checker; idempotency/concurrency; object storage private access/checksum; audit trail; input/error redaction; migration target/no-replay controls; dependency audit; Docker/runtime packaging. Existing test evidence is to be rechecked, not blindly carried forward.

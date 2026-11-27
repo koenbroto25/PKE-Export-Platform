@@ -2781,3 +2781,87 @@ G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration
 - Audit confirmation: owner query shows 2 `project.pm.assignments.restored` audit records; PM appointment events 8; project ownership events 5; migration history 113/114 both applied. (Audit-events read is restricted by existing `pke_audit_admin_select` policy, so the evidence was verified with branch owner/read-only query; PM-specific event tables remain visible under their own RLS.)
 - Latest GitHub head `b6c55003a78d224599bfd6c4ddaef7d81386284d`: Unit Tests run 2837 **SUCCESS**; Dependency Audit run 1143 **SUCCESS**. The suite now verifies Migration 114 release pin and reactivation contracts; backend/API build, Docker image build, frontend typecheck/build also passed.
 - Vercel remains intentionally skipped. Production branch `br-damp-shape-b3xlh4nr` was not changed and production application remains unauthorized.
+
+
+# P21–P25 Completion Roadmap — 2026-11-27
+
+**Owner direction:** Document this roadmap in the master plan before implementation. Then execute the controllable work maraton-style, updating this section with evidence and blockers. Do not deploy Vercel; do not mutate Neon Production without separate explicit approval.
+
+## P21 — Close PM appointment-first workflow and release source gate
+**Status at planning:** UAT migrations 113/114 and runtime/RLS acceptance PASS; source branch/PR #5 remains open and unmerged; final head CI must be re-confirmed before closure.
+
+Scope:
+1. Reconcile PR #5 source, migration 113/114 SHA pins, manifests, release verifiers, API/UI, tests and plan against the actual latest head.
+2. Run/check latest Unit Tests and Dependency Audit; inspect job-level steps and any failure logs. Re-run only failed jobs when safe.
+3. Verify latest-head migration release package is fail-closed, no pending Production migration is implied, and production/UAT target selection cannot be accidental.
+4. Validate PM appointment, PM create-project, commercial basis, portfolio, transfer, revocation/reactivation and audit UX/API contracts.
+5. Record PR readiness. Merge is a repository governance action and will not be performed unless explicitly authorized; P21 can be source/CI accepted without merging.
+
+Acceptance evidence: latest head SHA; Unit Tests green; Dependency Audit green; release checks; reviewed diff; no Production/Vercel changes; clear PR status.
+
+## P22 — Full export business-process integration and synthetic backtest
+**Status at planning:** NOT STARTED as a dedicated full-process acceptance phase. Existing component and scenario tests are evidence but do not yet prove one connected export lifecycle.
+
+Build and execute an isolated, deterministic synthetic scenario harness spanning:
+1. PM appointment → Buyer/agreement/contract → Project creation and portfolio.
+2. Commercial terms → contract/program → quantity/specification/destination/timeline.
+3. PKS selection/suitability → procurement/RAB/commitments.
+4. Warehouse receipt → inventory lots → stock reconciliation/holds.
+5. Truck/driver assignment → checkpoints → loading → allocation.
+6. Port/vessel readiness → shipment → document pack and regulatory checks.
+7. Finance reporting/cash planning → AP/AR/obligations/advance/FX exposure → reconciliation/settlement states.
+8. Project KPI/profitability/readiness/reporting and traceable audit history.
+
+Required scenario matrix (at minimum): normal export; multiple projects/buyers per PM; partial shipments; quantity/spec change; unavailable PKS; warehouse discrepancy; inventory hold; truck/driver/checkpoint failure; loading shortfall; port unsuitable; vessel schedule delay; missing/rejected/corrected documents; regulatory requirement change; cash shortage; FX movement; duplicate/replayed API/event; concurrent Project creation; PM transfer during execution; PM suspension/revocation/reactivation; project cancellation at multiple lifecycle points; rollback after failure at each transactional boundary.
+
+Acceptance: deterministic fixture seed; expected-state assertions; no orphan Project/contract/program/ownership/inventory/shipment/finance rows; cross-Project and cross-PM isolation; idempotency/concurrency checks; all blockers surfaced as actionable tasks; clean teardown or clearly retained isolated fixtures; test report linked to commit. Never use production data as fixture.
+
+## P23 — UX operational readiness by role
+**Status at planning:** NOT STARTED as a consolidated role-by-role acceptance gate. Existing UX contract tests are partial evidence.
+
+Audit and backtest every role's primary work surface and navigation. Dashboards must prioritize task queues, actionable blockers, overdue work, approvals, exceptions and direct remediation rather than KPI-only cards.
+- Platform Admin: global health, PM appointments, portfolio oversight, transfer/governance, user lifecycle, security and exception queues.
+- PM: multi-Project portfolio, Buyer catalog, agreement/contract basis, create Project, readiness, milestones, blockers, approvals, document and finance exposure.
+- PKS/procurement/warehouse/loading/logistics/port/document/regulatory roles: scoped tasks, current record, evidence, validation, correction and next action.
+- Finance: reporting-only boundaries where applicable, cash planning, AP/AR, obligations, advances, FX, reconciliation and exceptions.
+- Executive/management: truthful aggregated status, data freshness, risks and drill-down without privilege escalation.
+
+Required checks: role × page × action access matrix; menu/card/action parity with API permission; no dead/unauthorized links; empty/loading/error/stale states; responsive field workflows; task completion without hidden prerequisites; scan/document review with immediate correction where the role is allowed; dashboard counts reconcile to source; cross-Project switching cannot leak data; keyboard/accessible form behavior; clear Indonesian operational labels and confirmations.
+
+Acceptance: consolidated role acceptance matrix, issue list with severity/owner, fixed blockers, automated contract tests, and synthetic browser/API workflow evidence. Vercel deployment remains skipped; use local/CI or available non-deploy validation only.
+
+## P24 — Data integrity, synthetic data enrichment, and AI readiness
+**Status at planning:** NOT STARTED as a unified gate.
+
+- Establish canonical lifecycle/status transitions and source-of-truth definitions across Project, contract/program, inventory, loading, shipment, document, finance and settlement.
+- Verify data lineage: actor, timestamp, source/evidence, status, correction history and audit event.
+- Distinguish actual, planned, forecast, simulated and AI-inferred values; simulations must never be confused with operational records.
+- Add data-quality checks for duplicates, impossible quantity/date/state combinations, broken references, stale data and inconsistent aggregate calculations.
+- Enrich synthetic fixtures with realistic normal/edge/chaos cases and repeatable seeds. Keep synthetic namespace/tenant/branch isolation and cleanup rules.
+- AI evaluation must be offline and deterministic where possible: risk of delay, export readiness, bottleneck, PKS recommendation, port suitability, cash shortfall, FX exposure, document completeness and anomaly detection. AI outputs must cite evidence, disclose uncertainty, be reviewable, and never silently execute business actions.
+
+Acceptance: data-quality report; lineage checks; fixture inventory; AI evaluation cases/metrics and false-positive/false-negative review; no production AI write/action; source data and model outputs separated.
+
+## P25 — Security and production-readiness audit
+**Status at planning:** NOT STARTED as final integrated acceptance; prior security/RLS audits remain evidence to revalidate against latest source/schema.
+
+- Full role/permission/API/RLS matrix and cross-Project/cross-PM isolation.
+- Auth/session lifecycle, revocation, least privilege and permission parity between UI/API/database.
+- Maker-checker independence, audited transfers/status changes, privileged functions, SECURITY DEFINER search_path and grants.
+- Object/file storage authorization, document access and upload/download integrity.
+- Input validation, SQL/command safety, idempotency, concurrency, rate-limit/abuse and error redaction.
+- Migration package pinning, preflight, no-replay behavior, rollback/recovery strategy and branch/target safeguards.
+- Backup/restore evidence and operational recovery runbook; explicitly classify entitlement-limited items rather than claiming PASS.
+- CI gates, reproducible build, Docker packaging, dependency audit, secret scanning and logging review.
+
+Acceptance: security findings categorized Critical/High/Medium/Low; Critical/High blockers closed or formally owner-accepted; role isolation tests green; release checklist and recovery runbook; no Production mutation.
+
+## Release preparation after P21–P25
+1. Consolidate evidence and residual risks into the master plan.
+2. Final UAT checklist and owner sign-off.
+3. Production migration plan with exact files/SHA/order/rollback/preflight and explicit approval gates; do not apply migrations or deploy as part of this roadmap.
+4. Vercel deployment remains explicitly SKIPPED until owner lifts the quota constraint/instruction.
+5. Do not mark P21–P25 complete based on source contracts alone; each phase requires its stated evidence.
+
+## Maraton execution log
+- 2026-11-27: roadmap added to master plan before implementation. P21–P25 are now formally tracked; execution begins with P21 latest-head audit and CI, then P22 integration backtest, P23 UX, P24 data/AI readiness, P25 security/release readiness.

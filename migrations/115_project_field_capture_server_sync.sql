@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.project_field_capture_submissions (
   evidence_size_bytes bigint,
   evidence_mime_type text,
   evidence_original_filename text,
-  payload_sha256 text NOT NULL CHECK (payload_sha256 ~ '^[0-9a-f]{64}$'),
+  payload_sha256 text NOT NULL CHECK (length(payload_sha256)=64 AND payload_sha256 NOT SIMILAR TO '%[^0-9a-f]%'),
   status text NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','needs_review','accepted','rejected')),
   server_received_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT project_field_capture_local_id_unique UNIQUE (project_id,actor_user_id,local_capture_id),
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.project_field_capture_submissions (
   ),
   CONSTRAINT project_field_capture_evidence_all_or_none CHECK (
     (evidence_object_key IS NULL AND evidence_sha256 IS NULL AND evidence_size_bytes IS NULL AND evidence_mime_type IS NULL AND evidence_original_filename IS NULL) OR
-    (evidence_object_key IS NOT NULL AND evidence_sha256 IS NOT NULL AND evidence_size_bytes IS NOT NULL AND evidence_mime_type IS NOT NULL AND evidence_original_filename IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}
+    (evidence_object_key IS NOT NULL AND evidence_sha256 IS NOT NULL AND length(evidence_sha256)=64 AND evidence_sha256 NOT SIMILAR TO '%[^0-9a-f]%' AND evidence_size_bytes BETWEEN 1 AND 15728640 AND evidence_mime_type IN ('image/jpeg','image/png','image/webp') AND evidence_original_filename IS NOT NULL AND length(btrim(evidence_original_filename))>0)
   ),
   CONSTRAINT project_field_capture_evidence_project_namespace CHECK (
     evidence_object_key IS NULL OR evidence_object_key LIKE ('projects/'||project_id::text||'/field-captures/'||local_capture_id::text||'/%')
@@ -65,51 +65,8 @@ CREATE POLICY project_field_capture_insert ON public.project_field_capture_submi
     AND public.pke_has_project_permission(project_id,'project.tasks.update')
     AND EXISTS (
       SELECT 1 FROM public.project_work_items wi
-      WHERE wi.id=project_field_capture_submissions.work_item_id AND wi.project_id=project_field_capture_submissions.project_id
-        AND wi.assignee_user_id=project_field_capture_submissions.actor_user_id
-        AND wi.status NOT IN ('resolved','closed','cancelled')
-    )
-  );
-
-COMMENT ON TABLE public.project_field_capture_submissions IS
-  'Immutable server-accepted Field Capture submissions. Local offline drafts are not authoritative until a row is created after task-scope and evidence verification.';
-
-COMMIT;
- AND evidence_size_bytes BETWEEN 1 AND 15728640 AND evidence_mime_type IN ('image/jpeg','image/png','image/webp') AND length(btrim(evidence_original_filename))>0)
-  ),
-  CONSTRAINT project_field_capture_evidence_project_namespace CHECK (
-    evidence_object_key IS NULL OR evidence_object_key LIKE ('projects/'||project_id::text||'/field-captures/'||local_capture_id::text||'/%')
-  )
-);
-
-CREATE INDEX IF NOT EXISTS project_field_capture_project_received_idx
-  ON public.project_field_capture_submissions(project_id,server_received_at DESC);
-CREATE INDEX IF NOT EXISTS project_field_capture_work_item_received_idx
-  ON public.project_field_capture_submissions(work_item_id,server_received_at DESC);
-CREATE INDEX IF NOT EXISTS project_field_capture_actor_project_idx
-  ON public.project_field_capture_submissions(actor_user_id,project_id,server_received_at DESC);
-
-ALTER TABLE public.project_field_capture_submissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.project_field_capture_submissions FORCE ROW LEVEL SECURITY;
-GRANT SELECT,INSERT ON public.project_field_capture_submissions TO app_runtime_secure;
-
-DROP POLICY IF EXISTS project_field_capture_select ON public.project_field_capture_submissions;
-CREATE POLICY project_field_capture_select ON public.project_field_capture_submissions
-  FOR SELECT TO app_runtime_secure
-  USING (
-    actor_user_id=public.pke_current_user_id()
-    OR public.pke_has_project_permission(project_id,'project.tasks.view')
-  );
-
-DROP POLICY IF EXISTS project_field_capture_insert ON public.project_field_capture_submissions;
-CREATE POLICY project_field_capture_insert ON public.project_field_capture_submissions
-  FOR INSERT TO app_runtime_secure
-  WITH CHECK (
-    actor_user_id=public.pke_current_user_id()
-    AND public.pke_has_project_permission(project_id,'project.tasks.update')
-    AND EXISTS (
-      SELECT 1 FROM public.project_work_items wi
-      WHERE wi.id=project_field_capture_submissions.work_item_id AND wi.project_id=project_field_capture_submissions.project_id
+      WHERE wi.id=project_field_capture_submissions.work_item_id
+        AND wi.project_id=project_field_capture_submissions.project_id
         AND wi.assignee_user_id=project_field_capture_submissions.actor_user_id
         AND wi.status NOT IN ('resolved','closed','cancelled')
     )

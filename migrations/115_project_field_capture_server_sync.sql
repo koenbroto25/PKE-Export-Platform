@@ -65,8 +65,8 @@ CREATE POLICY project_field_capture_insert ON public.project_field_capture_submi
     AND public.pke_has_project_permission(project_id,'project.tasks.update')
     AND EXISTS (
       SELECT 1 FROM public.project_work_items wi
-      WHERE wi.id=work_item_id AND wi.project_id=project_id
-        AND wi.assignee_user_id=actor_user_id
+      WHERE wi.id=project_field_capture_submissions.work_item_id AND wi.project_id=project_field_capture_submissions.project_id
+        AND wi.assignee_user_id=project_field_capture_submissions.actor_user_id
         AND wi.status NOT IN ('resolved','closed','cancelled')
     )
   );

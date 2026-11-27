@@ -2898,3 +2898,12 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Latest validation PR #9 is Draft and unmerged. GitHub Unit Tests are in progress; Dependency Audit has completed SUCCESS on the latest head. Do not mark P22 green until Unit Tests and all subsequent steps finish.
 - P24 benchmark gap: offline rule-based evaluators and 20/30-case fixture sets are present, but there is no live model evaluation, calibration/quality scoring, regression baseline, prompt-injection robustness, source citation precision/recall, hallucination rate or human-review outcome measurement. These are future acceptance items; no AI is authorized to make decisions or execute transactions.
 - P25 final security review will revalidate against current source: Auth/session lifecycle; UI/API/DB permission parity; RLS project/PM isolation; SECURITY DEFINER grants/search_path; maker-checker; idempotency/concurrency; object storage private access/checksum; audit trail; input/error redaction; migration target/no-replay controls; dependency audit; Docker/runtime packaging. Existing test evidence is to be rechecked, not blindly carried forward.
+
+
+### P21 source/CI acceptance and P22/P23 test checkpoint — 2026-11-27
+- **P21 SOURCE GATE: PASS** on code commit 5621126014c7dd68bf3af104ac49846d8e88afe0: Unit Tests run 2901 completed SUCCESS; 85/85 test files and 809/809 tests passed. All migration release verifiers, migration runner dry-run, backend build/API typecheck, Docker build, frontend typecheck/build passed. Dependency Audit run 1209 completed SUCCESS.
+- The only commit after that tested code head before the current workflow update was plan documentation (verified compare shows only PKE_P03_PLAN.md changed). The latest workflow commit adds explicit dedicated P22 and P23 test steps.
+- **P22 core suite: PASS within 809/809.** Connected PM/Buyer/commercial basis/Project/portfolio/idempotency/transfer/lifecycle and Phase G fault tests passed; Phase E integrity validator required-doc/reference checks passed. Dedicated P22 step is being revalidated on the current workflow head.
+- **P23 matrix contracts: PASS within 809/809.** Gap transparency test passed. The actual integration gaps remain OPEN; passing tests only prove truthful status/acceptance criteria, not implementation.
+- Current Draft validation PR #10 is opened against P19 to validate explicit P22/P23 workflow steps on the current head. Do not merge it. PR #5 remains the delivery PR and is still not merged.
+- Production/UAT unchanged; Vercel ignored.

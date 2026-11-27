@@ -100,8 +100,10 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
       const current=(fresh.workItems||[]).find(row=>row.id===draft.assignmentId&&row.assignee_user_id===activeUser.id&&!['resolved','closed','cancelled'].includes(String(row.status||'').toLowerCase()));
       if(!current) throw Object.assign(new Error('Assignment tidak lagi aktif atau tidak ditugaskan kepada akun ini.'),{status:403});
       let evidence:Record<string,unknown>={};
+      if(draft.evidenceName&&!draft.evidenceBlob)throw new Error('Foto bukti lokal tidak tersedia; buat capture baru tanpa foto atau lampirkan ulang.');
       if(draft.evidenceBlob){
-        const presigned=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>};objectKey:string}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/presigned-upload',{captureId:draft.id,workItemId:draft.assignmentId,filename:draft.evidenceName,mimeType:draft.evidenceType,contentLength:draft.evidenceBlob.size});
+        const presigned=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>};objectKey:string}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/presigned-upload',{captureId:draft.id,workItemId:draft.assignmentId,filename:draft.evidenceName,mimeType:draft.evidenceType,contentLength:draft.evidenceBlob.size,objectKey:draft.evidenceObjectKey});
+        await saveFieldDraft({...draft,status:'syncing',evidenceObjectKey:presigned.objectKey});
         const uploaded=await fetch(presigned.upload.uploadUrl,{method:'PUT',headers:presigned.upload.requiredHeaders,body:draft.evidenceBlob});
         if(!uploaded.ok)throw new Error('Upload bukti gagal ('+uploaded.status+').');
         if(!draft.checksum)throw new Error('Checksum bukti lokal tidak tersedia.');

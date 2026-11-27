@@ -2999,3 +2999,20 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 
 ### Vercel handling
 - No Vercel deploy, retry, promotion, or manual build was invoked. Git integration still emits automatic Vercel check status `failure` with build-rate-limit target on commit `a7a73d01932b95f2d7a4f5a46a05d74b89503fc3`; this is platform-side auto-check, not a manual deployment. Stop further Vercel-triggering branch commits until its Git auto-deploy/notification setting is disabled by owner or an approved skip mechanism is confirmed.
+
+
+### P26 follow-up: review workflow closed at source + UAT runtime — 2026-11-27
+- Migration 116 SHA verified: `8cffff8b12079a5337cb61350051bc38e483a8bd19574e7f94d0f7dcb792d974`; applied on isolated UAT branch `br-winter-butterfly-b3tnsao9`, ledger 116 at 2026-11-27T13:43:15.204Z. Production unauthorized.
+- Review function `pke_review_field_capture_submission` uses security-definer with fixed search_path, requires `project.tasks.resolve`, enforces maker-checker, reasons for rejection/needs-review, terminal accepted/rejected state, appends immutable review history, and does not grant direct INSERT/UPDATE/DELETE on the history table.
+- Runtime: independent review accepted synthetic submission; self-review denied; rejection with short reason denied; final decision change denied; review-history RLS Beta sees 1 and Alpha sees 0; app_runtime_secure review history privileges SELECT only. Migration 116 function execute granted to runtime.
+- API: receipt GET returns last review and canReview; POST review is role gated. UI exposes accept/reject only when server says canReview, requires rejection reason, and warns acceptance is final. Source contract tests added.
+- Remaining P26: live private object storage upload/HEAD/GET cannot be executed in this environment, end-to-end authenticated API test/browser offline queue, and orphan cleanup when submission fails. Proxy upload reduces browser CORS dependency; storage still PARTIAL.
+
+### P27, P28 and P29 updated after maraton
+- P27 13-slice matrix/test added: 1 PASS, 8 PARTIAL, 2 GAP, 2 BLOCKED. Offline lifecycle and UAT tests are evidence but do not replace browser/API/database E2E.
+- P28 benchmark now contains 30 knowledge cases, including 10 adversarial prompt-injection fixtures. Offline evaluator PASS target; live model quality/calibration and adjudicated review remain GAP/PARTIAL.
+- P29 remains BLOCKED: no Production automatic snapshot schedule, snapshot quota exceeded on manual snapshot attempt, 10/10 Neon branches, and existing restore drill branch lacks PKE public schema. Do not create/delete snapshots/branches until owner resolves quota/capacity.
+
+### Vercel pause controls — 2026-11-27
+- No deployment/build/retry/promotion was run. Project preview deployments were disabled in Vercel settings to pause Git preview builds/notifications during quota issues. Production deployment remains off; no deployment created.
+- Continue GitHub/Neon source/UAT work only. If a Vercel check still appears, it is existing platform status rather than a manual deployment.

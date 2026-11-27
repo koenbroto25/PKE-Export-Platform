@@ -10,6 +10,8 @@ import { verifyNeonAuthWebhook } from "./neon-auth-webhook.js";
 import { internalServerErrorPayload, requestRejectedPayload } from "./http-errors.js";
 import { normalizePostgresSslMode, roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
 import { privateStorage } from "./storage.js";
+import { createHash, randomUUID } from "node:crypto";
+import { validateFieldCaptureInput, normalizeFieldCapturePayload, type FieldCaptureInput } from "./field-capture-rules.js";
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
 import { detectManualTrialMode } from "./demo/mode.js";
 import { registerDemoApiRoutes } from "./demo/routes.js";
@@ -3618,6 +3620,75 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
   }
 });
 
+
+// P23 Field Capture sync API. Local drafts are not authoritative until this endpoint
+// revalidates the active assignment, permission, payload and any uploaded evidence.
+async function requireAssignedFieldCaptureWorkItem(req: express.Request, res: express.Response, projectId: string, workItemId: string, actorId: string): Promise<boolean> {
+  const result=await req.db.query(
+    "SELECT id,title,status,assignee_user_id FROM public.project_work_items WHERE id=$1::uuid AND project_id=$2::uuid AND assignee_user_id=$3::uuid AND status NOT IN ('resolved','closed','cancelled') LIMIT 1",
+    [workItemId,projectId,actorId],
+  );
+  if(!result.rows.length){res.status(403).json({error:"Field Capture requires an active task explicitly assigned to the authenticated user.",code:"FIELD_CAPTURE_ASSIGNMENT_REQUIRED"});return false;}
+  return true;
+}
+
+app.post("/api/v1/projects/:projectId/field-captures/presigned-upload",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id;
+  const b=req.body??{},captureId=String(b.captureId||""),workItemId=String(b.workItemId||""),filename=String(b.filename||""),mimeType=String(b.mimeType||""),contentLength=Number(b.contentLength);
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!uuid.test(projectId)||!uuid.test(captureId)||!uuid.test(workItemId))return res.status(400).json({error:"Project, capture and work-item IDs must be UUIDs.",code:"INVALID_FIELD_CAPTURE_ID"});
+  const meta=privateStorage.validateFileMetadata({mimeType,contentLength,filename});
+  if(!meta.ok||!["image/jpeg","image/png","image/webp"].includes(mimeType)||contentLength>15*1024*1024)return res.status(400).json({error:meta.reason||"Field evidence must be JPEG/PNG/WebP and <=15 MB.",code:"INVALID_FIELD_CAPTURE_EVIDENCE"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.update")))return;
+  try{
+    if(!(await requireAssignedFieldCaptureWorkItem(req,res,projectId,workItemId,String(actorId))))return;
+    const status=privateStorage.status();
+    if(!status.available||status.bucket!=="pke-private-documents")return res.status(503).json({error:"Private object storage unavailable.",code:"STORAGE_UNAVAILABLE"});
+    const ext=mimeType==="image/jpeg"?".jpg":mimeType==="image/png"?".png":".webp";
+    const objectKey=`projects/${projectId}/field-captures/${captureId}/${randomUUID()}${ext}`;
+    const check=privateStorage.validateObjectKey(objectKey);
+    if(!check.ok)return res.status(400).json({error:check.reason,code:"INVALID_OBJECT_KEY"});
+    const upload=await privateStorage.presignedUpload(objectKey,mimeType,contentLength);
+    return res.json({upload,objectKey,captureId,workItemId});
+  }catch{return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.post("/api/v1/projects/:projectId/field-captures/sync",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id,b=req.body??{};
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  const input:FieldCaptureInput={captureId:String(b.captureId||""),workItemId:String(b.workItemId||""),captureKind:String(b.captureKind||""),note:String(b.note||""),capturedAt:String(b.capturedAt||""),
+    ...(b.latitude!==undefined?{latitude:Number(b.latitude)}:{}),...(b.longitude!==undefined?{longitude:Number(b.longitude)}:{}),...(b.gpsAccuracyM!==undefined?{gpsAccuracyM:Number(b.gpsAccuracyM)}:{}),...(b.gpsCapturedAt!==undefined?{gpsCapturedAt:String(b.gpsCapturedAt)}:{}),
+    ...(b.evidenceObjectKey!==undefined?{evidenceObjectKey:String(b.evidenceObjectKey)}:{}),...(b.evidenceSha256!==undefined?{evidenceSha256:String(b.evidenceSha256)}:{}),...(b.evidenceSizeBytes!==undefined?{evidenceSizeBytes:Number(b.evidenceSizeBytes)}:{}),...(b.evidenceMimeType!==undefined?{evidenceMimeType:String(b.evidenceMimeType)}:{}),...(b.evidenceOriginalFilename!==undefined?{evidenceOriginalFilename:String(b.evidenceOriginalFilename)}:{})};
+  const errors=validateFieldCaptureInput(input,{projectId,actorUserId:String(actorId)});
+  if(errors.length)return res.status(400).json({error:"Field Capture payload failed validation.",code:"INVALID_FIELD_CAPTURE",details:errors});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.update")))return;
+  try{
+    if(!(await requireAssignedFieldCaptureWorkItem(req,res,projectId,input.workItemId,String(actorId))))return;
+    if(input.evidenceObjectKey){
+      const storageStatus=privateStorage.status();
+      if(!storageStatus.available||storageStatus.bucket!=="pke-private-documents")return res.status(503).json({error:"Private object storage unavailable.",code:"STORAGE_UNAVAILABLE"});
+      try{await privateStorage.verifyObject(input.evidenceObjectKey,input.evidenceSizeBytes!,input.evidenceSha256!);}catch{return res.status(422).json({error:"Field Capture evidence object failed size/checksum verification.",code:"FIELD_CAPTURE_EVIDENCE_VERIFICATION_FAILED"});}
+    }
+    const normalized=normalizeFieldCapturePayload(input,{projectId,actorUserId:String(actorId)});
+    const payloadHash=createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+    const inserted=await req.db.query(
+      `INSERT INTO public.project_field_capture_submissions
+       (project_id,work_item_id,actor_user_id,local_capture_id,idempotency_key,capture_kind,note,captured_at,
+        latitude,longitude,gps_accuracy_m,gps_captured_at,evidence_object_key,evidence_sha256,evidence_size_bytes,
+        evidence_mime_type,evidence_original_filename,payload_sha256,status)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$4::uuid,$5,$6,$7::timestamptz,$8::numeric,$9::numeric,$10::numeric,$11::timestamptz,
+        $12,$13,$14::bigint,$15,$16,$17,'submitted')
+       ON CONFLICT(project_id,actor_user_id,local_capture_id) DO NOTHING RETURNING *`,
+      [projectId,input.workItemId,actorId,input.captureId,input.captureKind,input.note.trim(),input.capturedAt,input.latitude??null,input.longitude??null,input.gpsAccuracyM??null,input.gpsCapturedAt??null,input.evidenceObjectKey??null,input.evidenceSha256??null,input.evidenceSizeBytes??null,input.evidenceMimeType??null,input.evidenceOriginalFilename??null,payloadHash],
+    );
+    if(inserted.rows.length)return res.status(201).json({submission:inserted.rows[0],replay:false});
+    const existing=await req.db.query("SELECT * FROM public.project_field_capture_submissions WHERE project_id=$1::uuid AND actor_user_id=$2::uuid AND local_capture_id=$3::uuid",[projectId,actorId,input.captureId]);
+    if(!existing.rows.length)return res.status(409).json({error:"Capture idempotency key conflict.",code:"FIELD_CAPTURE_IDEMPOTENCY_CONFLICT"});
+    if(existing.rows[0].payload_sha256!==payloadHash)return res.status(409).json({error:"Capture ID was already submitted with a different payload.",code:"FIELD_CAPTURE_PAYLOAD_CONFLICT"});
+    return res.status(200).json({submission:existing.rows[0],replay:true});
+  }catch(e:any){if(e?.code==="23503"||e?.code==="23514")return res.status(422).json({error:"Field Capture failed database constraints.",code:"FIELD_CAPTURE_CONSTRAINT_FAILED"});return res.status(500).json(internalServerErrorPayload());}
+});
 
 // P0 Project Work Items API. Request-scoped RLS transaction is supplied by middleware.
 app.get("/api/v1/projects/:projectId/work-items", requireAuth, async (req: express.Request, res: express.Response) => {

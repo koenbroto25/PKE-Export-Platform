@@ -3634,7 +3634,7 @@ async function requireAssignedFieldCaptureWorkItem(req: express.Request, res: ex
 
 app.post("/api/v1/projects/:projectId/field-captures/presigned-upload",requireAuth,async(req:express.Request,res:express.Response)=>{
   const projectId=String(req.params.projectId||""),actorId=req.user?.id;
-  const b=req.body??{},captureId=String(b.captureId||""),workItemId=String(b.workItemId||""),filename=String(b.filename||""),mimeType=String(b.mimeType||""),contentLength=Number(b.contentLength);
+  const b=req.body??{},captureId=String(b.captureId||""),workItemId=String(b.workItemId||""),filename=String(b.filename||""),mimeType=String(b.mimeType||""),contentLength=Number(b.contentLength),requestedObjectKey=String(b.objectKey||"");
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
   if(!uuid.test(projectId)||!uuid.test(captureId)||!uuid.test(workItemId))return res.status(400).json({error:"Project, capture and work-item IDs must be UUIDs.",code:"INVALID_FIELD_CAPTURE_ID"});
@@ -3646,7 +3646,10 @@ app.post("/api/v1/projects/:projectId/field-captures/presigned-upload",requireAu
     const status=privateStorage.status();
     if(!status.available||status.bucket!=="pke-private-documents")return res.status(503).json({error:"Private object storage unavailable.",code:"STORAGE_UNAVAILABLE"});
     const ext=mimeType==="image/jpeg"?".jpg":mimeType==="image/png"?".png":".webp";
-    const objectKey=`projects/${projectId}/field-captures/${captureId}/${randomUUID()}${ext}`;
+    const objectKey=requestedObjectKey||`projects/${projectId}/field-captures/${captureId}/${randomUUID()}${ext}`;
+    const expectedPrefix=`projects/${projectId}/field-captures/${captureId}/`;
+    const suffix=objectKey.slice(expectedPrefix.length);
+    if(requestedObjectKey&&(!objectKey.startsWith(expectedPrefix)||!/^[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(suffix)))return res.status(400).json({error:"Object key is outside the Field Capture namespace.",code:"INVALID_FIELD_CAPTURE_OBJECT_KEY"});
     const check=privateStorage.validateObjectKey(objectKey);
     if(!check.ok)return res.status(400).json({error:check.reason,code:"INVALID_OBJECT_KEY"});
     const upload=await privateStorage.presignedUpload(objectKey,mimeType,contentLength);

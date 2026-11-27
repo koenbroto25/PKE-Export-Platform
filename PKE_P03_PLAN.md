@@ -2752,3 +2752,11 @@ G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration
 - Migration 113 remains prepared, SHA-pinned, and NOT applied to UAT or Production; owner approval remains pending.
 - Corrected migration SHA-256: `627d8eea44456b3b2f8dc6444c1669c0396e5730d96b85fac9ff1426cbd39ec9`.
 - Validation after correction: initial latest-head CI found a release-manifest SHA mismatch (due to incorrect locally calculated pin); the manifest and plan were corrected to the SHA verified by the test runner. Fresh CI is required. No Neon migration or Vercel deployment performed.
+
+
+## Final CI checkpoint — PM appointment-first and Docker (2026-11-27)
+- Latest verified code head `853b865bc7487cc2210db018f8b29ff671bf00de`: Unit Tests run 2795 (`45992125681`) **SUCCESS**; Dependency Audit run 1101 (`45992125705`) **SUCCESS**.
+- Unit workflow passed offline security/unit suite, P19 assurance, migration ledger/release checks, migration runner dry-run, Migration 113 release pin, backend build/typecheck, production Docker build, frontend typecheck/build.
+- Docker build exposed missing `scripts/test-db/preflight.mjs` in image; corrected Dockerfile now copies that runtime module and uses compiled entrypoint `dist/index.js`. Added Docker packaging regression contract.
+- Migration 113 SHA pin verified by CI: `627d8eea44456b3b2f8dc6444c1669c0396e5730d96b85fac9ff1426cbd39ec9`.
+- Source/CI gate is **PASS**. Database runtime/UAT RLS backtest remains **NOT DONE / OWNER APPROVAL REQUIRED**. Migration 113 remains prepared, not applied. Vercel is skipped due quota.

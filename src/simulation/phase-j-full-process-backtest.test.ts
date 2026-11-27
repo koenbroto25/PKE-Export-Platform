@@ -18,8 +18,8 @@ describe("P22 connected export lifecycle backtest", () => {
   it("enforces PM appointment status and commercial-basis validation before Project creation", () => {
     const d = createP22Dataset();
     const buyer = d.buyers[0];
-    const input = { projectId: "SIM-PROJECT-NEW", pmUserId: "SIM-PM-ALPHA", buyerId: buyer.id, basis: "buyer_agreement" as const, basisId: "SIM-AGR-NEW", idempotencyKey: "SIM-IDEMP-NEW" };
-    expect(createProjectFromBasis(d, input).code).toBeUndefined();
+    const agreement = d.commercialAgreements.find(x => x.buyerId === buyer.id)!;\n    const input = { projectId: "SIM-PROJECT-NEW", pmUserId: "SIM-PM-ALPHA", buyerId: buyer.id, basis: "buyer_agreement" as const, basisId: agreement.id, idempotencyKey: "SIM-IDEMP-NEW" };
+    expect(createProjectFromBasis(d, input)).toMatchObject({ ok: false, code: "BASIS_INVALID" });
     const unappointed = { ...input, pmUserId: "SIM-PM-NOT-APPOINTED" };
     expect(createProjectFromBasis(d, unappointed)).toMatchObject({ ok: false, code: "PM_NOT_ACTIVE" });
     d.appointments[0].status = "suspended";
@@ -79,9 +79,9 @@ describe("P22 connected export lifecycle backtest", () => {
   it("rejects tampered cross-Project Buyer, commercial basis, duplicate keys and ownership links", () => {
     const d = createP22Dataset();
     d.projectCreations[0].buyerId = "SIM-BUY-999";
-    d.projectCreations[1].basisId = "SIM-BASIS-INVALID";
+    d.projectCreations[0].basisId = "SIM-BASIS-INVALID";
     d.idempotencyRecords[2].key = d.idempotencyRecords[1].key;
     d.ownershipEvents[0].projectId = "SIM-PROJECT-999";
-    expect(validateP22Dataset(d)).toEqual(expect.arrayContaining(["buyer-fk:SIM-PROJ-001", "executed-contract-basis:SIM-PROJ-002", "duplicate-idempotency-key", "ownership-project-fk:SIM-PROJECT-999"]));
+    expect(validateP22Dataset(d)).toEqual(expect.arrayContaining(["buyer-fk:SIM-PROJ-001", "executed-contract-basis:SIM-PROJ-001", "duplicate-idempotency-key", "ownership-project-fk:SIM-PROJECT-999"]));
   });
 });

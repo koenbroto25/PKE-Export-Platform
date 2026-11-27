@@ -29,6 +29,7 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(migration).toContain("pm_project_create_idempotency");
     expect(migration).toContain("pke_current_user_id()");
     expect(migration).toContain("Active global PM appointment required");
+    expect(migration).toContain("(array_agg(coalesce(a.assigned_by,a.user_id) ORDER BY a.assigned_at))[1]");
     expect(migration).toContain("executed_contract");
     expect(migration).toContain("buyer_agreement");
     expect(migration).toContain("pke_pm_project_create");

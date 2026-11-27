@@ -6,13 +6,14 @@ describe("P24 AI readiness and offline evaluation coverage",()=>{
  it("validates 20 knowledge cases and 6 synthetic offline safety cases",()=>{
   expect(validateKnowledgeAIEvalCases()).toEqual([]);
   expect(KNOWLEDGE_AI_EVAL_CASES.filter(x=>x.category==="prompt-injection")).toHaveLength(10);
-  expect(p24BenchmarkCoverage()).toMatchObject({knowledgeCases:30,offlineCases:6,knowledgeFixtureValid:true,offlineCasesSynthetic:true,liveModelEvaluated:false});
+  expect(p24BenchmarkCoverage()).toMatchObject({knowledgeCases:30,promptInjectionCases:10,offlineCases:6,knowledgeFixtureValid:true,offlineCasesSynthetic:true,liveModelEvaluated:false});
   expect(OFFLINE_AI_EVAL_CASES.every(x=>x.expectedAbstain)).toBe(true);
  });
  it("covers regulatory/source, role-isolation, authority, freshness and operational false-ready risks",()=>{
   const categories=new Set(KNOWLEDGE_AI_EVAL_CASES.map(x=>x.category));
   for(const category of ["regulatory-scope","historical-source","freshness","role-isolation","authority-decision","source-authenticity","process-correlation","auditability","prompt-injection"])expect(categories.has(category)).toBe(true);
   expect(P24_AI_READINESS_MATRIX.find(x=>x.id==="live-model-quality")?.status).toBe("gap");
+  expect(P24_AI_READINESS_MATRIX.find(x=>x.id==="prompt-injection-robustness")?.status).toBe("partial");
   expect(P24_AI_READINESS_MATRIX.find(x=>x.id==="calibration-and-uncertainty")?.status).toBe("gap");
  });
  it("scores a grounded, abstaining knowledge response only when exact source IDs are cited",()=>{
@@ -33,6 +34,6 @@ describe("P24 AI readiness and offline evaluation coverage",()=>{
  });
  it("does not claim live-model or calibration validation from fixture-only tests",()=>{
   expect(p24BenchmarkCoverage().liveModelEvaluated).toBe(false);
-  expect(P24_AI_READINESS_MATRIX.filter(x=>x.status==="gap").length).toBeGreaterThanOrEqual(5);
+  expect(P24_AI_READINESS_MATRIX.filter(x=>x.status==="gap").length).toBeGreaterThanOrEqual(4);
  });
 });

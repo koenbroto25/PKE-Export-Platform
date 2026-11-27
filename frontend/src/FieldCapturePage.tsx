@@ -58,7 +58,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     return () => { alive = false; };
   }, [projectId, activeUser?.id]);
 
-  const refreshServerSubmissions=async()=>{if(!projectId||!activeUser?.id||!online){setServerSubmissions([]);setServerSubmissionError('');return;}try{const payload=await get<{submissions?:Record<string,any>[]>('/projects/'+encodeURIComponent(projectId)+'/field-captures');setServerSubmissions(Array.isArray(payload.submissions)?payload.submissions:[]);setServerSubmissionError('');}catch(e){setServerSubmissions([]);setServerSubmissionError(e instanceof Error?e.message:'Receipt server belum dapat dimuat.');}};
+  const refreshServerSubmissions=async()=>{if(!projectId||!activeUser?.id||!online){setServerSubmissions([]);setServerSubmissionError('');return;}try{const payload=await get<{submissions?:Record<string,any>[]}>('/projects/'+encodeURIComponent(projectId)+'/field-captures');setServerSubmissions(Array.isArray(payload.submissions)?payload.submissions:[]);setServerSubmissionError('');}catch(e){setServerSubmissions([]);setServerSubmissionError(e instanceof Error?e.message:'Receipt server belum dapat dimuat.');}};
   useEffect(() => { void refreshDrafts();void refreshServerSubmissions(); }, [projectId, activeUser?.id,online]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);

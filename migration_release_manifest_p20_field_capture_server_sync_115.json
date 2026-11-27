@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "purpose": "prepared_p23_field_capture_server_sync_uat_release",
+  "release": "P23 Field Capture server sync and RLS",
+  "created_on": "2026-11-27",
+  "source_branch": "p20/pm-appointment-first-20261126",
+  "target_environment": "isolated UAT",
+  "production_application": "not_authorized",
+  "uat_application": {
+    "status": "not_applied",
+    "branch_id": "br-winter-butterfly-b3tnsao9",
+    "ledger_id": null
+  },
+  "owner_approval": {
+    "status": "pending",
+    "approved_by": null,
+    "approved_at": null,
+    "approval_reference": null
+  },
+  "migrations": [
+    {
+      "migration_number": 115,
+      "filename": "115_project_field_capture_server_sync.sql",
+      "sha256": "PENDING_SHA",
+      "status": "prepared",
+      "source_sha_verified": false,
+      "application_status": "not_applied"
+    }
+  ],
+  "safety": "Prepared only. No UAT or Production database application authorized by this manifest."
+}

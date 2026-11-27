@@ -22,6 +22,8 @@ describe("Migration 115 Field Capture server sync/RLS release contract",()=>{
   expect(sql).toContain("latitude BETWEEN -90 AND 90");
   expect(sql).toContain("longitude BETWEEN -180 AND 180");
   expect(sql).toContain("gps_accuracy_m>0");
+  expect(sql).toContain("latitude IS NOT NULL AND longitude IS NOT NULL");
+  expect(sql).toContain("evidence_original_filename IS NOT NULL");
   expect(sql).toContain("evidence_sha256 ~ '^[0-9a-f]{64}$'");
   expect(sql).toContain("evidence_size_bytes BETWEEN 1 AND 15728640");
   expect(sql).toContain("projects/'||project_id::text||'/field-captures/'||local_capture_id::text");

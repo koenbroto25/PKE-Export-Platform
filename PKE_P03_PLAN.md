@@ -2742,3 +2742,13 @@ G. Schema, API, UI, synthetic runtime integration tests and RLS audit; migration
 - Migration 113 seeds the PM permission catalog codes only when absent, then seeds the PM allowlist; existing permission names/descriptions remain unchanged. Catalog rows alone grant no access.
 - PM-create write policies now bind child records to the transaction-scoped `app.pke_pm_project_id` set immediately after the newly created Project ID is known. Contract, Program, operating profile, PM role/permissions, membership, assignment, ownership, commercial basis, idempotency and audit inserts must match this exact Project ID and actor.
 - Source static lexical validator and contract tests have passed on the previous clean SQL head; latest rerun is pending after this additive seed/scope hardening. SQL runtime/RLS behavior still requires isolated UAT.
+
+
+## P20 appointment-first workflow — source audit and RLS correction (2026-11-27)
+- Working branch: `p20/pm-appointment-first-20261126`.
+- Latest CI before the correction passed unit/security, P19 assurance, migration ledger/release checks, migration dry-run, backend build/typecheck, frontend typecheck/build, and dependency audit. Vercel check remains quota-limited and is not treated as source validation.
+- Source audit found Migration 113 set the PM-create RLS transaction context only after inserting Project/Contract/Program/profile/role rows, while those inserts' policies require that context. This would block the intended PM Project creation RPC.
+- Corrected Migration 113 to enable `app.pke_pm_project_create` before the first Project insert; the existing scoped Project ID is set immediately after Project creation. Added a regression contract asserting ordering.
+- Migration 113 remains prepared, SHA-pinned, and NOT applied to UAT or Production; owner approval remains pending.
+- Corrected migration SHA-256: `6e3ff37298ee2847cc9fa04722468001b85366fc72c2ddd70ef0df58e8053f7b`.
+- Validation after correction: source integrity and regression contract updated; new GitHub Actions results are pending/need confirmation. No Neon migration or Vercel deployment performed.

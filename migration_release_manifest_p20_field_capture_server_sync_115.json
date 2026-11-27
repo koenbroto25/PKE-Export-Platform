@@ -21,9 +21,9 @@
     {
       "migration_number": 115,
       "filename": "115_project_field_capture_server_sync.sql",
-      "sha256": "PENDING_SHA",
+      "sha256": "b8487e60cdd2a643d5752e78e59530d170cb9a13cec15569829ce110c9c04d99",
       "status": "prepared",
-      "source_sha_verified": false,
+      "source_sha_verified": true,
       "application_status": "not_applied"
     }
   ],

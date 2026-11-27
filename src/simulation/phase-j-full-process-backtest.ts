@@ -77,6 +77,7 @@ export function createP22Dataset(): P22Dataset {
 export function createProjectFromBasis(d: P22Dataset, input: {
   projectId: string; pmUserId: string; buyerId: string; basis: CommercialBasis; basisId: string; idempotencyKey: string;
 }): CreateProjectResult {
+  if (d.appointments.find(x => x.userId === input.pmUserId)?.status !== "active") return { ok: false, code: "PM_NOT_ACTIVE" };
   const replay = d.idempotencyRecords.find(x => x.key === input.idempotencyKey);
   if (replay) {
     const project = d.projectCreations.find(x => x.id === replay.projectId);
@@ -84,7 +85,6 @@ export function createProjectFromBasis(d: P22Dataset, input: {
       ? { ok: true, project, replay: true }
       : { ok: false, code: "IDEMPOTENCY_CONFLICT" };
   }
-  if (d.appointments.find(x => x.userId === input.pmUserId)?.status !== "active") return { ok: false, code: "PM_NOT_ACTIVE" };
   if (!d.buyers.some(x => x.id === input.buyerId)) return { ok: false, code: "BUYER_NOT_FOUND" };
   const validBasis = input.basis === "buyer_agreement"
     ? d.commercialAgreements.some(x => x.id === input.basisId && x.buyerId === input.buyerId && x.confirmed)

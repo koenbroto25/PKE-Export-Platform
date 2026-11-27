@@ -96,7 +96,8 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     if(!online) throw new Error('Tidak dapat sync saat offline.');
     if(!activeUser?.id||!projectId) throw new Error('User dan Project aktif diperlukan.');
     if(draft.status==='synced') return 'synced';
-    await saveFieldDraft({...draft,status:'syncing',lastError:undefined});
+    let workingDraft:FieldDraft={...draft,status:'syncing',lastError:undefined};
+    await saveFieldDraft(workingDraft);
     await refreshDrafts();
     try {
       const fresh=await get<{workItems?:WorkItem[];scope?:string}>('/projects/'+encodeURIComponent(projectId)+'/work-items');
@@ -106,19 +107,19 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
       if(draft.evidenceName&&!draft.evidenceBlob)throw new Error('Foto bukti lokal tidak tersedia; buat capture baru tanpa foto atau lampirkan ulang.');
       if(draft.evidenceBlob){
         const presigned=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>};objectKey:string}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/presigned-upload',{captureId:draft.id,workItemId:draft.assignmentId,filename:draft.evidenceName,mimeType:draft.evidenceType,contentLength:draft.evidenceBlob.size,objectKey:draft.evidenceObjectKey});
-        await saveFieldDraft({...draft,status:'syncing',evidenceObjectKey:presigned.objectKey});
+        workingDraft={...workingDraft,evidenceObjectKey:presigned.objectKey};await saveFieldDraft(workingDraft);
         const uploaded=await fetch(presigned.upload.uploadUrl,{method:'PUT',headers:presigned.upload.requiredHeaders,body:draft.evidenceBlob});
         if(!uploaded.ok)throw new Error('Upload bukti gagal ('+uploaded.status+').');
         if(!draft.checksum)throw new Error('Checksum bukti lokal tidak tersedia.');
         evidence={evidenceObjectKey:presigned.objectKey,evidenceSha256:draft.checksum,evidenceSizeBytes:draft.evidenceBlob.size,evidenceMimeType:draft.evidenceType,evidenceOriginalFilename:draft.evidenceName};
       }
       const result=await post<{submission:Record<string,any>;replay:boolean}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/sync',{captureId:draft.id,workItemId:draft.assignmentId,captureKind:draft.kind,note:draft.note,capturedAt:draft.capturedAt,...(draft.latitude!==undefined?{latitude:draft.latitude,longitude:draft.longitude,gpsAccuracyM:draft.accuracy,gpsCapturedAt:draft.gpsCapturedAt}:{}),...evidence});
-      await saveFieldDraft({...draft,status:'synced',serverSubmissionId:String(result.submission.id),serverReceivedAt:String(result.submission.server_received_at||''),evidenceBlob:undefined,lastError:undefined});
+      await saveFieldDraft({...workingDraft,status:'synced',serverSubmissionId:String(result.submission.id),serverReceivedAt:String(result.submission.server_received_at||''),evidenceBlob:undefined,lastError:undefined});
       return 'synced';
     } catch(e:any) {
       const status=e?.status===403||e?.status===409||e?.status===422?'conflict':'failed';
       const message=e instanceof Error?e.message:'Sync gagal.';
-      await saveFieldDraft({...draft,status,lastError:message});
+      await saveFieldDraft({...workingDraft,status,lastError:message});
       return status;
     }
   };

@@ -3031,3 +3031,9 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Unit Tests remain **not run on latest head**. Dependency Audit run 1494 PASS. The available GitHub connector did not trigger Unit Tests from draft/ready validation PR events; the workflow is present but its branch/base event configuration must be reviewed or owner-side workflow_dispatch run. Do not claim CI pass.
 - Historical PRs #1–#3 and stale delivery PR #5 were closed without merge as superseded; validation PRs #19, #21, #22 and #23 were also closed without merge. PR #20 remains the sole consolidated review target.
 - Vercel preview deployments were disabled in project settings to pause quota-related builds/notifications. No deployment/build/retry was manually invoked; latest GitHub combined status has no Vercel check.
+
+
+### Unit workflow trigger remediation attempt — 2026-11-27
+- Copied the P20-P27 Unit Tests workflow trigger/steps into P19 base branch to include P19/P20 PR targets and `ready_for_review` event types.
+- PR #20 was closed/reopened to force a new `reopened` event. The GitHub connector still did not surface a Unit Tests run; only Dependency Audit run 1496 was present. This remains unverified and needs owner-side workflow dispatch/Actions UI or repository Actions enablement check.
+- The source is not merged; P19 workflow branch update is part of current working history and PR #20's comparison.

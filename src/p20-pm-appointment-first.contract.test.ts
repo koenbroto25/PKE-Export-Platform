@@ -73,10 +73,12 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(ui).toContain("onSelectProject");
     expect(ui).toContain("Project berhasil dibuat dan otomatis masuk portfolio PM");
   });
-  it("pins Migration 113 to a prepared, not-applied release package",()=>{
+  it("pins Migration 113 to the UAT-applied, Production-unauthorized release package",()=>{
     const manifest=JSON.parse(read("migration_release_manifest_p20_pm_appointment_first_113.json"));
-    expect(manifest.owner_approval.status).toBe("pending");
-    expect(manifest.uat_application.status).toBe("not_applied");
+    expect(manifest.owner_approval.status).toBe("approved");
+    expect(manifest.uat_application.status).toBe("applied");
+    expect(manifest.uat_application.branch_id).toBe("br-winter-butterfly-b3tnsao9");
+    expect(manifest.uat_application.ledger_id).toBe(113);
     expect(manifest.production_application).toBe("not_authorized");
     expect(manifest.migrations[0].status).toBe("prepared");
     expect(createHash("sha256").update(migration).digest("hex")).toBe(manifest.migrations[0].sha256);

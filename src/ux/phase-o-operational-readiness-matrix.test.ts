@@ -15,8 +15,10 @@ describe("P23 role-based operational UX readiness gap matrix",()=>{
  });
  it("does not mislabel Field Capture as a server-accepted operational transaction",()=>{
   expect(field).toContain("Draft dan bukti tersimpan lokal. Belum dikirim atau diterima server.");
-  expect(field).toContain("Sync server, upload evidence, conflict handling, and authoritative acceptance are not available");
-  expect(P23_OPERATIONAL_GAPS.find(x=>x.id==="field-capture-server-sync")?.status).toBe("gap");
+  expect(field).toContain("const syncDraft = async");
+  expect(field).toContain("Sync semua draft");
+  expect(field).toContain("Conflict · buat capture baru");
+  expect(P23_OPERATIONAL_GAPS.find(x=>x.id==="field-capture-server-sync")?.status).toBe("partial");
  });
  it("keeps production/QC, port/loading, customs and reconciliation readiness explicitly unverified",()=>{
   for(const text of ["Production, packing & quality","Port & loading","Official customs / permit status","Quantity / document reconciliation"])expect(dashboard).toContain(text);

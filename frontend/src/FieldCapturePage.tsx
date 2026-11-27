@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { get } from './api';
+import { get, post } from './api';
 import { createFieldDraft, saveFieldDraft, listFieldDrafts, deleteFieldDraft, deleteFieldDrafts, saveFieldAssignmentCache, getFieldAssignmentCache, deleteFieldAssignmentCache, deleteFieldLocalDataForPrincipal, type FieldDraft } from '../../src/components/field/field-offline-queue';
 
 type WorkItem = { id: string; title: string; description?: string | null; status: string; priority?: string; due_at?: string | null; assignee_user_id?: string | null; owner_role_code?: string };
@@ -86,8 +86,44 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     finally { setBusy(false); }
   };
   const clearProjectDrafts = async () => {
-    if (!activeUser?.id || !projectId || !window.confirm('Hapus semua draft, foto lokal, dan cache assignment untuk akun dan Project ini? Draft belum disinkronkan dan tindakan tidak dapat dibatalkan.')) return;
+    if (!activeUser?.id || !projectId || !window.confirm('Hapus semua draft lokal dan cache assignment untuk akun dan Project ini? Submission server tidak dihapus; tindakan lokal tidak dapat dibatalkan.')) return;
     setBusy(true); try { const removed=await deleteFieldDrafts(String(activeUser.id),projectId); await deleteFieldAssignmentCache(String(activeUser.id),projectId); await refreshDrafts(); onNotice('success',removed+' draft lokal dan cache assignment dihapus.'); } catch(e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal dibersihkan.'); } finally { setBusy(false); }
+  };
+  const syncDraft = async (draft:FieldDraft):Promise<'synced'|'conflict'|'failed'> => {
+    if(!online) throw new Error('Tidak dapat sync saat offline.');
+    if(!activeUser?.id||!projectId) throw new Error('User dan Project aktif diperlukan.');
+    if(draft.status==='synced') return 'synced';
+    await saveFieldDraft({...draft,status:'syncing',lastError:undefined});
+    await refreshDrafts();
+    try {
+      const fresh=await get<{workItems?:WorkItem[];scope?:string}>('/projects/'+encodeURIComponent(projectId)+'/work-items');
+      const current=(fresh.workItems||[]).find(row=>row.id===draft.assignmentId&&row.assignee_user_id===activeUser.id&&!['resolved','closed','cancelled'].includes(String(row.status||'').toLowerCase()));
+      if(!current) throw Object.assign(new Error('Assignment tidak lagi aktif atau tidak ditugaskan kepada akun ini.'),{status:403});
+      let evidence:Record<string,unknown>={};
+      if(draft.evidenceBlob){
+        const presigned=await post<{upload:{uploadUrl:string;requiredHeaders:Record<string,string>};objectKey:string}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/presigned-upload',{captureId:draft.id,workItemId:draft.assignmentId,filename:draft.evidenceName,mimeType:draft.evidenceType,contentLength:draft.evidenceBlob.size});
+        const uploaded=await fetch(presigned.upload.uploadUrl,{method:'PUT',headers:presigned.upload.requiredHeaders,body:draft.evidenceBlob});
+        if(!uploaded.ok)throw new Error('Upload bukti gagal ('+uploaded.status+').');
+        if(!draft.checksum)throw new Error('Checksum bukti lokal tidak tersedia.');
+        evidence={evidenceObjectKey:presigned.objectKey,evidenceSha256:draft.checksum,evidenceSizeBytes:draft.evidenceBlob.size,evidenceMimeType:draft.evidenceType,evidenceOriginalFilename:draft.evidenceName};
+      }
+      const result=await post<{submission:Record<string,any>;replay:boolean}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/sync',{captureId:draft.id,workItemId:draft.assignmentId,captureKind:draft.kind,note:draft.note,capturedAt:draft.capturedAt,...(draft.latitude!==undefined?{latitude:draft.latitude,longitude:draft.longitude,gpsAccuracyM:draft.accuracy,gpsCapturedAt:draft.gpsCapturedAt}:{}),...evidence});
+      await saveFieldDraft({...draft,status:'synced',serverSubmissionId:String(result.submission.id),serverReceivedAt:String(result.submission.server_received_at||''),evidenceBlob:undefined,lastError:undefined});
+      return 'synced';
+    } catch(e:any) {
+      const status=e?.status===403||e?.status===409||e?.status===422?'conflict':'failed';
+      const message=e instanceof Error?e.message:'Sync gagal.';
+      await saveFieldDraft({...draft,status,lastError:message});
+      return status;
+    }
+  };
+  const syncOne = async (draft:FieldDraft) => {
+    setBusy(true);try{const status=await syncDraft(draft);await refreshDrafts();onNotice(status==='synced'?'success':status==='conflict'?'error':'info',status==='synced'?'Capture diterima server dan receipt disimpan.':draft.lastError||'Sync gagal; draft lokal tetap disimpan.');}catch(e){onNotice('error',e instanceof Error?e.message:'Sync gagal.')}finally{setBusy(false);}
+  };
+  const syncAll = async () => {
+    if(!online){onNotice('error','Sync semua hanya tersedia saat online.');return;}
+    const candidates=drafts.filter(d=>d.status==='queued'||d.status==='failed');if(!candidates.length){onNotice('info','Tidak ada draft yang siap disinkronkan.');return;}
+    setBusy(true);let synced=0,conflicts=0,failed=0;try{for(const draft of candidates){const status=await syncDraft(draft);if(status==='synced')synced++;else if(status==='conflict')conflicts++;else failed++;}await refreshDrafts();onNotice(synced?'success':'info','Sync selesai: '+synced+' diterima server, '+conflicts+' conflict, '+failed+' gagal.');}finally{setBusy(false);}
   };
   const remove = async (id:string) => {
     if (!window.confirm('Hapus draft lokal dan bukti dari perangkat ini?')) return;
@@ -96,7 +132,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
   };
 
   return <div className="page-stack">
-    <div className="page-heading"><div><div className="eyebrow">FIELD OPERATIONS · OFFLINE CAPTURE</div><h1>Field Capture</h1><p>Daftar tugas berasal dari API berizin. Capture disimpan lokal dan belum disinkronkan ke transaksi.</p></div><span className={online?'status-pill pill-green':'status-pill pill-amber'}>{online?'ONLINE':'OFFLINE'}</span></div>
+    <div className="page-heading"><div><div className="eyebrow">FIELD OPERATIONS · OFFLINE CAPTURE</div><h1>Field Capture</h1><p>Tugas divalidasi ulang server saat sync. Draft offline tetap lokal sampai server menerima submission.</p></div><span className={online?'status-pill pill-green':'status-pill pill-amber'}>{online?'ONLINE':'OFFLINE'}</span></div>
     {!projectId && <div className="inline-warning">Pilih Project aktif terlebih dahulu untuk memuat tugas.</div>}
     <section className="card"><div className="panel-heading"><div><h2>Capture tugas</h2><p>Project scope dan task list dikontrol server.</p></div></div>
       {loadingTasks ? <div className="loading-state">Memuat tugas…</div> : taskError && !workItems.length ? <div className="inline-warning">{taskError}</div> : null}
@@ -112,9 +148,9 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
         <div className="form-actions form-wide"><button className="primary-button" disabled={busy||!taskId||!note.trim()}>{busy?'Menyimpan…':'Simpan draft offline'}</button></div>
       </form>
     </section>
-    <section className="card"><div className="panel-heading"><div><h2>Draft lokal</h2><p>{drafts.length} draft untuk akun dan Project saat ini. Status tidak berarti sudah dikirim.</p></div><div className="form-actions"><button type="button" className="secondary-button" onClick={()=>void refreshDrafts()}>Refresh</button><button type="button" className="text-button danger" disabled={busy} onClick={()=>void clearProjectDrafts()}>Hapus data lokal (draft + cache)</button><button type="button" className="text-button danger" disabled={busy||!activeUser?.id} onClick={()=>{if(!activeUser?.id||!window.confirm('HAPUS PERMANEN semua draft, foto bukti dan cache assignment untuk akun ini dari perangkat ini? Data yang belum tersinkron tidak dapat dipulihkan.'))return;setBusy(true);void deleteFieldLocalDataForPrincipal(String(activeUser.id)).then(async result=>{await refreshDrafts();setWorkItems([]);setScope('');setTasksFromCache(false);setTaskCacheAt('');onNotice('success',`Data lokal dihapus: ${result.drafts} draft dan ${result.assignmentCaches} cache assignment.`);}).catch(e=>onNotice('error',e instanceof Error?e.message:'Data lokal gagal dihapus.')).finally(()=>setBusy(false));}}>Hapus semua data lokal akun</button></div></div>
-      {!drafts.length?<div className="empty-state"><h3>Belum ada draft lokal</h3><p>Capture baru akan muncul di sini.</p></div>:<div className="data-list">{drafts.map(d=><article key={d.id} className="data-list-row"><div><strong>{d.assignmentLabel||d.assignmentId}</strong><p>{d.kind} · {d.status}</p><p>{d.note}</p><small>{new Date(d.capturedAt).toLocaleString()} · {d.evidenceName||'Tanpa foto'}{d.gpsCapturedAt?' · GPS capture '+new Date(d.gpsCapturedAt).toLocaleString():''}{d.checksum?' · SHA-256 tersimpan':''}</small></div><button type="button" className="text-button danger" disabled={busy} onClick={()=>void remove(d.id)}>Hapus lokal</button></article>)}</div>}
+    <section className="card"><div className="panel-heading"><div><h2>Draft lokal</h2><p>{drafts.length} draft untuk akun dan Project saat ini. Status tidak berarti sudah dikirim.</p></div><div className="form-actions"><button type="button" className="secondary-button" onClick={()=>void refreshDrafts()}>Refresh</button><button type="button" className="secondary-button" disabled={busy||!online||!drafts.some(d=>d.status==="queued"||d.status==="failed")} onClick={()=>void syncAll()}>Sync semua draft</button><button type="button" className="text-button danger" disabled={busy} onClick={()=>void clearProjectDrafts()}>Hapus data lokal (draft + cache)</button><button type="button" className="text-button danger" disabled={busy||!activeUser?.id} onClick={()=>{if(!activeUser?.id||!window.confirm('HAPUS PERMANEN semua draft lokal, foto bukti dan cache assignment untuk akun ini dari perangkat ini? Data server tidak dihapus.'))return;setBusy(true);void deleteFieldLocalDataForPrincipal(String(activeUser.id)).then(async result=>{await refreshDrafts();setWorkItems([]);setScope('');setTasksFromCache(false);setTaskCacheAt('');onNotice('success',`Data lokal dihapus: ${result.drafts} draft dan ${result.assignmentCaches} cache assignment.`);}).catch(e=>onNotice('error',e instanceof Error?e.message:'Data lokal gagal dihapus.')).finally(()=>setBusy(false));}}>Hapus semua data lokal akun</button></div></div>
+      {!drafts.length?<div className="empty-state"><h3>Belum ada draft lokal</h3><p>Capture baru akan muncul di sini.</p></div>:<div className="data-list">{drafts.map(d=><article key={d.id} className="data-list-row"><div><strong>{d.assignmentLabel||d.assignmentId}</strong><p>{d.kind} · {d.status}{d.serverSubmissionId?" · Server receipt "+d.serverSubmissionId:""}</p><p>{d.note}</p><small>{new Date(d.capturedAt).toLocaleString()} · {d.evidenceName||'Tanpa foto'}{d.gpsCapturedAt?' · GPS capture '+new Date(d.gpsCapturedAt).toLocaleString():''}{d.checksum?" · SHA-256 tersimpan":""}{d.serverReceivedAt?" · Diterima "+new Date(d.serverReceivedAt).toLocaleString():""}{d.lastError?" · "+d.lastError:""}</small></div><div className="form-actions">{(d.status==="queued"||d.status==="failed")&&<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>void syncOne(d)}>{d.status==="failed"?"Retry sync":"Sync"}</button>}{d.status==="conflict"&&<span className="status-pill pill-amber">Conflict · buat capture baru</span>}<button type="button" className="text-button danger" disabled={busy} onClick={()=>void remove(d.id)}>Hapus lokal</button></div></article>)}</div>}
     </section>
-    <div className="inline-warning">Sync server, upload evidence, conflict handling, and authoritative acceptance are not available in this package. Drafts are not official transaction evidence.</div>
+    <div className="inline-warning">Capture tetap offline-first. Submission server hanya dianggap diterima setelah assignment diverifikasi ulang, foto di-upload ke private storage, checksum diverifikasi, dan server memberikan receipt. Conflict/failed draft tetap tersimpan lokal; submission server tidak dapat dihapus dari perangkat.</div>
   </div>;
 }

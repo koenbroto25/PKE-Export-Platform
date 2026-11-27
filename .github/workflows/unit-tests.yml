@@ -61,9 +61,13 @@ jobs:
         run: npm run verify:pm115-release
       - name: Verify isolated UAT Migration 116 release package
         run: npm run verify:pm116-release
+      - name: Verify isolated UAT Migration 117 release package
+        run: npm run verify:pm117-release
+        run: npm run verify:pm116-release
       - name: Run Field Capture upload proxy contract
         run: npx vitest run src/field-capture-upload-proxy.contract.test.ts
       - name: Run Migration 116 review workflow contracts
+        run: npx vitest run src/migration-116-field-capture-review.contract.test.ts src/field-capture-review-ui.contract.test.ts src/migration-117-field-capture-privilege-hardening.contract.test.ts
         run: npx vitest run src/migration-116-field-capture-review.contract.test.ts src/field-capture-review-ui.contract.test.ts
       - name: Run Field Capture server sync contracts
         run: npx vitest run src/field-capture-rules.test.ts src/field-capture-api.contract.test.ts src/migration-115-field-capture-server-sync.contract.test.ts src/migration-115-field-capture-release-package.contract.test.ts

@@ -2865,3 +2865,19 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 
 ## Maraton execution log
 - 2026-11-27: roadmap added to master plan before implementation. P21–P25 are now formally tracked; execution begins with P21 latest-head audit and CI, then P22 integration backtest, P23 UX, P24 data/AI readiness, P25 security/release readiness.
+
+
+### P21/P22 execution checkpoint — 2026-11-27
+- Master roadmap P21–P25 was documented before implementation in commit 52bbdbe44cdeccef1650416ffa6df0cb2b47328b.
+- P21 source audit: PR #5 remains OPEN, unmerged and mergeable. UAT migration 113/114 evidence remains green and Production untouched. The prior code head had green Unit Tests + Dependency Audit, but latest code head must be revalidated.
+- A validation-only Draft PR #6 was opened against P19 to trigger current-head GitHub Actions. It must not be merged; PR #5 remains the delivery PR.
+- P22 added a connected synthetic model that composes appointment status, Buyer, commercial basis, PM ownership/portfolio, idempotency, Phase E shipments, 12-stage lifecycle, ownership transfer and Phase G fault injection. Dedicated CI step is included.
+- P22 source audit found Phase E validation did not require all mandatory shipment documents and did not validate Buyer/Supplier/PKS/Truck/Driver/Vessel/Port references. Validator hardening was added to require COA/INVOICE/PACKING_LIST/PEB/NPE, reject duplicate document codes, and check project-scoped references. Regression cases added.
+- Initial CI for commit dbab0e15a53900362df961494821d5c74cf55980 exposed two implementation/test syntax defects (duplicate PKS-site declaration and a literal escaped newline in the test). Both were corrected; latest test file commit 8f1448252fcecf5e89398830170e8cb1f6163263 is awaiting CI rerun.
+- P22 acceptance remains PENDING latest CI; no test PASS is claimed until all steps are green.
+
+### P23 initial UX operational-gap audit — 2026-11-27
+- Existing role-dashboard contracts cover canonical role metadata, page/permission gating, route mapping, source-failure truthfulness, stale Project scope guards, task queue access, PM 360 source verification, and field local-data privacy.
+- Confirmed UI disclosures still identify major operational integration gaps: production/packing/QC end-to-end; port/loading and official customs/permit source; quantity/document reconciliation; mobile Field Capture server sync/upload/conflict resolution/barcode/signature; bank execution and reconciliation. Field Capture stores drafts/evidence locally and explicitly does not submit authoritative server transactions.
+- These are real scope gaps, not cosmetic UX defects; P23 must either implement approved vertical slices or keep the workflow honestly marked unavailable with an actionable owner/task. No unsupported “complete” badge may be introduced.
+- P23 is IN PROGRESS / GAP AUDIT, not accepted.

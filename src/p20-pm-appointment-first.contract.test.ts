@@ -31,6 +31,10 @@ describe("P20 appointment-first PM workflow contract",()=>{
     expect(migration).toContain("executed_contract");
     expect(migration).toContain("buyer_agreement");
     expect(migration).toContain("pke_pm_project_create");
+    const createFlag= migration.indexOf("PERFORM set_config('app.pke_pm_project_create','on',true);");
+    const projectInsert=migration.indexOf("INSERT INTO public.projects(name,description,status,settlement_unit,target_quantity,export_country_code,is_active,created_at,updated_at)");
+    expect(createFlag).toBeGreaterThan(-1);
+    expect(createFlag).toBeLessThan(projectInsert);
     expect(migration).toContain("idempotentReplay");
   });
   it("suspension and revocation remove operational PM assignments without deleting ownership history",()=>{

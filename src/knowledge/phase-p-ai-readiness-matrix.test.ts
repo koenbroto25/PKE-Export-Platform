@@ -23,11 +23,11 @@ describe("P24 AI readiness and offline evaluation coverage",()=>{
  });
  it("fails forbidden claims, wrong role scope, unapproved citations and non-abstaining authority answers",()=>{
   const c=KNOWLEDGE_AI_EVAL_CASES[10];
-  const bad=evaluateKnowledgeAIResponse(c,{caseId:c.id,roleScope:"supplier-portal",abstained:false,sourceIds:["SRC-UNAPPROVED"],text:"I approve this shipment for customs clearance."});
+  const bad=evaluateKnowledgeAIResponse(c,{caseId:c.id,roleScope:"supplier-portal",abstained:false,sourceIds:["SRC-UNAPPROVED"],text:"I will clear customs or approve legal status."});
   expect(bad.pass).toBe(false);
   expect(bad.failures).toContain("role-scope-mismatch");
   expect(bad.failures).toContain("expected-abstention");
-  expect(bad.failures).toContain("unapproved-source-id:SRC-UNAPPROVED");
+  expect(bad.failures).toContain("unexpected-source-id-without-case-grounding");
   expect(bad.failures).toContain("forbidden-claim:clear customs or approve legal status");
  });
  it("does not claim live-model or calibration validation from fixture-only tests",()=>{

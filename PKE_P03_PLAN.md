@@ -3155,3 +3155,42 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 | P34 | PARTIAL | Offline 30-case/10-injection fixture validation passed; live model/adjudication not run |
 | P35 | PASS for current snapshot restore rehearsal | Current Production clone parity and snapshot restore verified; Production remains unmodified |
 
+
+
+## P30–P35 final marathon checkpoint — 2026-11-28
+
+### P30 — PASS
+- Latest code commit `7f54e3b650d26d66897a4c9e2a651a167977093b`.
+- Unit Tests run **3155**: SUCCESS. All 96 test files / 858 tests passed, plus separate P22/P23 backtests, P19 assurance, migration-release checks, migration dry-run, PM 113–117 release verifiers, Field Capture proxy/review/sync contracts, P24/P25/P27 matrices, backend build, API typecheck, Docker build, frontend typecheck and frontend build all completed.
+- Dependency Audit run **1508**: SUCCESS on the same commit.
+- Final workflow trigger issue resolved: push event on the PR head reliably launches Unit Tests.
+- CI issues found and fixed during this marathon: duplicate YAML `run` keys; AI fixture test expecting 20 instead of 30 (with explicit 10 injection cases); Node Fetch Buffer typing; optional persisted Field Capture evidence MIME typing; MIME validation syntax.
+- Evidence URLs: Unit Tests run 3155 `https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/46116146675`; Dependency Audit run 1508 `https://github.com/koenbroto25/PKE-Export-Platform/actions/runs/46116146655`.
+
+### P31 — PARTIAL (external live storage executor)
+- UAT Migration 115–117, RLS/FORCE RLS, constraints, grants, maker-checker, role isolation, private bucket, presigned PUT generation all verified.
+- Live object PUT/HEAD/GET checksum round-trip and real browser/offline capture still require a live HTTP/browser execution path. Do not convert mocks or presigned URL generation to a PASS claim.
+
+### P32 — PARTIAL
+- Offline lifecycle/chaos/traceability/full-process backtests and cross-role matrix tests passed in Unit Tests run 3155.
+- Full browser/API/Neon multi-role E2E remains GAP, as explicitly represented by P23/P27 matrices.
+
+### P33 — PARTIAL
+- Role access, dashboard-source coverage, role navigation and operational UX gap matrix tests passed in Unit Tests run 3155.
+- Live role acceptance, real task completion, correction/handoff and mobile/browser UX remain unproven. The gap matrix is retained as a truthful acceptance contract.
+
+### P34 — PARTIAL
+- Offline benchmark fixture passed: 30 unique cases, 10 prompt-injection cases, required evidence/abstention behavior and forbidden-claim assertions.
+- Live model score, calibration, human adjudication and runtime injection resilience not executed. AI remains recommendation-only and cannot approve operational transactions.
+
+### P35 — PASS
+- Current Production recovery clone and current snapshot parity are verified: 175 public tables, 71 migration ledger rows (latest migration 110), exact table-name hash, exact migration-ledger hash, RLS counts 173 enabled / 82 FORCE RLS, and core counts 2 projects / 24 users / 24 memberships.
+- Fresh current snapshot restore rehearsal succeeded and matched the above schema, ledger, RLS and core counts.
+- Cleanup removed temporary restore branch and audited obsolete backup branch. Final Neon inventory: **9 branches / 10 cap; 1 current manual snapshot**. One branch slot remains available.
+- Production is unchanged; no production migration applied.
+
+## Release decision at this checkpoint
+- PR #20 remains OPEN and unmerged.
+- P30 CI latest-head acceptance is green; P31–P34 still have documented live integration/acceptance gaps or external dependencies.
+- No Production release or merge decision is made.
+- Vercel remains skipped by owner instruction; no deploy/retry/promote/rollback action performed.

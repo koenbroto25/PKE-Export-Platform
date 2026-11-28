@@ -76,7 +76,6 @@ jobs:
         run: npx vitest run src/security/phase-q-security-readiness-matrix.test.ts
       - name: Run P27 operational vertical-slice matrix
         run: npx vitest run src/ux/phase-r-vertical-slice-readiness.test.ts
-        run: npx vitest run src/security/phase-q-security-readiness-matrix.test.ts
       - name: Build backend application
         run: npm run build
       - name: Typecheck backend API

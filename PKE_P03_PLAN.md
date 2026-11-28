@@ -3111,3 +3111,47 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 | P34 AI benchmark | PARTIAL | Live-model adjudication/calibration; offline benchmark exists |
 | P35 Recovery/release | IN PROGRESS | Use freed branch slot for restore rehearsal; keep snapshot |
 
+
+
+## Marathon execution evidence checkpoint — 2026-11-28 06:18 UTC
+
+### P30 CI recovery
+- Found and corrected duplicate YAML `run:` keys in Unit Tests workflow. Duplicate keys were detected at both Migration 117 verification and P27 matrix step; final workflow has no step with multiple `run` keys.
+- Workflow now successfully triggered from push on PR branch, proving the previous trigger failure is no longer the only issue.
+- Unit Tests run 3150 failed at the benchmark fixture assertion: test expected 20 cases while the fixture contained 30. 95/96 files and 857/858 tests passed; the only failing test was the stale count assertion.
+- Updated fixture quality test to assert 30 unique cases and exactly 10 prompt-injection cases. Unit Tests run 3151 then passed `npm test` and failed only at backend build with TypeScript error `src/storage.ts(319)`: Node Buffer type was not assignable to Fetch BodyInit.
+- Corrected server upload to pass `new Uint8Array(body)` to Fetch. Commit `ff1c7de13e431e18ff3f3f7712b2a88045336988`. Latest Unit Tests run 3152 is **IN PROGRESS** at this checkpoint. Final PASS requires the complete latest-head workflow, not only npm test.
+
+### P31 UAT Field Capture database and storage audit
+- Created an isolated clone of UAT branch `br-winter-butterfly-b3tnsao9` and deleted it after verification.
+- Migration ledger 113–117 exact hashes/status were present and applied.
+- Field Capture tables: submissions and review events both RLS + FORCE RLS enabled.
+- Runtime grants: submissions SELECT/INSERT only; review events SELECT only. Runtime UPDATE/DELETE/INSERT on review events denied. Review function SECURITY DEFINER; runtime EXECUTE true, PUBLIC EXECUTE false.
+- Evidence constraints cover all-or-none GPS, coordinate ranges/accuracy, 64-char lowercase SHA-256, max 15 MiB, allowed MIME types, private project namespace, idempotency/local IDs, required review reason.
+- Synthetic UAT dataset: 2 submissions, 1 review event, 2 work items. Runtime context queries demonstrated no-context visibility = 0; actor A sees 1 own submission; actor B sees 2 rows (project-scoped permission). Prior P26 cross-PM test remains Alpha=0/Beta=1.
+- Storage is enabled for UAT branch; bucket `pke-private-documents` is private; current branch object listing is empty. Provider presigned PUT URL generation succeeded with JPEG Content-Type and project/field-capture namespace.
+- **Not PASS:** actual HTTP PUT/HEAD/GET checksum round-trip, browser/offline capture and cleanup cannot be performed with available connector actions; this environment has no direct HTTP upload executor. P31 remains PARTIAL until live round-trip is supplied/executed.
+
+### P32–P34 checkpoint
+- CI test suite on run 3151 passed `npm test` after benchmark count correction; the workflow then stopped at backend TypeScript build. P32 integration/browser E2E remains PARTIAL; existing offline process/chaos/traceability backtests and operational readiness matrix ran in the test suite.
+- P33 role UX/access matrices passed in the 3151 test stage; live browser/task completion acceptance is not yet proven.
+- P34 offline AI fixture validation passed after count correction: 30 cases, 10 prompt-injection cases. Live model evaluation, calibration and human adjudication remain NOT RUN.
+
+### P35 backup / restore evidence
+- Audited and deleted obsolete branch `p0-pre-048-049-production-backup-20261120`: non-default, non-protected, no children, older than retained pre/post-053 backups and current recovery clone.
+- Audited stale snapshot `P17-pre-096-109-20261122`: it restored only 156 public tables and migration ledger 53, while current Production has 175 public tables and ledger 71. Deleted it only after creating and verifying current Production recovery clone.
+- Current Production recovery clone `br-weathered-boat-b3e0gvc9` verified exact parity: 175 public tables, migration ledger 71/71 (latest migration 110), projects 2, users 24, memberships 24.
+- Created fresh snapshot `snap-dark-lake-b3mzs0ro`, `P35-current-production-110-20261128`.
+- Restore rehearsal from the new snapshot succeeded without finalizing: restored branch `br-jolly-flower-b3g6cchr` reached READY; verified 175 public tables, ledger 71/71, 173 RLS-enabled tables / 82 FORCE RLS, projects 2, users 24, memberships 24. Restored branch was deleted after the test; current snapshot and recovery clone remain.
+- Snapshot limit is no longer blocking; a current snapshot is now present and branch capacity has been reclaimed. Current branch count after temporary-test cleanup is expected below the 10-branch cap; verify in the final checkpoint.
+
+## Updated phase status
+| Phase | Status | Evidence / remaining gap |
+|---|---|---|
+| P30 | IN PROGRESS | Workflow syntax/trigger repaired; benchmark test corrected; Buffer/Fetch TypeScript build fix applied; run 3152/latest head pending |
+| P31 | PARTIAL | UAT DB/RLS/grants, private bucket and presign generation verified; live object round-trip/browser flow not available |
+| P32 | PARTIAL | Offline test/backtest suite passed; live browser/API-to-Neon end-to-end acceptance remains |
+| P33 | PARTIAL | Role matrix tests passed; live role UX/task completion review remains |
+| P34 | PARTIAL | Offline 30-case/10-injection fixture validation passed; live model/adjudication not run |
+| P35 | PASS for current snapshot restore rehearsal | Current Production clone parity and snapshot restore verified; Production remains unmodified |
+

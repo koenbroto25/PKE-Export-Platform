@@ -3238,3 +3238,31 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - UAT storage read-only audit confirms enabled/private bucket/empty objects. Read-only catalog lookup found the migration-history table is named `migration_history` (not `schema_migrations`); no data was changed. Prior audit remains UAT Migration 117 / 117 ledger rows and Production Migration 110 / 71 ledger rows.
 - Production and release state unchanged: no merge, no release/tag, no migration, no Production writes, no Vercel actions.
 - Remaining release gates are live signed-storage round-trip, live multi-role browser/API E2E, live AI scoring/adjudication, and external AIS/provider licensing + bank execution integration. PR remains open for review; no owner approval to merge/release inferred.
+
+
+## Final checkpoint — P31–P34 continuation + release reconciliation — 2026-11-28
+
+### CI completion on latest documented head
+- Head SHA: `1a45b80e5e35b9d9af481ef124b46e27df8cadfc`.
+- Unit Tests run 3159-equivalent latest workflow run 46133010949: **PASS** (job `unit` completed success).
+- Dependency Audit run 1512-equivalent latest workflow run 46133010970: **PASS** (job `audit` completed success).
+- Duplicate PR event runs 46133006416 (Unit) and 46133006403 (Audit) also completed **PASS** on the exact same SHA.
+- All four current-head check runs are completed/success. No additional workflow was triggered.
+
+### Neon migration ledger re-verification
+- UAT `br-winter-butterfly-b3tnsao9`: `migration_history` has **117 rows**, latest `117_field_capture_review_privilege_hardening.sql`, timestamp 2026-11-27 13:50:21 UTC.
+- Production `br-damp-shape-b3xlh4nr`: `migration_history` has **71 rows**, latest `110_p17d_vessel_position_runtime_rls_fix.sql`, timestamp 2026-11-22 16:34:52 UTC.
+- Read-only queries only. Production remains unchanged.
+
+### Final P31–P34 disposition
+- P31: security/contract checks PASS; live object upload/download/checksum/browser capture acceptance **PARTIAL / not executable with current connector**.
+- P32: offline lifecycle/backtest/integration coverage PASS; live browser/API→Neon→storage flow **GAP**.
+- P33: offline role/dashboard/navigation acceptance contracts PASS; live multi-role browser/mobile task acceptance **GAP**.
+- P34: 30-case / 10-injection offline benchmark contract PASS; live model scoring, calibration, human adjudication and runtime injection evaluation **GAP**.
+- These gaps are not represented as test failures. They require a live test runtime, model/provider access, or authorized human acceptance.
+
+### Release reconciliation final state
+- PR #20 remains OPEN / UNMERGED / mergeable=true / clean base relationship. Latest head `1a45b80e5e35b9d9af481ef124b46e27df8cadfc`, base `p20/platform-continuation-20261123`, 296 commits, 61 files.
+- Exact-head checks: all four check runs successful; no failing or pending checks at final audit.
+- No merge, tag, release, Production migration, Production write, Vercel deployment/retry/promotion/rollback was performed.
+- Release readiness remains **CONDITIONAL / NOT APPROVED** until live P31–P34 gates and external AIS/provider licensing + bank execution integration are resolved and owner review is provided.

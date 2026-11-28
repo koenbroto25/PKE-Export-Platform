@@ -3210,3 +3210,31 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Latest head `33f0daeb7a4578d7271f516ca97e4a39b4ba945a` has Unit Tests run 3157 **PASS** and Dependency Audit run 1510 **PASS**.
 - Neon re-audit: 9 active branches, 1 manual current Production snapshot; Production remains 175 public tables, Migration 110. UAT branch `br-winter-butterfly-b3tnsao9` remains Migration 117 (117 ledger rows, 2 Field Capture tables).
 - PR #20 is now mergeable and clean, but remains OPEN/UNMERGED pending review of the documented live acceptance gaps. No Vercel actions and no Production migrations.
+
+
+## P31–P34 continuation + release reconciliation — 2026-11-28 (latest audit)
+
+### P31 Field Capture storage acceptance — PARTIAL, implementation/security checks retained
+- Re-audit UAT branch `br-winter-butterfly-b3tnsao9` confirms Neon object storage enabled in `ap-southeast-1`; bucket `pke-private-documents` exists with `private` access.
+- Object listing currently returns **0 objects**. A prior presigned PUT contract was generated and validated for method/host/headers/signature shape, but no actual HTTP transfer could be performed with the connected tool set (no direct signed-URL HTTP PUT executor). Therefore PUT→HEAD/GET→checksum→cleanup and browser/offline capture remain NOT PROVEN; do not claim P31 full PASS.
+- Code contracts continue to verify authenticated same-origin upload proxy, MIME/size validation, object-key project/capture namespace, server-side SHA-256 verification and cleanup on verification failure. UAT DB RLS/constraints and review privileges were previously verified.
+- No test object was written and no bucket was altered in this checkpoint.
+
+### P32 operational end-to-end — PARTIAL / live runtime blocked by release guardrail
+- Offline HTTP integration/demo flows, synthetic lifecycle backtests, project/task/capture contract tests and UAT DB checks are covered by CI and passed on the current PR head.
+- Live browser/API→Neon→object-storage workflow remains unproven. Production is intentionally not used for synthetic write fixtures; Vercel deployment/retry is prohibited by owner instruction. UAT HTTP runtime is not exposed through the available connector, so this is a capability gap, not a test failure.
+
+### P33 role UX — PARTIAL
+- CI contracts for role permission, dashboard source coverage, navigation, operational-readiness and vertical-slice matrices remain covered and green.
+- Real browser acceptance across role users (PM, field, warehouse, buyer, finance, reviewer), mobile offline capture, correction, handoff and task completion has not been run. Keep these as acceptance gaps; no false UI PASS.
+
+### P34 AI — PARTIAL
+- Latest source fixture contains 30 cases including 10 prompt-injection cases; expected behavior, forbidden claims, abstention, role scope and source IDs are validated by offline test suites.
+- Live model calls, scored output quality, calibration/reliability, adjudicated human benchmark, runtime injection and source-citation fidelity are still unexecuted. AI remains advisory only; never auto-approves/release/settlement.
+
+### Release reconciliation — verified current
+- PR #20 head: `b266ca8cee663cde8fb97412910666bfa57846c3`; base: `p20/platform-continuation-20261123`; status OPEN, UNMERGED, mergeable=true, clean; 295 commits / 61 changed files.
+- Latest-head Unit Tests run **3159 PASS** and Dependency Audit **1512 PASS**; both are on the exact SHA above. No new run was initiated in this checkpoint.
+- UAT storage read-only audit confirms enabled/private bucket/empty objects. Read-only catalog lookup found the migration-history table is named `migration_history` (not `schema_migrations`); no data was changed. Prior audit remains UAT Migration 117 / 117 ledger rows and Production Migration 110 / 71 ledger rows.
+- Production and release state unchanged: no merge, no release/tag, no migration, no Production writes, no Vercel actions.
+- Remaining release gates are live signed-storage round-trip, live multi-role browser/API E2E, live AI scoring/adjudication, and external AIS/provider licensing + bank execution integration. PR remains open for review; no owner approval to merge/release inferred.

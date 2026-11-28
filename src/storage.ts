@@ -316,7 +316,7 @@ export class PrivateStorageAdapter {
       response = await this.fetchImpl(upload.uploadUrl, {
         method: "PUT",
         headers: upload.requiredHeaders,
-        body,
+        body: new Uint8Array(body),
         redirect: "error",
         signal: AbortSignal.timeout(30_000),
       });

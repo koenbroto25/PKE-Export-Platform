@@ -3037,3 +3037,77 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Copied the P20-P27 Unit Tests workflow trigger/steps into P19 base branch to include P19/P20 PR targets and `ready_for_review` event types.
 - PR #20 was closed/reopened to force a new `reopened` event. The GitHub connector still did not surface a Unit Tests run; only Dependency Audit run 1496 was present. This remains unverified and needs owner-side workflow dispatch/Actions UI or repository Actions enablement check.
 - The source is not merged; P19 workflow branch update is part of current working history and PR #20's comparison.
+
+
+---
+
+# P30–P35 Marathon Continuation — 2026-11-28
+
+## Owner execution constraints
+- **Vercel is explicitly skipped:** no deployment, retry, promote, rollback, or deployment-triggering action.
+- Production Neon remains read-only for this marathon unless a separate migration is approved with source SHA, UAT preflight, and production verification plan.
+- UAT is the target for runtime integration and operational validation.
+- Branch/snapshot quotas are not blockers. Audit candidate resources, preserve recovery points, and clean only audited disposable resources. Owner has explicitly authorized this cleanup.
+
+## Neon capacity audit / cleanup
+- Project: `purple-base-63944903`, region AWS Singapore.
+- Initial branch usage: 10/10.
+- Manual snapshot inventory: one retained snapshot, `snap-sweet-river-b3stuwzc` (`P17-pre-096-109-20261122`), source Production. Keep this recovery point.
+- Audited disposable branch: `br-dawn-meadow-b388iuhx`, `f0-restore-drill-snapshot-20261118`. It was a restored drill artifact with only the `neon_auth` schema visible and no PKE application tables, had no children, was not default/primary/protected, and was not the retained recovery snapshot.
+- Cleanup executed successfully on 2026-11-28; branch entered `storage_deleted`. One branch slot freed. Production and retained snapshot were untouched.
+- Remaining branches must be assessed by role and migration-ledger parity before deletion; do not indiscriminately delete validation or backup branches.
+
+## P30 — CI recovery and latest-head acceptance
+**Objective:** make Unit Tests reliably trigger and ensure the latest PR #20 head has a truthful, current CI result.
+- Audit found duplicate YAML `run:` keys in two Unit Tests steps (Migration 117 verification and P27 readiness matrix), which can cause one command to overwrite the other or parsing/validation problems.
+- Fixed duplicate keys in `.github/workflows/unit-tests.yml` on PR branch `p20/pm-appointment-first-20261126`; commit: `6e47db8ad41802b915b7b6d6919a7662ec9ff6f5`.
+- Workflow already supports `workflow_dispatch` and push for the PR head branch. CI run after this commit is **PENDING VERIFICATION**; do not claim PASS until a run on this exact or newer head completes.
+- Acceptance: workflow parses; all required test, release-contract, migration dry-run, backend/API typecheck, Docker, frontend typecheck/build steps execute; latest-head Unit Tests conclusion is success. Dependency Audit is separately recorded.
+- No PR merge until all required latest-head checks are green and P31–P35 release acceptance has no unowned internal gap.
+
+## P31 — Field Capture live acceptance
+**Objective:** validate the end-to-end server-owned upload and submission/review path against isolated UAT.
+- Verify authenticated browser/API upload proxy; task assignment and PM scope; private object namespace; MIME/size/checksum validation; storage PUT/HEAD/GET; receipt persistence; failed-submit cleanup/orphan reconciliation; offline/retry behavior.
+- Keep database-side Migration 115–117 runtime security evidence as existing evidence, but distinguish DB contracts from live object-storage/API proof.
+- Acceptance: repeatable live test evidence for upload, receipt, submission, independent review, retrieval, invalid payload rejection, and cleanup; no cross-PM data exposure.
+- Current status: **PARTIAL** — code/contract and Neon RLS evidence exist; live storage round-trip and browser/offline acceptance have not yet been demonstrated in this environment.
+
+## P32 — Full operational vertical slice / E2E
+**Objective:** close integration gaps across realistic export lifecycle scenarios, with synthetic fixtures only.
+- Exercise appointment-first PM assignment, project creation, contract/buyer identity, PKS source/receipt, packing/QC, inventory, port/vessel/loading/tally, documents/customs, quantity reconciliation, handoff/correction, and finance obligations/cash planning.
+- Include happy paths, missing/late documents, quantity discrepancies, cancelled/reassigned tasks, duplicate evidence, network retry, authorization boundaries, maker-checker rejection/rework, and recovery after partial failure.
+- Run API→DB→UI contracts and browser-level flows when an executable browser/test environment is available; report gaps when that environment is unavailable.
+- Acceptance: every scenario has expected state transitions, audit evidence, owner-role access checks, no dead-end workflow, and deterministic test result. Current vertical-slice matrix remains partial; live API-to-Neon-to-frontend and browser E2E are not yet proven.
+
+## P33 — Role UX acceptance
+**Objective:** verify that each role's dashboard/action surface supports its real work without role confusion or hidden blockers.
+- Build a role/task matrix covering Admin, PM, Field Capture, Master of Loading, PKS/data steward, QC, warehouse/inventory, logistics, document/customs, and finance/reporting roles as applicable.
+- Test dashboard source coverage, action permissions, navigation, status visibility, correction/rework, cross-project isolation, mobile field capture, and review queue.
+- Acceptance: every critical role-task has a usable entry point, clear next action, status/exception visibility, and a permission-denial test. No feature is marked accepted solely from screenshots/static UI.
+
+## P34 — AI evaluation / adversarial readiness
+**Objective:** validate AI assistance against curated operational data while preserving human approval boundaries.
+- Expand deterministic benchmark and synthetic backtests for missing/contradictory evidence, stale sources, ambiguous port/PKS/buyer identity, regulatory uncertainty, quantity variance, and adversarial prompt injection.
+- Track precision/recall or task-specific score, calibration/abstention, evidence citations, reproducibility, and human adjudication.
+- AI may recommend/flag/summarize only; it cannot approve finance, customs, shipment, or maker-checker decisions.
+- Acceptance: benchmark runs reproducibly; no critical prompt-injection or authorization bypass; unsupported answers abstain; every operational claim traceable to evidence. Current offline 30-case benchmark is not live-model acceptance.
+
+## P35 — Recovery, release readiness, and final closure
+**Objective:** create credible recovery evidence, then issue a complete release decision.
+- Re-audit Neon branch/snapshot capacity after cleanup; do not delete the retained snapshot without proving a replacement recovery point.
+- Use freed branch capacity for a current-schema UAT clone/restore rehearsal. Validate migration ledger, schema/object parity, RLS/privilege state, and synthetic core-data counts; document restore timing and recovery steps.
+- Confirm backup/snapshot mechanisms and entitlement accurately. If snapshot scheduling is unavailable, document manual recovery approach and tested branch restore; never claim PITR/snapshot automation.
+- Run final latest-head CI, security regression, release-policy/migration checks, live UAT acceptance, UX role matrix, AI benchmark, and E2E scenario matrix.
+- External blockers remain separately owned: AIS data/license, bank execution integration, provider access, and live object storage credentials/availability if not supplied.
+- Acceptance: evidence-linked scorecard; no unexplained critical failures; Production migration/merge/deployment decision remains separate and owner-controlled. Vercel remains skipped.
+
+## Current P30–P35 checkpoint
+| Phase | Status | Evidence / next acceptance |
+|---|---|---|
+| P30 CI recovery | IN PROGRESS | Duplicate workflow keys fixed; verify Unit Tests on latest head |
+| P31 Field Capture | PARTIAL | Live object-storage round-trip and browser acceptance |
+| P32 Operational E2E | PARTIAL | Full live API→Neon→UI scenarios |
+| P33 Role UX | PLANNED / PARTIAL | Role-task acceptance matrix and live navigation/action checks |
+| P34 AI benchmark | PARTIAL | Live-model adjudication/calibration; offline benchmark exists |
+| P35 Recovery/release | IN PROGRESS | Use freed branch slot for restore rehearsal; keep snapshot |
+

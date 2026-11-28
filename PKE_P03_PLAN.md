@@ -3200,3 +3200,13 @@ Acceptance: security findings categorized Critical/High/Medium/Low; Critical/Hig
 - Documentation head `500aa234a919140e415f7e2c9d5494d9faec5e19` also passed Unit Tests run 3156 and Dependency Audit run 1509; links are captured in PR #20.
 - GitHub PR #20 mergeability is reported as `DIRTY` against base `p19/operational-readiness-plan-20261123`. The source reconciliation/merge conflict is not resolved in this marathon; no base-branch rewrite or merge was performed.
 - Owner guardrails remain: Production Neon untouched at Migration 110; UAT at Migration 117; no Vercel deploy/retry/promotion; actual live object-storage HTTP and browser E2E remain externally unavailable.
+
+
+## Continuation checkpoint — PR base reconciliation — 2026-11-28
+
+- Root cause of PR #20 conflict was its target branch: it targeted `p19/operational-readiness-plan-20261123`, which had diverged from the actual P20 continuation parent.
+- Compare audit showed `p20/platform-continuation-20261123` is an ancestor of the current P20 head (0 behind / 294 ahead); the intended target has a clean history relationship.
+- PR #20 retargeted to `p20/platform-continuation-20261123`. GitHub recalculated mergeability: **clean / mergeable=true**. No code was merged.
+- Latest head `33f0daeb7a4578d7271f516ca97e4a39b4ba945a` has Unit Tests run 3157 **PASS** and Dependency Audit run 1510 **PASS**.
+- Neon re-audit: 9 active branches, 1 manual current Production snapshot; Production remains 175 public tables, Migration 110. UAT branch `br-winter-butterfly-b3tnsao9` remains Migration 117 (117 ledger rows, 2 Field Capture tables).
+- PR #20 is now mergeable and clean, but remains OPEN/UNMERGED pending review of the documented live acceptance gaps. No Vercel actions and no Production migrations.

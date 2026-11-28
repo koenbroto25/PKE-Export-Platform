@@ -11,6 +11,7 @@ import { authClient, getBearerToken } from './auth-client';
 import { api, get, patch, post } from './api';
 import AdminControlCenter from './AdminControlCenter';
 import PMProject360 from './PMProject360';
+import { UXEmpty, UXMetric } from './UXFoundation';
 import { hasAnyProjectPermission, hasPageAccess, hasProjectPermission, visiblePageKeys } from './role-permissions';
 const RoleDashboardPage = lazy(() => import('./RoleDashboardPage'));
 const P1WorkflowWorkbench = lazy(() => import('./P1WorkflowWorkbench'));
@@ -90,6 +91,7 @@ function App() {
   const user = session.data?.user as AnyRecord | undefined;
   const pkeIdentity = useLoad<{ user?: AnyRecord } | null>(() => user ? get('/me') : Promise.resolve(null), [user?.id]);
   const activeUser = pkeIdentity.data?.user || user;
+  const globalPmAppointment = useLoad<{appointment?:AnyRecord|null;canCreateProject?:boolean} | null>(() => activeUser && !pkeIdentity.loading ? get('/pm/appointment/me') : Promise.resolve(null), [activeUser?.id,pkeIdentity.loading]);
   const projectAccess = useLoad<{ projectId?: string; permissions?: string[] }>(
     () => activeUser && !pkeIdentity.loading && projectId
       ? get(`/projects/${encodeURIComponent(projectId)}/my-permissions`)
@@ -107,6 +109,7 @@ function App() {
     projectPermissionsLoading: Boolean(projectId && (projectAccess.loading || projectAccess.data?.projectId !== projectId)),
     projectPermissionsError: projectAccess.error,
     buyerPortalEnabled: buyerAccess.data?.identityMapped === true,
+    globalPmAppointed: globalPmAppointment.data?.canCreateProject === true,
   } : activeUser;
   const selectedMembership = workspaceUser?.projectMemberships?.find((membership: AnyRecord) => membership.projectId === projectId && membership.isActive === true);
   const selectedProjectRoles = (selectedMembership?.roleAssignments || [])
@@ -208,7 +211,7 @@ function App() {
         <div className="page-content">
           <Suspense fallback={<div className="screen-center"><div className="loader" /><span>Memuat halaman workspace…</span></div>}><Routes>
             <Route path="/" element={<RoleGuard allowedKeys={['dashboard']} activeUser={workspaceUser}><RoleDashboardPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
-            <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
+            <Route path="/projects" element={<RoleGuard allowedKeys={['projects']} activeUser={workspaceUser}><ProjectsPage activeUser={workspaceUser} onNotice={notify} onSelectProject={handleProjectContextChange} /></RoleGuard>} />
             <Route path="/pks-sites" element={<RoleGuard allowedKeys={['pks-sites']} activeUser={workspaceUser}><PksSitesPage projectId={projectId} activeUser={workspaceUser} onNotice={notify} /></RoleGuard>} />
             <Route path="/port-network" element={<RoleGuard allowedKeys={['port-network']} activeUser={workspaceUser}><PortNetworkPage projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
             <Route path="/maritime-operations" element={<RoleGuard allowedKeys={['maritime-operations']} activeUser={workspaceUser}><MaritimeOperationsWorkspace projectId={projectId} activeUser={workspaceUser} /></RoleGuard>} />
@@ -439,38 +442,100 @@ function DashboardPage({ projectId, activeUser, onNotice }: { projectId: string;
   </>;
 }
 
-function ProjectsPage({ activeUser, onNotice }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void }) {
-  const canCreateProject = activeUser?.platformAdmin === true;
-  const projects = useLoad<{ projects?: AnyRecord[] }>(() => get('/projects'), []);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', settlementUnit: 'MT', targetQuantity: '', status: 'draft' });
-  const [busy, setBusy] = useState(false);
-  const save = async (e: FormEvent) => {
-    e.preventDefault(); if (!canCreateProject) return; setBusy(true);
-    try { await post('/projects', { ...form, targetQuantity: Number(form.targetQuantity) }); onNotice('success', 'Proyek berhasil dibuat.'); setShowForm(false); setForm((v: any) => ({ ...v, name: '', description: '', targetQuantity: '' })); projects.refresh(); }
-    catch (e) { onNotice('error', e instanceof Error ? e.message : 'Proyek tidak dapat dibuat.'); }
-    finally { setBusy(false); }
+function ProjectsPage({ activeUser, onNotice, onSelectProject }: { activeUser?: AnyRecord; onNotice: (kind: 'success' | 'error' | 'info', text: string) => void; onSelectProject: (projectId: string) => void }) {
+  const isAdmin = activeUser?.platformAdmin === true;
+  const appointment = useLoad<{appointment?:AnyRecord|null;canCreateProject?:boolean}>(() => isAdmin ? Promise.resolve({}) : get('/pm/appointment/me'), [isAdmin,activeUser?.id]);
+  const pmPortfolio = useLoad<{projects?:AnyRecord[];portfolioCount?:number}>(() => isAdmin ? Promise.resolve({projects:[]}) : get('/pm/portfolio'), [isAdmin,activeUser?.id]);
+  const buyers = useLoad<{buyers?:AnyRecord[]}>(() => isAdmin || appointment.data?.canCreateProject ? get('/pm/buyers') : Promise.resolve({buyers:[]}), [isAdmin,appointment.data?.canCreateProject]);
+  const users = useLoad<{users?:AnyRecord[]}>(() => isAdmin ? get('/users') : Promise.resolve({users:[]}), [isAdmin]);
+  const adminAppointments = useLoad<{appointments?:AnyRecord[]}>(() => isAdmin ? get('/admin/pm-appointments') : Promise.resolve({appointments:[]}), [isAdmin]);
+  const projects = useLoad<{projects?:AnyRecord[]}>(() => get('/projects'), [activeUser?.id,isAdmin]);
+  const canCreateProject = appointment.data?.canCreateProject === true;
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({name:'',description:'',buyerId:'',basisType:'buyer_agreement',basisReference:'',basisDate:'',contractReference:'',evidenceUrl:'',commercialTerms:'',settlementUnit:'MT',targetQuantity:'',exportCountryCode:''});
+  const [creationKey,setCreationKey]=useState(()=>crypto.randomUUID());
+  const [busy,setBusy]=useState(false);
+  const [appointUserId,setAppointUserId]=useState('');
+  const [appointReason,setAppointReason]=useState('');
+  const [appointmentBusy,setAppointmentBusy]=useState(false);
+  const [transferPmId,setTransferPmId]=useState<Record<string,string>>({});
+  const save=async(e:FormEvent)=>{
+    e.preventDefault();if(!canCreateProject)return;setBusy(true);
+    try{
+      await post('/pm/projects',{...form,targetQuantity:Number(form.targetQuantity),idempotencyKey:creationKey,commercialTerms:form.commercialTerms?{summary:form.commercialTerms}:{}});
+      onNotice('success','Project berhasil dibuat dan otomatis masuk portfolio PM.');
+      setShowForm(false);setCreationKey(crypto.randomUUID());setForm(v=>({...v,name:'',description:'',basisReference:'',contractReference:'',evidenceUrl:'',commercialTerms:'',targetQuantity:''}));
+      projects.refresh();pmPortfolio.refresh();
+    }catch(e){onNotice('error',e instanceof Error?e.message:'Project tidak dapat dibuat.');}
+    finally{setBusy(false);}
   };
+  const appoint=async()=>{
+    if(!appointUserId||appointReason.trim().length<5)return;setAppointmentBusy(true);
+    try{await post('/admin/pm-appointments',{userId:appointUserId,reason:appointReason});onNotice('success','PM berhasil ditunjuk secara global. PM sekarang dapat membuat Project.');setAppointUserId('');setAppointReason('');adminAppointments.refresh();}
+    catch(e){onNotice('error',e instanceof Error?e.message:'Appointment gagal.');}
+    finally{setAppointmentBusy(false);}
+  };
+  const setAppointmentStatus=async(row:AnyRecord,status:string)=>{
+    const reason=window.prompt('Alasan '+status+' appointment PM (minimal 5 karakter):');
+    if(!reason||reason.trim().length<5)return;
+    try{await patch('/admin/pm-appointments/'+row.id,{status,reason});onNotice('success','Appointment PM '+status+'.');adminAppointments.refresh();}
+    catch(e){onNotice('error',e instanceof Error?e.message:'Status appointment tidak dapat diubah.');}
+  };
+  const availableUsers=(users.data?.users||[]).filter((u:AnyRecord)=>u.is_active===true&&u.neon_auth_user_id&&!(adminAppointments.data?.appointments||[]).some((a:AnyRecord)=>a.user_id===u.id&&a.status==='active'));
+  const activeAppointedPms=(adminAppointments.data?.appointments||[]).filter((a:AnyRecord)=>a.status==='active'&&a.is_active!==false);
+  const transferPm=async(project:AnyRecord)=>{const target=transferPmId[project.id];if(!target)return;const reason=window.prompt((project.pm_user_id?'Alasan handover PM Project ':'Alasan appointment PM Project ')+project.name+' (minimal 5 karakter):');if(!reason||reason.trim().length<5)return;try{if(project.pm_user_id)await post('/admin/projects/'+project.id+'/pm-transfer',{userId:target,reason});else await post('/admin/projects/'+project.id+'/pm-appointment',{userId:target,reason});onNotice('success',project.pm_user_id?'PM Project berhasil ditransfer; history appointment dipertahankan.':'PM berhasil ditunjuk untuk Project legacy.');projects.refresh();adminAppointments.refresh();}catch(e){onNotice('error',e instanceof Error?e.message:'PM assignment gagal.');}};
+  const portfolioRows=isAdmin?projects.data?.projects||[]:pmPortfolio.data?.projects||[];
   return <>
-    <PageTitle eyebrow="PROJECT PORTFOLIO" title="Proyek ekspor" subtitle="Setiap project instance mewakili satu unit pemenuhan atau settlement buyer." actions={canCreateProject ? <ActionButton onClick={() => setShowForm(v => !v)}><Plus size={16} /> Proyek baru</ActionButton> : undefined} />
-    {showForm && canCreateProject && <Card className="form-panel"><PanelHeading title="Buat project instance" description="Admin membuat shell Project terlebih dahulu. PM menambahkan Contract Program setelah Project tersedia." action={<button className="icon-button" onClick={() => setShowForm(false)}><X size={18} /></button>} />
+    <PageTitle eyebrow="PROJECT PORTFOLIO" title={isAdmin?"PM Governance & Project Portfolio":"Portfolio Project PM"} subtitle={isAdmin?"Platform Admin menunjuk PM terlebih dahulu. Project dibuat oleh PM dari kesepakatan Buyer atau kontrak.":"Semua Project yang menjadi tanggung jawab Anda; buat Project langsung dari basis komersial Buyer."} actions={canCreateProject?<ActionButton onClick={()=>setShowForm(v=>!v)}><Plus size={16}/> Buat Project</ActionButton>:undefined}/>
+    {!isAdmin&&appointment.loading&&<Card><Loading/></Card>}
+    {!isAdmin&&!appointment.loading&&!canCreateProject&&<Card><UXEmpty title="Appointment PM belum aktif" description="Project creation hanya tersedia setelah Platform Admin menunjuk Anda sebagai PM aktif. Hubungi Admin untuk appointment global."/></Card>}
+    {showForm&&canCreateProject&&<Card className="form-panel"><PanelHeading title="Project baru dari Buyer agreement/contract" description="Project akan dibuat bersama Contract Program, PM ownership, role assignment, dan commercial-basis record dalam satu transaksi." action={<button className="icon-button" onClick={()=>setShowForm(false)}><X size={18}/></button>}/>
       <form className="form-grid" onSubmit={save}>
-        <FormField label="Nama proyek"><input value={form.name} onChange={e => setForm((v: any) => ({ ...v, name: e.target.value }))} required placeholder="Contoh: PKE China Cycle 01" /></FormField>
-        <FormField label="Target kuantitas"><input type="number" min="0.01" step="0.01" value={form.targetQuantity} onChange={e => setForm((v: any) => ({ ...v, targetQuantity: e.target.value }))} required /></FormField>
-        <FormField label="Satuan settlement"><select value={form.settlementUnit} onChange={e => setForm((v: any) => ({ ...v, settlementUnit: e.target.value }))}><option>MT</option><option>Ton</option><option>Shipment</option><option>Tranche</option></select></FormField>
-        <FormField label="Status"><select value={form.status} onChange={e => setForm((v: any) => ({ ...v, status: e.target.value }))}><option value="draft">Draft</option><option value="active">Active</option></select></FormField>
-        <FormField label="Deskripsi" wide><textarea rows={2} value={form.description} onChange={e => setForm((v: any) => ({ ...v, description: e.target.value }))} /></FormField>
-        <div className="form-actions"><ActionButton variant="secondary" onClick={() => setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan proyek'}</button></div>
+        <FormField label="Nama Project"><input value={form.name} onChange={e=>setForm(v=>({...v,name:e.target.value}))} required minLength={2} placeholder="PKE Buyer / Shipment cycle"/></FormField>
+        <FormField label="Target quantity"><input type="number" min="0.01" step="0.01" value={form.targetQuantity} onChange={e=>setForm(v=>({...v,targetQuantity:e.target.value}))} required/></FormField>
+        <FormField label="Settlement unit"><select value={form.settlementUnit} onChange={e=>setForm(v=>({...v,settlementUnit:e.target.value}))}><option>MT</option><option>Ton</option><option>Shipment</option><option>Tranche</option></select></FormField>
+        {<FormField label="Buyer"><select value={form.buyerId} onChange={e=>setForm(v=>({...v,buyerId:e.target.value}))} required><option value="">Pilih Buyer…</option>{(buyers.data?.buyers||[]).map((b:AnyRecord)=><option key={b.id} value={b.id}>{b.name}{b.code?' · '+b.code:''}</option>)}</select></FormField>}
+        {<FormField label="Basis komersial"><select value={form.basisType} onChange={e=>setForm(v=>({...v,basisType:e.target.value,contractReference:''}))}><option value="buyer_agreement">Kesepakatan Buyer</option><option value="executed_contract">Kontrak telah ditandatangani</option></select></FormField>}
+        {<FormField label="Referensi kesepakatan / kontrak"><input value={form.basisReference} onChange={e=>setForm(v=>({...v,basisReference:e.target.value}))} required placeholder="Nomor, nama, atau referensi kesepakatan"/></FormField>}
+        {form.basisType==='executed_contract'&&<FormField label="Nomor kontrak"><input value={form.contractReference} onChange={e=>setForm(v=>({...v,contractReference:e.target.value}))} required/></FormField>}
+        {<FormField label="Tanggal basis komersial"><input type="date" value={form.basisDate} onChange={e=>setForm(v=>({...v,basisDate:e.target.value}))}/></FormField>}
+        {<FormField label="Evidence URL (HTTPS)"><input type="url" value={form.evidenceUrl} onChange={e=>setForm(v=>({...v,evidenceUrl:e.target.value}))} placeholder="Link dokumen kontrak / kesepakatan"/></FormField>}
+        <FormField label="Export country (ISO code)"><input maxLength={2} value={form.exportCountryCode} onChange={e=>setForm(v=>({...v,exportCountryCode:e.target.value.toUpperCase()}))} placeholder="CN"/></FormField>
+        <FormField label="Deskripsi / commercial terms" wide><textarea rows={3} value={form.commercialTerms} onChange={e=>setForm(v=>({...v,commercialTerms:e.target.value}))} placeholder="Spesifikasi, harga/terms, tujuan, jadwal, catatan negosiasi…"/></FormField>
+        <div className="form-actions"><ActionButton variant="secondary" onClick={()=>setShowForm(false)}>Batal</ActionButton><button className="primary-button" disabled={busy||(!isAdmin&&(!form.buyerId||!form.basisReference.trim()))}>{busy?'Menyimpan…':'Simpan Project'}</button></div>
       </form>
     </Card>}
-    <Card><PanelHeading title="Daftar proyek" description="Status, target volume, dan waktu pembuatan." action={<button className="icon-button" onClick={() => projects.refresh()} title="Refresh"><RefreshCw size={16} /></button>} />
-      {projects.loading ? <Loading /> : projects.error ? <ErrorState message={projects.error} retry={projects.refresh} /> : <DataTable rows={projects.data?.projects || []} columns={[
-        { key: 'name', label: 'Proyek', render: r => <div className="primary-cell"><strong>{r.name}</strong><small>{shortId(r.id)}</small></div> },
-        { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
-        { key: 'target_quantity', label: 'Target', render: r => `${number(r.target_quantity)} ${r.settlement_unit || 'MT'}` },
-        { key: 'started_at', label: 'Mulai', render: r => dateTime(r.started_at) },
-        { key: 'created_at', label: 'Dibuat', render: r => dateTime(r.created_at) },
-      ]} />}
+    {isAdmin&&<Card><PanelHeading title="Global PM Appointment" description="Appoint PM before any Project exists. Appointment is user-level, independent of Project membership."/>
+      {adminAppointments.loading||users.loading?<Loading/>:adminAppointments.error||users.error?<ErrorState message={adminAppointments.error||users.error} retry={()=>{adminAppointments.refresh();users.refresh();}}/>:<>
+        <div className="form-grid">
+          <FormField label="User aktif & Neon Auth linked"><select value={appointUserId} onChange={e=>setAppointUserId(e.target.value)}><option value="">Pilih calon PM…</option>{availableUsers.map((u:AnyRecord)=><option key={u.id} value={u.id}>{u.name||u.email} · {u.email}</option>)}</select></FormField>
+          <FormField label="Reason"><input value={appointReason} onChange={e=>setAppointReason(e.target.value)} placeholder="Dasar penunjukan PM"/></FormField>
+          <div className="form-actions"><button className="primary-button" disabled={appointmentBusy||!appointUserId||appointReason.trim().length<5} onClick={appoint}>{appointmentBusy?'Menyimpan…':'Appoint PM'}</button></div>
+        </div>
+        <DataTable rows={adminAppointments.data?.appointments||[]} columns={[
+          {key:'name',label:'PM',render:r=><div className="primary-cell"><strong>{r.name||r.email}</strong><small>{r.email}</small></div>},
+          {key:'status',label:'Appointment',render:r=><StatusPill value={r.status}/>},
+          {key:'owned_project_count',label:'Project owned',render:r=>number(r.owned_project_count,0)},
+          {key:'appointed_at',label:'Appointed',render:r=>dateTime(r.appointed_at)},
+          {key:'actions',label:'Governance',render:r=>r.status==='active'?<div className="inline-actions"><button className="secondary-button" onClick={()=>setAppointmentStatus(r,'suspended')}>Suspend</button><button className="secondary-button" onClick={()=>setAppointmentStatus(r,'revoked')}>Revoke</button></div>:<button className="secondary-button" onClick={()=>setAppointmentStatus(r,'active')}>Reactivate</button>}
+        ]}/>
+      </>}
+    </Card>}
+    {!isAdmin&&<Card><PanelHeading title="Portfolio overview" description="Project portfolio is sourced from PM ownership records, not inferred from membership." action={<button className="icon-button" onClick={()=>pmPortfolio.refresh()}><RefreshCw size={16}/></button>}/>
+      {pmPortfolio.loading?<Loading/>:pmPortfolio.error?<ErrorState message={pmPortfolio.error} retry={pmPortfolio.refresh}/>:<div className="ux-metric-grid"><UXMetric label="Project portfolio" value={pmPortfolio.data?.portfolioCount??0} detail="Owned projects" state="available"/><UXMetric label="Active Projects" value={(portfolioRows||[]).filter((p:AnyRecord)=>p.project_status==='active'||p.status==='active').length} detail="Status active" state="available"/><UXMetric label="Total target" value={(portfolioRows||[]).reduce((sum:number,p:AnyRecord)=>sum+Number(p.target_quantity||0),0).toLocaleString('id-ID')} detail="Quantity target" state="available"/></div>}
+    </Card>}
+    <Card><PanelHeading title={isAdmin?"Daftar Project":"Project workspace"} description={isAdmin?"Project list untuk governance. PM ownership ditampilkan bila tersedia.":"Project Anda; pilih Project untuk masuk workspace operasional."} action={<button className="icon-button" onClick={()=>projects.refresh()} title="Refresh"><RefreshCw size={16}/></button>}/>
+      {projects.loading?<Loading/>:projects.error?<ErrorState message={projects.error} retry={projects.refresh}/>:<DataTable rows={portfolioRows} columns={[
+        {key:'name',label:'Project',render:r=><div className="primary-cell"><strong>{r.project_name||r.name}</strong><small>{shortId(r.project_id||r.id)}</small></div>},
+        {key:'buyer_name',label:'Buyer',render:r=>r.buyer_name||'—'},
+        {key:'pm_name',label:'Responsible PM',render:r=>r.pm_name||r.pm_email||'Belum ditetapkan'},
+        {key:'status',label:'Status',render:r=><StatusPill value={r.project_status||r.status}/>},
+        {key:'target_quantity',label:'Target',render:r=>number(r.target_quantity)+' '+(r.settlement_unit||'MT')},
+        {key:'basis_reference',label:'Basis',render:r=>r.basis_reference||'—'},
+        {key:'created_at',label:'Dibuat',render:r=>dateTime(r.created_at)},
+        {key:'workspace',label:'Workspace',render:r=><button className="secondary-button" onClick={()=>onSelectProject(r.project_id||r.id)}>Buka Project</button>},
+        ...(isAdmin?[{key:'pm-transfer',label:'Handover PM',render:(r:AnyRecord)=><div className="inline-actions"><select value={transferPmId[r.id]||''} onChange={e=>setTransferPmId(v=>({...v,[r.id]:e.target.value}))}><option value="">PM baru…</option>{activeAppointedPms.filter((a:AnyRecord)=>a.user_id!==r.pm_user_id).map((a:AnyRecord)=><option key={a.user_id} value={a.user_id}>{a.name||a.email}</option>)}</select><button className="secondary-button" disabled={!transferPmId[r.id]} onClick={()=>transferPm(r)}>{r.pm_user_id?'Transfer':'Appoint'}</button></div>}]:[])
+      ]}/>}
     </Card>
   </>;
 }

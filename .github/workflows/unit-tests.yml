@@ -9,12 +9,15 @@ on:
       - p18/regulatory-core-20261123
       - p19/operational-readiness-plan-20261123
       - p20/platform-continuation-20261123
+      - p20/pm-appointment-first-20261126
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
       - phase0/reconcile-source-20261117
       - p19/operational-readiness-plan-20261123
+      - p20/platform-continuation-20261123
 
 permissions:
   contents: read
@@ -35,6 +38,10 @@ jobs:
         run: npm ci --include=dev --no-audit
       - name: Run offline security and unit tests
         run: npm test
+      - name: Run connected P22 export lifecycle backtest
+        run: npx vitest run src/simulation/phase-j-full-process-backtest.test.ts
+      - name: Run P23 operational UX gap matrix
+        run: npx vitest run src/ux/phase-o-operational-readiness-matrix.test.ts
       - name: Run dedicated P19 operational assurance contracts
         run: npm run verify:p19-assurance
       - name: Verify Production migration ledger and release gates
@@ -47,10 +54,34 @@ jobs:
         run: npm run verify:migration-055
       - name: Run migration runner dry-run (no database connection)
         run: npm run migrate:dry-run
+      - name: Verify PM appointment-first Migration 113 release pin
+        run: npm run verify:pm113-release
+      - name: Verify PM appointment reactivation Migration 114 release pin
+        run: npm run verify:pm114-release
+      - name: Verify prepared Field Capture Migration 115 release package
+        run: npm run verify:pm115-release
+      - name: Verify isolated UAT Migration 116 release package
+        run: npm run verify:pm116-release
+      - name: Verify isolated UAT Migration 117 release package
+        run: npm run verify:pm117-release
+      - name: Run Field Capture upload proxy contract
+        run: npx vitest run src/field-capture-upload-proxy.contract.test.ts
+      - name: Run Migration 116 review workflow contracts
+        run: npx vitest run src/migration-116-field-capture-review.contract.test.ts src/field-capture-review-ui.contract.test.ts src/migration-117-field-capture-privilege-hardening.contract.test.ts
+      - name: Run Field Capture server sync contracts
+        run: npx vitest run src/field-capture-rules.test.ts src/field-capture-api.contract.test.ts src/migration-115-field-capture-server-sync.contract.test.ts src/migration-115-field-capture-release-package.contract.test.ts
+      - name: Run P24 AI readiness benchmark
+        run: npx vitest run src/knowledge/phase-p-ai-readiness-matrix.test.ts
+      - name: Run P25 security readiness matrix
+        run: npx vitest run src/security/phase-q-security-readiness-matrix.test.ts
+      - name: Run P27 operational vertical-slice matrix
+        run: npx vitest run src/ux/phase-r-vertical-slice-readiness.test.ts
       - name: Build backend application
         run: npm run build
       - name: Typecheck backend API
         run: npx tsc -p api/tsconfig.json --noEmit
+      - name: Build production Docker image
+        run: docker build -t pke-api-ci .
       - name: Install frontend dependencies
         run: npm ci --prefix frontend --include=dev --no-audit
       - name: Typecheck frontend

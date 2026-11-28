@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "purpose": "prepared_p23_field_capture_server_sync_uat_release",
+  "release": "P23 Field Capture server sync and RLS",
+  "created_on": "2026-11-27",
+  "source_branch": "p20/pm-appointment-first-20261126",
+  "target_environment": "isolated UAT",
+  "production_application": "not_authorized",
+  "uat_application": {
+    "status": "applied",
+    "branch_id": "br-winter-butterfly-b3tnsao9",
+    "ledger_id": 115,
+    "applied_at": "2026-11-27T13:24:59.654Z"
+  },
+  "owner_approval": {
+    "status": "approved",
+    "approved_by": "User instruction in ChatGPT",
+    "approved_at": "2026-11-27T13:24:00Z",
+    "approval_reference": "Explicit request to complete all PKE phases while skipping Vercel deployment; scope is isolated UAT only, Production remains unauthorized."
+  },
+  "migrations": [
+    {
+      "migration_number": 115,
+      "filename": "115_project_field_capture_server_sync.sql",
+      "sha256": "e44fee778d82de372cc2b9ccb8cbb9f013bb625b175ee38d4f58177f6275fb07",
+      "status": "applied",
+      "source_sha_verified": true,
+      "application_status": "applied"
+    }
+  ],
+  "safety": "Migration 115 applied only to isolated UAT branch br-winter-butterfly-b3tnsao9. Production application remains not authorized."
+}

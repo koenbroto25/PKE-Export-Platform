@@ -10,10 +10,13 @@ import { verifyNeonAuthWebhook } from "./neon-auth-webhook.js";
 import { internalServerErrorPayload, requestRejectedPayload } from "./http-errors.js";
 import { normalizePostgresSslMode, roleFromDatabaseUrl, validateRuntimeRoleState } from "./runtime-security.js";
 import { privateStorage } from "./storage.js";
+import { createHash, randomUUID } from "node:crypto";
+import { validateFieldCaptureInput, normalizeFieldCapturePayload, type FieldCaptureInput } from "./field-capture-rules.js";
 import { validateSingleBranchDatabaseUrl } from "../scripts/test-db/preflight.mjs";
 import { detectManualTrialMode } from "./demo/mode.js";
 import { registerDemoApiRoutes } from "./demo/routes.js";
 import { isPositiveQuantity } from "./f1-contract-rules.js";
+import { isValidPMProjectCreateInput } from "./pm-appointment-first-rules.js";
 import { inspectRuntimeEnvironment, isServerlessRuntime, runtimeUnavailablePayload, type RuntimeStartupFailure } from "./runtime-readiness.js";
 import { getCanonicalRoleTemplate, listProjectRoleTemplates } from "./role-catalogue.js";
 import { registerP17MaritimeRoutes } from "./p17-maritime.js";
@@ -121,7 +124,7 @@ app.use((req, res, next) => {
   const allowed = new Set(configuredOrigins);
   if (origin && allowed.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Field-Capture-Id, X-Work-Item-Id, X-Original-Filename, X-Object-Key");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   }
   if (req.method === "OPTIONS") {
@@ -2075,7 +2078,20 @@ app.get("/api/v1/projects", requireAuth, async (req: express.Request, res: expre
     if (!userId) return res.status(401).json({ error: "Authenticated principal required" });
     let rows: any[];
     if (req.user?.isAdmin) {
-      ({ rows } = await req.db.query("SELECT * FROM projects WHERE is_active = true ORDER BY created_at DESC"));
+      const { rows: ownershipSchema } = await req.db.query("SELECT to_regclass('public.project_pm_ownership') AS ownership_table");
+      if (ownershipSchema[0]?.ownership_table) {
+        ({ rows } = await req.db.query(
+          `SELECT p.*,o.pm_user_id,pmu.name AS pm_name,pmu.email AS pm_email,
+                  cb.basis_reference,cb.basis_type,b.name AS buyer_name
+             FROM projects p LEFT JOIN public.project_pm_ownership o ON o.project_id=p.id
+             LEFT JOIN public.users pmu ON pmu.id=o.pm_user_id
+             LEFT JOIN public.project_commercial_basis cb ON cb.project_id=p.id
+             LEFT JOIN public.buyers b ON b.id=cb.buyer_id
+            WHERE p.is_active=true ORDER BY p.created_at DESC`
+        ));
+      } else {
+        ({ rows } = await req.db.query("SELECT * FROM projects WHERE is_active = true ORDER BY created_at DESC"));
+      }
     } else {
       ({ rows } = await req.db.query(
         `SELECT DISTINCT p.*
@@ -2407,99 +2423,10 @@ app.patch("/api/v1/contract-programs/:id", requireAuth, async (req: express.Requ
 // ============================================
 // Project create (transaction: project + contract program + roles + module config)
 // ============================================
-app.post("/api/v1/projects", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
-  const {
-    contractProgramId, name, description, status, settlementUnit, targetQuantity,
-    exportCountryCode, createContractProgram
-  } = req.body ?? {};
-  if (typeof name !== "string" || !name.trim() || typeof settlementUnit !== "string" || !settlementUnit.trim() || !isPositiveQuantity(targetQuantity)) {
-    return res.status(400).json({ error: "Required fields: name, settlementUnit, targetQuantity" });
-  }
-  const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ error: "Authenticated user required" });
-
-  // Use request-scoped RLS transaction client (req.db). Savepoint keeps atomicity within middleware-managed tx.
-  const dbClient = req.db;
-  try {
-    await dbClient.query("SAVEPOINT project_create");
-    try {
-      if (contractProgramId || createContractProgram) {
-        throw Object.assign(new Error("Contract Programs are created by the Project Manager after Project setup."), { status: 400 });
-      }
-      const { rows: projectRows } = await dbClient.query(
-        `INSERT INTO projects
-          (name, description, status, settlement_unit, target_quantity,
-           export_country_code, is_active, created_at, updated_at)
-         VALUES ($1::text, $2::text, $3::text, $4::text, $5::numeric, $6::text, true, now(), now())
-         RETURNING *`,
-        [name, description || null, status || "draft", settlementUnit, targetQuantity, exportCountryCode || null]
-      );
-      const project = projectRows[0];
-      const projectId = project.id;
-      const defaultConfiguration = {
-        schema_version: 1,
-        modules: {
-          pks: { enabled: false }, supplier: { enabled: false }, product_specs: { enabled: true },
-          procurement: { enabled: false }, inventory: { enabled: false }, trucking: { enabled: false },
-          warehouse: { enabled: false }, port_operations: { enabled: false }, loading: { enabled: false },
-          vessel: { enabled: false }, voyage: { enabled: false }, shipment: { enabled: false },
-          tracking: { enabled: false }, documents: { enabled: true }, compliance: { enabled: true },
-          finance: { enabled: false }, accounting: { enabled: false }, fx: { enabled: false },
-          financing: { enabled: false }, reporting: { enabled: false }, visual_reporting: { enabled: false },
-          workflow: { enabled: true }, approvals: { enabled: true }, notifications: { enabled: true }
-        }
-      };
-      await dbClient.query(
-        `INSERT INTO project_operating_profiles
-          (project_id, logistics_mode, uses_trucking, pks_owns_or_controls_port, financing_enabled,
-           financier_reporting_required, configuration, updated_by, created_at, updated_at)
-         VALUES ($1::uuid, 'unspecified', false, false, false, false, $2::jsonb, $3::uuid, now(), now())
-         ON CONFLICT (project_id) DO NOTHING`,
-        [projectId, JSON.stringify(defaultConfiguration), userId]
-      );
-      // New Projects start with only the PM appointment slot. Platform Admin
-      // appoints the PM explicitly; operational templates are activated later
-      // by that PM and activation never creates user membership.
-      const pmTemplate = getCanonicalRoleTemplate("pm");
-      if (!pmTemplate) throw Object.assign(new Error("Canonical PM template is missing."), { status: 500 });
-      const { rows: pmRoleRows } = await dbClient.query(
-        `INSERT INTO project_roles (project_id, role_code, name, description, is_active, created_by, created_at, updated_at)
-         VALUES ($1::uuid, 'pm', $2::text, $3::text, true, $4::uuid, now(), now())
-         RETURNING id`,
-        [projectId, pmTemplate.label, pmTemplate.restrictions.join(" "), userId],
-      );
-      const pmRoleId = pmRoleRows[0].id;
-      const { rows: permissionRows } = await dbClient.query(
-        "SELECT id, code FROM permissions WHERE code = ANY($1::text[]) AND is_active = true",
-        [pmTemplate.permissionCodes],
-      );
-      const foundCodes = new Set(permissionRows.map((row: any) => row.code));
-      const missingCodes = pmTemplate.permissionCodes.filter((code) => !foundCodes.has(code));
-      if (missingCodes.length > 0) {
-        throw Object.assign(new Error(`Canonical PM permissions are missing: ${missingCodes.join(", ")}`), { status: 409 });
-      }
-      for (const permission of permissionRows) {
-        await dbClient.query(
-          `INSERT INTO project_role_permissions (project_id, project_role_id, permission_id, granted_by, granted_at)
-           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, now())
-           ON CONFLICT (project_role_id, permission_id) DO NOTHING`,
-          [projectId, pmRoleId, permission.id, userId],
-        );
-      }
-      const createdRoles = [{ projectRoleId: pmRoleId, roleCode: "pm", name: pmTemplate.label, awaitingAppointment: true }];
-      await dbClient.query("RELEASE SAVEPOINT project_create");
-      res.status(201).json({ project, roles: createdRoles });
-      return;
-    } catch (error) {
-      await dbClient.query("ROLLBACK TO SAVEPOINT project_create").catch(() => {});
-      await dbClient.query("RELEASE SAVEPOINT project_create").catch(() => {});
-      throw error;
-    }
-  } catch (error) {
-    const rawStatus = (error as any)?.status;
-    const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus < 500 ? rawStatus : 500;
-    res.status(status).json(status === 500 ? internalServerErrorPayload() : requestRejectedPayload());
-  }
+// New Projects follow the appointment-first business workflow. Admin appoints PM;
+// the appointed PM creates Projects from Buyer agreements/contracts.
+app.post("/api/v1/projects", requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
+  return res.status(410).json({error:"Admin Project-shell creation is retired. Appoint a PM globally; the appointed PM creates the Project from the Buyer agreement/contract.",code:"APPOINTMENT_FIRST_WORKFLOW_REQUIRED"});
 });
 
 // Phase 5: Export Compliance Endpoints
@@ -3693,6 +3620,145 @@ app.post("/api/v1/workflows", requireAuth, async (req: express.Request, res: exp
   }
 });
 
+
+// P23 Field Capture sync API. Local drafts are not authoritative until this endpoint
+// revalidates the active assignment, permission, payload and any uploaded evidence.
+async function requireAssignedFieldCaptureWorkItem(req: express.Request, res: express.Response, projectId: string, workItemId: string, actorId: string): Promise<boolean> {
+  const result=await req.db.query(
+    "SELECT id,title,status,assignee_user_id FROM public.project_work_items WHERE id=$1::uuid AND project_id=$2::uuid AND assignee_user_id=$3::uuid AND status NOT IN ('resolved','closed','cancelled') LIMIT 1",
+    [workItemId,projectId,actorId],
+  );
+  if(!result.rows.length){res.status(403).json({error:"Field Capture requires an active task explicitly assigned to the authenticated user.",code:"FIELD_CAPTURE_ASSIGNMENT_REQUIRED"});return false;}
+  return true;
+}
+
+app.get("/api/v1/projects/:projectId/field-captures",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.view")))return;
+  try{
+    const permission=await req.db.query("SELECT public.pke_has_project_permission($1::uuid,'project.tasks.resolve') AS can_review",[projectId]);
+    const rows=await req.db.query("SELECT s.id,s.project_id,s.work_item_id,s.actor_user_id,s.local_capture_id,s.capture_kind,s.note,s.captured_at,s.latitude,s.longitude,s.gps_accuracy_m,s.gps_captured_at,s.evidence_object_key,s.evidence_sha256,s.evidence_size_bytes,s.evidence_mime_type,s.evidence_original_filename,s.status,s.server_received_at,r.decision AS last_review_decision,r.reason AS last_review_reason,r.reviewer_user_id,r.created_at AS last_review_at FROM public.project_field_capture_submissions s LEFT JOIN LATERAL (SELECT decision,reason,reviewer_user_id,created_at FROM public.project_field_capture_review_events e WHERE e.submission_id=s.id ORDER BY e.created_at DESC LIMIT 1) r ON true WHERE s.project_id=$1::uuid ORDER BY s.server_received_at DESC LIMIT 100",[projectId]);
+    return res.json({submissions:rows.rows,canReview:Boolean(permission.rows[0]?.can_review)});
+  }catch{return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.post("/api/v1/projects/:projectId/field-captures/:submissionId/review",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),submissionId=String(req.params.submissionId||""),actorId=req.user?.id,b=req.body??{};
+  const decision=String(b.decision||""),reason=String(b.reason||"");
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!uuid.test(projectId)||!uuid.test(submissionId))return res.status(400).json({error:"Project and submission IDs must be UUIDs.",code:"INVALID_FIELD_CAPTURE_ID"});
+  if(!["accepted","rejected","needs_review"].includes(decision))return res.status(400).json({error:"Invalid review decision.",code:"INVALID_FIELD_CAPTURE_REVIEW"});
+  if(decision!=="accepted"&&reason.trim().length<5)return res.status(400).json({error:"Reason is required for rejection or re-review.",code:"FIELD_CAPTURE_REVIEW_REASON_REQUIRED"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.resolve")))return;
+  try{
+    const result=await req.db.query("SELECT to_jsonb(public.pke_review_field_capture_submission($1::uuid,$2::text,$3::text)) AS submission",[submissionId,decision,reason]);
+    return res.json({submission:result.rows[0]?.submission,decision,reviewed:true});
+  }catch(e:any){
+    const message=String(e?.message||"Review failed.");
+    if(message.includes("Maker-checker"))return res.status(403).json({error:message,code:"FIELD_CAPTURE_MAKER_CHECKER"});
+    if(message.includes("Final Field Capture"))return res.status(409).json({error:message,code:"FIELD_CAPTURE_FINAL_DECISION"});
+    if(message.includes("not found"))return res.status(404).json({error:message,code:"FIELD_CAPTURE_NOT_FOUND"});
+    if(message.includes("Missing Project task review permission"))return res.status(403).json({error:message,code:"FIELD_CAPTURE_REVIEW_PERMISSION"});
+    return res.status(400).json({error:message,code:"FIELD_CAPTURE_REVIEW_REJECTED"});
+  }
+});
+
+app.post("/api/v1/projects/:projectId/field-captures/upload",requireAuth,express.raw({type:["image/jpeg","image/png","image/webp"],limit:"15mb"}),async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id;
+  const captureId=String(req.headers["x-field-capture-id"]||""),workItemId=String(req.headers["x-work-item-id"]||"");
+  const mimeType=String(req.headers["content-type"]||"").split(";")[0].trim().toLowerCase();
+  let filename=String(req.headers["x-original-filename"]||"");
+  try{filename=decodeURIComponent(filename);}catch{return res.status(400).json({error:"Filename header is invalid.",code:"INVALID_FIELD_CAPTURE_FILENAME"});}
+  const requestedObjectKey=String(req.headers["x-object-key"]||"");
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!uuid.test(projectId)||!uuid.test(captureId)||!uuid.test(workItemId))return res.status(400).json({error:"Project, capture and work-item IDs must be UUIDs.",code:"INVALID_FIELD_CAPTURE_ID"});
+  const body=Buffer.isBuffer(req.body)?req.body:Buffer.alloc(0);
+  if(!body.length||body.length>15*1024*1024)return res.status(400).json({error:"Evidence must be a non-empty image up to 15 MB.",code:"INVALID_FIELD_CAPTURE_EVIDENCE"});
+  const meta=privateStorage.validateFileMetadata({mimeType,contentLength:body.length,filename});
+  if(!meta.ok||!["image/jpeg","image/png","image/webp"].includes(mimeType))return res.status(400).json({error:meta.reason||"Field evidence must be JPEG/PNG/WebP and <=15 MB.",code:"INVALID_FIELD_CAPTURE_EVIDENCE"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.update")))return;
+  try{
+    if(!(await requireAssignedFieldCaptureWorkItem(req,res,projectId,workItemId,String(actorId))))return;
+    const status=privateStorage.status();
+    if(!status.available||status.bucket!=="pke-private-documents")return res.status(503).json({error:"Private object storage unavailable.",code:"STORAGE_UNAVAILABLE"});
+    const ext=mimeType==="image/jpeg"?".jpg":mimeType==="image/png"?".png":".webp";
+    const objectKey=requestedObjectKey||`projects/${projectId}/field-captures/${captureId}/${randomUUID()}${ext}`;
+    const expectedPrefix=`projects/${projectId}/field-captures/${captureId}/`;
+    const suffix=objectKey.slice(expectedPrefix.length);
+    if(requestedObjectKey&&(!objectKey.startsWith(expectedPrefix)||!/^[0-9a-f-]{36}\\.(jpg|png|webp)$/i.test(suffix)))return res.status(400).json({error:"Object key is outside the Field Capture namespace.",code:"INVALID_FIELD_CAPTURE_OBJECT_KEY"});
+    const keyCheck=privateStorage.validateObjectKey(objectKey);
+    if(!keyCheck.ok)return res.status(400).json({error:keyCheck.reason,code:"INVALID_OBJECT_KEY"});
+    const sha256=createHash("sha256").update(body).digest("hex");
+    const verified=await privateStorage.uploadObject(objectKey,mimeType,body,sha256);
+    return res.status(201).json({objectKey:verified.objectKey,sha256:verified.sha256,size:verified.size,captureId,workItemId,verified:true});
+  }catch{
+    return res.status(503).json({error:"Private evidence upload or verification failed.",code:"FIELD_CAPTURE_UPLOAD_FAILED"});
+  }
+});
+
+app.post("/api/v1/projects/:projectId/field-captures/presigned-upload",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id;
+  const b=req.body??{},captureId=String(b.captureId||""),workItemId=String(b.workItemId||""),filename=String(b.filename||""),mimeType=String(b.mimeType||""),contentLength=Number(b.contentLength),requestedObjectKey=String(b.objectKey||"");
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  if(!uuid.test(projectId)||!uuid.test(captureId)||!uuid.test(workItemId))return res.status(400).json({error:"Project, capture and work-item IDs must be UUIDs.",code:"INVALID_FIELD_CAPTURE_ID"});
+  const meta=privateStorage.validateFileMetadata({mimeType,contentLength,filename});
+  if(!meta.ok||!["image/jpeg","image/png","image/webp"].includes(mimeType)||contentLength>15*1024*1024)return res.status(400).json({error:meta.reason||"Field evidence must be JPEG/PNG/WebP and <=15 MB.",code:"INVALID_FIELD_CAPTURE_EVIDENCE"});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.update")))return;
+  try{
+    if(!(await requireAssignedFieldCaptureWorkItem(req,res,projectId,workItemId,String(actorId))))return;
+    const status=privateStorage.status();
+    if(!status.available||status.bucket!=="pke-private-documents")return res.status(503).json({error:"Private object storage unavailable.",code:"STORAGE_UNAVAILABLE"});
+    const ext=mimeType==="image/jpeg"?".jpg":mimeType==="image/png"?".png":".webp";
+    const objectKey=requestedObjectKey||`projects/${projectId}/field-captures/${captureId}/${randomUUID()}${ext}`;
+    const expectedPrefix=`projects/${projectId}/field-captures/${captureId}/`;
+    const suffix=objectKey.slice(expectedPrefix.length);
+    if(requestedObjectKey&&(!objectKey.startsWith(expectedPrefix)||!/^[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(suffix)))return res.status(400).json({error:"Object key is outside the Field Capture namespace.",code:"INVALID_FIELD_CAPTURE_OBJECT_KEY"});
+    const check=privateStorage.validateObjectKey(objectKey);
+    if(!check.ok)return res.status(400).json({error:check.reason,code:"INVALID_OBJECT_KEY"});
+    const upload=await privateStorage.presignedUpload(objectKey,mimeType,contentLength);
+    return res.json({upload,objectKey,captureId,workItemId});
+  }catch{return res.status(500).json(internalServerErrorPayload());}
+});
+
+app.post("/api/v1/projects/:projectId/field-captures/sync",requireAuth,async(req:express.Request,res:express.Response)=>{
+  const projectId=String(req.params.projectId||""),actorId=req.user?.id,b=req.body??{};
+  if(!actorId)return res.status(401).json({error:"Authenticated principal required",code:"AUTHENTICATION_REQUIRED"});
+  const input:FieldCaptureInput={captureId:String(b.captureId||""),workItemId:String(b.workItemId||""),captureKind:String(b.captureKind||""),note:String(b.note||""),capturedAt:String(b.capturedAt||""),
+    ...(b.latitude!==undefined?{latitude:Number(b.latitude)}:{}),...(b.longitude!==undefined?{longitude:Number(b.longitude)}:{}),...(b.gpsAccuracyM!==undefined?{gpsAccuracyM:Number(b.gpsAccuracyM)}:{}),...(b.gpsCapturedAt!==undefined?{gpsCapturedAt:String(b.gpsCapturedAt)}:{}),
+    ...(b.evidenceObjectKey!==undefined?{evidenceObjectKey:String(b.evidenceObjectKey)}:{}),...(b.evidenceSha256!==undefined?{evidenceSha256:String(b.evidenceSha256)}:{}),...(b.evidenceSizeBytes!==undefined?{evidenceSizeBytes:Number(b.evidenceSizeBytes)}:{}),...(b.evidenceMimeType!==undefined?{evidenceMimeType:String(b.evidenceMimeType)}:{}),...(b.evidenceOriginalFilename!==undefined?{evidenceOriginalFilename:String(b.evidenceOriginalFilename)}:{})};
+  const errors=validateFieldCaptureInput(input,{projectId,actorUserId:String(actorId)});
+  if(errors.length)return res.status(400).json({error:"Field Capture payload failed validation.",code:"INVALID_FIELD_CAPTURE",details:errors});
+  if(!(await requireProjectPermission(req,res,projectId,"project.tasks.update")))return;
+  try{
+    if(!(await requireAssignedFieldCaptureWorkItem(req,res,projectId,input.workItemId,String(actorId))))return;
+    if(input.evidenceObjectKey){
+      const storageStatus=privateStorage.status();
+      if(!storageStatus.available||storageStatus.bucket!=="pke-private-documents")return res.status(503).json({error:"Private object storage unavailable.",code:"STORAGE_UNAVAILABLE"});
+      try{await privateStorage.verifyObject(input.evidenceObjectKey,input.evidenceSizeBytes!,input.evidenceSha256!);}catch{return res.status(422).json({error:"Field Capture evidence object failed size/checksum verification.",code:"FIELD_CAPTURE_EVIDENCE_VERIFICATION_FAILED"});}
+    }
+    const normalized=normalizeFieldCapturePayload(input,{projectId,actorUserId:String(actorId)});
+    const payloadHash=createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+    const inserted=await req.db.query(
+      `INSERT INTO public.project_field_capture_submissions
+       (project_id,work_item_id,actor_user_id,local_capture_id,idempotency_key,capture_kind,note,captured_at,
+        latitude,longitude,gps_accuracy_m,gps_captured_at,evidence_object_key,evidence_sha256,evidence_size_bytes,
+        evidence_mime_type,evidence_original_filename,payload_sha256,status)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$4::uuid,$5,$6,$7::timestamptz,$8::numeric,$9::numeric,$10::numeric,$11::timestamptz,
+        $12,$13,$14::bigint,$15,$16,$17,'submitted')
+       ON CONFLICT(project_id,actor_user_id,local_capture_id) DO NOTHING RETURNING *`,
+      [projectId,input.workItemId,actorId,input.captureId,input.captureKind,input.note.trim(),input.capturedAt,input.latitude??null,input.longitude??null,input.gpsAccuracyM??null,input.gpsCapturedAt??null,input.evidenceObjectKey??null,input.evidenceSha256?.toLowerCase()??null,input.evidenceSizeBytes??null,input.evidenceMimeType??null,input.evidenceOriginalFilename??null,payloadHash],
+    );
+    if(inserted.rows.length){const row=inserted.rows[0];await recordRegulatoryAudit(req,"field.capture.submitted","field_capture_submission",String(row.id),projectId,"Offline Field Capture accepted by server",null,{captureId:input.captureId,workItemId:input.workItemId,captureKind:input.captureKind,evidenceVerified:Boolean(input.evidenceObjectKey),payloadSha256:payloadHash});return res.status(201).json({submission:row,replay:false});}
+    const existing=await req.db.query("SELECT * FROM public.project_field_capture_submissions WHERE project_id=$1::uuid AND actor_user_id=$2::uuid AND local_capture_id=$3::uuid",[projectId,actorId,input.captureId]);
+    if(!existing.rows.length)return res.status(409).json({error:"Capture idempotency key conflict.",code:"FIELD_CAPTURE_IDEMPOTENCY_CONFLICT"});
+    if(existing.rows[0].payload_sha256!==payloadHash)return res.status(409).json({error:"Capture ID was already submitted with a different payload.",code:"FIELD_CAPTURE_PAYLOAD_CONFLICT"});
+    return res.status(200).json({submission:existing.rows[0],replay:true});
+  }catch(e:any){if(e?.code==="23503"||e?.code==="23514")return res.status(422).json({error:"Field Capture failed database constraints.",code:"FIELD_CAPTURE_CONSTRAINT_FAILED"});return res.status(500).json(internalServerErrorPayload());}
+});
 
 // P0 Project Work Items API. Request-scoped RLS transaction is supplied by middleware.
 app.get("/api/v1/projects/:projectId/work-items", requireAuth, async (req: express.Request, res: express.Response) => {
@@ -6999,6 +7065,13 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
     if (userRows[0].is_active !== true || !userRows[0].neon_auth_user_id) {
       return res.status(409).json({ error: "PM must have an active PKE account and linked Neon Auth identity.", code: "PM_USER_NOT_READY" });
     }
+    const { rows: globalAppointmentRows } = await req.db.query(
+      "SELECT id FROM public.pm_appointments WHERE user_id = $1::uuid AND status = 'active' LIMIT 1",
+      [userId],
+    );
+    if (globalAppointmentRows.length !== 1) {
+      return res.status(409).json({ error: "PM must be globally appointed before being assigned to an existing Project.", code: "GLOBAL_PM_APPOINTMENT_REQUIRED" });
+    }
 
     let { rows: pmRoleRows } = await req.db.query(
       "SELECT id FROM public.project_roles WHERE project_id = $1::uuid AND role_code = 'pm' AND is_active = true LIMIT 1 FOR UPDATE",
@@ -7126,6 +7199,21 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment", requireAuth, requir
       [projectId, appointed.id, userId, pmRoleId, req.user?.id],
     );
     const pmAssignment = assignmentResult[0];
+    const { rows: previousOwnershipRows } = await req.db.query(
+      "SELECT pm_user_id FROM public.project_pm_ownership WHERE project_id = $1::uuid FOR UPDATE",
+      [projectId],
+    );
+    await req.db.query(
+      `INSERT INTO public.project_pm_ownership(project_id,pm_user_id,appointment_id,assigned_by,assigned_at,updated_at)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,now(),now())
+       ON CONFLICT(project_id) DO UPDATE SET pm_user_id=EXCLUDED.pm_user_id,appointment_id=EXCLUDED.appointment_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`,
+      [projectId,userId,globalAppointmentRows[0].id,req.user?.id],
+    );
+    await req.db.query(
+      `INSERT INTO public.project_pm_ownership_events(project_id,from_pm_user_id,to_pm_user_id,actor_user_id,reason)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text)`,
+      [projectId,previousOwnershipRows[0]?.pm_user_id??null,userId,req.user?.id,reason],
+    );
     await req.db.query(
       `INSERT INTO public.audit_events
          (actor_user_id, actor_type, actor_role, action, target_type, target_id, project_id,
@@ -7194,6 +7282,127 @@ app.post("/api/v1/admin/projects/:projectId/pm-appointment/:userId/deactivate", 
     return res.json({ ok: true, deactivatedAssignments: revoked.length, assignments: revoked, membershipPreserved: true });
   } catch (error: any) {
     logger.error("Admin PM deactivation failed:", { code: error?.code || "UNKNOWN" });
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+// Platform-scoped PM appointment-first workflow (Migration 113).
+app.get("/api/v1/pm/appointment/me", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { rows } = await req.db.query(
+      `SELECT id,status,appointed_at,status_changed_at,status_reason
+         FROM public.pm_appointments WHERE user_id=$1::uuid
+         ORDER BY updated_at DESC LIMIT 1`, [req.user?.id],
+    );
+    return res.json({ appointment: rows[0] ?? null, canCreateProject: rows[0]?.status === "active" });
+  } catch { return res.status(503).json({ error: "PM appointment service unavailable.", code: "PM_APPOINTMENT_SCHEMA_NOT_READY" }); }
+});
+
+app.get("/api/v1/pm/buyers", requireAuth, async (req: express.Request, res: express.Response) => {
+  try { const {rows}=await req.db.query("SELECT * FROM public.pke_pm_buyer_catalog()"); return res.json({buyers:rows}); }
+  catch { return res.status(503).json({error:"Buyer catalog is unavailable or PM appointment is inactive.",code:"PM_BUYER_CATALOG_UNAVAILABLE"}); }
+});
+
+app.get("/api/v1/pm/portfolio", requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { rows } = await req.db.query("SELECT * FROM public.pke_pm_portfolio()");
+    return res.json({ projects: rows, portfolioCount: rows.length });
+  } catch { return res.status(503).json({ error: "PM portfolio is unavailable.", code: "PM_PORTFOLIO_SCHEMA_NOT_READY" }); }
+});
+
+app.post("/api/v1/pm/projects", requireAuth, async (req: express.Request, res: express.Response) => {
+  const b=req.body??{};
+  const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const name=typeof b.name==="string"?b.name.trim():"";
+  const buyerId=typeof b.buyerId==="string"?b.buyerId:"";
+  const basisType=b.basisType;
+  const basisReference=typeof b.basisReference==="string"?b.basisReference.trim():"";
+  const contractReference=typeof b.contractReference==="string"?b.contractReference.trim():"";
+  const settlementUnit=typeof b.settlementUnit==="string"?b.settlementUnit.trim():"";
+  const targetQuantity=Number(b.targetQuantity);
+  const idempotencyKey=typeof b.idempotencyKey==="string"?b.idempotencyKey:"";
+  const evidenceUrl=typeof b.evidenceUrl==="string"&&b.evidenceUrl.trim()?b.evidenceUrl.trim():null;
+  const basisDate=typeof b.basisDate==="string"&&b.basisDate?b.basisDate:null;
+  const exportCountryCode=typeof b.exportCountryCode==="string"&&b.exportCountryCode?b.exportCountryCode.toUpperCase():null;
+  const commercialTerms=b.commercialTerms&&typeof b.commercialTerms==="object"&&!Array.isArray(b.commercialTerms)?b.commercialTerms:{};
+  if(!isValidPMProjectCreateInput({idempotencyKey,name,buyerId,basisType,basisReference,basisDate,contractReference,evidenceUrl,commercialTerms,settlementUnit,targetQuantity,exportCountryCode})) {
+    return res.status(400).json({error:"Project name, active Buyer, agreement/contract basis, valid quantity/unit, and idempotency key are required.",code:"INVALID_PM_PROJECT_INPUT"});
+  }
+  try {
+    const {rows}=await req.db.query(
+      `SELECT public.pke_pm_create_project($1::uuid,$2::text,$3::text,$4::uuid,$5::text,$6::text,$7::date,$8::text,$9::text,$10::jsonb,$11::text,$12::numeric,$13::text) AS result`,
+      [idempotencyKey,name,typeof b.description==="string"?b.description:null,buyerId,basisType,basisReference,basisDate,contractReference||null,evidenceUrl,JSON.stringify(commercialTerms),settlementUnit,targetQuantity,exportCountryCode]
+    );
+    return res.status(201).json(rows[0]?.result??{});
+  } catch(error:any) {
+    const code=typeof error?.code==="string"?error.code:"";
+    if(code==="42501") return res.status(403).json({error:"An active Platform PM appointment is required.",code:"PM_APPOINTMENT_REQUIRED"});
+    if(code==="P0002") return res.status(404).json({error:"Buyer or referenced record was not found.",code:"BUYER_NOT_FOUND"});
+    if(code==="22023"||code==="23514"||code==="22007"||code==="22008") return res.status(422).json({error:"Project commercial basis failed validation.",code:"PM_PROJECT_VALIDATION_FAILED"});
+    if(code==="23505") return res.status(409).json({error:"Project creation conflicts with existing data.",code:"PM_PROJECT_CONFLICT"});
+    req.logger?.error?.("Appointed PM project creation failed",{code:code||"UNKNOWN"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.get("/api/v1/admin/pm-appointments", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  try {
+    const {rows}=await req.db.query(
+      `SELECT a.id,a.user_id,a.status,a.appointed_at,a.status_changed_at,a.status_reason,
+              u.email,u.name,u.is_active,u.neon_auth_user_id,
+              (SELECT count(*)::int FROM public.project_pm_ownership o WHERE o.pm_user_id=a.user_id) AS owned_project_count
+         FROM public.pm_appointments a JOIN public.users u ON u.id=a.user_id
+        ORDER BY a.appointed_at DESC`,
+    );
+    return res.json({appointments:rows});
+  } catch { return res.status(503).json({error:"Global PM appointment governance is unavailable.",code:"PM_APPOINTMENT_SCHEMA_NOT_READY"}); }
+});
+
+app.post("/api/v1/admin/pm-appointments", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const userId=typeof req.body?.userId==="string"?req.body.userId:"";
+  const reason=typeof req.body?.reason==="string"?req.body.reason.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)||reason.length<5)
+    return res.status(400).json({error:"User ID and appointment reason (at least five characters) are required.",code:"INVALID_PM_APPOINTMENT_INPUT"});
+  try {
+    const {rows}=await req.db.query("SELECT * FROM public.pke_admin_appoint_pm($1::uuid,$2::text)",[userId,reason]);
+    return res.status(201).json({appointment:rows[0]});
+  } catch(error:any) {
+    if(error?.code==="23514") return res.status(409).json({error:"PM must be an active, linked user.",code:"PM_USER_NOT_READY"});
+    if(error?.code==="42501") return res.status(403).json({error:"Platform Admin authorization required.",code:"ADMIN_REQUIRED"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.patch("/api/v1/admin/pm-appointments/:appointmentId", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const appointmentId=req.params.appointmentId as string;
+  const status=req.body?.status;
+  const reason=typeof req.body?.reason==="string"?req.body.reason.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9]{3}-[89ab][0-9]{3}-[0-9a-f]{12}$/i.test(appointmentId)||!["active","suspended","revoked"].includes(status)||reason.length<5)
+    return res.status(400).json({error:"Appointment ID, supported status, and audit reason are required.",code:"INVALID_PM_APPOINTMENT_STATUS"});
+  try {
+    const {rows}=await req.db.query("SELECT * FROM public.pke_admin_set_pm_appointment_status($1::uuid,$2::text,$3::text)",[appointmentId,status,reason]);
+    return res.json({appointment:rows[0]});
+  } catch(error:any) {
+    if(error?.code==="P0002") return res.status(404).json({error:"Appointment not found.",code:"APPOINTMENT_NOT_FOUND"});
+    if(error?.code==="23514"||error?.code==="22023") return res.status(409).json({error:"Appointment status change rejected.",code:"APPOINTMENT_STATUS_CONFLICT"});
+    if(error?.code==="42501") return res.status(403).json({error:"Platform Admin authorization required.",code:"ADMIN_REQUIRED"});
+    return res.status(500).json(internalServerErrorPayload());
+  }
+});
+
+app.post("/api/v1/admin/projects/:projectId/pm-transfer", requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  const projectId=req.params.projectId as string;
+  const userId=typeof req.body?.userId==="string"?req.body.userId:"";
+  const reason=typeof req.body?.reason==="string"?req.body.reason.trim():"";
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9]{3}-[89ab][0-9]{3}-[0-9a-f]{12}$/i.test(projectId)||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9]{3}-[89ab][0-9]{3}-[0-9a-f]{12}$/i.test(userId)||reason.length<5)
+    return res.status(400).json({error:"Project, new PM, and audited transfer reason are required.",code:"INVALID_PM_TRANSFER"});
+  try {
+    const {rows}=await req.db.query("SELECT public.pke_admin_transfer_project_pm($1::uuid,$2::uuid,$3::text) AS result",[projectId,userId,reason]);
+    return res.json(rows[0]?.result??{});
+  } catch(error:any) {
+    if(error?.code==="42501") return res.status(403).json({error:"Platform Admin authorization required.",code:"ADMIN_REQUIRED"});
+    if(error?.code==="23514"||error?.code==="22023") return res.status(409).json({error:"Transfer rejected; new PM must be appointed and reason valid.",code:"PM_TRANSFER_CONFLICT"});
+    if(error?.code==="P0002") return res.status(404).json({error:"Project or appointment not found.",code:"PM_TRANSFER_NOT_FOUND"});
     return res.status(500).json(internalServerErrorPayload());
   }
 });

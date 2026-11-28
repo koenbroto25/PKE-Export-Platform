@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "purpose": "p20_pm_appointment_first_release_package_uat_applied_production_unauthorized",
+  "release": "P20 PM appointment-first workflow",
+  "created_on": "2026-11-26",
+  "source_branch": "p20/pm-appointment-first-20261126",
+  "target_environment": "isolated UAT branch; production not authorized",
+  "production_application": "not_authorized",
+  "uat_application": {
+    "status": "applied",
+    "branch_id": "br-winter-butterfly-b3tnsao9",
+    "ledger_id": 113,
+    "applied_at": "2026-11-27"
+  },
+  "owner_approval": {
+    "status": "approved",
+    "approved_by": "user request in ChatGPT",
+    "approved_at": "2026-11-27",
+    "approval_reference": "Implement UAT and Neon RLS validation; Vercel remains skipped."
+  },
+  "migrations": [
+    {
+      "migration_number": 113,
+      "filename": "113_pm_appointment_first_project_creation.sql",
+      "sha256": "922a810c9133a8c08be4ca98173a3a59076f7adbe737af62e3b754ce6790fdd2",
+      "status": "prepared",
+      "source_sha_verified": true,
+      "application_status": "applied_uat"
+    }
+  ],
+  "acceptance_scenarios": [
+    "active appointment can create first Project",
+    "unappointed/inactive PM denied",
+    "multiple Projects from Buyer agreements/contracts",
+    "Buyer and commercial basis captured",
+    "Project ownership and PM role atomically linked",
+    "idempotent request replay",
+    "PM suspension/revocation blocks new Projects and active project PM assignments",
+    "Admin audited transfer preserves history",
+    "project isolation",
+    "invalid basis and rollback",
+    "legacy project assignment requires global appointment"
+  ],
+  "safety": "Migration 113 applied only to isolated UAT validation branch. Production remains unauthorized."
+}

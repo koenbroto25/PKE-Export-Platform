@@ -5,11 +5,13 @@ on:
     branches:
       - phase0/reconcile-source-20261117
       - p20/platform-continuation-20261123
+      - p20/pm-appointment-first-20261126
   pull_request:
     branches:
       - main
       - phase0/reconcile-source-20261117
       - p19/operational-readiness-plan-20261123
+      - p20/platform-continuation-20261123
   workflow_dispatch:
 
 permissions:

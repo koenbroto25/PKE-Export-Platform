@@ -456,3 +456,23 @@ Inactive/unappointed PM denied; active PM creates first Project; multi-Project p
 7. Add synthetic HTTP integration and schema contract tests for first Project, multiple Projects, scope isolation, revocation, transfer, duplicate submission, invalid basis, and rollback.
 
 Implementation remains **OPEN / NOT IMPLEMENTED**. No database mutation was made.
+
+
+## PM appointment-first implementation progress (2026-11-26)
+
+Feature branch implementation now includes prepared Migration 113 and API/UI paths for global PM appointment, Buyer-basis Project creation by active PM, automatic ownership/membership/PM role, portfolio, Admin governance, suspension/revocation, and transfer. Legacy Admin Project-shell creation is blocked by API (410) and removed from the frontend normal path.
+
+**Validation is pending:** no Neon application, no Vercel deployment, no UAT runtime validation. CI must pass; then schema/RLS integration and synthetic lifecycle backtests are required before calling the workflow complete.
+
+
+## Appointment-first PM workflow audit continuation — 2026-11-27
+
+The implementation branch now contains the global PM appointment governance, PM portfolio, Buyer catalog, Buyer-agreement/executed-contract Project creation form, ownership/PM assignment auto-link, and Admin legacy Project PM appointment/transfer controls. A source audit found and corrected SQL duplication and validation syntax defects in Migration 113; release verification now checks SQL lexical structure and exact SHA pin.
+
+Status remains **INTEGRATED IN SOURCE / UAT NOT VERIFIED**. GitHub Actions acceptance is pending latest rerun. Required UAT backtest must prove role-permission catalog completeness and actual RLS behavior before the feature can be called operational. No Neon data/migration or Vercel deployment was changed.
+
+
+### Additional RLS hardening (source audit)
+- Migration 113 seeds the PM permission catalog codes only when absent, then seeds the PM allowlist; existing permission names/descriptions remain unchanged. Catalog rows alone grant no access.
+- PM-create write policies now bind child records to the transaction-scoped `app.pke_pm_project_id` set immediately after the newly created Project ID is known. Contract, Program, operating profile, PM role/permissions, membership, assignment, ownership, commercial basis, idempotency and audit inserts must match this exact Project ID and actor.
+- Source static lexical validator and contract tests have passed on the previous clean SQL head; latest rerun is pending after this additive seed/scope hardening. SQL runtime/RLS behavior still requires isolated UAT.

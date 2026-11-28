@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "purpose": "prepared_p20_pm_appointment_reactivation_uat_release",
+  "release": "P20 PM appointment reactivation ownership restoration",
+  "created_on": "2026-11-27",
+  "source_branch": "p20/pm-appointment-first-20261126",
+  "target_environment": "isolated UAT",
+  "production_application": "not_authorized",
+  "uat_application": {
+    "status": "applied",
+    "branch_id": "br-winter-butterfly-b3tnsao9",
+    "ledger_id": 114,
+    "applied_at": "2026-11-27"
+  },
+  "owner_approval": {
+    "status": "approved",
+    "approved_by": "user request in ChatGPT",
+    "approved_at": "2026-11-27",
+    "approval_reference": "Implement UAT and Neon RLS validation; Vercel remains skipped."
+  },
+  "migrations": [
+    {
+      "migration_number": 114,
+      "filename": "114_pm_appointment_reactivation_restores_owned_project_assignments.sql",
+      "sha256": "1b33913f2d092c8a70411c4fbe978f46bdfe2d5d966ab65d3b1e3c626decae12",
+      "status": "prepared",
+      "source_sha_verified": true,
+      "application_status": "applied_uat"
+    }
+  ],
+  "acceptance_scenarios": [
+    "PM suspension/revocation disables active PM project assignments",
+    "reactivation restores only PM assignments where current ownership remains the same PM",
+    "restoration requires a recorded appointment-driven revocation",
+    "transferred projects are not restored to the previous PM",
+    "restore is blocked when another active PM assignment exists",
+    "same-status requests are idempotent and do not append misleading events",
+    "restoration is audited"
+  ],
+  "safety": "Migration 114 applied only to isolated UAT validation branch. Production remains unauthorized."
+}

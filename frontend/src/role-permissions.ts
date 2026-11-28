@@ -11,6 +11,7 @@ export interface WorkspaceAccessUser {
   projectPermissionsLoading?: boolean;
   projectPermissionsError?: string;
   buyerPortalEnabled?: boolean;
+  globalPmAppointed?: boolean;
   projectMemberships?: Array<{
     isActive?: boolean;
     projectId?: string;
@@ -103,7 +104,7 @@ export function hasPageAccess(pageKey: WorkspacePageKey | string, user: Workspac
   }
   if (pageKey === 'field') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => FIELD_CAPTURE_ROLES.has(roleCode));
   if (pageKey === 'my-work') return Boolean(user.selectedProjectId) && (user.projectPermissions || []).length > 0 && activeProjectRoleCodes(user).some(roleCode => roleCode !== "funder");
-  if (pageKey === 'projects') return user.platformAdmin === true || hasActiveProjectMembership(user);
+  if (pageKey === 'projects') return user.platformAdmin === true || user.globalPmAppointed === true || hasActiveProjectMembership(user);
   if (pageKey === 'funder') return activeProjectRoleCodes(user).includes('funder') && hasProjectPermission('funder.view', user);
   if (pageKey === 'pks-sites') return user.platformAdmin === true || hasProjectPermission('pks.site.view', user);
   if (pageKey === 'p1-workflows') return hasAnyProjectPermission(PAGE_PERMISSION_REQUIREMENTS['p1-workflows'], user);

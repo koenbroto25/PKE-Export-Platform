@@ -303,6 +303,35 @@ export class PrivateStorageAdapter {
     };
   }
 
+  async uploadObject(objectKey: string, mimeType: string, body: Buffer, expectedSha256: string): Promise<{ objectKey: string; size: number; sha256: string; etag?: string }> {
+    if (!Buffer.isBuffer(body) || body.length <= 0 || body.length > 15 * 1024 * 1024) {
+      throw new Error("Private upload body is invalid or exceeds the Field Capture 15 MB limit.");
+    }
+    if (!/^[a-f0-9]{64}$/i.test(expectedSha256)) throw new Error("Expected SHA-256 checksum is invalid.");
+    const actualSha256 = crypto.createHash("sha256").update(body).digest("hex");
+    if (actualSha256.toLowerCase() !== expectedSha256.toLowerCase()) throw new Error("Upload body checksum does not match the declared checksum.");
+    const upload = await this.presignedUpload(objectKey, mimeType, body.length);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(upload.uploadUrl, {
+        method: "PUT",
+        headers: upload.requiredHeaders,
+        body: new Uint8Array(body),
+        redirect: "error",
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch {
+      throw new Error("Private object upload failed before a provider response was received.");
+    }
+    if (!response.ok) throw new Error(`Private object upload failed (HTTP ${response.status}).`);
+    try {
+      return await this.verifyObject(objectKey, body.length, expectedSha256);
+    } catch (error) {
+      try { await this.deleteObject(objectKey); } catch { /* best-effort cleanup; never mask verification failure */ }
+      throw error;
+    }
+  }
+
   async presignedDownload(objectKey: string): Promise<PresignedDownload> {
     if (!this.available) {
       throw new Error(this.reason || "Storage unavailable");

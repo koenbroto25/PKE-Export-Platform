@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "purpose": "p26_field_capture_review_workflow_uat_release",
+  "release": "P26 Field Capture maker-checker review workflow",
+  "created_on": "2026-11-27",
+  "source_branch": "p20/pm-appointment-first-20261126",
+  "target_environment": "isolated UAT",
+  "production_application": "not_authorized",
+  "uat_application": {
+    "status": "applied",
+    "branch_id": "br-winter-butterfly-b3tnsao9",
+    "ledger_id": 116,
+    "applied_at": "2026-11-27T13:43:15.204Z"
+  },
+  "owner_approval": {
+    "status": "approved",
+    "approved_by": "User instruction in ChatGPT",
+    "approved_at": "2026-11-27T13:24:00Z",
+    "approval_reference": "Explicit request to complete all PKE phases while skipping Vercel deployment; scope isolated UAT only."
+  },
+  "migrations": [
+    {
+      "migration_number": 116,
+      "filename": "116_project_field_capture_review_workflow.sql",
+      "sha256": "8cffff8b12079a5337cb61350051bc38e483a8bd19574e7f94d0f7dcb792d974",
+      "status": "applied",
+      "source_sha_verified": true,
+      "application_status": "applied"
+    }
+  ],
+  "safety": "Migration 116 applied only to isolated UAT branch br-winter-butterfly-b3tnsao9. Production remains unauthorized."
+}

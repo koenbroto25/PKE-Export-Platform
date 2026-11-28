@@ -32,9 +32,12 @@ describe("F1 Project Manager ownership and shipment Cash on Board", () => {
     }
   });
 
-  it("keeps platform Admin limited to initial Project setup", () => {
-    expect(INDEX).toMatch(/app\.post\("\/api\/v1\/projects",\s*requireAuth,\s*requireAdmin/);
-    expect(INDEX).toContain("Contract Programs are created by the Project Manager after Project setup.");
+  it("enforces appointment-first PM Project creation and retires the Admin Project shell path", () => {
+    expect(INDEX).toContain('app.post("/api/v1/projects", requireAuth, requireAdmin');
+    expect(INDEX).toContain("APPOINTMENT_FIRST_WORKFLOW_REQUIRED");
+    expect(INDEX).toContain('app.post("/api/v1/pm/projects", requireAuth');
+    expect(INDEX).toContain("pke_pm_create_project");
+    expect(INDEX).toContain("pke_admin_appoint_pm");
     expect(getCanonicalRoleTemplate("pm")?.permissionCodes).toContain("project.configuration.manage");
     expect(getCanonicalRoleTemplate("pm")?.permissionCodes).toContain("contract.view");
   });

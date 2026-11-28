@@ -163,6 +163,7 @@ describe("P19 operational assurance: API security boundary", () => {
       "canApprove",
       "canDecide",
       "project_members",
+      "pke_pm_create_project",
     ];
     const missing: string[] = [];
     for (const route of writes) {

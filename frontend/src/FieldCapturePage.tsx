@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { get } from './api';
+import { get, post, postBinary } from './api';
 import { createFieldDraft, saveFieldDraft, listFieldDrafts, deleteFieldDraft, deleteFieldDrafts, saveFieldAssignmentCache, getFieldAssignmentCache, deleteFieldAssignmentCache, deleteFieldLocalDataForPrincipal, type FieldDraft } from '../../src/components/field/field-offline-queue';
 
 type WorkItem = { id: string; title: string; description?: string | null; status: string; priority?: string; due_at?: string | null; assignee_user_id?: string | null; owner_role_code?: string };
@@ -18,6 +18,9 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
   const [gps, setGps] = useState<{latitude:number;longitude:number;accuracy:number;capturedAt:string}|null>(null);
   const [file, setFile] = useState<File|null>(null);
   const [drafts, setDrafts] = useState<FieldDraft[]>([]);
+  const [serverSubmissions,setServerSubmissions]=useState<Record<string,any>[]>([]);
+  const [serverSubmissionError,setServerSubmissionError]=useState('');
+  const [canReviewSubmissions,setCanReviewSubmissions]=useState(false);
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : false);
 
@@ -56,7 +59,8 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     return () => { alive = false; };
   }, [projectId, activeUser?.id]);
 
-  useEffect(() => { void refreshDrafts(); }, [projectId, activeUser?.id]);
+  const refreshServerSubmissions=async()=>{if(!projectId||!activeUser?.id||!online){setServerSubmissions([]);setCanReviewSubmissions(false);setServerSubmissionError('');return;}try{const payload=await get<{submissions?:Record<string,any>[];canReview?:boolean}>('/projects/'+encodeURIComponent(projectId)+'/field-captures');setServerSubmissions(Array.isArray(payload.submissions)?payload.submissions:[]);setCanReviewSubmissions(Boolean(payload.canReview));setServerSubmissionError('');}catch(e){setServerSubmissions([]);setCanReviewSubmissions(false);setServerSubmissionError(e instanceof Error?e.message:'Receipt server belum dapat dimuat.');}};
+  useEffect(() => { void refreshDrafts();void refreshServerSubmissions(); }, [projectId, activeUser?.id,online]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     window.addEventListener('online', update); window.addEventListener('offline', update);
@@ -86,8 +90,62 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
     finally { setBusy(false); }
   };
   const clearProjectDrafts = async () => {
-    if (!activeUser?.id || !projectId || !window.confirm('Hapus semua draft, foto lokal, dan cache assignment untuk akun dan Project ini? Draft belum disinkronkan dan tindakan tidak dapat dibatalkan.')) return;
+    if (!activeUser?.id || !projectId || !window.confirm('Hapus semua draft lokal dan cache assignment untuk akun dan Project ini? Submission server tidak dihapus; tindakan lokal tidak dapat dibatalkan.')) return;
     setBusy(true); try { const removed=await deleteFieldDrafts(String(activeUser.id),projectId); await deleteFieldAssignmentCache(String(activeUser.id),projectId); await refreshDrafts(); onNotice('success',removed+' draft lokal dan cache assignment dihapus.'); } catch(e) { onNotice('error',e instanceof Error?e.message:'Draft lokal gagal dibersihkan.'); } finally { setBusy(false); }
+  };
+  const syncDraft = async (draft:FieldDraft):Promise<'synced'|'conflict'|'failed'> => {
+    if(!online) throw new Error('Tidak dapat sync saat offline.');
+    if(!activeUser?.id||!projectId) throw new Error('User dan Project aktif diperlukan.');
+    if(draft.status==='synced') return 'synced';
+    let workingDraft:FieldDraft={...draft,status:'syncing',lastError:undefined};
+    await saveFieldDraft(workingDraft);
+    await refreshDrafts();
+    try {
+      const fresh=await get<{workItems?:WorkItem[];scope?:string}>('/projects/'+encodeURIComponent(projectId)+'/work-items');
+      const current=(fresh.workItems||[]).find(row=>row.id===draft.assignmentId&&row.assignee_user_id===activeUser.id&&!['resolved','closed','cancelled'].includes(String(row.status||'').toLowerCase()));
+      if(!current) throw Object.assign(new Error('Assignment tidak lagi aktif atau tidak ditugaskan kepada akun ini.'),{status:403});
+      let evidence:Record<string,unknown>={};
+      if(draft.evidenceName&&!draft.evidenceBlob)throw new Error('Foto bukti lokal tidak tersedia; buat capture baru tanpa foto atau lampirkan ulang.');
+      if(draft.evidenceBlob){
+        if(!draft.checksum)throw new Error('Checksum bukti lokal tidak tersedia.');
+        if(!draft.evidenceType||!['image/jpeg','image/png','image/webp'].includes(draft.evidenceType))throw new Error('Jenis MIME bukti lokal tidak valid. Buat capture baru.');
+        const uploaded=await postBinary<{objectKey:string;sha256:string;size:number;verified:boolean}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/upload',draft.evidenceBlob,draft.evidenceType,{
+          'X-Field-Capture-Id':draft.id,
+          'X-Work-Item-Id':draft.assignmentId,
+          'X-Original-Filename':encodeURIComponent(draft.evidenceName||'evidence'),
+          ...(draft.evidenceObjectKey?{'X-Object-Key':draft.evidenceObjectKey}:{})
+        });
+        if(!uploaded.verified||uploaded.sha256.toLowerCase()!==draft.checksum.toLowerCase()||uploaded.size!==draft.evidenceBlob.size)throw new Error('Server upload receipt/checksum does not match the local evidence.');
+        workingDraft={...workingDraft,evidenceObjectKey:uploaded.objectKey};await saveFieldDraft(workingDraft);
+        evidence={evidenceObjectKey:uploaded.objectKey,evidenceSha256:uploaded.sha256,evidenceSizeBytes:uploaded.size,evidenceMimeType:draft.evidenceType,evidenceOriginalFilename:draft.evidenceName};
+      }
+      const result=await post<{submission:Record<string,any>;replay:boolean}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/sync',{captureId:draft.id,workItemId:draft.assignmentId,captureKind:draft.kind,note:draft.note,capturedAt:draft.capturedAt,...(draft.latitude!==undefined?{latitude:draft.latitude,longitude:draft.longitude,gpsAccuracyM:draft.accuracy,gpsCapturedAt:draft.gpsCapturedAt}:{}),...evidence});
+      await saveFieldDraft({...workingDraft,status:'synced',serverSubmissionId:String(result.submission.id),serverReceivedAt:String(result.submission.server_received_at||''),evidenceBlob:undefined,lastError:undefined});
+      return 'synced';
+    } catch(e:any) {
+      const status=e?.status===403||e?.status===409||e?.status===422?'conflict':'failed';
+      const message=e instanceof Error?e.message:'Sync gagal.';
+      await saveFieldDraft({...workingDraft,status,lastError:message});
+      return status;
+    }
+  };
+  const syncOne = async (draft:FieldDraft) => {
+    setBusy(true);try{const status=await syncDraft(draft);await refreshDrafts();await refreshServerSubmissions();onNotice(status==='synced'?'success':status==='conflict'?'error':'info',status==='synced'?'Capture diterima server dan receipt disimpan.':draft.lastError||'Sync gagal; draft lokal tetap disimpan.');}catch(e){onNotice('error',e instanceof Error?e.message:'Sync gagal.')}finally{setBusy(false);}
+  };
+  const syncAll = async () => {
+    if(!online){onNotice('error','Sync semua hanya tersedia saat online.');return;}
+    const candidates=drafts.filter(d=>d.status==='queued'||d.status==='failed');if(!candidates.length){onNotice('info','Tidak ada draft yang siap disinkronkan.');return;}
+    setBusy(true);let synced=0,conflicts=0,failed=0;try{for(const draft of candidates){const status=await syncDraft(draft);if(status==='synced')synced++;else if(status==='conflict')conflicts++;else failed++;}await refreshDrafts();await refreshServerSubmissions();onNotice(synced?'success':'info','Sync selesai: '+synced+' diterima server, '+conflicts+' conflict, '+failed+' gagal.');}finally{setBusy(false);}
+  };
+  const reviewSubmission = async (submission:Record<string,any>,decision:'accepted'|'rejected') => {
+    if(!canReviewSubmissions||!online||!activeUser?.id)return;
+    const reason=decision==='rejected'?window.prompt('Alasan penolakan (minimal 5 karakter):')||'':'';
+    if(decision==='rejected'&&reason.trim().length<5){onNotice('info','Review dibatalkan; alasan wajib minimal 5 karakter.');return;}
+    if(decision==='accepted'&&!window.confirm('Terima submission ini? Keputusan final tidak dapat diubah.'))return;
+    setBusy(true);
+    try{await post('/projects/'+encodeURIComponent(projectId)+'/field-captures/'+encodeURIComponent(String(submission.id))+'/review',{decision,reason});await refreshServerSubmissions();onNotice('success',decision==='accepted'?'Submission diterima.':'Submission ditolak dan alasan dicatat.');}
+    catch(e){onNotice('error',e instanceof Error?e.message:'Review gagal.');}
+    finally{setBusy(false);}
   };
   const remove = async (id:string) => {
     if (!window.confirm('Hapus draft lokal dan bukti dari perangkat ini?')) return;
@@ -96,7 +154,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
   };
 
   return <div className="page-stack">
-    <div className="page-heading"><div><div className="eyebrow">FIELD OPERATIONS · OFFLINE CAPTURE</div><h1>Field Capture</h1><p>Daftar tugas berasal dari API berizin. Capture disimpan lokal dan belum disinkronkan ke transaksi.</p></div><span className={online?'status-pill pill-green':'status-pill pill-amber'}>{online?'ONLINE':'OFFLINE'}</span></div>
+    <div className="page-heading"><div><div className="eyebrow">FIELD OPERATIONS · OFFLINE CAPTURE</div><h1>Field Capture</h1><p>Tugas divalidasi ulang server saat sync. Draft offline tetap lokal sampai server menerima submission.</p></div><span className={online?'status-pill pill-green':'status-pill pill-amber'}>{online?'ONLINE':'OFFLINE'}</span></div>
     {!projectId && <div className="inline-warning">Pilih Project aktif terlebih dahulu untuk memuat tugas.</div>}
     <section className="card"><div className="panel-heading"><div><h2>Capture tugas</h2><p>Project scope dan task list dikontrol server.</p></div></div>
       {loadingTasks ? <div className="loading-state">Memuat tugas…</div> : taskError && !workItems.length ? <div className="inline-warning">{taskError}</div> : null}
@@ -112,9 +170,10 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
         <div className="form-actions form-wide"><button className="primary-button" disabled={busy||!taskId||!note.trim()}>{busy?'Menyimpan…':'Simpan draft offline'}</button></div>
       </form>
     </section>
-    <section className="card"><div className="panel-heading"><div><h2>Draft lokal</h2><p>{drafts.length} draft untuk akun dan Project saat ini. Status tidak berarti sudah dikirim.</p></div><div className="form-actions"><button type="button" className="secondary-button" onClick={()=>void refreshDrafts()}>Refresh</button><button type="button" className="text-button danger" disabled={busy} onClick={()=>void clearProjectDrafts()}>Hapus data lokal (draft + cache)</button><button type="button" className="text-button danger" disabled={busy||!activeUser?.id} onClick={()=>{if(!activeUser?.id||!window.confirm('HAPUS PERMANEN semua draft, foto bukti dan cache assignment untuk akun ini dari perangkat ini? Data yang belum tersinkron tidak dapat dipulihkan.'))return;setBusy(true);void deleteFieldLocalDataForPrincipal(String(activeUser.id)).then(async result=>{await refreshDrafts();setWorkItems([]);setScope('');setTasksFromCache(false);setTaskCacheAt('');onNotice('success',`Data lokal dihapus: ${result.drafts} draft dan ${result.assignmentCaches} cache assignment.`);}).catch(e=>onNotice('error',e instanceof Error?e.message:'Data lokal gagal dihapus.')).finally(()=>setBusy(false));}}>Hapus semua data lokal akun</button></div></div>
-      {!drafts.length?<div className="empty-state"><h3>Belum ada draft lokal</h3><p>Capture baru akan muncul di sini.</p></div>:<div className="data-list">{drafts.map(d=><article key={d.id} className="data-list-row"><div><strong>{d.assignmentLabel||d.assignmentId}</strong><p>{d.kind} · {d.status}</p><p>{d.note}</p><small>{new Date(d.capturedAt).toLocaleString()} · {d.evidenceName||'Tanpa foto'}{d.gpsCapturedAt?' · GPS capture '+new Date(d.gpsCapturedAt).toLocaleString():''}{d.checksum?' · SHA-256 tersimpan':''}</small></div><button type="button" className="text-button danger" disabled={busy} onClick={()=>void remove(d.id)}>Hapus lokal</button></article>)}</div>}
+    <section className="card"><div className="panel-heading"><div><h2>Submission server</h2><p>Receipt resmi dari API; hanya data yang diizinkan untuk Project ini.</p></div></div>{serverSubmissionError&&<div className="inline-warning">{serverSubmissionError}</div>}{!serverSubmissions.length&&!serverSubmissionError?<div className="empty-state"><h3>Belum ada submission server</h3><p>Capture yang diterima server akan muncul di sini.</p></div>:<div className="data-list">{serverSubmissions.map(s=><article key={s.id} className="data-list-row"><div><strong>{s.capture_kind} · {s.work_item_id}</strong><p>{s.status} · Receipt {s.id}</p><p>{s.note}</p><small>Capture {new Date(s.captured_at).toLocaleString()} · Server {new Date(s.server_received_at).toLocaleString()}{s.evidence_object_key?" · Foto terverifikasi":""}{s.latitude!==null&&s.latitude!==undefined?" · GPS "+Number(s.latitude).toFixed(6)+", "+Number(s.longitude).toFixed(6):""}</small>{s.last_review_decision&&<p><small>Review {s.last_review_decision} oleh {s.reviewer_user_id} · {new Date(s.last_review_at).toLocaleString()}{s.last_review_reason?" · "+s.last_review_reason:""}</small></p>}{canReviewSubmissions&&['submitted','needs_review'].includes(String(s.status))&&<div className="form-actions"><button type="button" className="secondary-button" disabled={busy} onClick={()=>void reviewSubmission(s,'accepted')}>Terima</button><button type="button" className="text-button danger" disabled={busy} onClick={()=>void reviewSubmission(s,'rejected')}>Tolak</button></div>}</div></article>)}</div>}</section>
+    <section className="card"><div className="panel-heading"><div><h2>Draft lokal</h2><p>{drafts.length} draft untuk akun dan Project saat ini. Status tidak berarti sudah dikirim.</p></div><div className="form-actions"><button type="button" className="secondary-button" onClick={()=>{void refreshDrafts();void refreshServerSubmissions();}}>Refresh</button><button type="button" className="secondary-button" disabled={busy||!online||!drafts.some(d=>d.status==="queued"||d.status==="failed")} onClick={()=>void syncAll()}>Sync semua draft</button><button type="button" className="text-button danger" disabled={busy} onClick={()=>void clearProjectDrafts()}>Hapus data lokal (draft + cache)</button><button type="button" className="text-button danger" disabled={busy||!activeUser?.id} onClick={()=>{if(!activeUser?.id||!window.confirm('HAPUS PERMANEN semua draft, foto bukti dan cache assignment untuk akun ini dari perangkat ini? Data yang belum tersinkron tidak dapat dipulihkan. Submission server tidak dihapus.'))return;setBusy(true);void deleteFieldLocalDataForPrincipal(String(activeUser.id)).then(async result=>{await refreshDrafts();setWorkItems([]);setScope('');setTasksFromCache(false);setTaskCacheAt('');onNotice('success',`Data lokal dihapus: ${result.drafts} draft dan ${result.assignmentCaches} cache assignment.`);}).catch(e=>onNotice('error',e instanceof Error?e.message:'Data lokal gagal dihapus.')).finally(()=>setBusy(false));}}>Hapus semua data lokal akun</button></div></div>
+      {!drafts.length?<div className="empty-state"><h3>Belum ada draft lokal</h3><p>Capture baru akan muncul di sini.</p></div>:<div className="data-list">{drafts.map(d=><article key={d.id} className="data-list-row"><div><strong>{d.assignmentLabel||d.assignmentId}</strong><p>{d.kind} · {d.status}{d.serverSubmissionId?" · Server receipt "+d.serverSubmissionId:""}</p><p>{d.note}</p><small>{new Date(d.capturedAt).toLocaleString()} · {d.evidenceName||'Tanpa foto'}{d.gpsCapturedAt?' · GPS capture '+new Date(d.gpsCapturedAt).toLocaleString():''}{d.checksum?" · SHA-256 tersimpan":""}{d.serverReceivedAt?" · Diterima "+new Date(d.serverReceivedAt).toLocaleString():""}{d.lastError?" · "+d.lastError:""}</small></div><div className="form-actions">{(d.status==="queued"||d.status==="failed")&&<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>void syncOne(d)}>{d.status==="failed"?"Retry sync":"Sync"}</button>}{d.status==="conflict"&&<span className="status-pill pill-amber">Conflict · buat capture baru</span>}<button type="button" className="text-button danger" disabled={busy} onClick={()=>void remove(d.id)}>Hapus lokal</button></div></article>)}</div>}
     </section>
-    <div className="inline-warning">Sync server, upload evidence, conflict handling, and authoritative acceptance are not available in this package. Drafts are not official transaction evidence.</div>
+    <div className="inline-warning">Draft belum disinkronkan tetap lokal. Capture tetap offline-first. Submission server hanya dianggap diterima setelah assignment diverifikasi ulang, foto di-upload ke private storage, checksum diverifikasi, dan server memberikan receipt. Conflict/failed draft tetap tersimpan lokal; submission server tidak dapat dihapus dari perangkat.</div>
   </div>;
 }

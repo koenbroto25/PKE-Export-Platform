@@ -108,6 +108,7 @@ export default function FieldCapturePage({ projectId, activeUser, onNotice }: Pr
       if(draft.evidenceName&&!draft.evidenceBlob)throw new Error('Foto bukti lokal tidak tersedia; buat capture baru tanpa foto atau lampirkan ulang.');
       if(draft.evidenceBlob){
         if(!draft.checksum)throw new Error('Checksum bukti lokal tidak tersedia.');
+        if(!draft.evidenceType||!/^image\\/(jpeg|png|webp)$/i.test(draft.evidenceType))throw new Error('Jenis MIME bukti lokal tidak valid. Buat capture baru.');
         const uploaded=await postBinary<{objectKey:string;sha256:string;size:number;verified:boolean}>('/projects/'+encodeURIComponent(projectId)+'/field-captures/upload',draft.evidenceBlob,draft.evidenceType,{
           'X-Field-Capture-Id':draft.id,
           'X-Work-Item-Id':draft.assignmentId,
